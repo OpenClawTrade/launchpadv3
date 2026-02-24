@@ -11,7 +11,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { useCodexChart, type CodexBar } from "@/hooks/useCodexChart";
+import { useCodexChart } from "@/hooks/useCodexChart";
 import { CodexChartToolbar } from "./CodexChartToolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -19,7 +19,6 @@ interface CodexChartProps {
   tokenAddress: string;
   networkId?: number;
   height?: number;
-  defaultResolution?: string;
 }
 
 export function CodexChart({
@@ -29,78 +28,51 @@ export function CodexChart({
 }: CodexChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<any> | null>(null);
-  const volSeriesRef = useRef<ISeriesApi<any> | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const {
-    bars,
-    isLoading,
-    error,
-    resolution,
-    setResolution,
-    chartType,
-    cycleChartType,
-    currencyCode,
-    setCurrencyCode,
-    statsType,
-    setStatsType,
-    showVolume,
-    setShowVolume,
+    bars, isLoading, error, resolution, setResolution,
+    chartType, cycleChartType, currencyCode, setCurrencyCode,
+    statsType, setStatsType, showVolume, setShowVolume,
   } = useCodexChart(tokenAddress, networkId);
 
   const toggleFullscreen = useCallback(() => {
     const el = containerRef.current?.parentElement;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
+    if (!document.fullscreenElement) { el.requestFullscreen?.(); setIsFullscreen(true); }
+    else { document.exitFullscreen?.(); setIsFullscreen(false); }
   }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const h = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "f" || e.key === "F") toggleFullscreen();
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
   }, [toggleFullscreen]);
 
-  // Fullscreen change listener
   useEffect(() => {
-    const handler = () => {
-      if (!document.fullscreenElement) setIsFullscreen(false);
-    };
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    const h = () => { if (!document.fullscreenElement) setIsFullscreen(false); };
+    document.addEventListener("fullscreenchange", h);
+    return () => document.removeEventListener("fullscreenchange", h);
   }, []);
 
-  // ---------- CHART RENDERING ----------
+  // ========== CHART ==========
   useEffect(() => {
     if (!containerRef.current || bars.length === 0) return;
 
-    // Destroy previous chart
-    if (chartRef.current) {
-      chartRef.current.remove();
-      chartRef.current = null;
-      candleSeriesRef.current = null;
-      volSeriesRef.current = null;
-    }
+    if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
 
-    const chartHeight = isFullscreen ? window.innerHeight - 40 : height;
+    const chartH = isFullscreen ? window.innerHeight - 40 : height;
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: chartHeight,
+      height: chartH,
       layout: {
         background: { type: ColorType.Solid, color: "#0a0a0a" },
-        textColor: "#888888",
-        fontFamily: "'IBM Plex Mono', 'JetBrains Mono', monospace",
+        textColor: "#888",
+        fontFamily: "'IBM Plex Mono', monospace",
         fontSize: 10,
       },
       grid: {
@@ -108,13 +80,14 @@ export function CodexChart({
         horzLines: { color: "rgba(255,255,255,0.06)" },
       },
       crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: false },
-        horzLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: false },
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: true },
+        horzLine: { color: "rgba(255,255,255,0.15)", width: 1, style: 2, labelVisible: true },
       },
       rightPriceScale: {
         borderColor: "#333",
-        scaleMargins: { top: 0.1, bottom: showVolume ? 0.22 : 0.08 },
+        scaleMargins: { top: 0.05, bottom: showVolume ? 0.28 : 0.05 },
+        autoScale: true,
         entireTextOnly: true,
       },
       timeScale: {
@@ -130,38 +103,28 @@ export function CodexChart({
 
     chartRef.current = chart;
 
-    // Hide TradingView watermark
+    // Hide watermark
     const wm = containerRef.current.querySelector('a[href*="tradingview"]');
     if (wm) (wm as HTMLElement).style.display = "none";
 
-    // --- Transform data ---
+    // --- Transform ---
     const chartData: any[] = [];
     const volumeData: any[] = [];
-
-    for (let i = 0; i < bars.length; i++) {
-      const b = bars[i];
+    for (const b of bars) {
       const time = b.time as UTCTimestamp;
-
-      chartData.push({
-        time,
-        open: b.open,
-        high: b.high,
-        low: b.low,
-        close: b.close,
-      });
-
+      chartData.push({ time, open: b.open, high: b.high, low: b.low, close: b.close });
       volumeData.push({
         time,
         value: b.volume || 0,
-        color:
-          (b.buyVolume || 0) >= (b.sellVolume || 0)
-            ? "rgba(34,197,94,0.25)"
-            : "rgba(239,68,68,0.2)",
+        color: (b.buyVolume || 0) >= (b.sellVolume || 0)
+          ? "rgba(34,197,94,0.35)"
+          : "rgba(239,68,68,0.3)",
       });
     }
 
     // --- Main series ---
     let mainSeries: ISeriesApi<any>;
+    const priceFormat = { type: "price" as const, precision: 12, minMove: 0.000000000001 };
 
     if (chartType === "candlestick") {
       mainSeries = chart.addSeries(CandlestickSeries, {
@@ -172,50 +135,29 @@ export function CodexChart({
         borderDownColor: "#EF4444",
         wickUpColor: "#22C55E",
         wickDownColor: "#EF4444",
-        priceFormat: {
-          type: "price",
-          precision: 12,
-          minMove: 0.000000000001,
-        },
+        priceFormat,
       });
       mainSeries.setData(chartData);
     } else if (chartType === "line") {
       mainSeries = chart.addSeries(LineSeries, {
-        color: "#22C55E",
-        lineWidth: 2,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
-        priceFormat: {
-          type: "price",
-          precision: 12,
-          minMove: 0.000000000001,
-        },
+        color: "#22C55E", lineWidth: 2,
+        crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
+        priceFormat,
       });
-      mainSeries.setData(
-        chartData.map((d: any) => ({ time: d.time, value: d.close }))
-      );
+      mainSeries.setData(chartData.map((d: any) => ({ time: d.time, value: d.close })));
     } else {
       mainSeries = chart.addSeries(AreaSeries, {
         lineColor: "#22C55E",
         topColor: "rgba(34,197,94,0.18)",
         bottomColor: "rgba(10,10,10,0)",
         lineWidth: 2,
-        crosshairMarkerVisible: true,
-        crosshairMarkerRadius: 4,
-        priceFormat: {
-          type: "price",
-          precision: 12,
-          minMove: 0.000000000001,
-        },
+        crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
+        priceFormat,
       });
-      mainSeries.setData(
-        chartData.map((d: any) => ({ time: d.time, value: d.close }))
-      );
+      mainSeries.setData(chartData.map((d: any) => ({ time: d.time, value: d.close })));
     }
 
-    candleSeriesRef.current = mainSeries;
-
-    // --- Volume series on SEPARATE price scale ---
+    // --- Volume on SEPARATE scale ---
     if (showVolume) {
       const volSeries = chart.addSeries(HistogramSeries, {
         priceFormat: { type: "volume" },
@@ -223,29 +165,31 @@ export function CodexChart({
       });
 
       chart.priceScale("volume").applyOptions({
-        scaleMargins: { top: 0.78, bottom: 0 },
+        scaleMargins: { top: 0.75, bottom: 0 },
+        borderVisible: false,
+        entireTextOnly: true,
       });
 
       volSeries.setData(volumeData);
-      volSeriesRef.current = volSeries;
     }
 
-    // Price line for last price
-    const lastBar = bars[bars.length - 1];
-    if (lastBar && mainSeries) {
+    // Last price line
+    const last = bars[bars.length - 1];
+    if (last) {
       mainSeries.createPriceLine({
-        price: lastBar.close,
-        color: lastBar.close >= lastBar.open ? "#22C55E" : "#EF4444",
-        lineWidth: 1,
-        lineStyle: 2,
-        axisLabelVisible: true,
+        price: last.close,
+        color: last.close >= last.open ? "#22C55E" : "#EF4444",
+        lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
       });
     }
 
     chart.timeScale().fitContent();
 
-    // Resize handler
-    const handleResize = () => {
+    // Small right padding
+    setTimeout(() => chart.timeScale().scrollToPosition(5, false), 50);
+
+    // Resize
+    const onResize = () => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
           width: containerRef.current.clientWidth,
@@ -253,77 +197,50 @@ export function CodexChart({
         });
       }
     };
-    window.addEventListener("resize", handleResize);
-
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("resize", handleResize);
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-        candleSeriesRef.current = null;
-        volSeriesRef.current = null;
-      }
+      window.removeEventListener("resize", onResize);
+      if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
     };
   }, [bars, chartType, height, showVolume, resolution, isFullscreen]);
 
   // --- Toolbar props ---
-  const toolbarProps = {
-    resolution,
-    onResolutionChange: setResolution,
-    chartType,
-    onCycleChartType: cycleChartType,
-    currencyCode,
-    onCurrencyToggle: () => setCurrencyCode((p) => (p === "USD" ? "TOKEN" : "USD")),
-    statsType,
-    onStatsToggle: () => setStatsType((p) => (p === "FILTERED" ? "UNFILTERED" : "FILTERED")),
-    showVolume,
-    onVolumeToggle: () => setShowVolume((p) => !p),
-    isLoading,
-    onFullscreen: toggleFullscreen,
+  const tp = {
+    resolution, onResolutionChange: setResolution,
+    chartType, onCycleChartType: cycleChartType,
+    currencyCode, onCurrencyToggle: () => setCurrencyCode(p => p === "USD" ? "TOKEN" : "USD"),
+    statsType, onStatsToggle: () => setStatsType(p => p === "FILTERED" ? "UNFILTERED" : "FILTERED"),
+    showVolume, onVolumeToggle: () => setShowVolume(p => !p),
+    isLoading, onFullscreen: toggleFullscreen,
   };
 
-  // Error state
   if (error && bars.length === 0) {
     return (
-      <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
-        <CodexChartToolbar {...toolbarProps} />
-        <div
-          className="flex flex-col items-center justify-center gap-2"
-          style={{ height }}
-        >
+      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+        <CodexChartToolbar {...tp} />
+        <div className="flex flex-col items-center justify-center gap-2" style={{ height }}>
           <div className="px-3 py-1 rounded bg-red-500/10 border border-red-500/20">
             <p className="text-[11px] font-mono text-red-400">⚠ Chart data unavailable</p>
           </div>
-          <p className="text-[10px] font-mono text-white/30">Data may be delayed or unavailable for this token</p>
         </div>
       </div>
     );
   }
 
-  // Loading state
   if (isLoading && bars.length === 0) {
     return (
-      <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
-        <CodexChartToolbar {...toolbarProps} isLoading={true} />
+      <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+        <CodexChartToolbar {...tp} isLoading={true} />
         <div style={{ height }} className="relative overflow-hidden">
           <div className="absolute inset-0 flex flex-col justify-end p-4 gap-1">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                className="w-full rounded-sm"
-                style={{
-                  height: `${Math.random() * 30 + 10}%`,
-                  maxHeight: "60px",
-                  opacity: 0.08,
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                }}
-              />
+              <Skeleton key={i} className="w-full rounded-sm" style={{ height: `${Math.random() * 30 + 10}%`, maxHeight: "60px", opacity: 0.08, backgroundColor: "rgba(255,255,255,0.06)" }} />
             ))}
           </div>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-[11px] font-mono text-white/40">Loading chart data…</span>
+              <span className="text-[11px] font-mono text-white/40">Loading chart…</span>
             </div>
           </div>
         </div>
@@ -332,9 +249,8 @@ export function CodexChart({
   }
 
   return (
-    <div className="flex flex-col w-full rounded-xl overflow-hidden" style={{ backgroundColor: "#0a0a0a" }}>
-      <CodexChartToolbar {...toolbarProps} />
-      {/* Delayed data banner */}
+    <div className="flex flex-col w-full rounded-2xl overflow-hidden border border-white/10" style={{ backgroundColor: "#0a0a0a" }}>
+      <CodexChartToolbar {...tp} />
       {error && bars.length > 0 && (
         <div className="px-2 py-0.5 text-center" style={{ backgroundColor: "rgba(239,68,68,0.08)" }}>
           <span className="text-[9px] font-mono text-red-400/80">⚠ Data may be delayed</span>
@@ -342,7 +258,7 @@ export function CodexChart({
       )}
       <div
         ref={containerRef}
-        className="w-full overflow-hidden relative"
+        className="w-full overflow-hidden"
         style={{ height: isFullscreen ? "calc(100vh - 40px)" : height }}
       />
     </div>
