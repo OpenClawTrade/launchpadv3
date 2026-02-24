@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Users } from "lucide-react";
+import { Send, Loader2, Users, Pencil, Shuffle, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { usePrivy } from "@privy-io/react-auth";
@@ -15,11 +15,21 @@ interface ConsoleMessage {
   user_id: string | null;
 }
 
+const GUEST_ADJECTIVES = ["Sneaky", "Lucky", "Cosmic", "Turbo", "Chill", "Spicy", "Mystic", "Hyper", "Frosty", "Shadow"];
+const GUEST_NOUNS = ["Lobster", "Shrimp", "Crab", "Whale", "Dolphin", "Squid", "Otter", "Turtle", "Shark", "Puffer"];
+
+function generateGuestName(): string {
+  const adj = GUEST_ADJECTIVES[Math.floor(Math.random() * GUEST_ADJECTIVES.length)];
+  const noun = GUEST_NOUNS[Math.floor(Math.random() * GUEST_NOUNS.length)];
+  const num = Math.floor(10 + Math.random() * 90);
+  return `${adj}${noun}${num}`;
+}
+
 function getGuestId(): string {
   const key = "claw_guest_id";
   let id = localStorage.getItem(key);
   if (!id) {
-    id = `GUEST#${Math.floor(1000 + Math.random() * 9000)}`;
+    id = generateGuestName();
     localStorage.setItem(key, id);
   }
   return id;
@@ -38,6 +48,8 @@ export default function ConsolePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user, authenticated } = usePrivy();
   const [displayName, setDisplayName] = useState<string>(getGuestId());
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
   const lastMessageTime = useRef<string | null>(null);
 
   // Resolve display name from profile
@@ -136,6 +148,36 @@ export default function ConsolePage() {
     }
   }, [input, isSending, displayName]);
 
+  const handleRandomizeGuestName = useCallback(() => {
+    const newName = generateGuestName();
+    localStorage.setItem("claw_guest_id", newName);
+    setDisplayName(newName);
+  }, []);
+
+  const handleSaveUsername = useCallback(() => {
+    const trimmed = editNameValue.trim();
+    if (!trimmed || trimmed.length < 2 || trimmed.length > 20) return;
+    if (authenticated) {
+      // For logged-in users, update via edge function
+      const privyUserId = user?.id;
+      if (privyUserId) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-profile`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ privyUserId, username: trimmed }),
+        });
+      }
+      setDisplayName(trimmed);
+    } else {
+      localStorage.setItem("claw_guest_id", trimmed);
+      setDisplayName(trimmed);
+    }
+    setIsEditingName(false);
+  }, [editNameValue, authenticated, user]);
+
   return (
     <LaunchpadLayout hideFooter noPadding>
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 3.5rem - 48px)', minHeight: 0 }}>
@@ -224,7 +266,50 @@ export default function ConsolePage() {
         <div className="border-t border-border bg-sidebar/30 backdrop-blur-sm p-3">
           <div className="flex items-center gap-1.5 mb-2 px-1">
             <span className="text-[10px] text-muted-foreground">chatting as</span>
-            <span className="text-[10px] font-semibold text-accent-purple">{displayName}</span>
+            {isEditingName ? (
+              <div className="flex items-center gap-1">
+                <input
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  maxLength={20}
+                  autoFocus
+                  className="text-[10px] font-semibold text-accent-purple bg-surface border border-border rounded px-1.5 py-0.5 w-28 focus:outline-none focus:ring-1 focus:ring-accent-purple/50"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveUsername();
+                    if (e.key === "Escape") setIsEditingName(false);
+                  }}
+                />
+                <button onClick={handleSaveUsername} className="text-success hover:text-success/80">
+                  <Check className="h-3 w-3" />
+                </button>
+                <button onClick={() => setIsEditingName(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-accent-purple">{displayName}</span>
+                <button
+                  onClick={() => {
+                    setEditNameValue(displayName);
+                    setIsEditingName(true);
+                  }}
+                  className="text-muted-foreground hover:text-accent-purple transition-colors"
+                  title="Change username"
+                >
+                  <Pencil className="h-2.5 w-2.5" />
+                </button>
+                {!authenticated && (
+                  <button
+                    onClick={handleRandomizeGuestName}
+                    className="text-muted-foreground hover:text-accent-purple transition-colors"
+                    title="Randomize name"
+                  >
+                    <Shuffle className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <form
             onSubmit={(e) => {
