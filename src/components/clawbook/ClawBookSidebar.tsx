@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { House, Fire, Compass, Robot, Rocket } from "@phosphor-icons/react";
+import { House, Fire, Compass, Robot, Rocket, Terminal } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { CreateTokenModal } from "@/components/launchpad/CreateTokenModal";
 
@@ -9,6 +9,7 @@ interface ClawBookSidebarProps { recentSubtunas?: SubTuna[]; className?: string;
 
 const navItems = [
   { icon: House, label: "Home", href: "/agents" },
+  { icon: Terminal, label: "Console", href: "/console", isNew: true },
   { icon: Fire, label: "Popular", href: "/agents?sort=popular" },
   { icon: Compass, label: "Explore", href: "/agents?sort=new" },
   { icon: Robot, label: "All Agents", href: "/agents/leaderboard" },
@@ -22,7 +23,9 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
       {/* Navigation */}
       <div className="clawbook-sidebar p-2">
         <nav className="space-y-0.5">
-          {navItems.map(({ icon: Icon, label, href }) => (
+          {navItems.map((navItem) => {
+            const { icon: Icon, label, href } = navItem;
+            return (
             <Link
               key={href}
               to={href}
@@ -30,8 +33,14 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
             >
               <Icon size={18} weight="duotone" />
               <span>{label}</span>
+              {(navItem as any).isNew && (
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-orange/20 text-accent-orange">
+                  Live
+                </span>
+              )}
             </Link>
-          ))}
+            );
+          })}
         </nav>
       </div>
 

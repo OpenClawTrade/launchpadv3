@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useState, useCallback, useEffect } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { ClawBookLayout } from "@/components/clawbook/ClawBookLayout";
@@ -37,6 +37,26 @@ export default function ClawBookPage() {
   const { solPrice } = useSolPrice();
 
   useSubTunaRealtime({ enabled: true });
+  const navigate = useNavigate();
+
+  // Show Console announcement popup once per session
+  useEffect(() => {
+    const shown = sessionStorage.getItem("console-announce");
+    if (shown) return;
+    sessionStorage.setItem("console-announce", "1");
+    
+    const timer = setTimeout(() => {
+      toast("🦞 Claw Console is LIVE!", {
+        description: "Our fully automated AI agent is now available directly on the platform. Same lobster, same vibes — no X needed.",
+        action: {
+          label: "Open Console",
+          onClick: () => navigate("/console"),
+        },
+        duration: 8000,
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
     setUserVotes((prev) => {
