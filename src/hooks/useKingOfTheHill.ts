@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { filterHiddenTokens } from "@/lib/hiddenTokens";
 import { useEffect } from "react";
+import { useBackgroundPoolRefresh } from "@/hooks/useBackgroundPoolRefresh";
 
 const DEFAULT_LIVE = {
   holder_count: 0,
@@ -103,6 +104,9 @@ export function useKingOfTheHill(): UseKingOfTheHillResult {
     refetchOnWindowFocus: false,
     refetchInterval: 1000 * 30, // Refresh every 30s (more important section)
   });
+
+  // Proactively refresh pool state for visible king tokens
+  useBackgroundPoolRefresh(data ?? []);
 
   // Realtime subscription to invalidate on token changes
   useEffect(() => {

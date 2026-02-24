@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { filterHiddenTokens } from "@/lib/hiddenTokens";
 import { useEffect } from "react";
+import { useBackgroundPoolRefresh } from "@/hooks/useBackgroundPoolRefresh";
 
 export interface JustLaunchedToken {
   id: string;
@@ -77,6 +78,9 @@ export function useJustLaunched(): UseJustLaunchedResult {
     refetchOnWindowFocus: false,
     refetchInterval: 1000 * 60, // Refresh every 60s
   });
+
+  // Proactively refresh pool state for visible tokens
+  useBackgroundPoolRefresh(data ?? []);
 
   // Realtime subscription for new tokens
   useEffect(() => {
