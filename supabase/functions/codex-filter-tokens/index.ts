@@ -12,13 +12,17 @@ function buildQuery(column: Column, limit: number): string {
   let filters: string;
   let rankings: string;
 
+  // Only show tokens created in the last 24 hours for new/completing
+  const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
+  const twoDaysAgo = Math.floor(Date.now() / 1000) - 172800;
+
   switch (column) {
     case "new":
-      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false }`;
+      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, createdAt: { gte: ${oneDayAgo} } }`;
       rankings = `{ attribute: createdAt, direction: DESC }`;
       break;
     case "completing":
-      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50 } }`;
+      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50, lte: 99 }, createdAt: { gte: ${twoDaysAgo} } }`;
       rankings = `{ attribute: marketCap, direction: DESC }`;
       break;
     case "completed":
