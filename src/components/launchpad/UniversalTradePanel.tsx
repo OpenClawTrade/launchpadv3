@@ -8,7 +8,6 @@ import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { ArrowDown, Loader2, Wallet, AlertTriangle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddress } from "@solana/spl-token";
 
 interface TokenInfo {
   mint_address: string;
@@ -80,11 +79,11 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
         const connection = new Connection(HELIUS_RPC);
         const owner = new PublicKey(solanaAddress);
         const mint = new PublicKey(token.mint_address);
-        const ata = await getAssociatedTokenAddress(mint, owner);
-        const resp = await connection.getTokenAccountBalance(ata);
-        setOnChainTokenBalance(resp.value.uiAmount || 0);
+        const resp = await connection.getParsedTokenAccountsByOwner(owner, { mint });
+        const account = resp.value[0];
+        const bal = account?.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+        setOnChainTokenBalance(bal);
       } catch {
-        // No token account = 0 balance
         setOnChainTokenBalance(0);
       }
     };
