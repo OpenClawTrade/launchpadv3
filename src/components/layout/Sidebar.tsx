@@ -13,6 +13,7 @@ const LOGO_SRC = clawLogo;
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home, exact: true },
+  { to: "/console", label: "Console", icon: Code2, isLive: true },
   { to: "/trade", label: "Terminal", icon: BarChart2 },
   { to: "/agents", label: "Agents", icon: Bot },
   
@@ -79,7 +80,8 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       {/* Nav links */}
       <nav className="flex-1 px-2.5 space-y-0.5">
-        {NAV_LINKS.map(({ to, label, icon: Icon, exact, useClaw }) => {
+        {NAV_LINKS.map((navItem) => {
+          const { to, label, icon: Icon, exact, useClaw } = navItem;
           const active = isActive(to, exact);
           const classes = cn(
             "flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 w-full border-l-2",
@@ -121,6 +123,11 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
             >
               {iconEl}
               <span>{label}</span>
+              {(navItem as any).isLive && (
+                <span className="ml-auto text-[8px] font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-accent-orange/20 text-accent-orange">
+                  Live
+                </span>
+              )}
             </Link>
           );
         })}
