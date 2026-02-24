@@ -24,28 +24,31 @@ const COLUMN_TABS = [
 
 type ColumnTab = typeof COLUMN_TABS[number]["id"];
 
-function ColumnHeader({ label, count, icon: Icon }: { label: string; count: number; icon: React.ElementType }) {
+function PulseColumnHeader({ label, count, icon: Icon }: { label: string; count: number; icon: React.ElementType }) {
   return (
-    <div className="axiom-col-header">
-      <Icon className="h-3.5 w-3.5" />
-      <span>{label}</span>
-      <span className="axiom-col-count">{count}</span>
+    <div className="pulse-col-header">
+      <div className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-[13px] font-bold text-foreground">{label}</span>
+        <span className="pulse-count-badge">{count}</span>
+      </div>
     </div>
   );
 }
 
-function ColumnSkeleton() {
+function PulseColumnSkeleton() {
   return (
-    <div className="flex flex-col gap-1 p-1.5">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="axiom-row-skeleton">
-          <Skeleton className="w-10 h-10 rounded-lg skeleton-shimmer" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-3 w-3/4 skeleton-shimmer" />
+    <div className="flex flex-col gap-1 p-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="pulse-card-skeleton">
+          <Skeleton className="w-11 h-11 rounded-xl skeleton-shimmer" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3.5 w-3/4 skeleton-shimmer" />
             <Skeleton className="h-2.5 w-1/2 skeleton-shimmer" />
+            <Skeleton className="h-1.5 w-full skeleton-shimmer" />
           </div>
-          <div className="space-y-1">
-            <Skeleton className="h-2.5 w-12 skeleton-shimmer ml-auto" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-14 skeleton-shimmer ml-auto" />
             <Skeleton className="h-2.5 w-10 skeleton-shimmer ml-auto" />
           </div>
         </div>
@@ -54,18 +57,17 @@ function ColumnSkeleton() {
   );
 }
 
-function EmptyColumn({ label }: { label: string }) {
+function PulseEmptyColumn({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 empty-state-fade">
-      <span className="text-2xl mb-2">🦞</span>
-      <span className="text-[11px] text-muted-foreground">No {label.toLowerCase()} yet</span>
+    <div className="flex flex-col items-center justify-center py-16 empty-state-fade">
+      <span className="text-2xl mb-2 opacity-40">🦞</span>
+      <span className="text-[11px] text-muted-foreground/60">No {label.toLowerCase()} yet</span>
     </div>
   );
 }
 
 export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [] }: AxiomTerminalGridProps) {
   const [mobileTab, setMobileTab] = useState<ColumnTab>("new");
-
   const { tokens: kingTokens } = useKingOfTheHill();
 
   const { newPairs, finalStretch, migrated } = useMemo(() => {
@@ -73,46 +75,29 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
       .filter(t => (t.bonding_progress ?? 0) < 80 && t.status !== 'graduated')
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    // Primary: tokens with ≥5% bonding progress
     let finalStretch = tokens
       .filter(t => (t.bonding_progress ?? 0) >= 5 && t.status !== 'graduated')
       .sort((a, b) => (b.bonding_progress ?? 0) - (a.bonding_progress ?? 0));
 
-    // Fallback: fill with King of the Hill tokens if fewer than 3
     if (finalStretch.length < 3 && kingTokens.length > 0) {
       const existingIds = new Set(finalStretch.map(t => t.id));
       const kingFill = kingTokens
         .filter(k => !existingIds.has(k.id))
         .slice(0, 3 - finalStretch.length)
         .map(k => ({
-          id: k.id,
-          name: k.name,
-          ticker: k.ticker,
-          description: null,
-          image_url: k.image_url,
-          creator_wallet: k.creator_wallet ?? "",
-          twitter_url: k.twitter_url,
-          website_url: null,
+          id: k.id, name: k.name, ticker: k.ticker, description: null,
+          image_url: k.image_url, creator_wallet: k.creator_wallet ?? "",
+          twitter_url: k.twitter_url, website_url: null,
           twitter_avatar_url: k.twitter_avatar_url ?? null,
           twitter_verified: k.twitter_verified ?? false,
           twitter_verified_type: k.twitter_verified_type ?? null,
-          mint_address: k.mint_address,
-          dbc_pool_address: k.dbc_pool_address,
-          status: k.status,
-          price_sol: 0,
-          price_change_24h: null,
-          volume_24h_sol: 0,
-          total_fees_earned: 0,
-          holder_count: k.holder_count,
-          market_cap_sol: k.market_cap_sol,
-          bonding_progress: k.bonding_progress,
-          trading_fee_bps: k.trading_fee_bps,
-          fee_mode: k.fee_mode,
-          agent_id: k.agent_id,
-          launchpad_type: k.launchpad_type,
-          last_distribution_at: null,
-          created_at: k.created_at,
-          updated_at: k.created_at,
+          mint_address: k.mint_address, dbc_pool_address: k.dbc_pool_address,
+          status: k.status, price_sol: 0, price_change_24h: null,
+          volume_24h_sol: 0, total_fees_earned: 0, holder_count: k.holder_count,
+          market_cap_sol: k.market_cap_sol, bonding_progress: k.bonding_progress,
+          trading_fee_bps: k.trading_fee_bps, fee_mode: k.fee_mode,
+          agent_id: k.agent_id, launchpad_type: k.launchpad_type,
+          last_distribution_at: null, created_at: k.created_at, updated_at: k.created_at,
         } satisfies FunToken));
       finalStretch = [...finalStretch, ...kingFill];
     }
@@ -125,17 +110,32 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
   }, [tokens, kingTokens]);
 
   const columns = [
-    { id: "new" as const, label: "New Pairs", icon: Rocket, tokens: newPairs },
-    { id: "final" as const, label: "Final Stretch", icon: Flame, tokens: finalStretch },
-    { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, tokens: migrated },
+    { id: "new" as const, label: "New Pairs", icon: Rocket, tokens: newPairs, codex: codexNewPairs },
+    { id: "final" as const, label: "Final Stretch", icon: Flame, tokens: finalStretch, codex: codexCompleting },
+    { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, tokens: migrated, codex: codexGraduated },
   ];
 
   const activeColumn = columns.find(c => c.id === mobileTab)!;
 
+  const renderColumnContent = (col: typeof columns[number]) => {
+    if (isLoading) return <PulseColumnSkeleton />;
+    if (col.tokens.length === 0 && col.codex.length === 0) return <PulseEmptyColumn label={col.label} />;
+    return (
+      <div className="flex flex-col gap-0.5 p-1.5">
+        {col.codex.map(t => (
+          <CodexPairRow key={`codex-${t.address}`} token={t} />
+        ))}
+        {col.tokens.map(token => (
+          <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="w-full">
-      {/* ── Mobile: Tab Switcher ── */}
-      <div className="lg:hidden">
+      {/* Mobile: Tab Switcher */}
+      <div className="xl:hidden">
         <div className="flex border-b border-border">
           {COLUMN_TABS.map(tab => {
             const col = columns.find(c => c.id === tab.id)!;
@@ -151,63 +151,23 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
               >
                 <tab.icon className="h-3 w-3" />
                 {tab.label}
-                <span className="axiom-col-count">{isLoading ? '…' : col.tokens.length}</span>
+                <span className="pulse-count-badge">{isLoading ? '…' : col.tokens.length + col.codex.length}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Active column content */}
-        <div className="axiom-column-scroll">
-          {isLoading ? (
-            <ColumnSkeleton />
-          ) : activeColumn.tokens.length === 0 ? (
-            <EmptyColumn label={activeColumn.label} />
-          ) : (
-              <div className="flex flex-col gap-0.5 p-1.5">
-                {mobileTab === "new" && codexNewPairs.map(t => (
-                  <CodexPairRow key={`codex-${t.address}`} token={t} />
-                ))}
-                {mobileTab === "final" && codexCompleting.map(t => (
-                  <CodexPairRow key={`codex-${t.address}`} token={t} />
-                ))}
-                {mobileTab === "migrated" && codexGraduated.map(t => (
-                  <CodexPairRow key={`codex-${t.address}`} token={t} />
-                ))}
-                {activeColumn.tokens.map(token => (
-                  <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
-                ))}
-              </div>
-          )}
+        <div className="pulse-column-scroll">
+          {renderColumnContent(activeColumn)}
         </div>
       </div>
 
-      {/* ── Desktop: Three Columns ── */}
-      <div className="hidden lg:grid grid-cols-3 gap-3 axiom-grid-container">
+      {/* Desktop: Three Columns */}
+      <div className="hidden xl:grid grid-cols-3 gap-3">
         {columns.map((col) => (
-          <div key={col.id} className="axiom-column border border-border/40 rounded-lg overflow-hidden bg-card/60 backdrop-blur-sm">
-            <ColumnHeader label={col.label} count={col.tokens.length} icon={col.icon} />
-            <div className="axiom-column-scroll">
-              {isLoading ? (
-                <ColumnSkeleton />
-              ) : col.tokens.length === 0 ? (
-                <EmptyColumn label={col.label} />
-              ) : (
-                <div className="flex flex-col gap-0.5 p-1.5">
-                  {col.id === "new" && codexNewPairs.map(t => (
-                    <CodexPairRow key={`codex-${t.address}`} token={t} />
-                  ))}
-                  {col.id === "final" && codexCompleting.map(t => (
-                    <CodexPairRow key={`codex-${t.address}`} token={t} />
-                  ))}
-                  {col.id === "migrated" && codexGraduated.map(t => (
-                    <CodexPairRow key={`codex-${t.address}`} token={t} />
-                  ))}
-                  {col.tokens.map(token => (
-                    <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} />
-                  ))}
-                </div>
-              )}
+          <div key={col.id} className="pulse-column">
+            <PulseColumnHeader label={col.label} count={col.tokens.length + col.codex.length} icon={col.icon} />
+            <div className="pulse-column-scroll">
+              {renderColumnContent(col)}
             </div>
           </div>
         ))}

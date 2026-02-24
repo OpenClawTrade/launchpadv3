@@ -868,36 +868,117 @@ body.matrix-hidden canvas {
   color: hsl(var(--muted-foreground));
 }
 
-.axiom-column-scroll {
+/* ═══════════════════════════════════════════════════ */
+/* Pulse Terminal — Axiom-style premium dense layout  */
+/* ═══════════════════════════════════════════════════ */
+
+.pulse-column {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  overflow: hidden;
+}
+
+.pulse-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background-secondary));
+}
+
+.pulse-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.pulse-column-scroll {
   flex: 1;
   overflow-y: auto;
-  max-height: calc(100vh - 280px);
+  max-height: calc(100vh - 220px);
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;
 }
 
-.axiom-row {
+.pulse-card {
   display: flex;
   flex-direction: column;
-  padding: 8px 10px;
+  padding: 12px 14px;
   border-radius: 10px;
-  transition: background 150ms ease;
+  border: 1px solid transparent;
+  transition: all 200ms ease;
   cursor: pointer;
   text-decoration: none;
 }
-.axiom-row:hover {
+
+.pulse-card:hover {
   background: hsl(var(--surface-hover));
+  border-color: hsl(var(--success) / 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px -8px hsl(var(--success) / 0.12);
 }
 
-.axiom-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+.pulse-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid hsl(var(--border));
   flex-shrink: 0;
 }
 
+.pulse-progress-track {
+  height: 3px;
+  border-radius: 9999px;
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+
+.pulse-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 500ms ease;
+  background: linear-gradient(90deg, hsl(160 84% 39%), hsl(38 92% 50%), hsl(0 72% 51%));
+}
+
+.pulse-sol-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace;
+  background: hsl(210 100% 40%);
+  color: hsl(0 0% 100%);
+  transition: background 150ms ease;
+  flex-shrink: 0;
+}
+
+.pulse-sol-btn:hover {
+  background: hsl(210 100% 50%);
+}
+
+.pulse-card-skeleton {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+/* Keep legacy badges */
 .axiom-platform-badge {
   display: inline-flex;
   align-items: center;
@@ -923,24 +1004,4 @@ body.matrix-hidden canvas {
   background: hsl(var(--accent-purple) / 0.2);
   color: hsl(var(--accent-purple));
   flex-shrink: 0;
-}
-
-.axiom-progress-track {
-  height: 4px;
-  border-radius: 9999px;
-  background: hsl(var(--muted));
-  overflow: hidden;
-}
-
-.axiom-progress-fill {
-  height: 100%;
-  border-radius: 9999px;
-  transition: width 500ms ease;
-}
-
-.axiom-row-skeleton {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
 }
