@@ -1,113 +1,183 @@
 
 
-# Fix: Real On-Chain Swap Transactions
+# Professional Codex.io Trading Chart -- Implementation Plan
 
-## Current Problem
+## Overview
 
-The swap system is entirely virtual/database-only. When a user clicks "Buy" or "Sell":
+Replace the current `DexscreenerChart` iframe embed with a fully custom, professional-grade trading chart powered by **Codex.io Growth plan** (WebSocket subscriptions + full OHLCV endpoints) and **@tradingview/lightweight-charts** (already installed v5+).
 
-1. The `TradePanelWithSwap` component calls `executeSwap` from `useLaunchpad`
-2. `useLaunchpad.executeSwap` calls the `launchpad-swap` edge function
-3. The edge function does math on virtual reserves, updates database tables (`tokens`, `token_holdings`, `launchpad_transactions`), and returns success
-4. **No on-chain transaction is ever created or signed** -- the signature is a fake `pending_` placeholder
-5. The user's SOL balance is never debited, and no tokens are actually transferred
+The new chart will be a drop-in replacement in `FunTokenDetailPage.tsx`, matching the Axiom.trade / Binance Pro aesthetic.
 
-This means all trades are fake -- just database entries with no blockchain activity.
+---
 
-## Two Token States to Handle
+## Prerequisites
 
-### 1. Pre-graduation tokens (bonding curve, status = "active"/"bonding")
-These tokens live on Meteora Dynamic Bonding Curve (DBC) pools. Real swaps require building a Meteora DBC swap transaction on-chain.
+1. **Store CODEX_API_KEY as a secret** -- needed for the edge function proxy (Codex requires auth header; cannot expose key client-side)
+2. **No new npm dependencies needed** -- `lightweight-charts` is already installed. We will use native `WebSocket` + `fetch` for GraphQL (no Apollo/urql needed for this use case)
 
-### 2. Graduated tokens (status = "graduated")
-These tokens have migrated to DEX liquidity. Real swaps should go through Jupiter aggregator (already have `useJupiterSwap` hook).
+## Architecture
 
-## Implementation Plan
+The Codex API key must NOT be exposed client-side. All data flows through an edge function proxy:
 
-### Step 1: Update the `launchpad-swap` edge function to build real Meteora DBC transactions
+```text
+Browser <--> Edge Function (codex-chart-data) <--> Codex GraphQL API
+                                                    (graph.codex.io/graphql)
 
-Currently the edge function only does DB math. It needs to:
-- Build a real Meteora DBC swap instruction using the pool's on-chain program
-- Serialize the transaction and return it to the client as a base64-encoded `VersionedTransaction`
-- Wait for the client to sign and send, then confirm on-chain before updating the DB
+Browser <-- native WebSocket --> wss://graph.codex.io/graphql
+            (key passed via edge function handshake token - OR -
+             we proxy via edge function for security)
+```
 
-**However**, building Meteora DBC instructions server-side in Deno edge functions is complex (requires SDK, on-chain account lookups). A more practical approach:
+**Decision**: For WebSocket subscriptions, the Codex API key is sent as a connection param. Since we cannot expose it client-side, the edge function will handle both:
+- **REST proxy**: Historical OHLCV bars via `getTokenBars` query
+- **WebSocket proxy**: Not practical in edge functions. Instead, we will poll the edge function every 5 seconds for the latest bar when the user is actively viewing (simulating real-time). True WebSocket subscriptions can be added later with a dedicated WebSocket server.
 
-### Step 1 (Revised): Client-side transaction building for bonding curve swaps
+**Alternative (simpler, recommended for v1)**: Use short polling (5s interval) for live bar updates via the edge function. This provides near-real-time feel without WebSocket complexity.
 
-Modify `TradePanelWithSwap` to:
-- For **bonding curve tokens**: Use the Meteora DBC SDK (`@meteora-ag/dynamic-bonding-curve-sdk`) to build the swap transaction client-side, sign with Privy embedded wallet, send to chain, then record the confirmed signature in the database via the edge function
-- For **graduated tokens**: Use the existing `useJupiterSwap` hook to swap via Jupiter
+---
 
-### Step 2: Create a new `useRealSwap` hook
+## Files to Create
 
-This hook will:
-1. Determine if the token is bonding curve or graduated
-2. For bonding curve: Use Meteora DBC SDK to fetch the pool, build swap IX, create transaction, sign via Privy `signAndSendTransaction`, confirm, then call the edge function with the real signature
-3. For graduated: Use `useJupiterSwap.buyToken` / `sellToken` with the Privy wallet's `signAndSendTransaction`
-4. Show real SOL balance from the embedded wallet
+### 1. `supabase/functions/codex-chart-data/index.ts`
+Edge function that proxies Codex GraphQL queries. Accepts:
+- `query`: "getTokenBars" or "getBars"  
+- `tokenAddress` / `pairAddress`
+- `networkId`: 1399811149 (Solana)
+- `resolution`: "1", "5", "15", "60", "240", "1D", etc.
+- `countback`: number (max 1500)
+- `from` / `to`: Unix timestamps
+- `currencyCode`: "USD" or "TOKEN"
+- `statsType`: "FILTERED" or "UNFILTERED"
 
-### Step 3: Update `TradePanelWithSwap` component
+Returns the OHLCV arrays (o, h, l, c, t, volume, buyVolume, sellVolume, etc.)
 
-- Replace the current `useLaunchpad().executeSwap` call with the new `useRealSwap` hook
-- Display the user's real SOL balance from Privy embedded wallet (currently shows "Bal: --")
-- After a successful on-chain swap, update the edge function DB records with the real tx signature
-- Remove the fake success path
+### 2. `src/hooks/useCodexChart.ts`
+React hook that:
+- Fetches historical bars via the edge function on mount and timeframe change
+- Polls for latest bar every 5 seconds (auto-refresh simulation)
+- Caches last 5 timeframes via React Query
+- Transforms Codex response format (parallel arrays) into lightweight-charts format (array of objects)
+- Exposes: `bars`, `isLoading`, `latestBar`, `resolution`, `setResolution`, `chartType`, `setChartType`, `currencyCode`, `setCurrencyCode`, `statsType`, `setStatsType`
 
-### Step 4: Update the `launchpad-swap` edge function role
+### 3. `src/components/launchpad/CodexChart.tsx`
+The main chart component. Props:
+- `tokenAddress: string`
+- `networkId?: number` (default 1399811149 for Solana)
+- `height?: number`
+- `defaultResolution?: string`
 
-Change it from "execute swap" to "record swap":
-- Accept a confirmed transaction signature
-- Verify the transaction on-chain (optional but recommended)
-- Update virtual reserves, holdings, and price in the database
-- This ensures DB state stays in sync with on-chain reality
+Features:
+- **Toolbar** (top): Timeframe buttons (1s, 5s, 15s, 30s, 1m, 5m, 15m, 30m, 1h, 4h, 12h, 1D, 7D, 1W), chart type dropdown (Candlestick/Line/Area), USD/TOKEN toggle, Filtered/Unfiltered toggle, volume pane toggle, fullscreen button
+- **Chart area**: lightweight-charts candlestick series with volume histogram pane below
+- **Crosshair tooltip**: OHLC + volume + buy/sell volume breakdown
+- **Auto-fit on load**, smooth zoom/pan, price line with label
+- **Loading skeleton** matching chart shape
+- **Error/fallback** with "Data delayed" banner
+- **Dark theme**: #0a0a0a background, #22C55E green, #EF4444 red
+- **Mobile responsive**: toolbar collapses to scrollable row
 
-### Step 5: Display real wallet balances
+### 4. `src/components/launchpad/CodexChartToolbar.tsx`
+Extracted toolbar component for cleanliness:
+- Resolution buttons with active glow
+- Chart type selector
+- Currency toggle
+- Filter toggle
+- Fullscreen button
+- Auto-refresh indicator
 
-- Show real SOL balance from `useSolanaWalletWithPrivy().getBalance()`
-- For token balances of bonding curve tokens, query the on-chain token account
-- For graduated tokens, query via RPC `getTokenAccountsByOwner`
+---
+
+## Files to Modify
+
+### 5. `src/pages/FunTokenDetailPage.tsx`
+- Replace `DexscreenerChart` import with `CodexChart`
+- Update `ChartSection` to render `<CodexChart tokenAddress={token.mint_address} />` instead of `<DexscreenerChart>`
+- Remove `DexscreenerChart` import
+
+### 6. `src/components/launchpad/index.ts`
+- Add export for `CodexChart`
 
 ---
 
 ## Technical Details
 
-### Files to create:
-- `src/hooks/useRealSwap.ts` -- New hook coordinating real on-chain swaps
+### Codex GraphQL Query (proxied by edge function)
 
-### Files to modify:
-- `src/components/launchpad/TradePanelWithSwap.tsx` -- Use `useRealSwap` instead of `useLaunchpad().executeSwap`, show real balances
-- `supabase/functions/launchpad-swap/index.ts` -- Add mode to accept confirmed signatures and verify on-chain before DB updates
-- `src/components/launchpad/QuickTradeButtons.tsx` -- Same swap flow update
-
-### Dependencies already available:
-- `@meteora-ag/dynamic-bonding-curve-sdk` (installed)
-- `@solana/web3.js` (installed)
-- `useJupiterSwap` hook (exists for graduated tokens)
-- `useSolanaWalletWithPrivy` hook (exists for Privy wallet signing)
-
-### Swap flow after fix:
-
-```text
-User clicks Buy
-  |
-  v
-useRealSwap determines token status
-  |
-  +-- Bonding curve token:
-  |     1. Fetch Meteora DBC pool on-chain
-  |     2. Build swap instruction via SDK
-  |     3. Create VersionedTransaction
-  |     4. Sign + send via Privy signAndSendTransaction
-  |     5. Wait for confirmation
-  |     6. Call launchpad-swap edge function with real signature to update DB
-  |     7. Show success with Solscan link
-  |
-  +-- Graduated token:
-        1. Get quote from Jupiter API v1
-        2. Build swap transaction
-        3. Sign + send via Privy signAndSendTransaction
-        4. Wait for confirmation
-        5. Show success with Solscan link
+```graphql
+query GetTokenBars($tokenAddress: String!, $networkId: Int!, $resolution: String!, $countback: Int, $from: Int, $to: Int, $currencyCode: String, $statsType: TokenBarStatsType, $removeEmptyBars: Boolean) {
+  getTokenBars(
+    symbol: $tokenAddress
+    from: $from
+    to: $to
+    resolution: $resolution
+    countback: $countback
+    currencyCode: $currencyCode
+    statsType: $statsType
+    removeEmptyBars: $removeEmptyBars
+  ) {
+    o h l c t v
+    volume buyVolume sellVolume
+    buys sells buyers sellers traders transactions
+    liquidity
+  }
+}
 ```
+
+The response returns parallel arrays: `o: [float]`, `h: [float]`, etc. The hook transforms these into `{ time, open, high, low, close, volume }[]` for lightweight-charts.
+
+### Resolution Mapping
+
+| UI Label | Codex Resolution |
+|----------|-----------------|
+| 1s | 1S |
+| 5s | 5S |
+| 15s | 15S |
+| 30s | 30S |
+| 1m | 1 |
+| 5m | 5 |
+| 15m | 15 |
+| 30m | 30 |
+| 1h | 60 |
+| 4h | 240 |
+| 12h | 720 |
+| 1D | 1D |
+| 7D | 7D |
+| 1W | 1W |
+
+### Solana Network ID in Codex
+`1399811149`
+
+### Color Palette
+- Background: `#0a0a0a`
+- Grid: `rgba(255,255,255,0.03)`
+- Candle up: `#22C55E` (green-500)
+- Candle down: `#EF4444` (red-500)
+- Volume up: `rgba(34,197,94,0.15)`
+- Volume down: `rgba(239,68,68,0.12)`
+- Crosshair: `rgba(255,255,255,0.1)`
+- Text: `rgba(255,255,255,0.5)`
+- Active timeframe glow: `0 0 8px rgba(34,197,94,0.4)`
+
+### Keyboard Shortcuts
+- `1`-`9` for timeframe shortcuts
+- `F` for fullscreen toggle
+- Handled via `useEffect` with `keydown` listener
+
+### Performance
+- Use `countback: 1500` with proper `from`/`to` to stay within Codex limits
+- React Query with `staleTime: 30000` for caching
+- Poll interval: 5 seconds for live bar updates (only when tab is visible via `document.hidden` check)
+- Unsubscribe/stop polling on unmount
+
+---
+
+## Implementation Order
+
+1. Store `CODEX_API_KEY` secret
+2. Create `codex-chart-data` edge function + deploy
+3. Create `useCodexChart` hook
+4. Create `CodexChartToolbar` component
+5. Create `CodexChart` component  
+6. Update `FunTokenDetailPage` to use `CodexChart`
+7. Update exports in `index.ts`
 
