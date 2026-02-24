@@ -105,9 +105,9 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
         <div className="flex-1 min-w-0">
           {/* Line 1: Name + symbol + link */}
           <div className="flex items-center gap-1">
-            <span className="text-[12px] font-bold text-foreground truncate leading-tight">{token.ticker}</span>
-            <span className="text-[10px] text-muted-foreground/50 truncate italic">{token.name}</span>
-            <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/30 flex-shrink-0" />
+            <span className="text-[13px] font-bold text-foreground truncate leading-tight">{token.ticker}</span>
+            <span className="text-[11px] text-muted-foreground/70 truncate italic">{token.name}</span>
+            <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/40 flex-shrink-0" />
             {isAgent && (
               <span className="axiom-agent-badge">
                 <Sparkles className="h-2.5 w-2.5" />
@@ -117,7 +117,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
 
           {/* Line 2: Age + social icons row with counts */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[9px] font-mono text-muted-foreground/50">{age}</span>
+            <span className="text-[10px] font-mono text-muted-foreground/60">{age}</span>
             <span className="pulse-icon-separator" />
             {token.twitter_url && (
               <a href={token.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
@@ -133,20 +133,20 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
             <span className="pulse-social-icon"><MessageCircle className="h-2.5 w-2.5" /></span>
             <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
             {holders > 0 && (
-              <span className="text-[8px] font-mono text-muted-foreground/40">{formatHolders(holders)}</span>
+              <span className="text-[9px] font-mono text-muted-foreground/60">{formatHolders(holders)}</span>
             )}
           </div>
 
           {/* Line 3: Creator line */}
           <div className="flex items-center gap-1 mt-0.5">
             {xUsername ? (
-              <span className="text-[9px] text-muted-foreground/40 font-mono">by <span className="text-muted-foreground/60">@{xUsername}</span></span>
+              <span className="text-[10px] text-muted-foreground/60 font-mono">by <span className="text-muted-foreground/80">@{xUsername}</span></span>
             ) : (
-              <span className="text-[9px] text-muted-foreground/30 font-mono">by {token.launchpad_type === 'dbc' ? 'Meteora' : token.launchpad_type === 'pump' ? 'Pump.fun' : token.creator_wallet.slice(0, 6) + '...'}</span>
+            <span className="text-[10px] text-muted-foreground/50 font-mono">by {token.launchpad_type === 'dbc' ? 'Meteora' : token.launchpad_type === 'pump' ? 'Pump.fun' : token.creator_wallet.slice(0, 6) + '...'}</span>
             )}
             {holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/35">
-                <Users className="h-2 w-2" />{formatHolders(holders)}
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50">
+                <Users className="h-2.5 w-2.5" />{formatHolders(holders)}
               </span>
             )}
           </div>
@@ -160,15 +160,15 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">V</span>
-            <span className="text-[10px] font-mono text-foreground/60">{vol}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/75">{vol}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">F</span>
-            <span className="text-[10px] font-mono text-foreground/50">{fees}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/65">{fees}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="pulse-metric-label">TX</span>
-            <span className="text-[10px] font-mono text-foreground/50">{formatHolders(holders)}</span>
+            <span className="text-[11px] font-mono font-semibold text-foreground/65">{formatHolders(holders)}</span>
             {priceChange !== 0 && (
               <>
                 {priceChange > 0 ? (
@@ -186,7 +186,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
       </div>
 
       {/* Row 2: Bottom bar */}
-      <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-border/20">
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40">
         <div className="flex items-center gap-1.5">
           {/* Progress % */}
           <div className="flex items-center gap-1">
@@ -219,7 +219,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice }: Ax
           {shortAddr && (
             <button
               onClick={handleCopyCA}
-              className="flex items-center gap-0.5 text-[8px] font-mono text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-0.5 text-[9px] font-mono text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
               {copiedCA ? <CheckCircle className="h-2 w-2 text-success" /> : <Copy className="h-2 w-2" />}
               <span>{shortAddr}</span>
