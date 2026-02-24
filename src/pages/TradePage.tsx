@@ -4,6 +4,7 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useGraduatedTokens } from "@/hooks/useGraduatedTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useCodexNewPairs } from "@/hooks/useCodexNewPairs";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 
 export default function TradePage() {
@@ -12,6 +13,7 @@ export default function TradePage() {
   const { tokens, totalCount, isLoading } = useFunTokensPaginated(1, 100);
   const { tokens: graduatedTokens } = useGraduatedTokens();
   const { solPrice } = useSolPrice();
+  const { newPairs: codexNewPairs, completing: codexCompleting, graduated: codexGraduated } = useCodexNewPairs();
 
   // Merge graduated tokens that might not be in the paginated results
   const allTokens = useMemo(() => {
@@ -51,7 +53,14 @@ export default function TradePage() {
         </div>
 
         {/* Axiom Terminal Grid */}
-        <AxiomTerminalGrid tokens={filtered} solPrice={solPrice} isLoading={isLoading} />
+        <AxiomTerminalGrid
+          tokens={filtered}
+          solPrice={solPrice}
+          isLoading={isLoading}
+          codexNewPairs={codexNewPairs}
+          codexCompleting={codexCompleting}
+          codexGraduated={codexGraduated}
+        />
       </div>
     </LaunchpadLayout>
   );

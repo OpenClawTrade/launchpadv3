@@ -398,3 +398,6 @@ verify_jwt = false
 
 [functions.claw-learn-voice]
 verify_jwt = false
+
+[functions.codex-filter-tokens]
+verify_jwt = false
