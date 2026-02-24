@@ -30,12 +30,12 @@ interface RawEvent {
 
 function normalizeEvents(events: RawEvent[]): TokenTradeEvent[] {
   return events
-    .filter((e) => e.data && (e.data.type === "Buy" || e.data.type === "Sell"))
+    .filter((e) => e.data && (e.eventDisplayType === "Buy" || e.eventDisplayType === "Sell"))
     .map((e) => ({
       timestamp: e.timestamp,
-      type: (e.data!.type as "Buy" | "Sell"),
+      type: e.eventDisplayType as "Buy" | "Sell",
       maker: e.maker || "",
-      tokenAmount: parseFloat(e.data!.amount1 || e.data!.amount0 || "0"),
+      tokenAmount: Math.abs(parseFloat(e.data!.amount1 || e.data!.amount0 || "0")),
       totalUsd: parseFloat(e.data!.priceUsdTotal || "0"),
       priceUsd: parseFloat(e.data!.priceUsd || "0"),
       txHash: e.transactionHash || "",
