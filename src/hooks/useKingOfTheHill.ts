@@ -33,6 +33,9 @@ export interface KingToken {
   twitter_avatar_url?: string | null;
   twitter_verified?: boolean;
   twitter_verified_type?: string | null;
+  telegram_url?: string | null;
+  website_url?: string | null;
+  discord_url?: string | null;
   created_at: string;
   // Live Codex data (USD-denominated)
   codex_market_cap_usd?: number;
@@ -54,7 +57,8 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
     id, name, ticker, image_url, mint_address, dbc_pool_address, status,
     bonding_progress, market_cap_sol, holder_count, trading_fee_bps, fee_mode,
     agent_id, launchpad_type, trading_agent_id, is_trading_agent_token, created_at,
-    creator_wallet, twitter_url, twitter_avatar_url, twitter_verified, twitter_verified_type
+    creator_wallet, twitter_url, twitter_avatar_url, twitter_verified, twitter_verified_type,
+    telegram_url, website_url, discord_url
   `;
 
   // Fetch top 3 by bonding progress

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ExternalLink, ArrowUpRight } from "lucide-react";
+import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,8 @@ import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { useEffect, useState } from "react";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
+import { copyToClipboard } from "@/lib/clipboard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /* ── rank config ── */
 const RANKS = [
@@ -83,6 +85,7 @@ function ProgressBar({ value }: { value: number }) {
 /* ── premium card ── */
 function KingCard({ token, rank }: { token: KingToken; rank: number }) {
   const [blink, setBlink] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     const schedule = () => {
       const delay = 2000 + Math.random() * 4000;
@@ -123,6 +126,20 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
     e.preventDefault();
     e.stopPropagation();
     if (codexChartUrl) window.open(codexChartUrl, "_blank");
+  };
+
+  const handleCopyCA = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!token.mint_address) return;
+    const ok = await copyToClipboard(token.mint_address);
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
+  };
+
+  const handleSocialClick = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(url, "_blank");
   };
 
   return (
@@ -258,22 +275,70 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
           )}
         >
           <TrendingUp className="w-3 h-3" />
-          Trade Now
+          Trade
         </Link>
 
-        <div className="flex items-center gap-2">
-          {codexChartUrl && (
-            <button
-              onClick={handleChartClick}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium text-muted-foreground/60 hover:text-foreground/80 transition-colors bg-muted/20 hover:bg-muted/40"
-            >
-              <BarChart3 className="w-3 h-3" />
-              Chart
-            </button>
-          )}
-          <span className="text-[9px] font-mono text-muted-foreground/30">
-            {holders} buyers
-          </span>
+        <div className="flex items-center gap-1.5">
+          {/* Social Links */}
+          <TooltipProvider delayDuration={200}>
+            {token.twitter_url && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={(e) => handleSocialClick(e, token.twitter_url!)} className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground/80 hover:bg-muted/30 transition-colors">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px]">Twitter</TooltipContent>
+              </Tooltip>
+            )}
+            {token.telegram_url && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={(e) => handleSocialClick(e, token.telegram_url!)} className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground/80 hover:bg-muted/30 transition-colors">
+                    <MessageCircle className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px]">Telegram</TooltipContent>
+              </Tooltip>
+            )}
+            {token.website_url && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={(e) => handleSocialClick(e, token.website_url!)} className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground/80 hover:bg-muted/30 transition-colors">
+                    <Globe className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px]">Website</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Copy CA */}
+            {token.mint_address && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={handleCopyCA} className={cn(
+                    "p-1.5 rounded-md transition-colors",
+                    copied ? "text-emerald-400 bg-emerald-500/10" : "text-muted-foreground/50 hover:text-foreground/80 hover:bg-muted/30"
+                  )}>
+                    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px]">{copied ? "Copied!" : "Copy CA"}</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* Chart */}
+            {codexChartUrl && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={handleChartClick} className="p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground/80 hover:bg-muted/30 transition-colors">
+                    <BarChart3 className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[10px]">Chart</TooltipContent>
+              </Tooltip>
+            )}
+          </TooltipProvider>
         </div>
       </div>
     </Link>
