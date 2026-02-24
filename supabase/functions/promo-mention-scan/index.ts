@@ -103,6 +103,18 @@ function determineMentionType(text: string): string {
   return "openclaw";
 }
 
+// Check if tweet has meaningful text beyond just mentions/URLs/whitespace
+function hasMeaningfulText(text: string): boolean {
+  // Strip @mentions, URLs, hashtags, and whitespace
+  const stripped = text
+    .replace(/@\w+/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/#\w+/g, "")
+    .replace(/[!\?\.\,\s]+/g, "")
+    .trim();
+  return stripped.length >= 3;
+}
+
 function isRecentTweet(createdAt: string | undefined, maxAgeMinutes: number): boolean {
   if (!createdAt) return false;
   const tweetTime = new Date(createdAt).getTime();
@@ -178,6 +190,13 @@ serve(async (req) => {
       const username = tweet.authorUsername.toLowerCase();
       if (BOT_USERNAMES.has(username)) {
         debug.skipped++;
+        continue;
+      }
+
+      // Skip tweets with no meaningful text (just mentions, images, URLs)
+      if (!hasMeaningfulText(tweet.text)) {
+        debug.skipped++;
+        console.log(`[promo-mention-scan] Skipped tweet ${tweet.id} — no meaningful text`);
         continue;
       }
 

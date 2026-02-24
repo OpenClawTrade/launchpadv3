@@ -472,11 +472,23 @@ serve(async (req) => {
 
       // Filter for genuine questions/replies we haven't answered AND are recent (last 10 mins)
       // IMPORTANT: Skip tweets with !clawmode - those are token launches handled by the launch pipeline
+      // Check if tweet has meaningful text beyond just mentions/URLs/whitespace
+      const hasMeaningfulText = (text: string): boolean => {
+        const stripped = text
+          .replace(/@\w+/g, "")
+          .replace(/https?:\/\/\S+/g, "")
+          .replace(/#\w+/g, "")
+          .replace(/[!\?\.\,\s]+/g, "")
+          .trim();
+        return stripped.length >= 3;
+      };
+
       const eligibleMentions = mentionTweets.filter(t => 
         !repliedIds.has(t.id) && 
         t.author?.userName?.toLowerCase() !== "clawmode" &&
         t.text && 
         t.text.length > 10 &&
+        hasMeaningfulText(t.text) &&
         isRecentTweet(t, MENTION_MAX_AGE_MINUTES) &&
         !t.text.toLowerCase().includes("!clawmode")
       );
