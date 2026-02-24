@@ -288,109 +288,116 @@ export default function FunTokenDetailPage() {
         <div className="max-w-[1600px] mx-auto flex flex-col gap-1.5 pb-32 md:pb-24">
 
           {/* ──── TOP BAR ──── */}
-          <div className="terminal-panel-flush flex items-center gap-2 px-3 py-2 md:py-2 lg:py-1.5 rounded-lg">
-            <Link to="/" className="shrink-0">
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-4 w-4 md:h-3.5 md:w-3.5" />
-              </Button>
-            </Link>
+          <div className="terminal-panel-flush rounded-lg overflow-hidden">
+            {/* ROW 1: Logo + Name + Price + Actions */}
+            <div className="flex items-center gap-2 px-3 py-2 lg:py-1.5">
+              <Link to="/" className="shrink-0">
+                <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground">
+                  <ArrowLeft className="h-4 w-4 md:h-3.5 md:w-3.5" />
+                </Button>
+              </Link>
 
-            <Avatar className="h-9 w-9 md:h-8 md:w-8 rounded-lg border border-border/40 shrink-0">
-              <AvatarImage src={token.image_url || undefined} className="object-cover" />
-              <AvatarFallback className="rounded-lg text-[10px] font-bold bg-primary/10 text-primary font-mono">
-                {(token.ticker || '??').slice(0, 2)}
-              </AvatarFallback>
-            </Avatar>
+              <Avatar className="h-9 w-9 md:h-8 md:w-8 rounded-lg border border-border/40 shrink-0">
+                <AvatarImage src={token.image_url || undefined} className="object-cover" />
+                <AvatarFallback className="rounded-lg text-[10px] font-bold bg-primary/10 text-primary font-mono">
+                  {(token.ticker || '??').slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
 
-            <div className="flex items-center gap-1.5 min-w-0 shrink-0">
-              <h1 className="text-sm font-bold font-mono tracking-tight truncate max-w-[120px] md:max-w-[200px] lg:max-w-none">{token.name}</h1>
-              <span className="text-xs md:text-[11px] font-mono text-muted-foreground">${token.ticker}</span>
-              {isGraduated && (
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">GRAD</span>
-              )}
-              {isBonding && (
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/20 flex items-center gap-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />LIVE
+              {/* Name + Symbol + LIVE */}
+              <div className="flex items-center gap-1.5 min-w-0 shrink">
+                <h1 className="text-sm font-bold font-mono tracking-tight truncate max-w-[100px] sm:max-w-[140px] md:max-w-[200px] lg:max-w-none">{token.name}</h1>
+                <span className="text-xs md:text-[11px] font-mono text-muted-foreground shrink-0">${token.ticker}</span>
+                {isGraduated && (
+                  <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20 shrink-0">GRAD</span>
+                )}
+                {isBonding && (
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/20 flex items-center gap-0.5 shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse" />LIVE
+                  </span>
+                )}
+              </div>
+
+              {/* Price + 24h change — always visible, prominent on mobile */}
+              <div className="flex items-center gap-1.5 ml-auto sm:ml-2 shrink-0">
+                <span className="text-sm sm:text-xs font-mono font-bold text-foreground">
+                  {(token.price_sol || 0).toFixed(8)}
                 </span>
-              )}
+                <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground">SOL</span>
+                {priceChange !== 0 && (
+                  <span className={`text-xs sm:text-[11px] font-mono font-semibold flex items-center gap-0.5 ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
+                    {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {isPriceUp ? '+' : ''}{Math.abs(priceChange).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+
+              {/* Inline stats — lg+ only */}
+              <div className="hidden lg:flex items-center gap-3 ml-2 min-w-0">
+                {stats.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <span className="text-[9px] font-mono text-muted-foreground/70 uppercase">{s.label}</span>
+                    <span className={`text-[11px] font-mono font-semibold ${s.accent ? 'terminal-stat-teal' : 'text-foreground/90'}`}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions — compact on mobile */}
+              <div className="flex items-center gap-0.5 shrink-0 ml-1 sm:ml-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-8 sm:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={handleRefresh}><RefreshCw className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-8 sm:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={copyAddress}><Copy className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button>
+                <Button variant="ghost" size="icon" className="hidden sm:flex h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={shareToken}><Share2 className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button>
+                <div className="hidden md:flex items-center gap-0.5">
+                  {token.website_url && <a href={token.website_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Globe className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                  {token.twitter_url && <a href={token.twitter_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Twitter className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                  {token.telegram_url && <a href={token.telegram_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><MessageCircle className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                  {token.mint_address && <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
+                </div>
+                <a href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" className="h-8 lg:h-7 px-2 text-[9px] font-mono gap-0.5 bg-accent/15 hover:bg-accent/25 text-accent-foreground rounded">
+                    <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                    <span className="hidden sm:inline">Axiom</span>
+                  </Button>
+                </a>
+                {(token as any).launchpad_type === 'bags' && token.mint_address && (
+                  <a href={`https://bags.fm/coin/${token.mint_address}`} target="_blank" rel="noopener noreferrer" className="hidden md:inline-flex">
+                    <Button size="sm" className="h-8 lg:h-7 px-2 text-[9px] font-mono gap-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded">
+                      <Briefcase className="h-2.5 w-2.5" />bags
+                    </Button>
+                  </a>
+                )}
+                <div className="hidden lg:flex items-center gap-0.5">
+                  {(token as any).launchpad_type === 'bags' && <BagsBadge mintAddress={token.mint_address || undefined} size="sm" />}
+                  {(token as any).launchpad_type === 'pumpfun' && <PumpBadge mintAddress={token.mint_address || undefined} size="sm" />}
+                  {(token as any).launchpad_type === 'phantom' && <PhantomBadge mintAddress={token.mint_address || undefined} size="sm" />}
+                </div>
+              </div>
             </div>
 
-            {/* Inline stats — tablet+ */}
-            <div className="hidden md:flex items-center gap-3 ml-3 flex-1 min-w-0">
+            {/* ROW 2: Secondary stats — visible on sm-lg, scrollable */}
+            <div className="hidden sm:flex lg:hidden items-center gap-3 px-3 py-1.5 overflow-x-auto scrollbar-none border-t border-border/10">
               {stats.map((s, i) => (
-                <div key={i} className="flex items-center gap-1">
+                <div key={i} className="flex items-center gap-1 shrink-0">
                   <span className="text-[9px] font-mono text-muted-foreground/70 uppercase">{s.label}</span>
                   <span className={`text-[11px] font-mono font-semibold ${s.accent ? 'terminal-stat-teal' : 'text-foreground/90'}`}>{s.value}</span>
                 </div>
               ))}
-              {priceChange !== 0 && (
-                <span className={`text-[11px] font-mono flex items-center gap-0.5 ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
-                  {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {Math.abs(priceChange).toFixed(1)}%
-                </span>
-              )}
-            </div>
-
-            {/* Creator — lg+ */}
-            <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-              {token.launch_author ? (
+              {/* Creator */}
+              {token.launch_author && (
                 <a href={`https://x.com/${token.launch_author}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">
+                  className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors shrink-0">
                   {twitterProfile?.profileImageUrl && <img src={twitterProfile.profileImageUrl} alt="" className="h-4 w-4 rounded-full object-cover" />}
                   @{token.launch_author}
-                  {twitterProfile?.verified && (
-                    <svg className="h-3 w-3 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
-                    </svg>
-                  )}
-                </a>
-              ) : token.creator_wallet ? (
-                <span className="text-[10px] font-mono text-muted-foreground">
-                  {token.creator_wallet.slice(0, 4)}...{token.creator_wallet.slice(-4)}
-                </span>
-              ) : null}
-            </div>
-
-            {/* Trust pills — xl only */}
-            <div className="hidden xl:flex items-center gap-1 shrink-0">
-              <span className="text-[8px] font-mono px-1.5 py-px rounded bg-accent/10 text-accent-foreground border border-accent/20 flex items-center gap-0.5">
-                <Shield className="h-2.5 w-2.5" /> NON-CUSTODIAL
-              </span>
-              <span className="text-[8px] font-mono px-1.5 py-px rounded bg-accent/10 text-accent-foreground border border-accent/20 flex items-center gap-0.5">
-                <Lock className="h-2.5 w-2.5" /> MEV PROTECTED
-              </span>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-0.5 shrink-0 ml-auto">
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={handleRefresh}><RefreshCw className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={copyAddress}><Copy className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground" onClick={shareToken}><Share2 className="h-4 w-4 md:h-3.5 md:w-3.5 lg:h-3 lg:w-3" /></Button>
-              <div className="hidden md:flex items-center gap-0.5">
-                {token.website_url && <a href={token.website_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Globe className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
-                {token.twitter_url && <a href={token.twitter_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><Twitter className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
-                {token.telegram_url && <a href={token.telegram_url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><MessageCircle className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
-                {token.mint_address && <a href={`https://solscan.io/token/${token.mint_address}`} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground"><ExternalLink className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
-              </div>
-              <a href={`https://axiom.trade/meme/${token.dbc_pool_address || token.mint_address}?chain=sol`} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="h-9 md:h-8 lg:h-7 px-2.5 md:px-2 text-[10px] md:text-[9px] font-mono gap-0.5 bg-accent/15 hover:bg-accent/25 text-accent-foreground rounded">
-                  <svg className="h-3 w-3 md:h-2.5 md:w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-                  Axiom
-                </Button>
-              </a>
-              {(token as any).launchpad_type === 'bags' && token.mint_address && (
-                <a href={`https://bags.fm/coin/${token.mint_address}`} target="_blank" rel="noopener noreferrer" className="hidden md:inline-flex">
-                  <Button size="sm" className="h-8 lg:h-7 px-2 text-[9px] font-mono gap-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded">
-                    <Briefcase className="h-2.5 w-2.5" />bags
-                  </Button>
                 </a>
               )}
-              <div className="hidden md:flex items-center gap-0.5">
-                {(token as any).launchpad_type === 'bags' && <BagsBadge mintAddress={token.mint_address || undefined} size="sm" />}
-                {(token as any).launchpad_type === 'pumpfun' && <PumpBadge mintAddress={token.mint_address || undefined} size="sm" />}
-                {(token as any).launchpad_type === 'phantom' && <PhantomBadge mintAddress={token.mint_address || undefined} size="sm" />}
-              </div>
+              {/* Trust pills */}
+              <span className="text-[8px] font-mono px-1.5 py-px rounded bg-accent/10 text-accent-foreground border border-accent/20 flex items-center gap-0.5 shrink-0">
+                <Shield className="h-2.5 w-2.5" /> NON-CUSTODIAL
+              </span>
             </div>
+
+            {/* Creator — lg+ (in row 1 area, but only shown on desktop) */}
+            {/* Already included in inline stats row above for lg+ */}
           </div>
 
           {/* ──── PHONE ONLY: Stats row ──── */}
