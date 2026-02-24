@@ -93,13 +93,29 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   codexToken,
   quickBuyAmount,
 }: PulseQuickBuyButtonProps) {
-  const { executeRealSwap, isLoading } = useRealSwap();
+  const { executeRealSwap, isLoading, getBalance } = useRealSwap();
   const { isAuthenticated, login } = useAuth();
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
 
+  const checkBalance = useCallback(async (amount: number): Promise<boolean> => {
+    try {
+      const balance = await getBalance();
+      if (balance < amount + 0.005) {
+        toast.error("Not enough SOL balance", {
+          description: `You have ${balance.toFixed(4)} SOL but need at least ${amount} SOL + fees`,
+        });
+        return false;
+      }
+      return true;
+    } catch {
+      // If we can't check balance, let the transaction fail naturally
+      return true;
+    }
+  }, [getBalance]);
+
   const handleTriggerClick = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (!isAuthenticated) {
@@ -114,6 +130,11 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
           return;
         }
         setBuyingAmount(quickBuyAmount);
+        const hasBalance = await checkBalance(quickBuyAmount);
+        if (!hasBalance) {
+          setBuyingAmount(null);
+          return;
+        }
         executeRealSwap(token, quickBuyAmount, true, 500)
           .then((result) => {
             if (result.success) {
@@ -134,7 +155,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
       }
       setOpen((prev) => !prev);
     },
-    [isAuthenticated, login, quickBuyAmount, funToken, codexToken, executeRealSwap],
+    [isAuthenticated, login, quickBuyAmount, funToken, codexToken, executeRealSwap, checkBalance],
   );
 
   const handleBuy = useCallback(
@@ -149,6 +170,13 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
       }
 
       setBuyingAmount(amount);
+
+      const hasBalance = await checkBalance(amount);
+      if (!hasBalance) {
+        setBuyingAmount(null);
+        return;
+      }
+
       try {
         const result = await executeRealSwap(token, amount, true, 500);
         if (result.success) {
@@ -178,7 +206,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
         setOpen(false);
       }
     },
-    [funToken, codexToken, executeRealSwap],
+    [funToken, codexToken, executeRealSwap, checkBalance],
   );
 
   const isBusy = isLoading || buyingAmount !== null;
