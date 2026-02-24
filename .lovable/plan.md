@@ -1,99 +1,119 @@
 
+# Telegram-Style Public Chat Room (Console)
 
-## Fix External Token Trading: Trades Display + Swap Routing
+## Overview
+Replace the current Console drawer with a full-page, Telegram-styled public chat room at `/console`. The chat will be a shared, real-time space where all users see the same messages, can interact with the Claw bot, and messages persist in the database. The sidebar Console button will navigate to this page instead of opening a drawer.
 
-### Problem Summary
-Two issues with external tokens (e.g., Pump.fun tokens not in our database):
+## Key Features
+- **Full-page chat** embedded within the standard layout (sidebar + header), replacing the main content area
+- **Shared messages** -- all users see every message in real-time
+- **User identity**: Logged-in users show their profile username/display name; anonymous users show `GUEST#XXXX` (random 4-digit ID stored in localStorage)
+- **Claw bot responses** -- when a user sends a message, the bot responds in the shared chat (visible to all)
+- **Auto-refresh** every 2-3 seconds via polling (simple, reliable)
+- **Telegram-style UI**: dark theme, compact bubbles, timestamps, user avatars, online indicator
 
-1. **"No trades yet"** -- The Codex `getTokenEvents` API returns data, but it may be empty for very new tokens or the edge function may need the correct pair address rather than just the token address.
+## Database Changes
 
-2. **"No route found"** -- The `UniversalTradePanel` only uses Jupiter (`useJupiterSwap`), which doesn't support tokens still on Pump.fun's bonding curve. Jupiter only routes for graduated/migrated tokens with DEX liquidity.
+### New table: `console_messages`
+```sql
+CREATE TABLE public.console_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  display_name text NOT NULL,
+  content text NOT NULL,
+  is_bot boolean DEFAULT false,
+  reply_to uuid REFERENCES public.console_messages(id) ON DELETE SET NULL,
+  created_at timestamptz DEFAULT now() NOT NULL
+);
 
-### Root Cause
-- The `UniversalTradePanel` bypasses the smart routing in `useRealSwap` and calls Jupiter directly.
-- For Pump.fun bonding curve tokens, Jupiter has no route since liquidity only exists on the Pump.fun bonding curve.
-- The platform needs a **Pump.fun swap** path similar to how it already has Meteora DBC swap for its own bonding curve tokens.
+ALTER TABLE public.console_messages ENABLE ROW LEVEL SECURITY;
 
-### Solution
+-- Everyone can read all messages
+CREATE POLICY "Anyone can read console messages"
+  ON public.console_messages FOR SELECT
+  TO anon, authenticated
+  USING (true);
 
-#### 1. Add Pump.fun Swap Edge Function
-Create a new edge function `pumpfun-swap` that uses the **Pump.fun API** (or the QuickNode Metis endpoint which wraps Jupiter + Pump.fun) to build swap transactions for bonding curve tokens.
+-- Anyone can insert messages (guests too)
+CREATE POLICY "Anyone can insert console messages"
+  ON public.console_messages FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (true);
 
-- The Pump.fun API at `https://pumpportal.fun/api/trade-local` accepts a mint address, SOL amount, and returns a serialized transaction.
-- Alternatively, use the public Jupiter API which has recently added Pump.fun as a liquidity source -- but we need to confirm route availability.
-
-**Recommended approach**: Use the **PumpPortal API** (`https://pumpportal.fun/api/trade-local`) which provides direct bonding curve swaps without requiring extra API keys.
-
-#### 2. Create `usePumpFunSwap` Hook
-A new hook that:
-- Gets a quote from the Pump.fun bonding curve
-- Builds the swap transaction via the PumpPortal API
-- Signs and sends via the Privy embedded wallet (`signAndSendTransaction`)
-
-#### 3. Upgrade `UniversalTradePanel` to Smart Routing
-Instead of only using Jupiter, detect the token's status:
-- **If `migrated: true` or `completed: true`** (from the `ExternalToken` data) -> Use Jupiter
-- **If still on bonding curve** (from Codex launchpad data) -> Use Pump.fun swap
-- Show the routing source in the UI ("via Jupiter" vs "via Pump.fun")
-- Remove "No route found" -- if Jupiter fails, try Pump.fun automatically
-
-#### 4. Pass Token Context to Trade Panel
-The `ExternalTokenView` already passes basic token info to `UniversalTradePanel`. We need to also pass:
-- `completed` / `migrated` status (to determine swap route)
-- `graduationPercent` (for UI display)
-
-#### 5. Fix Trades Tab
-The trades may be empty because Codex needs time to index very new tokens. Add:
-- A "No trades found for this token yet" message with a note that data may take time to appear
-- Auto-retry with shorter intervals for new tokens
-
-### Technical Changes
-
-| File | Change |
-|------|--------|
-| `supabase/functions/pumpfun-swap/index.ts` | **New** -- Edge function to proxy PumpPortal swap transaction building |
-| `src/hooks/usePumpFunSwap.ts` | **New** -- Hook for Pump.fun bonding curve swaps via Privy wallet |
-| `src/components/launchpad/UniversalTradePanel.tsx` | **Modify** -- Add smart routing: detect bonding curve vs graduated, use appropriate swap method, show route source |
-| `src/hooks/useExternalToken.ts` | **Modify** -- Ensure `completed`/`migrated`/`graduationPercent` fields are passed through |
-| `src/pages/FunTokenDetailPage.tsx` | **Modify** -- Pass full token context (including bonding status) to `UniversalTradePanel` |
-| `src/components/launchpad/TokenDataTabs.tsx` | **Modify** -- Better empty state messaging for trades |
-| `src/hooks/useRealSwap.ts` | **Modify** -- Add Pump.fun swap path alongside existing Meteora DBC and Jupiter paths |
-
-### Swap Routing Logic
-
-```text
-Token Swap Request
-       |
-       v
-  Is token graduated/migrated?
-       |
-      YES --> Jupiter Aggregator (existing)
-       |
-      NO --> Is it a platform DBC token?
-              |
-             YES --> Meteora DBC SDK (existing)
-              |
-             NO --> PumpPortal API (new)
-                    Builds bonding curve tx
-                    Sign via Privy wallet
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.console_messages;
 ```
 
-### PumpPortal API Integration
-The PumpPortal API (`https://pumpportal.fun/api/trade-local`) is free, requires no API key, and returns a serialized transaction:
+## Technical Changes
+
+### 1. New: `src/pages/ConsolePage.tsx`
+Full-page Telegram-style chat component:
+- Uses `LaunchpadLayout` for consistent sidebar/header
+- Fetches last 100 messages on mount from `console_messages` table
+- Polls every 2.5 seconds for new messages (simple `setInterval` with `created_at > lastMessageTime`)
+- Scrolls to bottom on new messages
+- Input bar at bottom (fixed within the chat area)
+- Shows user avatar + display name on each message
+- Guest users get `GUEST#XXXX` ID stored in `localStorage`
+- When a user sends a message, it also triggers the `ai-chat` edge function, and the bot response is saved to the DB as well
+
+### 2. New: `supabase/functions/console-chat/index.ts`
+New edge function that:
+- Receives the user message + recent chat context
+- Saves the user message to `console_messages`
+- Calls the existing Lovable AI Gateway with the Claw system prompt
+- Saves the bot response to `console_messages`
+- Returns the bot response
+
+This ensures both user and bot messages are persisted and visible to all users.
+
+### 3. Modified: `src/components/layout/Sidebar.tsx`
+- Change Console button from opening a drawer to navigating to `/console`
+- Remove `ConsoleDrawer` import and state management
+- Keep the "Live" badge styling
+
+### 4. Modified: `src/App.tsx`
+- Add lazy-loaded route for `/console` -> `ConsolePage`
+
+### 5. Modified: `src/pages/ClawBookPage.tsx`
+- Update the Console announcement toast to navigate to `/console` properly
+
+## UI Design (Telegram-Style)
 
 ```text
-POST https://pumpportal.fun/api/trade-local
-Body: {
-  publicKey: "<user wallet>",
-  action: "buy" | "sell",
-  mint: "<token mint>",
-  amount: <SOL amount for buy, token amount for sell>,
-  denominatedInSol: "true",
-  slippage: 5,
-  priorityFee: 0.0005
-}
-Response: Raw transaction bytes (base64)
++------------------------------------------+
+| SIDEBAR |  HEADER                         |
+|         |                                 |
+| Home    |  [Claw Console - Live]  45 online|
+| Console |  --------------------------------|
+| ...     |  |  GUEST#4821: gm everyone     |
+|         |  |  Claw: gm gm, what's good    |
+|         |  |  @lobsterfan: wen moon?       |
+|         |  |  Claw: patience young padawan |
+|         |  |  GUEST#7712: send me sol      |
+|         |  |  Claw: why should I? convince |
+|         |  |                               |
+|         |  --------------------------------|
+|         |  [Type a message...] [Send]      |
++---------+---------------------------------+
 ```
 
-The edge function will proxy this to keep the architecture consistent and allow adding rate limiting or caching later.
+- Dark background matching the app theme
+- Messages: compact bubbles with name, timestamp, avatar
+- Bot messages: highlighted with Claw logo avatar and subtle accent border
+- User messages: standard bubbles with username
+- Online user count displayed in header
+- Smooth auto-scroll to latest messages
 
+## Message Flow
+
+1. User types message and hits Send
+2. Frontend calls `console-chat` edge function with `{ content, displayName, userId? }`
+3. Edge function saves user message to DB, calls AI, saves bot response to DB
+4. Meanwhile, the 2.5s polling picks up new messages for ALL connected users
+5. All users see both the user's message and the bot's reply appear
+
+## Guest Identity
+- On first visit, generate `GUEST#` + random 4-digit number, store in `localStorage`
+- Persists across page refreshes
+- Logged-in users use their `profiles.display_name` or `profiles.username`
