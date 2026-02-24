@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { PrivyProviderWrapper } from "@/providers/PrivyProviderWrapper";
 import { ChainProvider } from "@/contexts/ChainContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -16,7 +16,9 @@ import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext"
 
 function ConditionalMatrixBackground() {
   const { matrixEnabled } = useMatrixMode();
-  return matrixEnabled ? <MatrixBackground /> : null;
+  const { pathname } = useLocation();
+  if (!matrixEnabled || pathname.startsWith("/launchpad/")) return null;
+  return <MatrixBackground />;
 }
 
 function MatrixRouteWrapper({ children }: { children: React.ReactNode }) {
@@ -114,9 +116,9 @@ const App = () => (
             <Toaster />
             <Sonner />
             <ErrorBoundary>
-              <ConditionalMatrixBackground />
               <StickyStatsFooter />
               <BrowserRouter>
+                <ConditionalMatrixBackground />
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
                   <MatrixRouteWrapper>
