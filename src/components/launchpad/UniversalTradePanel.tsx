@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
+import { usePumpFunSwap } from "@/hooks/usePumpFunSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { ArrowDown, Loader2, Wallet, AlertTriangle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,8 @@ interface TokenInfo {
   ticker: string;
   name: string;
   decimals?: number;
+  /** Whether this token has graduated/migrated from bonding curve to DEX */
+  graduated?: boolean;
 }
 
 interface UniversalTradePanelProps {
@@ -25,11 +28,15 @@ const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTradePanelProps) {
   const { isAuthenticated, login, solanaAddress } = useAuth();
   const { getBuyQuote, getSellQuote, buyToken, sellToken, isLoading: swapLoading } = useJupiterSwap();
+  const { swap: pumpFunSwap } = usePumpFunSwap();
   const { signAndSendTransaction, isWalletReady } = useSolanaWalletWithPrivy();
 
   const signAndSendTx = useCallback(async (tx: VersionedTransaction): Promise<{ signature: string; confirmed: boolean }> => {
     return await signAndSendTransaction(tx);
   }, [signAndSendTransaction]);
+
+  // Determine swap route: graduated tokens use Jupiter, bonding curve tokens use PumpPortal
+  const useJupiterRoute = token.graduated !== false; // default to Jupiter if graduated is undefined or true
 
   const { toast } = useToast();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
@@ -45,7 +52,13 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
   const numericAmount = parseFloat(amount) || 0;
   const tokenDecimals = token.decimals || 9;
 
+  // Only fetch Jupiter quotes for graduated tokens
   useEffect(() => {
+    if (!useJupiterRoute) {
+      setQuote(null);
+      setQuoteLoading(false);
+      return;
+    }
     const fetchQuote = async () => {
       if (numericAmount <= 0 || !token.mint_address) {
         setQuote(null);
@@ -69,7 +82,7 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
     };
     const t = setTimeout(fetchQuote, 500);
     return () => clearTimeout(t);
-  }, [numericAmount, isBuy, token.mint_address, tokenDecimals, slippage, getBuyQuote, getSellQuote]);
+  }, [numericAmount, isBuy, token.mint_address, tokenDecimals, slippage, getBuyQuote, getSellQuote, useJupiterRoute]);
 
   const outputAmount = quote ? parseInt(quote.outAmount) / (10 ** (isBuy ? tokenDecimals : 9)) : 0;
   const priceImpact = quote ? parseFloat(quote.priceImpactPct) : 0;
@@ -117,16 +130,30 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
       toast({ title: "Please connect your wallet", variant: "destructive" });
       return;
     }
-    if (!signAndSendTx) {
-      toast({ title: "Wallet not ready", variant: "destructive" });
-      return;
-    }
 
     setIsLoading(true);
     try {
-      const result = isBuy
-        ? await buyToken(token.mint_address, numericAmount, solanaAddress, signAndSendTx, slippage * 100)
-        : await sellToken(token.mint_address, numericAmount, tokenDecimals, solanaAddress, signAndSendTx, slippage * 100);
+      let result: { signature?: string; outputAmount?: number };
+
+      if (useJupiterRoute) {
+        // Jupiter route for graduated tokens
+        if (!signAndSendTx) {
+          toast({ title: "Wallet not ready", variant: "destructive" });
+          return;
+        }
+        result = isBuy
+          ? await buyToken(token.mint_address, numericAmount, solanaAddress, signAndSendTx, slippage * 100)
+          : await sellToken(token.mint_address, numericAmount, tokenDecimals, solanaAddress, signAndSendTx, slippage * 100);
+      } else {
+        // PumpPortal route for bonding curve tokens
+        const pumpResult = await pumpFunSwap(
+          token.mint_address,
+          numericAmount,
+          isBuy,
+          slippage,
+        );
+        result = { signature: pumpResult.signature, outputAmount: pumpResult.outputAmount };
+      }
 
       setAmount('');
       setQuote(null);
@@ -136,9 +163,11 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
             <span>
-              {isBuy
-                ? `Bought ${formatAmount(result.outputAmount)} ${token.ticker}`
-                : `Sold for ${formatAmount(result.outputAmount)} SOL`}
+              {result.outputAmount
+                ? (isBuy
+                  ? `Bought ${formatAmount(result.outputAmount)} ${token.ticker}`
+                  : `Sold for ${formatAmount(result.outputAmount)} SOL`)
+                : `${isBuy ? 'Buy' : 'Sell'} confirmed`}
             </span>
             {result.signature && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
@@ -269,19 +298,21 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
         )}
 
         {/* Trade Info */}
-        {numericAmount > 0 && quote && (
+        {numericAmount > 0 && (useJupiterRoute ? quote : true) && (
           <div className="space-y-1.5 text-[10px] font-mono border-t border-border/30 pt-2.5">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Price Impact</span>
-              <span className={priceImpact > 5 ? 'text-destructive' : 'text-foreground/70'}>{priceImpact.toFixed(2)}%</span>
-            </div>
+            {quote && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Price Impact</span>
+                <span className={priceImpact > 5 ? 'text-destructive' : 'text-foreground/70'}>{priceImpact.toFixed(2)}%</span>
+              </div>
+            )}
             <div className="flex justify-between text-muted-foreground">
               <span>Slippage</span>
               <span className="text-foreground/70">{slippage}%</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Route</span>
-              <span className="text-accent-foreground">Jupiter Aggregator</span>
+              <span className="text-accent-foreground">{useJupiterRoute ? 'Jupiter Aggregator' : 'PumpPortal'}</span>
             </div>
           </div>
         )}
@@ -339,7 +370,7 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
         ) : (
           <button
             onClick={handleTrade}
-            disabled={buttonLoading || !numericAmount || quoteLoading || !quote || !isWalletReady}
+            disabled={buttonLoading || !numericAmount || (useJupiterRoute && (quoteLoading || !quote)) || !isWalletReady}
             className={`w-full h-12 rounded-lg font-mono text-sm font-bold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
               isBuy
                 ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/40 hover:border-green-500/60 hover:shadow-[0_0_16px_hsl(142_60%_40%/0.25)]'
@@ -348,9 +379,9 @@ export function UniversalTradePanel({ token, userTokenBalance = 0 }: UniversalTr
           >
             {buttonLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-            ) : quoteLoading ? (
+            ) : useJupiterRoute && quoteLoading ? (
               'Getting quote...'
-            ) : !quote && numericAmount > 0 ? (
+            ) : useJupiterRoute && !quote && numericAmount > 0 ? (
               'No route found'
             ) : (
               `${isBuy ? 'Buy' : 'Sell'} ${token.ticker}`
