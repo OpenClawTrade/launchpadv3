@@ -1,74 +1,100 @@
 
-# Quick Buy Default Amount Input + Card Spacing Fix
+# Axiom-Style Trades & Data Tabs for Token Detail Page
 
-## 1. Persistent Quick Buy Amount Input (Axiom-style)
+## Overview
+Add a tabbed section below the chart on each token's detail page (`/launchpad/:mintAddress`) that mirrors the Axiom terminal interface. The tabs will show **Trades**, **Holders**, and **Top Traders** -- all powered by the Codex.io API via new edge functions.
 
-Add a small SOL amount input field in the Pulse header toolbar that persists the user's default buy amount. When users click "Buy" on any card, it uses this saved amount to execute immediately (one-click buy) instead of opening a popover to pick an amount.
+## What Gets Built
 
-### How It Works
-- A compact input field appears in the Pulse toolbar header (next to the counter badge on the right side), showing something like: `[lightning] 0.5 SOL`
-- The value is saved to `localStorage` under key `pulse-quick-buy-amount`
-- Default value: `0.5` SOL
-- Users can click the input, type a custom amount (e.g., 0.1, 1, 2, etc.), and it persists across sessions
-- The `PulseQuickBuyButton` on each card reads this saved amount and executes immediately on click (no popover needed for the default amount)
-- Long-press or right-click still opens the popover with preset amounts as a fallback
+### 1. New Edge Function: `codex-token-events`
+A backend function that proxies the Codex `getTokenEvents` GraphQL query. It will:
+- Accept a token address, optional cursor for pagination, and limit
+- Query Codex with `eventType: Swap` filter to only return swap events
+- Return normalized trade rows: age/time, type (Buy/Sell), market cap at time, token amount, USD total, trader address, tx hash
 
-### Files to Modify
+### 2. New Edge Function: `codex-token-holders`
+A backend function using `top10HoldersPercent` or the `holders` Codex endpoint to fetch holder data for the token. Returns:
+- Holder count (already available from `filterTokens`)
+- Top holder addresses and percentages (if available on current plan)
 
-**`src/pages/TradePage.tsx`**
-- Add state for `quickBuyAmount` initialized from `localStorage` (default `0.5`)
-- Add a small inline input in the Pulse header toolbar (right side, before the counter badge)
-- Input styling: compact, dark background, mono font, lightning icon prefix, "SOL" suffix label
-- On change, save to `localStorage` and update state
-- Pass `quickBuyAmount` down to `AxiomTerminalGrid`
+### 3. New Hook: `useCodexTokenEvents`
+React Query hook that:
+- Calls `codex-token-events` edge function with the token address
+- Polls every 5 seconds for near-realtime trade updates
+- Supports pagination via cursor
+- Returns typed trade event array
 
-**`src/components/launchpad/AxiomTerminalGrid.tsx`**
-- Accept new prop `quickBuyAmount: number`
-- Pass it through to `AxiomTokenRow` and `CodexPairRow`
+### 4. New Component: `CodexTokenTrades`
+A table component matching the screenshot's Axiom style:
+- **Columns**: Age (relative time like "0s", "2s", "10s"), Type (Buy green / Sell red), MC (market cap at time), Amount (token amount), Total USD (colored green/red), Trader (truncated address with copy + Solscan links)
+- Dark luxury theme consistent with terminal design
+- Auto-scrolling with new trades appearing at the top
 
-**`src/components/launchpad/AxiomTokenRow.tsx`**
-- Accept `quickBuyAmount` prop
-- Pass it to `PulseQuickBuyButton`
+### 5. New Component: `TokenDataTabs`
+Tabbed container with Axiom-style tab bar:
+- **Trades** - Live trade feed (default, with count)
+- **Holders (N)** - Holder count from Codex
+- **Top Traders** - Placeholder or populated if API plan supports it
+- Tabs styled as horizontal text buttons matching screenshot (bold active, muted inactive)
 
-**`src/components/launchpad/CodexPairRow.tsx`**
-- Accept `quickBuyAmount` prop
-- Pass it to `PulseQuickBuyButton`
+### 6. Update: `FunTokenDetailPage.tsx`
+Insert the `TokenDataTabs` component below the chart section in all three layouts (phone, tablet, desktop):
+- Desktop: Below the chart in the left 9-column area
+- Tablet: Below the chart in the left 7-column area  
+- Phone: Visible in the "chart" mobile tab
 
-**`src/components/launchpad/PulseQuickBuyButton.tsx`**
-- Accept optional `quickBuyAmount` prop
-- When `quickBuyAmount` is provided and user clicks the button, execute the swap immediately with that amount (skip the popover)
-- The button label changes from "Buy" to show the amount, e.g., "0.5 SOL"
-- Keep the popover as a secondary option (e.g., on a small dropdown arrow or long-press)
+## Technical Details
 
----
+### Codex `getTokenEvents` Query Structure
+```graphql
+{
+  getTokenEvents(
+    query: {
+      address: "<TOKEN_ADDRESS>"
+      networkId: 1399811149
+    }
+    cursor: null
+    limit: 50
+  ) {
+    cursor
+    events {
+      timestamp
+      eventType
+      eventDisplayType
+      maker
+      data {
+        ... on SwapEventData {
+          amount0
+          amount1
+          priceUsd
+          priceUsdTotal
+          type
+        }
+      }
+      transaction {
+        hash
+      }
+    }
+  }
+}
+```
 
-## 2. Card Spacing Fix
+### Edge Function Config
+Both new functions will use `verify_jwt = false` (public access, same as other codex functions) and the existing `CODEX_API_KEY` secret.
 
-### Problem
-Cards are touching edge-to-edge with `gap-0.5` (2px) -- looks cramped and unprofessional.
+### Files Created
+- `supabase/functions/codex-token-events/index.ts`
+- `src/hooks/useCodexTokenEvents.ts`
+- `src/components/launchpad/CodexTokenTrades.tsx`
+- `src/components/launchpad/TokenDataTabs.tsx`
 
-### Fix
+### Files Modified
+- `src/pages/FunTokenDetailPage.tsx` -- Add `TokenDataTabs` below chart in all layouts
 
-**`src/components/launchpad/AxiomTerminalGrid.tsx`**
-- In `renderColumnContent`, change the card list container from `gap-0.5 p-1` to `gap-3 p-2`
-- In `PulseColumnSkeleton`, change from `gap-1 p-1.5` to `gap-3 p-2`
-
-This gives 12px vertical spacing between cards with 8px padding around the column -- clean, professional breathing room without being too spread out for a dense terminal.
-
----
-
-## Summary of Changes
-| File | Change |
-|------|--------|
-| `TradePage.tsx` | Add quick buy amount input in header toolbar + state/localStorage |
-| `AxiomTerminalGrid.tsx` | Accept + pass `quickBuyAmount` prop; fix `gap-0.5` to `gap-3` |
-| `AxiomTokenRow.tsx` | Accept + pass `quickBuyAmount` to button |
-| `CodexPairRow.tsx` | Accept + pass `quickBuyAmount` to button |
-| `PulseQuickBuyButton.tsx` | Accept `quickBuyAmount`, execute immediately on click, show amount on button |
-
-## What Stays Untouched
-- Left sidebar -- 100% untouched
-- Top app header -- 100% untouched
-- All data hooks -- 100% untouched
-- Card design/colors -- 100% untouched (only spacing between cards changes)
-- Swap execution logic (`useRealSwap`) -- 100% untouched
+### Styling
+- Dark background (`#0a0a0a` / `#111`) consistent with terminal theme
+- Mono font for all data
+- Green for Buy, Red for Sell (matching screenshot colors)
+- Compact row height for high-density display
+- Truncated trader addresses with copy icon and Solscan external link icon
+- Tab bar: horizontal, text-only tabs with active bold styling
