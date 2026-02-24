@@ -17,7 +17,7 @@ import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext"
 function ConditionalMatrixBackground() {
   const { matrixEnabled } = useMatrixMode();
   const { pathname } = useLocation();
-  if (!matrixEnabled || pathname.startsWith("/launchpad/")) return null;
+  if (!matrixEnabled || pathname.startsWith("/launchpad/") || pathname === "/trade") return null;
   return <MatrixBackground />;
 }
 
