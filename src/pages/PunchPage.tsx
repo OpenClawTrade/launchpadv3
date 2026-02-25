@@ -14,7 +14,7 @@ type GameState = "wallet-entry" | "tapping" | "launching" | "result";
 const TAPS_TO_WIN = 50;
 const DECAY_RATE = 1.2; // % per 100ms when idle — fast decay
 const COMBO_WINDOW_MS = 300;
-const REQUIRED_COMBO = 10; // must hit 10x combo before launch
+const REQUIRED_COMBO = 100; // must hit 100x combo before launch
 
 export default function PunchPage() {
   const { toast } = useToast();
