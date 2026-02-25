@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useNfaCollection } from "@/hooks/useNfaCollection";
 import { useAuth } from "@/hooks/useAuth";
@@ -7,9 +7,12 @@ import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Fingerprint, CheckCircle2, Users, Coins, TrendingUp, ExternalLink,
   ShoppingCart, Loader2, Sparkles, Upload, X, ArrowLeft, AlertTriangle,
-  Bot, Zap, Shield, Tag,
+  Bot, Zap, Shield, Tag, Pause,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -276,12 +279,30 @@ export default function NfaPage() {
   const { solanaAddress } = useAuth();
   const privyAvailable = usePrivyAvailable();
   const [tab, setTab] = useState<"mint" | "collection" | "activity">("mint");
+  const [pausedOpen, setPausedOpen] = useState(true);
+  const NFA_PAUSED = true; // flip to false to re-enable minting
 
   const progress = batch ? (batch.minted_count / batch.total_slots) * 100 : 0;
   const slotsRemaining = batch ? batch.total_slots - batch.minted_count : 0;
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Paused Dialog */}
+      {NFA_PAUSED && (
+        <Dialog open={pausedOpen} onOpenChange={setPausedOpen}>
+          <DialogContent className="sm:max-w-md border-white/10 bg-[#0f1a2e]">
+            <DialogHeader className="items-center text-center">
+              <div className="h-14 w-14 rounded-full flex items-center justify-center bg-yellow-500/10 mb-2 mx-auto">
+                <Pause className="h-7 w-7 text-yellow-400" />
+              </div>
+              <DialogTitle className="text-lg font-bold font-mono">Minting Paused</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                NFA agents will be resumed soon.
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+      )}
       {/* Hero */}
       <div className="relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a1628 0%, #0d2818 40%, #0a1628 100%)" }}>
         <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
@@ -397,7 +418,13 @@ export default function NfaPage() {
                 </span>
               </div>
 
-              {privyAvailable && solanaAddress && batch?.status === "open" ? (
+              {NFA_PAUSED ? (
+                <div className="text-center py-12 space-y-3">
+                  <Pause className="h-10 w-10 mx-auto opacity-40 text-yellow-400" />
+                  <p className="text-sm font-medium">Minting Paused</p>
+                  <p className="text-xs text-muted-foreground">NFA agents will be resumed soon.</p>
+                </div>
+              ) : privyAvailable && solanaAddress && batch?.status === "open" ? (
                 <InlineMintFlow batch={batch} solanaAddress={solanaAddress} />
               ) : !batch || batch.status !== "open" ? (
                 <div className="text-center py-12">
