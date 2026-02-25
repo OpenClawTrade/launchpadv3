@@ -81,7 +81,7 @@ const NfaPage = lazy(() => import("./pages/NfaPage"));
 const NfaDetailPage = lazy(() => import("./pages/NfaDetailPage"));
 const NfaMarketplacePage = lazy(() => import("./pages/NfaMarketplacePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const TokenomicsPage = lazy(() => import("./pages/TokenomicsPage"));
+
 const PanelPage = lazy(() => import("./pages/PanelPage"));
 const ConsolePage = lazy(() => import("./pages/ConsolePage"));
 const PunchPage = lazy(() => import("./pages/PunchPage"));
@@ -179,7 +179,7 @@ const App = () => (
                     <Route path="/admin/compressed-distribute" element={<CompressedDistributePage />} />
                     <Route path="/decompress" element={<DecompressPage />} />
                      <Route path="/fun" element={<FunModePage />} />
-                     <Route path="/tokenomics" element={<TokenomicsPage />} />
+                     
                      <Route path="/panel" element={<PanelPage />} />
                      <Route path="/nfa" element={<NfaPage />} />
                      <Route path="/nfa/:id" element={<NfaDetailPage />} />
