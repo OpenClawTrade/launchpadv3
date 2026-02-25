@@ -7,7 +7,8 @@ export function usePunchTokenCount() {
   const fetchCount = async () => {
     const { count: total } = await supabase
       .from("fun_tokens")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .ilike("description", "%Punched into existence%");
     setCount(total ?? 0);
   };
 
