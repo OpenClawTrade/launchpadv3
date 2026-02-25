@@ -2301,6 +2301,48 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                   </>
                 )}
 
+                {/* Describe Sub-Mode */}
+                {phantomSubMode === "describe" && (
+                  <>
+                    <p className="text-sm text-[#94A3B8]">Describe your meme character. AI generates the name, ticker, and image.</p>
+                    <textarea
+                      value={phantomDescribePrompt}
+                      onChange={(e) => setPhantomDescribePrompt(e.target.value)}
+                      placeholder="e.g., A lobster astronaut riding a rocket made of gold coins..."
+                      maxLength={500}
+                      className="w-full min-h-[80px] rounded-xl p-4 text-sm resize-none placeholder:italic placeholder:text-[#475569] focus:outline-none focus:ring-2 transition-all duration-200"
+                      style={{
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(139,92,246,0.2)",
+                        color: "#e2e8f0",
+                      }}
+                    />
+                    <button
+                      onClick={handlePhantomDescribeGenerate}
+                      disabled={isPhantomGenerating || !phantomDescribePrompt.trim()}
+                      className="w-full h-11 rounded-xl font-semibold text-sm text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                      style={{
+                        background: "linear-gradient(135deg, rgba(139,92,246,0.6), rgba(6,182,212,0.6))",
+                        border: "1px solid rgba(139,92,246,0.3)",
+                        backdropFilter: "blur(8px)",
+                      }}
+                    >
+                      {isPhantomGenerating ? <><Sparkles className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate from Description</>}
+                    </button>
+
+                    {isPhantomGenerating && (
+                      <div className="gate-token-preview">
+                        <div className="gate-token-preview-avatar">
+                          <MemeLoadingAnimation />
+                        </div>
+                        <div className="gate-token-preview-info">
+                          <MemeLoadingText />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* Realistic Sub-Mode */}
                 {phantomSubMode === "realistic" && (
                   <>
