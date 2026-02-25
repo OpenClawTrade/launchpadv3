@@ -12,8 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 type GameState = "wallet-entry" | "tapping" | "launching" | "result";
 
 const TAPS_TO_WIN = 50;
-const DECAY_RATE = 0.4; // % per 100ms when idle
+const DECAY_RATE = 1.2; // % per 100ms when idle — fast decay
 const COMBO_WINDOW_MS = 300;
+const REQUIRED_COMBO = 10; // must hit 10x combo before launch
 
 export default function PunchPage() {
   const { toast } = useToast();
@@ -22,6 +23,7 @@ export default function PunchPage() {
   const [progress, setProgress] = useState(0);
   const [combo, setCombo] = useState(0);
   const [multiplier, setMultiplier] = useState(1);
+  const [hasReachedCombo10, setHasReachedCombo10] = useState(false);
   const [tapping, setTapping] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -56,6 +58,7 @@ export default function PunchPage() {
     tapCount.current = 0;
     progressRef.current = 0;
     lastTapTime.current = 0;
+    setHasReachedCombo10(false);
 
     // Start decay timer
     decayTimer.current = setInterval(() => {
@@ -85,8 +88,12 @@ export default function PunchPage() {
 
       // Combo logic
       if (timeSinceLastTap < COMBO_WINDOW_MS && timeSinceLastTap > 0) {
-        setCombo((c) => c + 1);
+        const newCombo = combo + 1;
+        setCombo(newCombo);
         setMultiplier((m) => Math.min(m + 0.1, 3));
+        if (newCombo >= REQUIRED_COMBO) {
+          setHasReachedCombo10(true);
+        }
       } else {
         setCombo(0);
         setMultiplier(1);
@@ -107,13 +114,13 @@ export default function PunchPage() {
       }, 80);
 
       // Win condition
-      if (progressRef.current >= 100) {
+      if (progressRef.current >= 100 && hasReachedCombo10) {
         if (decayTimer.current) clearInterval(decayTimer.current);
         setShowConfetti(true);
         setTimeout(() => launchToken(), 1500);
       }
     },
-    [state, multiplier]
+    [state, multiplier, combo, hasReachedCombo10]
   );
 
   const launchToken = async () => {
