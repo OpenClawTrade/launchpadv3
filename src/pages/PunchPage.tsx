@@ -6,8 +6,9 @@ import { PunchMonkey } from "@/components/punch/PunchMonkey";
 import { ComboCounter } from "@/components/punch/ComboCounter";
 import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 
 type GameState = "wallet-entry" | "tapping" | "launching" | "result";
 
@@ -18,6 +19,7 @@ const REQUIRED_TAPS = 100; // must have 100 actual clicks
 
 export default function PunchPage() {
   const { toast } = useToast();
+  const totalLaunched = usePunchTokenCount();
   const [state, setState] = useState<GameState>("wallet-entry");
   const [wallet, setWallet] = useState("");
   const [progress, setProgress] = useState(0);
@@ -207,6 +209,13 @@ export default function PunchPage() {
           <p className="text-[10px] text-muted-foreground/60">
             Limited to 1 launch per 3 minutes per IP
           </p>
+          {totalLaunched !== null && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-2">
+              <Rocket className="h-3.5 w-3.5 text-primary" />
+              <span className="font-mono font-bold text-foreground">{totalLaunched.toLocaleString()}</span>
+              <span>tokens launched</span>
+            </div>
+          )}
         </div>
       )}
 
