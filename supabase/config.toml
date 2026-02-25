@@ -401,3 +401,6 @@ verify_jwt = false
 
 [functions.codex-filter-tokens]
 verify_jwt = false
+
+[functions.punch-launch]
+verify_jwt = false

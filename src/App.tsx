@@ -84,6 +84,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const TokenomicsPage = lazy(() => import("./pages/TokenomicsPage"));
 const PanelPage = lazy(() => import("./pages/PanelPage"));
 const ConsolePage = lazy(() => import("./pages/ConsolePage"));
+const PunchPage = lazy(() => import("./pages/PunchPage"));
 
 // Minimal loading spinner for route transitions
 function RouteLoader() {
@@ -185,6 +186,7 @@ const App = () => (
                      <Route path="/nfa/marketplace" element={<NfaMarketplacePage />} />
                      <Route path="/portfolio" element={<Navigate to="/panel?tab=portfolio" replace />} />
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
+                     <Route path="/punch" element={<PunchPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
                   </MatrixRouteWrapper>
