@@ -1,0 +1,263 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const RATE_LIMIT_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get client IP
+    const clientIP =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-real-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown";
+
+    console.log("[punch-launch] Request from IP:", clientIP);
+
+    // Rate limit check: 1 per 3 minutes per IP
+    const threeMinAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    const { data: recent, error: rlErr } = await supabase
+      .from("launch_rate_limits")
+      .select("launched_at")
+      .eq("ip_address", clientIP)
+      .gte("launched_at", threeMinAgo)
+      .order("launched_at", { ascending: false })
+      .limit(1);
+
+    if (!rlErr && recent && recent.length > 0) {
+      const oldest = new Date(recent[0].launched_at);
+      const expiresAt = new Date(oldest.getTime() + RATE_LIMIT_WINDOW_MS);
+      const waitSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
+      return new Response(
+        JSON.stringify({
+          error: `Rate limited. Try again in ${Math.ceil(waitSeconds / 60)} minutes.`,
+          rateLimited: true,
+          waitSeconds: Math.max(0, waitSeconds),
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { creatorWallet } = await req.json();
+    if (!creatorWallet || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creatorWallet)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid Solana wallet address" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Step 1: Generate name + ticker via AI (tool calling)
+    console.log("[punch-launch] Generating name/ticker...");
+    const nameRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You generate funny, viral meme coin names and tickers themed around monkeys punching things. Be creative and humorous. The ticker should be 3-6 uppercase letters.",
+          },
+          {
+            role: "user",
+            content:
+              "Generate a unique funny meme coin name and ticker about monkeys punching things. Make it catchy and viral-worthy.",
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "generate_punch_token",
+              description: "Return a meme coin name and ticker",
+              parameters: {
+                type: "object",
+                properties: {
+                  name: { type: "string", description: "Funny meme coin name, max 24 chars" },
+                  ticker: { type: "string", description: "3-6 uppercase letter ticker" },
+                },
+                required: ["name", "ticker"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "generate_punch_token" } },
+      }),
+    });
+
+    if (!nameRes.ok) {
+      const t = await nameRes.text();
+      console.error("[punch-launch] AI name gen failed:", nameRes.status, t);
+      throw new Error("AI name generation failed");
+    }
+
+    const nameData = await nameRes.json();
+    const toolCall = nameData.choices?.[0]?.message?.tool_calls?.[0];
+    let tokenName = "Punch Monkey";
+    let tokenTicker = "PUNCH";
+    if (toolCall?.function?.arguments) {
+      try {
+        const args = JSON.parse(toolCall.function.arguments);
+        tokenName = (args.name || "Punch Monkey").slice(0, 24);
+        tokenTicker = (args.ticker || "PUNCH").toUpperCase().slice(0, 6);
+      } catch {}
+    }
+    console.log("[punch-launch] Generated:", tokenName, tokenTicker);
+
+    // Step 2: Generate image via AI
+    console.log("[punch-launch] Generating image...");
+    const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [
+          {
+            role: "user",
+            content:
+              "Generate a funny viral meme image of a plush stuffed monkey toy and a real baby monkey together in a hilarious situation involving punching or fighting playfully. Style: viral meme, punchy vibrant colors, square 1:1 format. No text in the image. Make it cute and shareable.",
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    let imageBase64: string | null = null;
+    if (imgRes.ok) {
+      const imgData = await imgRes.json();
+      const imgUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (imgUrl) {
+        imageBase64 = imgUrl; // data:image/png;base64,...
+        console.log("[punch-launch] Image generated successfully");
+      }
+    } else {
+      console.error("[punch-launch] Image gen failed:", imgRes.status);
+    }
+
+    // Step 3: Upload image to storage if we have one
+    let storedImageUrl = "";
+    if (imageBase64?.startsWith("data:image")) {
+      try {
+        const base64Data = imageBase64.split(",")[1];
+        const imageBuffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+        const fileName = `punch-tokens/${Date.now()}-${tokenTicker.toLowerCase()}.png`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, imageBuffer, { contentType: "image/png", upsert: true });
+
+        if (!uploadError) {
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("post-images").getPublicUrl(fileName);
+          storedImageUrl = publicUrl;
+          console.log("[punch-launch] Image uploaded:", storedImageUrl);
+        } else {
+          console.error("[punch-launch] Image upload failed:", uploadError.message);
+        }
+      } catch (e) {
+        console.error("[punch-launch] Image upload error:", e);
+      }
+    }
+
+    // Step 4: Record rate limit
+    await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
+
+    // Step 5: Call fun-create flow via Vercel
+    const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
+    if (!meteoraApiUrl) throw new Error("METEORA_API_URL not configured");
+
+    console.log("[punch-launch] Calling Vercel API for on-chain creation...");
+    const vercelPayload = {
+      name: tokenName.slice(0, 32),
+      ticker: tokenTicker.slice(0, 10),
+      description: `${tokenName} — Punched into existence! 🐵👊 A meme coin launched via Punch Mode on ClawMode.`,
+      imageUrl: storedImageUrl || undefined,
+      twitterUrl: "https://x.com/clawmode",
+      serverSideSign: true,
+      feeRecipientWallet: creatorWallet,
+      useVanityAddress: false,
+    };
+
+    const vercelRes = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vercelPayload),
+    });
+
+    const vercelResult = await vercelRes.json();
+    console.log("[punch-launch] Vercel result:", { success: vercelResult.success, mint: vercelResult.mintAddress });
+
+    if (!vercelRes.ok || !vercelResult.success) {
+      throw new Error(vercelResult.error || "Token creation failed");
+    }
+
+    // Step 6: Save to fun_tokens
+    const mintAddress = vercelResult.mintAddress;
+    let funTokenId: string | null = null;
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("fun_tokens")
+      .insert({
+        name: tokenName.slice(0, 50),
+        ticker: tokenTicker.slice(0, 10),
+        description: `${tokenName} — Punched into existence! 🐵👊`,
+        image_url: storedImageUrl || null,
+        creator_wallet: creatorWallet,
+        mint_address: mintAddress || null,
+        dbc_pool_address: vercelResult.dbcPoolAddress || null,
+        status: "active",
+        price_sol: 0.00000003,
+        twitter_url: "https://x.com/clawmode",
+        fee_mode: "creator",
+      })
+      .select("id")
+      .single();
+
+    if (!insertErr) {
+      funTokenId = inserted.id;
+    } else {
+      console.error("[punch-launch] DB insert failed:", insertErr.message);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        mintAddress,
+        name: tokenName,
+        ticker: tokenTicker,
+        imageUrl: storedImageUrl,
+        tokenId: funTokenId,
+        solscanUrl: `https://solscan.io/token/${mintAddress}`,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("[punch-launch] Error:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

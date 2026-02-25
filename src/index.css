@@ -1135,3 +1135,42 @@ body.matrix-hidden canvas {
   color: hsl(var(--accent-purple));
   flex-shrink: 0;
 }
+
+/* Punch Mode Animations */
+@keyframes punch-burst {
+  0% { transform: scale(0); opacity: 0.8; background: hsl(var(--primary) / 0.6); }
+  100% { transform: scale(3); opacity: 0; background: hsl(var(--primary) / 0); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.5); opacity: 0.5; border: 2px solid hsl(var(--primary)); border-radius: 50%; }
+  100% { transform: scale(3); opacity: 0; border: 2px solid hsl(var(--primary) / 0); border-radius: 50%; }
+}
+
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+@keyframes rocket-launch {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  60% { transform: translateY(-40px) scale(1.1); opacity: 1; }
+  100% { transform: translateY(-500px) scale(0.5); opacity: 0; }
+}
+
+.animate-punch-burst { animation: punch-burst 0.3s ease-out forwards; }
+.animate-ripple { animation: ripple 0.5s ease-out forwards; }
+.animate-idle-bob { animation: idle-bob 2s ease-in-out infinite; }
+.animate-rocket-launch { animation: rocket-launch 1s ease-in forwards; }
+
+.punch-screen-shake {
+  animation: shake 0.08s linear;
+}
+
+@keyframes shake {
+  0% { transform: translate(0); }
+  25% { transform: translate(-3px, 2px); }
+  50% { transform: translate(3px, -2px); }
+  75% { transform: translate(-2px, -3px); }
+  100% { transform: translate(0); }
+}
