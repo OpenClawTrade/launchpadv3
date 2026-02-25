@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, PieChart, FileText, Fingerprint, Monitor } from "lucide-react";
+import { Home, BarChart2, Bot, Code2, TrendingUp, Plus, FileText, Fingerprint, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -18,7 +18,7 @@ const NAV_LINKS = [
   
   { to: "/panel?tab=nfas", label: "NFA", icon: Fingerprint, useClaw: true },
   { to: "/sdk", label: "SDK", icon: Code2 },
-  { to: "/tokenomics", label: "Tokenomics", icon: PieChart },
+  
   { to: "/whitepaper", label: "Whitepaper", icon: FileText },
   { to: "/panel", label: "Panel", icon: null, useClaw: true },
 ];
