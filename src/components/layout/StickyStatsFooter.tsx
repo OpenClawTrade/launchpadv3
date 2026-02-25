@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "react-router-dom";
 
 export function StickyStatsFooter() {
   const { data: stats } = useClawStats();
   const isMobile = useIsMobile();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { pathname } = useLocation();
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -18,6 +20,9 @@ export function StickyStatsFooter() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  // Hide footer on punch page
+  if (pathname === "/punch") return null;
 
   const tokens = stats?.totalTokensLaunched ?? 0;
   const agents = stats?.totalAgents ?? 0;
