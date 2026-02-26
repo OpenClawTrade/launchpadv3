@@ -23,15 +23,11 @@ export function PunchLivestream() {
 
   const handleEnded = useCallback(() => {
     const next = (currentIndex + 1) % VIDEOS.length;
-    setCurrentIndex(next);
-  }, [currentIndex]);
-
-  // When index changes, reload and play
-  useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.load();
+      videoRef.current.src = VIDEOS[next];
       videoRef.current.play().catch(() => {});
     }
+    setCurrentIndex(next);
   }, [currentIndex]);
 
   return (
