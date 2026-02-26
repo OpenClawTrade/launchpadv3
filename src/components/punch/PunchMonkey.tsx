@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 
 interface PunchMonkeyProps {
   onTap: (x: number, y: number) => void;
@@ -17,23 +17,22 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
     if (completed) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    onTap(x, y);
+    onTap(clientX - rect.left, clientY - rect.top);
   };
 
   return (
     <div
       ref={containerRef}
-      className="relative select-none cursor-pointer active:cursor-grabbing"
       style={{
+        position: "relative",
         width: "72vw",
         maxWidth: "720px",
         height: "60vw",
         maxHeight: "600px",
         touchAction: "none",
         userSelect: "none",
-        WebkitUserSelect: "none",
+        WebkitUserSelect: "none" as any,
+        cursor: completed ? "default" : "pointer",
       }}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -47,8 +46,8 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
     >
       {/* Branch + Toy wrapper */}
       <div
-        className="absolute transition-opacity duration-[600ms] ease-in-out"
         style={{
+          position: "absolute",
           top: "50%",
           left: "50%",
           width: "72vw",
@@ -58,6 +57,7 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
           marginTop: "-10vh",
           zIndex: 4,
           opacity: completed ? 0 : 1,
+          transition: "opacity 600ms ease-in-out",
           filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.15))",
         }}
       >
@@ -65,7 +65,7 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
         <img
           src="/images/punch-branch.png"
           alt=""
-          className="w-full pointer-events-none"
+          style={{ width: "100%", pointerEvents: "none" }}
           draggable={false}
         />
 
@@ -73,31 +73,33 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
         <img
           src="/images/punch-plush.png"
           alt="Plush monkey"
-          className="absolute pointer-events-none transition-transform duration-100 ease-out"
           style={{
+            position: "absolute",
             left: "18%",
             top: "23%",
             width: "50%",
+            pointerEvents: "none",
+            transition: "transform 100ms ease-out",
             transform: `translate(${step * 10}px, ${step * 3}px) rotate(5deg)`,
           }}
           draggable={false}
         />
       </div>
 
-      {/* Baby monkey — bottom right, reaching up */}
+      {/* Baby monkey */}
       <img
         src="/images/punch-baby-monkey.png"
         alt="Baby monkey"
-        className={`absolute pointer-events-none transition-all duration-[600ms] ease-in-out ${
-          !completed && (tapping ? "scale-90" : "animate-idle-bob")
-        }`}
         style={{
+          position: "absolute",
           right: "calc(50% - 33vw)",
           bottom: "calc(50% - 32vw)",
           width: "30vw",
           maxWidth: "420px",
           zIndex: 2,
+          pointerEvents: "none",
           opacity: completed ? 0 : 1,
+          transition: "opacity 600ms ease-in-out",
           filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.15))",
         }}
         draggable={false}
@@ -105,11 +107,15 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
 
       {/* Final hug image */}
       <div
-        className="absolute inset-0 grid place-items-center transition-opacity duration-[600ms] ease-in-out"
         style={{
+          position: "absolute",
+          inset: 0,
+          display: "grid",
+          placeItems: "center",
           zIndex: 10,
           opacity: completed ? 1 : 0,
           pointerEvents: completed ? "auto" : "none",
+          transition: "opacity 600ms ease-in-out",
         }}
       >
         <img
@@ -124,13 +130,6 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
           draggable={false}
         />
       </div>
-
-      {/* Impact burst */}
-      {tapping && !completed && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-          <div className="w-32 h-32 rounded-full animate-punch-burst" />
-        </div>
-      )}
     </div>
   );
 }
