@@ -6,6 +6,7 @@ import { PunchMonkey } from "@/components/punch/PunchMonkey";
 import { ComboCounter } from "@/components/punch/ComboCounter";
 import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
+import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -205,6 +206,11 @@ export default function PunchPage() {
         }`}
       >
         <PunchConfetti active={showConfetti} />
+
+        {/* Livestream box */}
+        <div className="w-full flex justify-center mt-12 mb-2">
+          <PunchLivestream />
+        </div>
 
         {/* Back button */}
         <Link
