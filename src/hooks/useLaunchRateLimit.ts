@@ -31,13 +31,46 @@ export function useLaunchRateLimit() {
     try {
       const { data, error } = await supabase.functions.invoke('check-launch-rate');
       
-      if (error) throw error;
+      if (error) {
+        // 429 responses put body in error — try to parse rate limit data
+        let rateLimitData: any = null;
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed?.allowed === false) rateLimitData = parsed;
+        } catch {
+          try {
+            const ctx = (error as any).context;
+            if (ctx && typeof ctx === 'object') {
+              const body = await new Response(ctx.body).json();
+              if (body?.allowed === false) rateLimitData = body;
+            }
+          } catch {}
+        }
+
+        if (rateLimitData) {
+          setState({
+            allowed: false,
+            launchCount: rateLimitData.launchCount ?? 3,
+            maxLaunches: rateLimitData.maxLaunches ?? 3,
+            remaining: 0,
+            waitSeconds: rateLimitData.waitSeconds ?? 0,
+            message: rateLimitData.message,
+            isLoading: false,
+            error: null,
+          });
+          if (rateLimitData.waitSeconds > 0) {
+            setCountdown(rateLimitData.waitSeconds);
+          }
+          return;
+        }
+        throw error;
+      }
 
       setState({
         allowed: data.allowed ?? true,
         launchCount: data.launchCount ?? 0,
-        maxLaunches: data.maxLaunches ?? 2,
-        remaining: data.remaining ?? 2,
+        maxLaunches: data.maxLaunches ?? 3,
+        remaining: data.remaining ?? 3,
         waitSeconds: data.waitSeconds ?? 0,
         message: data.message,
         isLoading: false,

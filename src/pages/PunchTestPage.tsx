@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLaunchRateLimit } from "@/hooks/useLaunchRateLimit";
 
 type GameState = "tapping" | "launching" | "result";
 
@@ -29,6 +30,7 @@ export default function PunchTestPage() {
   const totalLaunched = usePunchTokenCount();
   const { totalPunches, uniqueVisitors, reportPunches } = usePunchPageStats();
   const isMobile = useIsMobile();
+  const rateLimit = useLaunchRateLimit();
 
   // Dynamic SEO for punchlaunch.fun
   useEffect(() => {
@@ -119,13 +121,20 @@ export default function PunchTestPage() {
     }).then(() => {});
   };
 
+  // Sync rate limit hook state → show cooldown popup on page load if blocked
+  useEffect(() => {
+    if (!rateLimit.isLoading && !rateLimit.allowed && rateLimit.waitSeconds > 0) {
+      setRateLimitUntil(Date.now() + rateLimit.waitSeconds * 1000);
+    }
+  }, [rateLimit.isLoading, rateLimit.allowed, rateLimit.waitSeconds]);
+
   // Countdown timer for rate limit
   useEffect(() => {
     if (!rateLimitUntil) { setCountdown(0); return; }
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((rateLimitUntil - Date.now()) / 1000));
       setCountdown(remaining);
-      if (remaining <= 0) setRateLimitUntil(null);
+      if (remaining <= 0) { setRateLimitUntil(null); rateLimit.refresh(); }
     };
     tick();
     const id = setInterval(tick, 1000);
@@ -206,15 +215,10 @@ export default function PunchTestPage() {
     setState("launching");
     setLaunchError("");
     try {
-      const res = await supabase.functions.invoke("punch-launch", {
-        body: { creatorWallet: wallet },
-      });
-      const data = res.data;
-      const error = res.error;
-
-      // Handle rate limit specifically
-      if (data?.rateLimited) {
-        const waitSec = data.waitSeconds || 180;
+      // Pre-check rate limit before calling punch-launch
+      await rateLimit.refresh();
+      if (!rateLimit.allowed) {
+        const waitSec = rateLimit.waitSeconds || 180;
         setRateLimitUntil(Date.now() + waitSec * 1000);
         setState("tapping");
         setProgress(0);
@@ -223,12 +227,53 @@ export default function PunchTestPage() {
         return;
       }
 
-      if (error) throw new Error(error.message || "Launch failed");
+      const res = await supabase.functions.invoke("punch-launch", {
+        body: { creatorWallet: wallet },
+      });
+      const data = res.data;
+      const error = res.error;
+
+      // Handle 429 rate limit — supabase.functions.invoke puts non-2xx body into res.error
+      if (error) {
+        // Try to parse rate limit info from the error
+        let rateLimitData: any = null;
+        try {
+          // FunctionsHttpError contains the response context
+          if (error.message) {
+            const parsed = JSON.parse(error.message);
+            if (parsed?.rateLimited) rateLimitData = parsed;
+          }
+        } catch {
+          // Try getting it from error.context if available
+          try {
+            const ctx = (error as any).context;
+            if (ctx && typeof ctx === 'object') {
+              const body = await new Response(ctx.body).json();
+              if (body?.rateLimited) rateLimitData = body;
+            }
+          } catch {}
+        }
+
+        if (rateLimitData) {
+          const waitSec = rateLimitData.waitSeconds || 180;
+          setRateLimitUntil(Date.now() + waitSec * 1000);
+          setState("tapping");
+          setProgress(0);
+          progressRef.current = 0;
+          setShowConfetti(false);
+          return;
+        }
+
+        throw new Error(error.message || "Launch failed");
+      }
+
       if (data?.error) throw new Error(data.error);
 
       setTokensLaunched((n) => n + 1);
       // Increment launch count in DB
       supabase.rpc("increment_punch_user_launches", { p_wallet_address: wallet }).then(() => {});
+      // Refresh rate limit state after successful launch
+      rateLimit.refresh();
       setResult({
         mintAddress: data.mintAddress,
         name: data.name,
@@ -721,7 +766,7 @@ export default function PunchTestPage() {
             </div>
 
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
-              Limited to 1 launch per 3 minutes per IP
+              Limited to 3 launches per hour per IP
             </p>
           </div>
         </div>
