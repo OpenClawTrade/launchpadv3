@@ -701,6 +701,24 @@ export default function PunchTestPage() {
           >
             <PunchLivestream />
             <PunchChatBox />
+
+            {/* Roadmap */}
+            <div style={{
+              marginTop: 12, padding: 12, borderRadius: 10,
+              background: "rgba(250,204,21,0.06)",
+              border: "1px solid rgba(250,204,21,0.12)",
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: "#facc15", marginBottom: 4 }}>
+                🗺️ Roadmap
+              </p>
+              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", lineHeight: 1.5, marginBottom: 8 }}>
+                Currently working on Game sections and a full trading page.
+              </p>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", lineHeight: 1.5, fontStyle: "italic" }}>
+                Punch is vibe coding 24/7. I will show my progress and completed tasks here.
+              </p>
+            </div>
+
             <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
               Limited to 1 launch per 3 minutes per IP
             </p>
