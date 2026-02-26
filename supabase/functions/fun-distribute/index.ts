@@ -175,7 +175,7 @@ serve(async (req) => {
       .from("fun_fee_claims")
       .select(`
         *,
-        fun_token:fun_tokens(id, name, ticker, creator_wallet, status, api_account_id, agent_id, trading_agent_id, is_trading_agent_token, fee_mode, agent_fee_share_bps, launchpad_type)
+        fun_token:fun_tokens(id, name, ticker, creator_wallet, punch_creator_wallet, status, api_account_id, agent_id, trading_agent_id, is_trading_agent_token, fee_mode, agent_fee_share_bps, launchpad_type, created_at)
       `)
       .eq("creator_distributed", false)
       .order("claimed_at", { ascending: true });
@@ -249,9 +249,30 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
-      // Skip punch mode tokens — they have their own fee wallet
+      // PUNCH tokens: 70% creator / 30% platform
       if (token.launchpad_type === 'punch') {
-        console.log(`[fun-distribute] Skipping claim ${claim.id}: punch mode token ${token.ticker}`);
+        const punchCreatorWallet = token.punch_creator_wallet;
+        if (!punchCreatorWallet) {
+          console.warn(`[fun-distribute] Skipping punch claim ${claim.id}: no punch_creator_wallet set for ${token.ticker}`);
+          continue;
+        }
+
+        const key = `punch:${token.id}:${punchCreatorWallet}`;
+        const existing = groups.get(key);
+        if (existing) {
+          existing.claims.push(claim);
+          existing.claimedSol += claimedSol;
+        } else {
+          groups.set(key, {
+            token,
+            recipientWallet: punchCreatorWallet,
+            recipientType: "creator",
+            apiAccountId: null,
+            agentId: null,
+            claims: [claim],
+            claimedSol,
+          });
+        }
         continue;
       }
 
@@ -506,20 +527,41 @@ serve(async (req) => {
           `[fun-distribute] API Token ${token.ticker}: ${claimedSol} SOL → API User ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
         );
       } else {
-        // Regular tokens: creator gets 50%, rest for buyback/system
-        recipientAmount = claimedSol * CREATOR_FEE_SHARE;
-        platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
+        // Check if this is a punch token (70/30 split)
+        const isPunchToken = token.launchpad_type === 'punch';
         
-        // Partner split from platform share - EXCLUDE Phantom mode tokens
-        const isPhantom = token.launchpad_type === 'phantom';
-        if (!isPhantom && isTokenEligibleForPartnerSplit(token.created_at)) {
-          partnerAmount = platformAmount * 0.5;
-          platformAmount = platformAmount * 0.5;
+        if (isPunchToken) {
+          // Punch tokens: 70% creator, 30% platform
+          const PUNCH_CREATOR_FEE_SHARE = 0.7;
+          const PUNCH_SYSTEM_FEE_SHARE = 0.3;
+          recipientAmount = claimedSol * PUNCH_CREATOR_FEE_SHARE;
+          platformAmount = claimedSol * PUNCH_SYSTEM_FEE_SHARE;
+          
+          // Partner split from platform share if eligible
+          if (isTokenEligibleForPartnerSplit(token.created_at)) {
+            partnerAmount = platformAmount * 0.5;
+            platformAmount = platformAmount * 0.5;
+          }
+          
+          console.log(
+            `[fun-distribute] Punch Token ${token.ticker}: ${claimedSol} SOL → Creator 70% (${recipientAmount.toFixed(6)}), Platform 30% (${platformAmount.toFixed(6)})${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}`
+          );
+        } else {
+          // Regular tokens: creator gets 50%, rest for buyback/system
+          recipientAmount = claimedSol * CREATOR_FEE_SHARE;
+          platformAmount = claimedSol * (BUYBACK_FEE_SHARE + SYSTEM_FEE_SHARE);
+          
+          // Partner split from platform share - EXCLUDE Phantom mode tokens
+          const isPhantom = token.launchpad_type === 'phantom';
+          if (!isPhantom && isTokenEligibleForPartnerSplit(token.created_at)) {
+            partnerAmount = platformAmount * 0.5;
+            platformAmount = platformAmount * 0.5;
+          }
+          
+          console.log(
+            `[fun-distribute] ${isPhantom ? 'Phantom' : 'Regular'} Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}${isPhantom ? ' (partner split excluded)' : ''}`
+          );
         }
-        
-        console.log(
-          `[fun-distribute] ${isPhantom ? 'Phantom' : 'Regular'} Token ${token.ticker}: ${claimedSol} SOL → Creator ${recipientAmount.toFixed(6)}, Platform ${platformAmount.toFixed(6)}${partnerAmount > 0 ? `, Partner ${partnerAmount.toFixed(6)}` : ''}${isPhantom ? ' (partner split excluded)' : ''}`
-        );
       }
 
       // Send partner fee if applicable
@@ -773,7 +815,7 @@ serve(async (req) => {
           fun_token_id: token.id,
           creator_wallet: group.recipientWallet,
           amount_sol: recipientAmount,
-          distribution_type: "creator",
+          distribution_type: token.launchpad_type === 'punch' ? "punch_creator" : "creator",
           status: "pending",
         })
         .select()
