@@ -1,36 +1,29 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 
-const VIDEOS = [
-  "/videos/punch-stream-1.mp4",
-  "/videos/punch-stream-2.mp4",
-];
-
+const VIDEO_SRC = "/videos/punch-stream-1.mp4";
 const SHOWN_ROUTES = ["/punch-test"];
 
 export function PunchVideoPopup() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem("punch-video-dismissed") === "1"
   );
 
-  // Ensure video plays on mount and when index changes
+  const visible = !dismissed && SHOWN_ROUTES.some((r) => pathname.startsWith(r));
+
+  // Force play whenever component becomes visible
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
+    if (visible && videoRef.current) {
+      videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {});
     }
-  }, [currentIndex]);
+  }, [visible]);
 
-  const handleEnded = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % VIDEOS.length);
-  }, []);
-
-  if (dismissed || !SHOWN_ROUTES.some((r) => pathname.startsWith(r))) return null;
+  if (!visible) return null;
 
   return (
     <div
@@ -41,7 +34,7 @@ export function PunchVideoPopup() {
       <div className="relative w-full h-full rounded-xl overflow-hidden border-2 border-border shadow-lg bg-black">
         <video
           ref={videoRef}
-          src={VIDEOS[currentIndex]}
+          src={VIDEO_SRC}
           autoPlay
           muted
           loop
