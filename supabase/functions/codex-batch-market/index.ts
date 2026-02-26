@@ -42,6 +42,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log("[codex-batch-market] Querying", validAddresses.length, "addresses:", validAddresses.slice(0, 3).join(", "), validAddresses.length > 3 ? "..." : "");
+
     // Build tokens list for filterTokens query
     const tokensListStr = validAddresses.map((a: string) => `"${a}"`).join(", ");
 
@@ -88,6 +90,7 @@ Deno.serve(async (req) => {
     }
 
     const rawResults = data?.data?.filterTokens?.results || [];
+    console.log("[codex-batch-market] Got", rawResults.length, "results for", validAddresses.length, "requested");
     const results: Record<string, any> = {};
 
     for (const r of rawResults) {

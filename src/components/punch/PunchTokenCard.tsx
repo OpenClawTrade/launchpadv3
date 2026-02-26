@@ -62,7 +62,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
   };
 
   const change = marketData?.change24h ?? 0;
-  const isPositive = change > 0;
+  const isPositive = change >= 0;
   const isNegative = change < 0;
 
   return (
@@ -130,10 +130,10 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
         </span>
 
         {/* 24h Change */}
-        {marketData && change !== 0 && (
+        {marketData && (
           <span
             className={`font-bold ${
-              isPositive ? "text-green-400" : isNegative ? "text-red-400" : "text-muted-foreground"
+              isPositive ? "text-green-400" : isNegative ? "text-red-400" : "text-green-400"
             }`}
           >
             {formatChange(change)}

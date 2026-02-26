@@ -151,13 +151,17 @@ Deno.serve(async (req) => {
     let imageBase64: string | null = null;
     if (imgRes.ok) {
       const imgData = await imgRes.json();
+      console.log("[punch-launch] Image response keys:", JSON.stringify(Object.keys(imgData?.choices?.[0]?.message || {})));
       const imgUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
       if (imgUrl) {
         imageBase64 = imgUrl; // data:image/png;base64,...
-        console.log("[punch-launch] Image generated successfully");
+        console.log("[punch-launch] Image generated successfully, length:", imgUrl.length);
+      } else {
+        console.error("[punch-launch] No image in response. Full message:", JSON.stringify(imgData.choices?.[0]?.message).slice(0, 500));
       }
     } else {
-      console.error("[punch-launch] Image gen failed:", imgRes.status);
+      const errText = await imgRes.text();
+      console.error("[punch-launch] Image gen failed:", imgRes.status, errText.slice(0, 300));
     }
 
     // Step 3: Upload image to storage if we have one
@@ -185,7 +189,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Rate limit record already inserted at top — no duplicate needed here
+    // Fallback: use the punch logo if no AI image was generated/uploaded
+    if (!storedImageUrl) {
+      storedImageUrl = "https://punchlaunch.fun/punch-logo.jpg";
+      console.log("[punch-launch] Using fallback image:", storedImageUrl);
+    }
 
     // Step 5: Call fun-create flow via Vercel
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
