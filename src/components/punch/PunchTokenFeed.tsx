@@ -2,12 +2,19 @@ import { Rocket, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePunchTokenFeed } from "@/hooks/usePunchTokenFeed";
 import { usePunchVotes } from "@/hooks/usePunchVotes";
+import { usePunchMarketData } from "@/hooks/usePunchMarketData";
 import { PunchTokenCard } from "./PunchTokenCard";
 
 export function PunchTokenFeed() {
   const { tokens, loading } = usePunchTokenFeed();
   const tokenIds = tokens.map((t) => t.id);
   const { votes, vote } = usePunchVotes(tokenIds);
+  const marketData = usePunchMarketData(
+    tokens.filter((t) => t.mint_address).map((t) => ({
+      mint_address: t.mint_address!,
+      created_at: t.created_at,
+    }))
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -36,6 +43,7 @@ export function PunchTokenFeed() {
               token={token}
               voteCounts={votes[token.id] || { likes: 0, dislikes: 0, userVote: null }}
               onVote={vote}
+              marketData={token.mint_address ? marketData[token.mint_address] : undefined}
             />
           ))}
         </div>
