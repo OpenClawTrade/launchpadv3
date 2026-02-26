@@ -1,91 +1,109 @@
 
 
-# Punch - Tap-to-Launch Token Game
+# Punch Page: Interactive Tokens Feed with Like/Dislike System
 
 ## Overview
-A new `/punch` page where users enter their Solana wallet, then play a fast-tapping mini-game. Tap fast enough to fill a progress bar to 100%, and a token is auto-created with an AI-generated "punch monkey" image. Rate limited to 1 launch per 3 minutes per IP.
+Add a scrollable sidebar panel on the left side of the Punch page showing recently launched "punched" tokens with meme-style cards. Each token gets like/dislike buttons with counts stored in the database, with fun shaking animations on vote.
 
-## How It Works
+## Layout Change
+- Convert the current centered single-column layout to a two-column layout
+- Left side: scrollable "Tokens Launched" feed panel (fixed width ~280px)
+- Right side: existing punch game content (centered as before)
+- On mobile: the feed becomes a collapsible drawer or tabs above the game
 
-1. **Entry screen**: User enters their Solana wallet address
-2. **Game screen**: A monkey image appears with a progress bar. User taps/clicks as fast as possible -- ~50 taps needed, but speed matters (taps decay if you slow down)
-3. **On 100%**: AI generates a monkey-themed token image, auto-generates a name/ticker, and launches the token via the existing `fun-create` edge function
-4. **Result screen**: Shows the contract address, Solscan link, and trade link
+## Database
 
-## Fun Animations (All of the above)
+### New Table: `punch_votes`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid (PK) | default gen_random_uuid() |
+| fun_token_id | uuid (FK -> fun_tokens.id) | NOT NULL |
+| voter_fingerprint | text | NOT NULL, browser fingerprint or IP-based identifier |
+| vote_type | smallint | 1 = like, -1 = dislike |
+| created_at | timestamptz | default now() |
 
-- **Screen shake** on each tap (CSS transform jitter)
-- **Punch impact burst** -- radial flash at tap point
-- **Combo counter** -- shows streak count with growing text ("10x COMBO!")
-- **Speed multiplier** -- progress fills faster when tapping quickly, decays when slow
-- **Confetti explosion** when bar hits 100%
-- **Rocket launch animation** -- monkey rockets off screen on success
-- **Tap ripples** -- circular ripple effects from click/touch position
-- **Progress bar color shift** -- green to yellow to red/orange as it climbs
+- Unique constraint on (fun_token_id, voter_fingerprint) so one vote per person per token
+- RLS: allow public SELECT, INSERT, UPDATE (no auth required -- anonymous voting)
+- Enable realtime on this table
 
-## Rate Limiting
-- 1 launch per 3 minutes per IP address
-- Uses existing `launch_rate_limits` table + a new edge function `punch-launch` that enforces 3-minute cooldown
-- Shows countdown timer if rate limited
+### Columns added to `fun_tokens` (or computed via query)
+We'll compute like/dislike counts via aggregation query rather than denormalized columns, keeping it simple.
 
----
+## New Components
+
+### `PunchTokenFeed` (src/components/punch/PunchTokenFeed.tsx)
+- Fetches recent punched tokens from `fun_tokens` where description ilike `%Punched into existence%`
+- Orders by `created_at DESC`, limit 50
+- Renders a scrollable list of `PunchTokenCard` components
+- Header: "TOKENS LAUNCHED" with rocket emoji, meme-style bold font
+- Realtime subscription for new tokens appearing live
+
+### `PunchTokenCard` (src/components/punch/PunchTokenCard.tsx)
+- Meme-style card with:
+  - Token image (small thumbnail)
+  - Token name + ticker
+  - Time ago label
+  - Like/Dislike buttons with counts
+- Like/dislike buttons:
+  - Thumbs up / Thumbs down icons
+  - Show count next to each
+  - On click: shake animation on the card (CSS keyframe `punch-vote-shake`)
+  - Green glow for like, red glow for dislike when active
+  - Uses `voter_fingerprint` (generated from localStorage random ID) to track votes without auth
+
+### `usePunchVotes` hook (src/hooks/usePunchVotes.ts)
+- Fetches aggregated like/dislike counts for all visible tokens in one query
+- Checks current user's vote via stored fingerprint
+- Provides `vote(tokenId, voteType)` function that upserts into `punch_votes`
+- Realtime subscription to update counts live
+
+### `usePunchTokenFeed` hook (src/hooks/usePunchTokenFeed.ts)
+- Fetches punched tokens with image, name, ticker, created_at, mint_address
+- Realtime subscription for new entries
+
+## Animations
+- **Vote shake**: When a user clicks like/dislike, the card shakes briefly (CSS animation ~300ms)
+- **New token entry**: Tokens slide in from top with fade-in animation
+- **Vote button pulse**: Brief scale-up pulse on the clicked button
+
+## Page Layout Update (PunchPage.tsx)
+- Wrap content in a flex row container
+- Left panel: `PunchTokenFeed` component (hidden on very small screens, shown as overlay on mobile)
+- Right/center: existing game content unchanged
 
 ## Technical Details
 
-### New Files
+### Voter Fingerprint
+- Generate a random UUID on first visit, store in `localStorage` as `punch_voter_id`
+- Use this as `voter_fingerprint` in the `punch_votes` table
+- No authentication required
 
-**`src/pages/PunchPage.tsx`**
-- Main page component with three states: `wallet-entry`, `tapping`, `launching`, `result`
-- Wallet input with Solana address validation
-- Tap game logic:
-  - Track taps and speed (taps per second)
-  - Progress = accumulated from taps, but decays over time if user stops
-  - ~50 fast taps to reach 100%
-  - Screen shake via CSS class toggled on each tap
-  - Combo counter increments on fast consecutive taps (less than 300ms apart)
-- On completion: calls `punch-launch` edge function
-- Result screen with contract address, copy button, links
+### Migration SQL
+```sql
+CREATE TABLE public.punch_votes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  fun_token_id uuid NOT NULL REFERENCES public.fun_tokens(id) ON DELETE CASCADE,
+  voter_fingerprint text NOT NULL,
+  vote_type smallint NOT NULL CHECK (vote_type IN (1, -1)),
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(fun_token_id, voter_fingerprint)
+);
 
-**`src/components/punch/PunchMonkey.tsx`**
-- The central monkey visual with punch impact animations
-- CSS animations for shake, impact burst, scale bounce on tap
-- Idle bobbing animation when not being tapped
+ALTER TABLE public.punch_votes ENABLE ROW LEVEL SECURITY;
 
-**`src/components/punch/ComboCounter.tsx`**
-- Floating combo text that scales up with streak
-- Multiplier display (2x, 5x, 10x etc.)
-- Fade-out when combo breaks
+CREATE POLICY "Anyone can read punch votes" ON public.punch_votes FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert punch votes" ON public.punch_votes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update own punch votes" ON public.punch_votes FOR UPDATE USING (true);
 
-**`src/components/punch/PunchConfetti.tsx`**
-- Canvas-based confetti explosion on 100%
-- Particles in brand colors
+ALTER PUBLICATION supabase_realtime ADD TABLE public.punch_votes;
+```
 
-**`supabase/functions/punch-launch/index.ts`**
-- Edge function that:
-  1. Checks IP-based rate limit (1 per 3 minutes) using `launch_rate_limits` table
-  2. Calls AI gateway to generate a "punch monkey" themed name + ticker
-  3. Calls AI image generation (gemini-2.5-flash-image) with a prompt specifically about a plush monkey and real monkey together doing something funny/viral
-  4. Uploads the generated image to storage
-  5. Calls the existing `fun-create` flow (Vercel API) to actually create the token on-chain
-  6. Returns the mint address and token ID
+### Files to Create
+1. `src/components/punch/PunchTokenFeed.tsx`
+2. `src/components/punch/PunchTokenCard.tsx`
+3. `src/hooks/usePunchVotes.ts`
+4. `src/hooks/usePunchTokenFeed.ts`
 
-### Modified Files
-
-**`src/App.tsx`**
-- Add lazy import for `PunchPage`
-- Add route: `<Route path="/punch" element={<PunchPage />} />`
-
-### AI Image Generation Prompt
-The edge function will use a prompt like:
-> "Generate a funny meme image of a plush stuffed monkey toy and a real baby monkey together in a hilarious situation. Style: viral meme, punchy colors, square 1:1. No text in the image."
-
-This ensures every generated image follows the "plush + real monkey together" theme from the reference image.
-
-### AI Name/Ticker Generation
-Uses tool calling to extract structured output:
-- Function: `generate_punch_token` with fields `name` (string), `ticker` (string, 3-6 chars)
-- Prompt: "Generate a funny, viral meme coin name and ticker themed around monkeys punching things"
-
-### Database
-No new tables needed -- reuses existing `launch_rate_limits` and `fun_tokens` tables. The 3-minute window check is done in the edge function by querying recent entries.
+### Files to Modify
+1. `src/pages/PunchPage.tsx` - Add two-column layout with feed on left
 
