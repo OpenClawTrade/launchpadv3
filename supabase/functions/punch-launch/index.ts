@@ -6,7 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const RATE_LIMIT_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const MAX_LAUNCHES_PER_WINDOW = 3;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -28,23 +29,22 @@ Deno.serve(async (req) => {
 
     console.log("[punch-launch] Request from IP:", clientIP);
 
-    // Rate limit check: 1 per 3 minutes per IP
-    const threeMinAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    // Rate limit check: 3 per 1 hour per IP
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
     const { data: recent, error: rlErr } = await supabase
       .from("launch_rate_limits")
       .select("launched_at")
       .eq("ip_address", clientIP)
-      .gte("launched_at", threeMinAgo)
-      .order("launched_at", { ascending: false })
-      .limit(1);
+      .gte("launched_at", oneHourAgo)
+      .order("launched_at", { ascending: true });
 
-    if (!rlErr && recent && recent.length > 0) {
+    if (!rlErr && recent && recent.length >= MAX_LAUNCHES_PER_WINDOW) {
       const oldest = new Date(recent[0].launched_at);
       const expiresAt = new Date(oldest.getTime() + RATE_LIMIT_WINDOW_MS);
       const waitSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
       return new Response(
         JSON.stringify({
-          error: `Rate limited. Try again in ${Math.ceil(waitSeconds / 60)} minutes.`,
+          error: `Rate limited. You've launched ${recent.length} coins in the last hour.`,
           rateLimited: true,
           waitSeconds: Math.max(0, waitSeconds),
         }),
@@ -54,9 +54,6 @@ Deno.serve(async (req) => {
 
     const { creatorWallet } = await req.json();
 
-    // Insert rate limit record IMMEDIATELY to block concurrent requests
-    await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
-    console.log("[punch-launch] Rate limit record inserted early for IP:", clientIP);
     if (!creatorWallet || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creatorWallet)) {
       return new Response(
         JSON.stringify({ error: "Invalid Solana wallet address" }),
@@ -257,6 +254,10 @@ Deno.serve(async (req) => {
     } else {
       console.error("[punch-launch] DB insert failed:", insertErr.message);
     }
+
+    // Insert rate limit record AFTER successful creation
+    await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: funTokenId });
+    console.log("[punch-launch] Rate limit record inserted for IP:", clientIP);
 
     return new Response(
       JSON.stringify({
