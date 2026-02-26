@@ -17,10 +17,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 type GameState = "tapping" | "launching" | "result";
 
 const STEPS = 18;
-const TAPS_TO_WIN = 100;
+const TAPS_TO_WIN = 50;
 const DECAY_RATE = 1.2;
 const COMBO_WINDOW_MS = 300;
-const REQUIRED_TAPS = 100;
+const REQUIRED_TAPS = 50;
 
 export default function PunchTestPage() {
   const { toast } = useToast();
