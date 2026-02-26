@@ -22,7 +22,7 @@ export function StickyStatsFooter() {
   }, []);
 
   // Hide footer on punch page
-  if (pathname === "/punch" || pathname === "/punch-test") return null;
+  if (pathname.startsWith("/punch")) return null;
 
   const tokens = stats?.totalTokensLaunched ?? 0;
   const agents = stats?.totalAgents ?? 0;
