@@ -249,6 +249,12 @@ serve(async (req) => {
       const claimedSol = Number(claim.claimed_sol) || 0;
       if (claimedSol <= 0) continue;
 
+      // Skip punch mode tokens — they have their own fee wallet
+      if (token.launchpad_type === 'punch') {
+        console.log(`[fun-distribute] Skipping claim ${claim.id}: punch mode token ${token.ticker}`);
+        continue;
+      }
+
       // Determine token type: Trading Agent, Agent, API, holder_rewards, bags, or regular creator
       // IMPORTANT: Trading Agent tokens take TOP priority - they need fees for trading capital
       const isTradingAgentToken = token.is_trading_agent_token === true && !!token.trading_agent_id;

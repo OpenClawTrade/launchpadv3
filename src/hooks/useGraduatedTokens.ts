@@ -23,6 +23,7 @@ export function useGraduatedTokens() {
           trading_fee_bps, fee_mode, agent_id, launchpad_type, last_distribution_at, created_at, updated_at
         `)
         .eq("status", "graduated")
+        .neq("launchpad_type", "punch")
         .order("market_cap_sol", { ascending: false });
 
       if (error) throw error;

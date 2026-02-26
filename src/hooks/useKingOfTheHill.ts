@@ -66,6 +66,7 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
     .from("fun_tokens")
     .select(selectFields)
     .eq("status", "active")
+    .neq("launchpad_type", "punch")
     .order("bonding_progress", { ascending: false })
     .limit(3);
 
@@ -78,6 +79,7 @@ async function fetchKingOfTheHill(): Promise<KingToken[]> {
     .select(selectFields)
     .eq("status", "active")
     .eq("is_trading_agent_token", true)
+    .neq("launchpad_type", "punch")
     .gte("created_at", oneDayAgo)
     .order("created_at", { ascending: false })
     .limit(1);
