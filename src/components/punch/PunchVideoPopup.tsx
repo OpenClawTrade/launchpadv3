@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 
 const VIDEO_SRC = "/videos/punch-stream-1.mp4";
 const SHOWN_ROUTES = ["/punch-test"];
 
-export function PunchVideoPopup() {
-  const navigate = useNavigate();
+export function PunchVideoPopup({ onVideoClick }: { onVideoClick?: () => void }) {
   const { pathname } = useLocation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [dismissed, setDismissed] = useState(
@@ -15,7 +14,6 @@ export function PunchVideoPopup() {
 
   const visible = !dismissed && SHOWN_ROUTES.some((r) => pathname.startsWith(r));
 
-  // Force play whenever component becomes visible
   useEffect(() => {
     if (visible && videoRef.current) {
       videoRef.current.currentTime = 0;
@@ -29,7 +27,7 @@ export function PunchVideoPopup() {
     <div
       className="fixed left-3 z-50 cursor-pointer group w-[100px] h-[100px] md:w-[130px] md:h-[130px]"
       style={{ bottom: 56 }}
-      onClick={() => navigate("/console")}
+      onClick={() => onVideoClick?.()}
     >
       <div className="relative w-full h-full rounded-xl overflow-hidden border-2 border-border shadow-lg bg-black">
         <video
@@ -51,7 +49,7 @@ export function PunchVideoPopup() {
           Live
         </div>
 
-        {/* Close button — always visible */}
+        {/* Close button */}
         <button
           className="absolute top-1 right-1 p-0.5 rounded-full bg-black/70 text-white hover:bg-black/90 transition-colors"
           onClick={(e) => {

@@ -7,6 +7,7 @@ import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
+import { PunchVideoPopup } from "@/components/punch/PunchVideoPopup";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X, Twitter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -554,6 +555,9 @@ export default function PunchTestPage() {
           </div>
         </div>
       )}
+
+      {/* Floating video popup — opens chat */}
+      <PunchVideoPopup onVideoClick={() => { setShowExtras(true); setShowFeed(false); }} />
 
       {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <div style={{
