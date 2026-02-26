@@ -1,36 +1,27 @@
 
-
-# Fix: Prevent Multiple Token Launches from Single Game Session
+# Remove Matrix Background on Punch Domain
 
 ## Problem
-There's a race condition causing multiple tokens to launch from a single punch game. When progress reaches 100%, the code does `setTimeout(() => launchToken(), 1500)` but keeps `state` as `"tapping"` during that 1.5-second delay. Every additional tap during that window triggers another `setTimeout`, each calling `launchToken()` independently -- resulting in 5-10+ tokens being created from one session.
+On `punchlaunch.fun`, the homepage renders at `/` (not `/punch`), so the Matrix background suppression check (`pathname.startsWith("/punch")`) doesn't trigger. The green Matrix rain (a Claw Mode visual) bleeds into the Punch experience.
 
 ## Solution
-Add a `useRef` guard (`launchTriggered`) that is set to `true` immediately when the win condition fires, preventing any subsequent taps from scheduling additional launches.
+Update the `ConditionalMatrixBackground` component in `src/App.tsx` to also check the hostname. If the visitor is on `punchlaunch.fun`, suppress the Matrix background entirely regardless of the route.
 
-## Changes
+## Technical Details
 
-### File: `src/pages/PunchPage.tsx`
+**File: `src/App.tsx`** (lines 17-22)
 
-1. **Add a ref** to track whether launch has been triggered:
-   ```typescript
-   const launchTriggered = useRef(false);
-   ```
+Update `ConditionalMatrixBackground` to detect the punch domain and return null:
 
-2. **Guard the win condition** -- set the ref immediately (synchronously, before the setTimeout):
-   ```typescript
-   if (progressRef.current >= 100 && tapCount.current >= REQUIRED_TAPS) {
-     if (launchTriggered.current) return; // Already triggered
-     // ... wallet check ...
-     launchTriggered.current = true; // Prevent re-entry
-     setShowConfetti(true);
-     setTimeout(() => launchToken(), 1500);
-   }
-   ```
+```typescript
+function ConditionalMatrixBackground() {
+  const { matrixEnabled } = useMatrixMode();
+  const { pathname } = useLocation();
+  const hostname = window.location.hostname;
+  const isPunchDomain = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
+  if (!matrixEnabled || isPunchDomain || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
+  return <MatrixBackground />;
+}
+```
 
-3. **Reset the guard** in the "Launch Another" button handler and on error:
-   ```typescript
-   launchTriggered.current = false;
-   ```
-
-This is a single-file fix with 4 small edits. No backend changes needed.
+This is a single-line domain check addition -- no other files need changes.
