@@ -8,7 +8,7 @@ import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap, MessageCircle, X } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
@@ -211,9 +211,9 @@ export default function PunchTestPage() {
         <div
           style={{
             position: "relative",
-            marginRight: "2vw",
-            marginTop: "-18vh",
-            width: "min(72vw, 720px)",
+            marginRight: isMobile ? "2vw" : "0",
+            marginTop: isMobile ? "-18vh" : "-12vh",
+            width: isMobile ? "min(72vw, 720px)" : "min(55vw, 680px)",
             transform: "rotate(-7deg)",
             zIndex: 4,
             opacity: isLaunching ? 0 : 1,
@@ -253,12 +253,12 @@ export default function PunchTestPage() {
           draggable={false}
           style={{
             position: "absolute",
-            width: "min(30vw, 420px)",
+            width: isMobile ? "min(30vw, 420px)" : "min(22vw, 340px)",
             height: "auto",
             zIndex: 2,
             filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.1))",
-            right: "calc(50% - 33vw)",
-            bottom: "calc(50% - 28vw)",
+            right: isMobile ? "calc(50% - 33vw)" : "calc(50% - 26vw)",
+            bottom: isMobile ? "calc(50% - 28vw)" : "calc(50% - 20vw)",
             opacity: isLaunching ? 0 : 1,
             transition: "opacity 600ms ease-in-out",
             pointerEvents: "none",
@@ -407,13 +407,6 @@ export default function PunchTestPage() {
       )}
 
       {/* ===== CORNER BUTTONS — non-intrusive ===== */}
-      {/* Back button */}
-      <Link
-        to="/"
-        style={{ position: "absolute", top: 14, left: 14, zIndex: 70, display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "rgba(255,255,255,0.5)", textDecoration: "none" }}
-      >
-        <ArrowLeft style={{ width: 14, height: 14 }} /> Back
-      </Link>
 
       {/* Feed toggle */}
       <button
@@ -459,27 +452,38 @@ export default function PunchTestPage() {
         </div>
       )}
 
-      {/* ===== STATS BAR — bottom ===== */}
+      {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <div style={{
         position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 50,
-        borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.7)",
-        backdropFilter: "blur(4px)", padding: "6px 16px",
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 24,
+        borderTop: "1px solid rgba(250,204,21,0.15)", 
+        background: "linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(20,10,0,0.95) 100%)",
+        backdropFilter: "blur(6px)", padding: "6px 16px",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 20,
         fontSize: 11, color: "rgba(255,255,255,0.4)", pointerEvents: "none",
       }}>
+        <span style={{ fontSize: 14 }}>🐵</span>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <Zap style={{ width: 13, height: 13, color: "#facc15" }} />
-          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>
+          <span style={{ fontSize: 12 }}>👊</span>
+          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#facc15" }}>
             {totalPunches !== null ? totalPunches.toLocaleString() : "—"}
           </span>
           <span>punches</span>
         </div>
+        <span style={{ color: "rgba(250,204,21,0.3)" }}>|</span>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <Users style={{ width: 13, height: 13, color: "#facc15" }} />
-          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>
+          <span style={{ fontSize: 12 }}>🌴</span>
+          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#facc15" }}>
             {uniqueVisitors !== null ? uniqueVisitors.toLocaleString() : "—"}
           </span>
-          <span>visitors</span>
+          <span>punchers</span>
+        </div>
+        <span style={{ color: "rgba(250,204,21,0.3)" }}>|</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Rocket style={{ width: 12, height: 12, color: "#facc15" }} />
+          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#facc15" }}>
+            {totalLaunched !== null ? totalLaunched.toLocaleString() : "—"}
+          </span>
+          <span>launched</span>
         </div>
       </div>
     </div>
