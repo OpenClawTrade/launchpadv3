@@ -62,7 +62,7 @@ export default function PunchTestPage() {
     // Favicon
     let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
     if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
-    link.href = "/punch-logo.jpg";
+    link.href = "/punch-favicon.jpg";
     link.type = "image/jpeg";
 
     return () => { document.title = "Claw Mode"; };
