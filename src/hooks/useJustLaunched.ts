@@ -39,6 +39,7 @@ async function fetchJustLaunched(): Promise<JustLaunchedToken[]> {
       agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
       creator_wallet, created_at
     `)
+    .neq("launchpad_type", "punch")
     .gte("created_at", twentyFourHoursAgo)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -56,6 +57,7 @@ async function fetchJustLaunched(): Promise<JustLaunchedToken[]> {
       agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
       creator_wallet, created_at
     `)
+    .neq("launchpad_type", "punch")
     .gte("created_at", fortyEightHoursAgo)
     .order("created_at", { ascending: false })
     .limit(20);

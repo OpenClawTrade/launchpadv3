@@ -22,6 +22,7 @@ async function fetchTickerTokens(): Promise<TickerToken[]> {
   const { data, error } = await supabase
     .from("fun_tokens")
     .select(`id, ticker, image_url, price_sol, price_change_24h, created_at`)
+    .neq("launchpad_type", "punch")
     .order("created_at", { ascending: false })
     .limit(15);
 

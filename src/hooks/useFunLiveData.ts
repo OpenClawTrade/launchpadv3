@@ -46,6 +46,7 @@ export function useFunLiveData(): UseFunLiveDataResult {
       const { data: funTokens, error: fetchError } = await supabase
         .from("fun_tokens")
         .select("*")
+        .neq("launchpad_type", "punch")
         .order("created_at", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -98,7 +99,8 @@ export function useFunLiveData(): UseFunLiveDataResult {
         },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            const newToken = payload.new as FunToken;
+            const newToken = payload.new as any;
+            if (newToken.launchpad_type === "punch") return; // Skip punch tokens
             setTokens((prev) => [
               { 
                 ...newToken, 
