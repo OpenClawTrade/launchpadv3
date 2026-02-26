@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can delete own punch votes" ON public.punch_votes FOR DELETE USING (true);
