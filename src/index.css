@@ -1174,3 +1174,13 @@ body.matrix-hidden canvas {
   75% { transform: translate(-2px, -3px); }
   100% { transform: translate(0); }
 }
+
+@keyframes punch-vote-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+.animate-punch-vote-shake { animation: punch-vote-shake 0.3s ease-in-out; }

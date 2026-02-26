@@ -5817,6 +5817,38 @@ export type Database = {
         }
         Relationships: []
       }
+      punch_votes: {
+        Row: {
+          created_at: string | null
+          fun_token_id: string
+          id: string
+          vote_type: number
+          voter_fingerprint: string
+        }
+        Insert: {
+          created_at?: string | null
+          fun_token_id: string
+          id?: string
+          vote_type: number
+          voter_fingerprint: string
+        }
+        Update: {
+          created_at?: string | null
+          fun_token_id?: string
+          id?: string
+          vote_type?: number
+          voter_fingerprint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_votes_fun_token_id_fkey"
+            columns: ["fun_token_id"]
+            isOneToOne: false
+            referencedRelation: "fun_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
