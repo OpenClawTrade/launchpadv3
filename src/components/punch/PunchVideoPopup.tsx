@@ -7,7 +7,7 @@ const VIDEOS = [
   "/videos/punch-stream-2.mp4",
 ];
 
-const HIDDEN_ROUTES = ["/console", "/punch", "/punch-test"];
+const SHOWN_ROUTES = ["/punch-test"];
 
 export function PunchVideoPopup() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export function PunchVideoPopup() {
     }
   }, [currentIndex]);
 
-  if (dismissed || HIDDEN_ROUTES.some((r) => pathname.startsWith(r))) return null;
+  if (dismissed || !SHOWN_ROUTES.some((r) => pathname.startsWith(r))) return null;
 
   return (
     <div
