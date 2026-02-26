@@ -8,7 +8,7 @@ export function usePunchTokenCount() {
     const { count: total } = await supabase
       .from("fun_tokens")
       .select("*", { count: "exact", head: true })
-      .ilike("description", "%Punched into existence%");
+      .eq("launchpad_type", "punch");
     setCount(total ?? 0);
   };
 

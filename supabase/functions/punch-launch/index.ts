@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
     if (!meteoraApiUrl) throw new Error("METEORA_API_URL not configured");
 
-    console.log("[punch-launch] Calling Vercel API for on-chain creation...");
+    console.log("[punch-launch] Calling Vercel API for on-chain creation (punch deployer)...");
     const vercelPayload = {
       name: tokenName.slice(0, 32),
       ticker: tokenTicker.slice(0, 10),
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       useVanityAddress: false,
     };
 
-    const vercelRes = await fetch(`${meteoraApiUrl}/api/pool/create-fun`, {
+    const vercelRes = await fetch(`${meteoraApiUrl}/api/pool/create-punch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(vercelPayload),
@@ -217,6 +217,8 @@ Deno.serve(async (req) => {
     const mintAddress = vercelResult.mintAddress;
     let funTokenId: string | null = null;
 
+    const punchFeeWallet = Deno.env.get("PUNCH_FEE_WALLET") || creatorWallet;
+
     const { data: inserted, error: insertErr } = await supabase
       .from("fun_tokens")
       .insert({
@@ -224,13 +226,14 @@ Deno.serve(async (req) => {
         ticker: tokenTicker.slice(0, 10),
         description: `${tokenName} — Punched into existence! 🐵👊`,
         image_url: storedImageUrl || null,
-        creator_wallet: creatorWallet,
+        creator_wallet: punchFeeWallet,
         mint_address: mintAddress || null,
         dbc_pool_address: vercelResult.dbcPoolAddress || null,
         status: "active",
         price_sol: 0.00000003,
         twitter_url: "https://x.com/clawmode",
-        fee_mode: "creator",
+        fee_mode: "punch",
+        launchpad_type: "punch",
       })
       .select("id")
       .single();

@@ -63,6 +63,7 @@ async function fetchTokensPage(page: number, pageSize: number): Promise<{ tokens
       total_fees_earned, holder_count, market_cap_sol, bonding_progress,
       trading_fee_bps, fee_mode, agent_id, launchpad_type, last_distribution_at, created_at, updated_at
     `, { count: "exact" })
+    .neq("launchpad_type", "punch")
     .order("created_at", { ascending: false })
     .range(from, to);
 

@@ -18,7 +18,7 @@ export function usePunchTokenFeed() {
     const { data } = await supabase
       .from("fun_tokens")
       .select("id, name, ticker, image_url, mint_address, created_at")
-      .ilike("description", "%Punched into existence%")
+      .eq("launchpad_type", "punch")
       .order("created_at", { ascending: false })
       .limit(50);
     if (data) setTokens(data);
@@ -35,7 +35,7 @@ export function usePunchTokenFeed() {
         { event: "INSERT", schema: "public", table: "fun_tokens" },
         (payload) => {
           const row = payload.new as any;
-          if (row.description?.includes("Punched into existence")) {
+          if (row.launchpad_type === "punch") {
             setTokens((prev) => [
               {
                 id: row.id,
