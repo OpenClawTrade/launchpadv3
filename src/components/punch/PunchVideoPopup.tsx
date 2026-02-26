@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
 
@@ -18,20 +18,24 @@ export function PunchVideoPopup() {
     () => sessionStorage.getItem("punch-video-dismissed") === "1"
   );
 
-  const handleEnded = useCallback(() => {
-    const next = (currentIndex + 1) % VIDEOS.length;
-    setCurrentIndex(next);
+  // Ensure video plays on mount and when index changes
+  useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.src = VIDEOS[next];
+      videoRef.current.load();
       videoRef.current.play().catch(() => {});
     }
   }, [currentIndex]);
+
+  const handleEnded = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % VIDEOS.length);
+  }, []);
 
   if (dismissed || !SHOWN_ROUTES.some((r) => pathname.startsWith(r))) return null;
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 cursor-pointer group w-[120px] h-[120px] md:w-[160px] md:h-[160px]"
+      className="fixed left-3 z-50 cursor-pointer group w-[100px] h-[100px] md:w-[130px] md:h-[130px]"
+      style={{ bottom: 56 }}
       onClick={() => navigate("/console")}
     >
       <div className="relative w-full h-full rounded-xl overflow-hidden border-2 border-border shadow-lg bg-black">
@@ -40,6 +44,7 @@ export function PunchVideoPopup() {
           src={VIDEOS[currentIndex]}
           autoPlay
           muted
+          loop={false}
           playsInline
           onEnded={handleEnded}
           className="w-full h-full object-cover"
@@ -54,16 +59,16 @@ export function PunchVideoPopup() {
           Live
         </div>
 
-        {/* Close button */}
+        {/* Close button — always visible */}
         <button
-          className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white/80 hover:text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
+          className="absolute top-1 right-1 p-0.5 rounded-full bg-black/70 text-white hover:bg-black/90 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             setDismissed(true);
             sessionStorage.setItem("punch-video-dismissed", "1");
           }}
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
     </div>
