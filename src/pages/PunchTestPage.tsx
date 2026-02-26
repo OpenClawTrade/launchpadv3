@@ -596,9 +596,18 @@ export default function PunchTestPage() {
 
       {/* Launching overlay text */}
       {isLaunching && (
-        <div style={{ position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 50, display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Generating & launching on-chain...
+        <div style={{
+          position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 50,
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 22px", borderRadius: 999,
+          background: "rgba(0,0,0,0.6)", backdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 0 20px rgba(0,0,0,0.4), 0 0 40px rgba(255,165,0,0.08)",
+          color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: 500, letterSpacing: "0.02em",
+          animation: "pulse 2s ease-in-out infinite",
+        }}>
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#f59e0b" }} />
+          Generating & launching on-chain…
         </div>
       )}
 
