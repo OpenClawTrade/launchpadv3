@@ -12,17 +12,65 @@ export function PunchChatBox() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (username) localStorage.setItem(USERNAME_KEY, username);
   }, [username]);
 
+  // Load chat history on mount
+  useEffect(() => {
+    const loadHistory = async () => {
+      const { data } = await supabase
+        .from("punch_chat_messages")
+        .select("role, content, username")
+        .order("created_at", { ascending: true })
+        .limit(100);
+
+      if (data && data.length > 0) {
+        setMessages(data.map((m) => ({ role: m.role as "user" | "punch", content: m.content, username: m.username ?? undefined })));
+      }
+      setHistoryLoaded(true);
+    };
+    loadHistory();
+  }, []);
+
+  // Subscribe to new messages via realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel("punch-chat-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "punch_chat_messages" },
+        (payload) => {
+          const m = payload.new as any;
+          // Only add if not already in state (avoid duplicates from own inserts)
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.role === m.role && last.content === m.content) return prev;
+            return [...prev, { role: m.role, content: m.content, username: m.username ?? undefined }];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   useEffect(() => {
     if (messages.length > 0) {
       scrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  const saveMessage = async (msg: Message) => {
+    await supabase.from("punch_chat_messages").insert({
+      role: msg.role,
+      content: msg.content,
+      username: msg.username || null,
+    });
+  };
 
   const send = async () => {
     const msg = input.trim();
@@ -33,6 +81,9 @@ export function PunchChatBox() {
     setInput("");
     setLoading(true);
 
+    // Save user message
+    await saveMessage(userMsg);
+
     try {
       const { data, error } = await supabase.functions.invoke("punch-chat", {
         body: { username, message: msg },
@@ -40,13 +91,15 @@ export function PunchChatBox() {
 
       if (error) throw error;
       const reply = data?.reply || "something went wrong, try again";
-      setMessages((prev) => [...prev, { role: "punch", content: reply }]);
+      const punchMsg: Message = { role: "punch", content: reply };
+      setMessages((prev) => [...prev, punchMsg]);
+
+      // Save punch reply
+      await saveMessage(punchMsg);
     } catch (err: any) {
       console.error("[PunchChat]", err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "punch", content: "couldn't respond right now. try again!" },
-      ]);
+      const errMsg: Message = { role: "punch", content: "couldn't respond right now. try again!" };
+      setMessages((prev) => [...prev, errMsg]);
     } finally {
       setLoading(false);
     }
@@ -63,7 +116,12 @@ export function PunchChatBox() {
         {/* Messages */}
         <ScrollArea className="h-[160px]">
           <div className="p-3 space-y-2.5">
-            {messages.length === 0 && (
+            {!historyLoaded && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {historyLoaded && messages.length === 0 && (
               <p className="text-[11px] text-muted-foreground text-center py-4">
                 No messages yet — say something!
               </p>
@@ -99,7 +157,6 @@ export function PunchChatBox() {
 
         {/* Input area */}
         <div className="border-t border-border p-2 space-y-1.5">
-          {/* Username row */}
           <input
             type="text"
             placeholder="Your name (optional)"
@@ -107,7 +164,6 @@ export function PunchChatBox() {
             onChange={(e) => setUsername(e.target.value)}
             className="w-full text-[11px] px-2 py-1 rounded bg-secondary/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          {/* Message row */}
           <div className="flex gap-1.5">
             <input
               type="text"
