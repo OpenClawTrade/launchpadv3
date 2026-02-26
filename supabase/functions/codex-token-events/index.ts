@@ -87,6 +87,18 @@ serve(async (req: Request) => {
     const data = await codexRes.json();
 
     if (data.errors) {
+      // "Pair not found" is expected for very new tokens — return empty results
+      const isPairNotFound = data.errors.some((e: any) =>
+        e.message?.toLowerCase().includes("pair not found") ||
+        e.message?.toLowerCase().includes("not found")
+      );
+      if (isPairNotFound) {
+        console.log("[codex-token-events] Pair not found for", tokenAddress, "- returning empty");
+        return new Response(
+          JSON.stringify({ cursor: null, events: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
       return new Response(
         JSON.stringify({ error: "Codex GraphQL error", details: data.errors }),

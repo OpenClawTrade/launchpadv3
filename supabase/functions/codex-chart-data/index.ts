@@ -167,6 +167,17 @@ serve(async (req: Request) => {
     const data = await codexRes.json();
 
     if (data.errors) {
+      const isPairNotFound = data.errors.some((e: any) =>
+        e.message?.toLowerCase().includes("pair not found") ||
+        e.message?.toLowerCase().includes("not found")
+      );
+      if (isPairNotFound) {
+        console.log("[codex-chart-data] Pair not found for", symbol, "- returning empty bars");
+        return new Response(
+          JSON.stringify({ bars: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
       return new Response(
         JSON.stringify({ error: "Codex GraphQL error", details: data.errors }),
