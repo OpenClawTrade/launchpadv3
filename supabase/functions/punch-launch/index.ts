@@ -233,9 +233,10 @@ Deno.serve(async (req) => {
       .insert({
         name: tokenName.slice(0, 50),
         ticker: tokenTicker.slice(0, 10),
-        description: `${tokenName} — Punched into existence! 🐵👊`,
+        description: `${tokenName} — Born in the zoo! 🐵🧸 A meme coin launched via Punch Launch.`,
         image_url: storedImageUrl || null,
         creator_wallet: punchFeeWallet,
+        punch_creator_wallet: creatorWallet,
         mint_address: mintAddress || null,
         dbc_pool_address: vercelResult.dbcPoolAddress || null,
         status: "active",
