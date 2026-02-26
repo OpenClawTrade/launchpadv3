@@ -107,17 +107,16 @@ export default function PunchTestPage() {
 
   const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
 
-  // Save wallet to DB when valid address is entered
-  useEffect(() => {
-    if (isValidWallet && !walletSaved) {
-      setWalletSaved(true);
-      const fp = localStorage.getItem("punch_voter_id") || crypto.randomUUID();
-      supabase.rpc("upsert_punch_user", {
-        p_wallet_address: wallet,
-        p_fingerprint: fp,
-      }).then(() => {});
-    }
-  }, [isValidWallet, wallet, walletSaved]);
+  // Save wallet to DB when user clicks Save
+  const handleSaveWallet = () => {
+    if (!isValidWallet) return;
+    setWalletSaved(true);
+    const fp = localStorage.getItem("punch_voter_id") || crypto.randomUUID();
+    supabase.rpc("upsert_punch_user", {
+      p_wallet_address: wallet,
+      p_fingerprint: fp,
+    }).then(() => {});
+  };
 
   // Countdown timer for rate limit
   useEffect(() => {
@@ -476,8 +475,8 @@ export default function PunchTestPage() {
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
-          {/* Wallet prompt */}
-          {!isValidWallet && (
+          {/* Wallet prompt — show until saved */}
+          {!walletSaved && (
             <div
               style={{ position: "absolute", bottom: isMobile ? 160 : 100, left: 16, right: 16, zIndex: 55 }}
               onClick={(e) => e.stopPropagation()}
@@ -485,7 +484,7 @@ export default function PunchTestPage() {
               <div
                 style={{
                   maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12,
-                  border: `1px solid ${walletShake ? "rgba(239,68,68,0.7)" : "rgba(34,197,94,0.5)"}`,
+                  border: `1px solid ${walletShake ? "rgba(239,68,68,0.7)" : isValidWallet ? "rgba(34,197,94,0.7)" : "rgba(34,197,94,0.5)"}`,
                   background: walletShake ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)",
                   backdropFilter: "blur(8px)",
                   animation: walletShake ? "wallet-shake 0.5s ease-in-out" : "none",
@@ -502,6 +501,21 @@ export default function PunchTestPage() {
                   className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60"
                   onClick={(e) => e.stopPropagation()}
                 />
+                {isValidWallet && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleSaveWallet(); }}
+                    style={{
+                      marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 8,
+                      background: "rgba(34,197,94,0.8)", color: "#fff", fontWeight: 700,
+                      fontSize: 12, border: "none", cursor: "pointer",
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,197,94,1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,197,94,0.8)")}
+                  >
+                    ✅ Save Wallet
+                  </button>
+                )}
               </div>
             </div>
           )}
