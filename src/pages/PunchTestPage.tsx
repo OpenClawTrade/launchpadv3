@@ -464,7 +464,7 @@ export default function PunchTestPage() {
           </div>
 
           {/* Wallet prompt */}
-          {showWalletPrompt && !isValidWallet && (
+          {!isValidWallet && (
             <div
               style={{ position: "absolute", bottom: 160, left: 16, right: 16, zIndex: 55 }}
               onClick={(e) => e.stopPropagation()}
