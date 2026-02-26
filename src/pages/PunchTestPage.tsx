@@ -449,8 +449,29 @@ export default function PunchTestPage() {
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
-          {/* Progress bar — bottom */}
-          <div style={{ position: "absolute", bottom: 44, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
+          {/* Wallet prompt */}
+          {!isValidWallet && (
+            <div
+              style={{ position: "absolute", bottom: 160, left: 16, right: 16, zIndex: 55 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(34,197,94,0.5)", background: "rgba(34,197,94,0.08)", backdropFilter: "blur(8px)" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
+                  🐵 Enter your Solana address where to receive fees!
+                </p>
+                <Input
+                  placeholder="Your Solana wallet address"
+                  value={wallet}
+                  onChange={(e) => setWallet(e.target.value.trim())}
+                  className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar — above wallet prompt */}
+          <div style={{ position: "absolute", bottom: 100, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
@@ -462,27 +483,6 @@ export default function PunchTestPage() {
               />
             </div>
           </div>
-
-          {/* Wallet prompt */}
-          {!isValidWallet && (
-            <div
-              style={{ position: "absolute", bottom: 160, left: 16, right: 16, zIndex: 55 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)", backdropFilter: "blur(8px)" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
-                  🐵 Enter your Solana address where to receive fees!
-                </p>
-                <Input
-                  placeholder="Your Solana wallet address"
-                  value={wallet}
-                  onChange={(e) => setWallet(e.target.value.trim())}
-                  className="text-center font-mono text-xs bg-black/80 border-white/20 text-white"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
-          )}
         </>
       )}
 
