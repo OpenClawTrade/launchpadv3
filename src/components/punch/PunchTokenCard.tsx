@@ -81,7 +81,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice
     >
       {/* Top row: image + name + votes */}
       <div className="flex items-center gap-2.5">
-        <Link to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"} className="shrink-0">
+        <Link to={token.mint_address ? `/punch/token/${token.mint_address}` : "#"} className="shrink-0">
           <OptimizedTokenImage
             src={token.image_url}
             fallbackText={token.ticker}
@@ -92,7 +92,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice
 
         <div className="flex-1 min-w-0">
           <Link
-            to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"}
+            to={token.mint_address ? `/punch/token/${token.mint_address}` : "#"}
             className="block truncate text-xs font-bold text-foreground hover:text-primary transition-colors"
           >
             {token.name}
