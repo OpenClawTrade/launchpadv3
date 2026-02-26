@@ -53,6 +53,10 @@ Deno.serve(async (req) => {
     }
 
     const { creatorWallet } = await req.json();
+
+    // Insert rate limit record IMMEDIATELY to block concurrent requests
+    await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
+    console.log("[punch-launch] Rate limit record inserted early for IP:", clientIP);
     if (!creatorWallet || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creatorWallet)) {
       return new Response(
         JSON.stringify({ error: "Invalid Solana wallet address" }),
@@ -181,8 +185,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 4: Record rate limit
-    await supabase.from("launch_rate_limits").insert({ ip_address: clientIP, token_id: null });
+    // Rate limit record already inserted at top — no duplicate needed here
 
     // Step 5: Call fun-create flow via Vercel
     const meteoraApiUrl = Deno.env.get("METEORA_API_URL") || Deno.env.get("VITE_METEORA_API_URL");
