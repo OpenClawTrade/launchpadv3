@@ -132,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
-    const { name, ticker, description, imageUrl, twitterUrl, feeRecipientWallet, serverSideSign } = req.body;
+    const { name, ticker, description, imageUrl, twitterUrl, websiteUrl, feeRecipientWallet, serverSideSign } = req.body;
 
     if (!name || !ticker) return res.status(400).json({ error: 'Missing required fields: name, ticker' });
     if (!serverSideSign) return res.status(400).json({ error: 'serverSideSign required' });
@@ -172,6 +172,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           imageUrl: imageUrl || undefined,
           initialBuySol: 0,
         });
+
+        // === UPLOAD STATIC METADATA JSON BEFORE ON-CHAIN TX ===
+        // CRITICAL: The on-chain metadata URI points to token-metadata/{mint}.json in storage.
+        // This file MUST exist before the TX lands so indexers (Solscan, Axiom, Birdeye) can fetch it.
+        const currentMintAddress = result.mintKeypair.publicKey.toBase58();
+        try {
+          const tokenName = name.slice(0, 32);
+          const tokenSymbol = ticker.toUpperCase().slice(0, 10);
+          const tokenDescription = description || `${tokenName} - Punched into existence!`;
+          const tokenImage = imageUrl || '';
+
+          const imageExt = tokenImage.split('.').pop()?.toLowerCase() || 'png';
+          const mimeTypes: Record<string, string> = {
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+            'gif': 'image/gif', 'webp': 'image/webp',
+          };
+          const imageMimeType = mimeTypes[imageExt] || 'image/png';
+
+          const metadataJson = {
+            name: tokenName,
+            symbol: tokenSymbol,
+            description: tokenDescription,
+            image: tokenImage,
+            external_url: 'https://punchlaunch.fun',
+            seller_fee_basis_points: 0,
+            properties: {
+              files: tokenImage ? [{ uri: tokenImage, type: imageMimeType }] : [],
+              category: 'image',
+              creators: [],
+            },
+            extensions: {
+              website: 'https://punchlaunch.fun',
+              twitter: 'https://x.com/punchitsol',
+            },
+          };
+
+          const jsonPath = `token-metadata/${currentMintAddress}.json`;
+          const jsonBlob = new Blob([JSON.stringify(metadataJson, null, 2)], { type: 'application/json' });
+
+          const { error: uploadError } = await supabase.storage
+            .from('post-images')
+            .upload(jsonPath, jsonBlob, {
+              contentType: 'application/json',
+              upsert: true,
+              cacheControl: '60',
+            });
+
+          if (uploadError) {
+            console.warn(`[create-punch][${VERSION}] ⚠️ Metadata JSON upload failed (non-fatal):`, uploadError.message);
+          } else {
+            console.log(`[create-punch][${VERSION}] ✅ Metadata JSON uploaded: ${jsonPath}`);
+          }
+        } catch (metaErr) {
+          console.warn(`[create-punch][${VERSION}] ⚠️ Metadata upload error (non-fatal):`, metaErr);
+        }
 
         const transactions = result.transactions;
         mintKeypair = result.mintKeypair;
