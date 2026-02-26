@@ -118,8 +118,8 @@ const App = () => (
             <Toaster />
             <Sonner />
             <ErrorBoundary>
-              <StickyStatsFooter />
               <BrowserRouter>
+              <StickyStatsFooter />
                 <ConditionalMatrixBackground />
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
