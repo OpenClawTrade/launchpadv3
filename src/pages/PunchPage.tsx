@@ -7,6 +7,7 @@ import { ComboCounter } from "@/components/punch/ComboCounter";
 import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
+import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -214,6 +215,13 @@ export default function PunchPage() {
         <div className="w-full flex justify-center mt-12 mb-2">
           <PunchLivestream />
         </div>
+
+        {/* Chat box - only during wallet entry */}
+        {state === "wallet-entry" && (
+          <div className="w-full flex justify-center">
+            <PunchChatBox />
+          </div>
+        )}
 
         {/* Back button */}
         <Link

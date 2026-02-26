@@ -60,6 +60,13 @@ export function PunchLivestream() {
         <div className="absolute top-2.5 right-2.5 font-mono text-[11px] text-white/90 bg-black/50 px-2 py-0.5 rounded shadow" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}>
           {clock}
         </div>
+
+        {/* Bottom text overlay */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 py-2.5 pointer-events-none">
+          <p className="text-[10px] leading-snug text-white/90 font-medium" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+            Hey, I'm Punch. I'm currently busy launching tokens, but you can ask me anything and I'll try to answer 🐵👊
+          </p>
+        </div>
       </div>
     </div>
   );

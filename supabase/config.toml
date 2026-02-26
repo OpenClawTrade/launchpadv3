@@ -404,3 +404,6 @@ verify_jwt = false
 
 [functions.punch-launch]
 verify_jwt = false
+
+[functions.punch-chat]
+verify_jwt = false
