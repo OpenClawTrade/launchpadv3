@@ -11,13 +11,13 @@ export function ComboCounter({ combo, multiplier }: ComboCounterProps) {
   const isOnFire = combo >= 30;
 
   return (
-    <div className="absolute top-4 right-4 z-20 pointer-events-none select-none">
+    <div style={{ padding: 8, pointerEvents: "none", userSelect: "none", transformOrigin: "top right" }}>
       <div
         className="text-center transition-transform duration-100"
-        style={{ transform: `scale(${scale})` }}
+        style={{ transform: `scale(${Math.min(scale, 1.6)})`, transformOrigin: "top right" }}
       >
         <div
-          className={`text-3xl font-black tracking-tight ${
+          className={`text-xl font-black tracking-tight ${
             isOnFire
               ? "text-red-400 animate-pulse"
               : isHot
@@ -34,11 +34,11 @@ export function ComboCounter({ combo, multiplier }: ComboCounterProps) {
         >
           {combo}x
         </div>
-        <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.4)" }}>
           {isOnFire ? "🔥 ON FIRE!" : isHot ? "🔥 HOT!" : "COMBO"}
         </div>
         {multiplier > 1 && (
-          <div className="mt-1 text-xs font-mono font-bold text-primary">
+          <div style={{ marginTop: 2, fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: "#facc15" }}>
             {multiplier.toFixed(1)}x speed
           </div>
         )}
