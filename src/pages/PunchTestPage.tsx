@@ -470,33 +470,48 @@ export default function PunchTestPage() {
         </div>
       )}
 
-      {/* ===== FEED OVERLAY ===== */}
-      {showFeed && (
-        <div
-          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(8px)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ height: "100%", paddingTop: 48 }}>
-            <PunchTokenFeed />
-          </div>
+      {/* ===== FEED PANEL (slide-in from right) ===== */}
+      <div
+        style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 65,
+          width: isMobile ? "85vw" : 360, maxWidth: "100vw",
+          background: "rgba(10,10,10,0.97)", backdropFilter: "blur(12px)",
+          borderLeft: "1px solid rgba(250,204,21,0.12)",
+          transform: showFeed ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 250ms cubic-bezier(0.4,0,0.2,1)",
+          display: "flex", flexDirection: "column",
+          pointerEvents: showFeed ? "auto" : "none",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ flex: 1, overflow: "hidden", paddingTop: 48 }}>
+          <PunchTokenFeed />
         </div>
-      )}
+      </div>
 
-      {/* ===== EXTRAS OVERLAY (Livestream + Chat) ===== */}
-      {showExtras && (
-        <div
-          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(8px)", overflowY: "auto" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div style={{ maxWidth: 420, margin: "0 auto", padding: "56px 16px 24px" }}>
-            <PunchLivestream />
-            <PunchChatBox />
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
-              Limited to 1 launch per 3 minutes per IP
-            </p>
-          </div>
+      {/* ===== CHAT PANEL (slide-in from right) ===== */}
+      <div
+        style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 65,
+          width: isMobile ? "90vw" : 380, maxWidth: "100vw",
+          background: "rgba(10,10,10,0.97)", backdropFilter: "blur(12px)",
+          borderLeft: "1px solid rgba(250,204,21,0.12)",
+          transform: showExtras ? "translateX(0)" : "translateX(100%)",
+          transition: "transform 250ms cubic-bezier(0.4,0,0.2,1)",
+          display: "flex", flexDirection: "column",
+          pointerEvents: showExtras ? "auto" : "none",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ padding: "56px 12px 24px" }}>
+          <PunchLivestream />
+          <PunchChatBox />
+          <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
+            Limited to 1 launch per 3 minutes per IP
+          </p>
         </div>
-      )}
+      </div>
 
       {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <div style={{

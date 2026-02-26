@@ -19,7 +19,9 @@ export function PunchChatBox() {
   }, [username]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > 0) {
+      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   const send = async () => {
