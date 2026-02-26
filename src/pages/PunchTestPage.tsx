@@ -471,7 +471,7 @@ export default function PunchTestPage() {
           {/* Wallet prompt */}
           {!isValidWallet && (
             <div
-              style={{ position: "absolute", bottom: 100, left: 16, right: 16, zIndex: 55 }}
+              style={{ position: "absolute", bottom: isMobile ? 160 : 100, left: 16, right: 16, zIndex: 55 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div
@@ -499,7 +499,7 @@ export default function PunchTestPage() {
           )}
 
           {/* Progress bar — above wallet prompt */}
-          <div style={{ position: "absolute", bottom: 190, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", bottom: isMobile ? 250 : 190, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
