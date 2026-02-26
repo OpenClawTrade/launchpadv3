@@ -8,9 +8,10 @@ import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
+import { usePunchPageStats } from "@/hooks/usePunchPageStats";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 type GameState = "wallet-entry" | "tapping" | "launching" | "result";
@@ -23,6 +24,7 @@ const REQUIRED_TAPS = 100; // must have 100 actual clicks
 export default function PunchPage() {
   const { toast } = useToast();
   const totalLaunched = usePunchTokenCount();
+  const { totalPunches, uniqueVisitors, reportPunches } = usePunchPageStats();
   const isMobile = useIsMobile();
   const [showFeed, setShowFeed] = useState(false);
   const [state, setState] = useState<GameState>("wallet-entry");
@@ -91,6 +93,7 @@ export default function PunchPage() {
       const timeSinceLastTap = now - lastTapTime.current;
       lastTapTime.current = now;
       tapCount.current++;
+      reportPunches(1);
 
       // Combo logic
       if (timeSinceLastTap < COMBO_WINDOW_MS && timeSinceLastTap > 0) {
@@ -122,7 +125,7 @@ export default function PunchPage() {
         setTimeout(() => launchToken(), 1500);
       }
     },
-    [state, multiplier]
+    [state, multiplier, reportPunches]
   );
 
   const launchToken = async () => {
@@ -367,6 +370,23 @@ export default function PunchPage() {
             </Button>
           </div>
         )}
+        {/* Stats footer */}
+        <div className="absolute bottom-0 inset-x-0 border-t border-border bg-card/80 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5 text-primary" />
+            <span className="font-mono font-bold text-foreground">
+              {totalPunches !== null ? totalPunches.toLocaleString() : "—"}
+            </span>
+            <span>punches</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span className="font-mono font-bold text-foreground">
+              {uniqueVisitors !== null ? uniqueVisitors.toLocaleString() : "—"}
+            </span>
+            <span>visitors</span>
+          </div>
+        </div>
       </div>
     </div>
   );

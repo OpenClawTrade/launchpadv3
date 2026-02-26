@@ -5817,6 +5817,42 @@ export type Database = {
         }
         Relationships: []
       }
+      punch_counters: {
+        Row: {
+          id: string
+          total_punches: number
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          total_punches?: number
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          total_punches?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      punch_visitors: {
+        Row: {
+          created_at: string | null
+          fingerprint: string
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          fingerprint: string
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          fingerprint?: string
+          id?: string
+        }
+        Relationships: []
+      }
       punch_votes: {
         Row: {
           created_at: string | null
@@ -9238,6 +9274,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_punch_count: { Args: { p_count?: number }; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
