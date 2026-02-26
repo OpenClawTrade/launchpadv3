@@ -4,12 +4,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePunchTokenFeed } from "@/hooks/usePunchTokenFeed";
 import { usePunchVotes } from "@/hooks/usePunchVotes";
 import { usePunchMarketData } from "@/hooks/usePunchMarketData";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { PunchTokenCard } from "./PunchTokenCard";
 
 const PAGE_SIZE = 10;
 
 export function PunchTokenFeed() {
   const { tokens, loading } = usePunchTokenFeed();
+  const { solPrice } = useSolPrice();
   const [page, setPage] = useState(0);
 
   const totalPages = Math.max(1, Math.ceil(tokens.length / PAGE_SIZE));
@@ -64,6 +66,7 @@ export function PunchTokenFeed() {
               voteCounts={votes[token.id] || { likes: 0, dislikes: 0, userVote: null }}
               onVote={vote}
               marketData={token.mint_address ? marketData[token.mint_address] : undefined}
+              solPrice={solPrice}
             />
           ))}
         </div>
