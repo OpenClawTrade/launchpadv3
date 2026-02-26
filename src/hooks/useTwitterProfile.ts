@@ -14,16 +14,27 @@ export function useTwitterProfile(username: string | null | undefined) {
     queryFn: async (): Promise<TwitterProfile | null> => {
       if (!username) return null;
 
-      const { data, error } = await supabase.functions.invoke('twitter-user-info', {
-        body: { username },
-      });
+      try {
+        const { data, error } = await supabase.functions.invoke('twitter-user-info', {
+          body: { username },
+        });
 
-      if (error) {
-        console.error('Twitter profile fetch error:', error);
+        if (error) {
+          console.error('Twitter profile fetch error:', error);
+          return null;
+        }
+
+        // Handle API-level errors (e.g. user not found / 404)
+        if (data?.error) {
+          console.warn('Twitter profile not found:', username, data.error);
+          return null;
+        }
+
+        return data as TwitterProfile;
+      } catch (e) {
+        console.warn('Twitter profile fetch failed:', username, e);
         return null;
       }
-
-      return data as TwitterProfile;
     },
     enabled: !!username,
     staleTime: 5 * 60 * 1000, // 5 minutes
