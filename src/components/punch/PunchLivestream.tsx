@@ -24,8 +24,12 @@ export function PunchLivestream() {
   const handleEnded = useCallback(() => {
     const next = (currentIndex + 1) % VIDEOS.length;
     setCurrentIndex(next);
+  }, [currentIndex]);
+
+  // When index changes, reload and play
+  useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.src = VIDEOS[next];
+      videoRef.current.load();
       videoRef.current.play().catch(() => {});
     }
   }, [currentIndex]);
@@ -40,7 +44,9 @@ export function PunchLivestream() {
           autoPlay
           muted
           playsInline
-          onEnded={handleEnded}
+          loop={VIDEOS.length === 1}
+          onEnded={VIDEOS.length > 1 ? handleEnded : undefined}
+          preload="auto"
           className="w-full aspect-video object-cover"
         />
 
