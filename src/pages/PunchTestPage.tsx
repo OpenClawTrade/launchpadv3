@@ -211,9 +211,10 @@ export default function PunchTestPage() {
         <div
           style={{
             position: "relative",
-            marginRight: isMobile ? "2vw" : "0",
-            marginTop: isMobile ? "-18vh" : "-12vh",
-            width: isMobile ? "min(72vw, 720px)" : "min(55vw, 680px)",
+            marginRight: "2vw",
+            marginTop: "-18vh",
+            width: "72vw",
+            maxWidth: 720,
             transform: "rotate(-7deg)",
             zIndex: 4,
             opacity: isLaunching ? 0 : 1,
@@ -253,12 +254,13 @@ export default function PunchTestPage() {
           draggable={false}
           style={{
             position: "absolute",
-            width: isMobile ? "min(30vw, 420px)" : "min(22vw, 340px)",
+            width: "30vw",
+            maxWidth: 420,
             height: "auto",
             zIndex: 2,
             filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.1))",
-            right: isMobile ? "calc(50% - 33vw)" : "calc(50% - 26vw)",
-            bottom: isMobile ? "calc(50% - 28vw)" : "calc(50% - 20vw)",
+            right: "calc(50% - 33vw)",
+            bottom: "calc(50% - 32vw)",
             opacity: isLaunching ? 0 : 1,
             transition: "opacity 600ms ease-in-out",
             pointerEvents: "none",
@@ -282,7 +284,7 @@ export default function PunchTestPage() {
             src="/final.png"
             alt="Victory"
             draggable={false}
-            style={{ maxWidth: "90vw", maxHeight: "90vh", width: "auto", height: "auto", objectFit: "contain" }}
+            style={{ maxWidth: "80vw", maxHeight: "80vh", width: "auto", height: "auto", objectFit: "contain" }}
           />
         </div>
       </div>
