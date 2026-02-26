@@ -15,7 +15,7 @@ export function PunchStatsFooter() {
       display: "flex", alignItems: "center", justifyContent: "center", gap: 20,
       fontSize: 11, color: "rgba(255,255,255,0.4)", pointerEvents: "none",
     }}>
-      <span style={{ fontSize: 14 }}>🐵</span>
+      
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
         <span style={{ fontSize: 12 }}>👊</span>
         <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#facc15" }}>
