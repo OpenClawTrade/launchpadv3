@@ -165,12 +165,14 @@ export default function PunchTestPage() {
     setState("launching");
     setLaunchError("");
     try {
-      const { data, error } = await supabase.functions.invoke("punch-launch", {
+      const res = await supabase.functions.invoke("punch-launch", {
         body: { creatorWallet: wallet },
       });
+      const data = res.data;
+      const error = res.error;
       if (error) throw new Error(error.message || "Launch failed");
-      if (data?.error) throw new Error(data.error);
       if (data?.rateLimited) throw new Error(data.error || "Rate limited. Try again later.");
+      if (data?.error) throw new Error(data.error);
       setResult({
         mintAddress: data.mintAddress,
         name: data.name,
