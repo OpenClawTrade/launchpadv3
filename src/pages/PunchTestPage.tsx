@@ -292,18 +292,41 @@ export default function PunchTestPage() {
       {/* ===== HUD LAYER — small non-intrusive overlays ===== */}
       {state === "tapping" && (
         <>
-          {/* Title — top center, small */}
-          <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 50, textAlign: "center", pointerEvents: "none" }}>
-            <h2 style={{ fontSize: 16, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>
-              PUNCH A BRANCH TO LAUNCH
-            </h2>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
-              Tap fast to fill the bar — don't stop!
-            </p>
+          {/* ── Top bar: title center, stats left, combo right ── */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, pointerEvents: "none",
+            display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+            padding: "14px 16px 0",
+          }}>
+            {/* Left: launched count */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 80 }}>
+              {totalLaunched !== null && (
+                <>
+                  <Rocket style={{ width: 13, height: 13, color: "#facc15" }} />
+                  <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#fff", fontSize: 12 }}>
+                    {totalLaunched.toLocaleString()}
+                  </span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>launched</span>
+                </>
+              )}
+            </div>
+
+            {/* Center: title */}
+            <div style={{ textAlign: "center", flex: 1, paddingTop: 2 }}>
+              <h2 style={{ fontSize: isMobile ? 14 : 17, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.03em", lineHeight: 1.2 }}>
+                PUNCH A BRANCH TO LAUNCH
+              </h2>
+              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+                Tap fast to fill the bar — don't stop!
+              </p>
+            </div>
+
+            {/* Right: combo (spacer to balance, actual combo is positioned separately to avoid pointer-events: none) */}
+            <div style={{ minWidth: 80 }} />
           </div>
 
-          {/* Combo counter — top right, below buttons */}
-          <div style={{ position: "absolute", top: 36, right: 14, zIndex: 50 }}>
+          {/* Combo counter — top right, needs pointer events */}
+          <div style={{ position: "absolute", top: 40, right: 14, zIndex: 50 }}>
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
@@ -321,7 +344,7 @@ export default function PunchTestPage() {
             </div>
           </div>
 
-          {/* Wallet prompt — only appears after 30 taps, positioned above progress bar */}
+          {/* Wallet prompt */}
           {showWalletPrompt && !isValidWallet && (
             <div
               style={{ position: "absolute", bottom: 70, left: 16, right: 16, zIndex: 51 }}
@@ -339,15 +362,6 @@ export default function PunchTestPage() {
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Tokens launched counter — top left under back */}
-          {totalLaunched !== null && (
-            <div style={{ position: "absolute", top: 40, left: 16, zIndex: 50, display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "rgba(255,255,255,0.4)", pointerEvents: "none" }}>
-              <Rocket style={{ width: 12, height: 12, color: "#facc15" }} />
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>{totalLaunched.toLocaleString()}</span>
-              <span>launched</span>
             </div>
           )}
         </>
