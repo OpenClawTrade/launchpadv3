@@ -40,9 +40,10 @@ interface PunchTokenCardProps {
   voteCounts: VoteCounts;
   onVote: (tokenId: string, voteType: 1 | -1) => void;
   marketData?: TokenMarketData;
+  solPrice?: number | null;
 }
 
-export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchTokenCardProps) {
+export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice }: PunchTokenCardProps) {
   const [shaking, setShaking] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -61,9 +62,14 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
     setTimeout(() => setCopied(false), 1500);
   };
 
+  // Use Codex data if available, otherwise fall back to DB data
+  const effectiveMcapUsd = marketData?.marketCapUsd
+    ?? (token.market_cap_sol && solPrice ? token.market_cap_sol * solPrice : null);
+  const effectiveHolders = marketData?.holders ?? token.holder_count ?? null;
   const change = marketData?.change24h ?? 0;
   const isPositive = change >= 0;
   const isNegative = change < 0;
+  const hasData = effectiveMcapUsd !== null || effectiveHolders !== null;
 
   return (
     <div
@@ -127,7 +133,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
         {/* Market Cap */}
         <span className="text-muted-foreground font-medium">
           MCap: <span className="text-foreground font-bold">
-            {marketData ? formatMcap(marketData.marketCapUsd) : (
+            {effectiveMcapUsd !== null ? formatMcap(effectiveMcapUsd) : (
               <span className="inline-flex items-center gap-0.5 text-muted-foreground/60">
                 <span className="animate-pulse">loading</span>
               </span>
@@ -150,7 +156,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
         <span className="flex items-center gap-0.5 text-muted-foreground">
           <Users className="h-2.5 w-2.5" />
           <span className="font-bold text-foreground">
-            {marketData ? formatHolders(marketData.holders) : (
+            {effectiveHolders !== null ? formatHolders(effectiveHolders) : (
               <span className="animate-pulse text-muted-foreground/60">...</span>
             )}
           </span>
