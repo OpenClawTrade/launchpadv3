@@ -228,6 +228,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           console.warn(`[create-punch][${VERSION}] ⚠️ Metadata upload error (non-fatal):`, metaErr);
         }
 
+        // Also insert into pending_token_metadata for in-app fallback
+        try {
+          await supabase
+            .from('pending_token_metadata')
+            .delete()
+            .eq('mint_address', currentMintAddress);
+
+          await supabase
+            .from('pending_token_metadata')
+            .insert({
+              mint_address: currentMintAddress,
+              name: name.slice(0, 32),
+              ticker: ticker.toUpperCase().slice(0, 10),
+              description: description || `${name.slice(0, 32)} - Punched into existence!`,
+              image_url: imageUrl || null,
+              website_url: 'https://punchlaunch.fun',
+              twitter_url: twitterUrl || 'https://x.com/punchitsol',
+              creator_wallet: punchFeeWallet,
+              expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+            });
+          console.log(`[create-punch][${VERSION}] ✅ Pending metadata inserted`);
+        } catch (pendingErr) {
+          console.warn(`[create-punch][${VERSION}] ⚠️ Pending metadata insert failed (non-fatal):`, pendingErr);
+        }
+
         const transactions = result.transactions;
         mintKeypair = result.mintKeypair;
         configKeypair = result.configKeypair;
