@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ComboCounter } from "@/components/punch/ComboCounter";
+import { PunchHeroHeader } from "@/components/punch/PunchHeroHeader";
 import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
@@ -175,12 +175,6 @@ export default function PunchTestPage() {
     setTimeout(() => setCopiedAddress(false), 2000);
   };
 
-  const getBarColor = () => {
-    if (progress < 33) return "from-green-500 to-green-400";
-    if (progress < 66) return "from-yellow-500 to-yellow-400";
-    return "from-orange-500 to-red-500";
-  };
-
   const movePx = getMovePx();
   const moveY = getMoveY();
   const isLaunching = state === "launching";
@@ -289,47 +283,20 @@ export default function PunchTestPage() {
         </div>
       </div>
 
-      {/* ===== HUD LAYER — small non-intrusive overlays ===== */}
+      {/* ===== PREMIUM HUD LAYER ===== */}
       {state === "tapping" && (
         <>
-          {/* Title — top center, small */}
-          <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 50, textAlign: "center", pointerEvents: "none" }}>
-            <h2 style={{ fontSize: 16, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>
-              PUNCH A BRANCH TO LAUNCH
-            </h2>
-            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
-              Tap fast to fill the bar — don't stop!
-            </p>
-          </div>
+          <PunchHeroHeader progress={progress} multiplier={multiplier} combo={combo} />
 
-          {/* Combo counter — top right, below buttons */}
-          <div style={{ position: "absolute", top: 36, right: 14, zIndex: 50 }}>
-            <ComboCounter combo={combo} multiplier={multiplier} />
-          </div>
-
-          {/* Progress bar — bottom, slim */}
-          <div style={{ position: "absolute", bottom: 44, left: 16, right: 16, zIndex: 50, pointerEvents: "none" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>
-              <span>Progress</span>
-              <span>{Math.round(progress)}%</span>
-            </div>
-            <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
-              <div
-                className={`h-full rounded-full bg-gradient-to-r ${getBarColor()}`}
-                style={{ width: `${progress}%`, transition: "width 100ms" }}
-              />
-            </div>
-          </div>
-
-          {/* Wallet prompt — only appears after 30 taps, positioned above progress bar */}
+          {/* Wallet prompt — only appears after 30 taps, positioned above footer */}
           {showWalletPrompt && !isValidWallet && (
             <div
-              style={{ position: "absolute", bottom: 70, left: 16, right: 16, zIndex: 51 }}
+              style={{ position: "absolute", bottom: 44, left: 16, right: 16, zIndex: 51 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)" }}>
+              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(236,72,153,0.3)", background: "rgba(236,72,153,0.06)", backdropFilter: "blur(8px)" }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
-                  🐵 Enter your Solana address to receive fees!
+                  Enter your Solana address to receive fees
                 </p>
                 <Input
                   placeholder="Your Solana wallet address"
@@ -339,15 +306,6 @@ export default function PunchTestPage() {
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
-            </div>
-          )}
-
-          {/* Tokens launched counter — top left under back */}
-          {totalLaunched !== null && (
-            <div style={{ position: "absolute", top: 40, left: 16, zIndex: 50, display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "rgba(255,255,255,0.4)", pointerEvents: "none" }}>
-              <Rocket style={{ width: 12, height: 12, color: "#facc15" }} />
-              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>{totalLaunched.toLocaleString()}</span>
-              <span>launched</span>
             </div>
           )}
         </>
