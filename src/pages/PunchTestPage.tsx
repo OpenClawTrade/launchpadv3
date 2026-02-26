@@ -470,48 +470,51 @@ export default function PunchTestPage() {
         </div>
       )}
 
-      {/* ===== FEED PANEL (slide-in from right) ===== */}
-      <div
-        style={{
-          position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 65,
-          width: isMobile ? "85vw" : 360, maxWidth: "100vw",
-          background: "rgba(10,10,10,0.97)", backdropFilter: "blur(12px)",
-          borderLeft: "1px solid rgba(250,204,21,0.12)",
-          transform: showFeed ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 250ms cubic-bezier(0.4,0,0.2,1)",
-          display: "flex", flexDirection: "column",
-          pointerEvents: showFeed ? "auto" : "none",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ flex: 1, overflow: "hidden", paddingTop: 48 }}>
-          <PunchTokenFeed />
+      {/* ===== FEED OVERLAY ===== */}
+      {showFeed && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { e.stopPropagation(); setShowFeed(false); }}
+        >
+          <div
+            style={{
+              width: isMobile ? "92vw" : 400, maxHeight: "75vh",
+              background: "rgba(15,15,15,0.98)", borderRadius: 16,
+              border: "1px solid rgba(250,204,21,0.15)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+              overflow: "hidden", display: "flex", flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <PunchTokenFeed />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ===== CHAT PANEL (slide-in from right) ===== */}
-      <div
-        style={{
-          position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 65,
-          width: isMobile ? "90vw" : 380, maxWidth: "100vw",
-          background: "rgba(10,10,10,0.97)", backdropFilter: "blur(12px)",
-          borderLeft: "1px solid rgba(250,204,21,0.12)",
-          transform: showExtras ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 250ms cubic-bezier(0.4,0,0.2,1)",
-          display: "flex", flexDirection: "column",
-          pointerEvents: showExtras ? "auto" : "none",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ padding: "56px 12px 24px" }}>
-          <PunchLivestream />
-          <PunchChatBox />
-          <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
-            Limited to 1 launch per 3 minutes per IP
-          </p>
+      {/* ===== CHAT OVERLAY ===== */}
+      {showExtras && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { e.stopPropagation(); setShowExtras(false); }}
+        >
+          <div
+            style={{
+              width: isMobile ? "92vw" : 400, maxHeight: "80vh",
+              background: "rgba(15,15,15,0.98)", borderRadius: 16,
+              border: "1px solid rgba(250,204,21,0.15)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+              overflow: "auto", padding: "16px 12px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <PunchLivestream />
+            <PunchChatBox />
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
+              Limited to 1 launch per 3 minutes per IP
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <div style={{
