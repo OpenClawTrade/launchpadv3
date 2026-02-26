@@ -25,8 +25,8 @@ export function PunchVideoPopup({ onVideoClick }: { onVideoClick?: () => void })
 
   return (
     <div
-      className="fixed left-3 z-50 cursor-pointer group w-[80px] h-[80px] md:w-[130px] md:h-[130px]"
-      style={{ bottom: 100 }}
+      className="fixed left-3 z-[52] cursor-pointer group w-[70px] h-[70px] md:w-[130px] md:h-[130px]"
+      style={{ bottom: 52 }}
       onClick={() => onVideoClick?.()}
     >
       <div className="relative w-full h-full rounded-xl overflow-hidden border-2 border-border shadow-lg bg-black">
