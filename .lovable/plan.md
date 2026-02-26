@@ -1,37 +1,47 @@
 
+# Fix Rate Limiting for Punch Launch
 
-## Plan: Punch Character Overhaul, Favicon Fix, and Video Loop Fix
+## Problems Identified
 
-### 1. Rewrite Punch AI Character (Edge Function)
+1. **Wrong rate limit window**: `punch-launch` edge function uses a 3-minute window (1 launch per 3 min) instead of the intended 3 launches per 1 hour
+2. **Stale records cause false positives**: The rate limit record is inserted BEFORE token creation (line 58), so even if you haven't launched anything, old records from hours ago that weren't cleaned up, or records from failed launches, count against you
+3. **429 response not properly handled**: `supabase.functions.invoke()` treats HTTP 429 as an error, meaning `res.data` is null and `res.error` contains the body. The code checks `data?.rateLimited` which is always false since data is null on 429
+4. **No pre-check**: The `check-launch-rate` edge function exists but is never called from the Punch pages -- rate limiting only fires at launch time after the user completed 50 taps
 
-Update `supabase/functions/punch-chat/index.ts` with a complete Punch character definition:
+## Plan
 
-- **Identity**: Punch is a viral, self-aware monkey who lives on-chain and launches meme coins by punching things. NOT an AI -- he's a real monkey who happens to be extremely online.
-- **Personality**: Street-smart, chaotic, hyper, unpredictable. Speaks like a degen monkey -- short, punchy, varied responses. Never repeats himself. Changes tone and style constantly.
-- **Knowledge**: Knows his site is `https://punchlaunch.fun`, his X/Twitter is `https://x.com/punchitsol`, and tells people the CA (contract address) can be found on the pinned post on X.
-- **Zero Claw mentions**: Remove ALL references to Claw, lobsters, or rivals. Punch doesn't know or care about any lobster.
-- **Anti-AI detection**: Never say "as an AI" or "I'm an AI". Dodge questions about being AI naturally ("bro I'm a monkey, what are you talking about"). Mix up response patterns so it doesn't feel templated.
-- **Voice rules**: Vary sentence structure, don't overuse emojis, mix lowercase/uppercase naturally, use slang but not forced. Every answer should feel different from the last.
+### 1. Fix `punch-launch` edge function rate limit logic
+- Change window from 3 minutes to 1 hour (60 minutes)
+- Change limit from 1 to 3 launches per window
+- Move the rate limit record insert to AFTER successful token creation (not before)
+- This prevents failed/aborted launches from consuming rate limit slots
 
-### 2. Force Punch Favicon on punchlaunch.fun Domain
+### 2. Fix 429 response handling in PunchTestPage
+- When `supabase.functions.invoke` returns a non-2xx status, the response body goes into `res.error` (as a `FunctionsHttpError`), not `res.data`
+- Parse the error response body to extract `rateLimited` and `waitSeconds` fields
+- Show the cooldown popup correctly instead of a generic error
 
-- Copy the uploaded image (`user-uploads://punch-2.jpg`) to `public/punch-favicon.jpg`
-- Update the favicon logic in `PunchTestPage.tsx` (line 65) to use `/punch-favicon.jpg` instead of `/punch-logo.jpg`, ensuring the uploaded image is the favicon
-- Also update the condition to apply on ANY route under the punch domain, not just the exact hostname check
+### 3. Add pre-check before starting the tap game
+- Call `check-launch-rate` when the page loads and after each launch
+- If rate limited, show the cooldown popup immediately instead of letting the user tap 50 times first
+- Update the `check-launch-rate` function to also use 3 per hour (it already does)
 
-### 3. Fix Video Looping (Black Screen Issue)
+## Technical Details
 
-The current implementation has a bug: the `useEffect` on line 30-35 that calls `load()` and `play()` depends on `currentIndex`, but it also fires on initial mount AND the `handleEnded` callback closes over stale `currentIndex`. The fix:
+### Files to modify:
+- **`supabase/functions/punch-launch/index.ts`** -- Fix rate limit window (3min -> 1hr), limit (1 -> 3), move record insert after success
+- **`src/pages/PunchTestPage.tsx`** -- Fix 429 error parsing, add pre-check on page load
+- **`supabase/functions/check-launch-rate/index.ts`** -- Already correct (3/hr), no changes needed
 
-- Use a **dual-video approach**: keep two `<video>` elements and crossfade between them, OR simpler fix:
-- Set `loop` on the single video element when there are multiple videos too -- when one play ends, immediately set the `src` and call `play()` without `load()` (which causes the black flash). Use the `ended` event to swap `src` directly on the video element ref instead of triggering React state + re-render cycle.
-- Alternatively, the simplest reliable fix: just set `loop={true}` always for a single video, and for multiple videos, on the `ended` event, directly assign `videoRef.current.src = VIDEOS[next]` and call `play()` without calling `load()` first (load causes the blank frame).
+### Edge function changes (`punch-launch/index.ts`):
+```text
+Before: RATE_LIMIT_WINDOW_MS = 3 * 60 * 1000 (3 min), limit 1
+After:  RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 (1 hr), limit 3
+```
+- Remove the early `insert` of rate limit record (line 58)
+- Add the insert AFTER successful token creation (after the fun_tokens insert)
 
-### Technical Details
-
-**Files to modify:**
-1. `supabase/functions/punch-chat/index.ts` -- Complete system prompt rewrite
-2. `src/components/punch/PunchLivestream.tsx` -- Fix video looping by removing `load()` call, directly assigning `src` and playing
-3. `src/pages/PunchTestPage.tsx` -- Update favicon path to use uploaded image
-4. Copy `user-uploads://punch-2.jpg` to `public/punch-favicon.jpg`
-
+### Frontend changes (`PunchTestPage.tsx`):
+- Parse 429 errors: check `res.error` for rate limit data when status is 429
+- Add `useEffect` on mount to call `check-launch-rate` and set `rateLimitUntil` if blocked
+- Re-check after each successful launch
