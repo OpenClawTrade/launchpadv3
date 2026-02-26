@@ -418,7 +418,7 @@ export default function PunchTestPage() {
           </div>
 
           {/* Progress bar — bottom */}
-          <div style={{ position: "absolute", bottom: 44, left: 16, right: 16, zIndex: 50, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", bottom: 44, left: 120, right: 16, zIndex: 50, pointerEvents: "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
