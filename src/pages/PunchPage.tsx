@@ -6,6 +6,8 @@ import { PunchMonkey } from "@/components/punch/PunchMonkey";
 import { ComboCounter } from "@/components/punch/ComboCounter";
 import { PunchConfetti } from "@/components/punch/PunchConfetti";
 import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
+import { PunchLivestream } from "@/components/punch/PunchLivestream";
+import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -303,6 +305,13 @@ export default function PunchPage() {
                 <span>tokens launched</span>
               </div>
             )}
+
+            <PunchLivestream />
+            <PunchChatBox />
+
+            <p className="text-[10px] text-muted-foreground/60">
+              Limited to 1 launch per 3 minutes per IP
+            </p>
           </div>
         )}
 

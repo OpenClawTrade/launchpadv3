@@ -30,15 +30,23 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
     ripplesRef.current.push({ id: Date.now(), x, y });
   };
 
-  // Plush slides from top-left down toward baby monkey
+  // Plush slides from top of branch down toward baby monkey's hand
   const t = Math.min(progress / 100, 1);
-  const plushX = -30 + t * 60;   // -30% → 30%
-  const plushY = -10 + t * 70;   // -10% → 60%
+  // Start: near top-left on the branch; End: near bottom-right toward baby
+  const plushX = 15 + t * 35;  // 15% → 50% from left
+  const plushY = 20 + t * 45;  // 20% → 65% from top
 
   return (
     <div
       ref={containerRef}
-      className="relative select-none cursor-pointer active:cursor-grabbing w-[280px] h-[280px] sm:w-[320px] sm:h-[320px]"
+      className="relative select-none cursor-pointer active:cursor-grabbing"
+      style={{
+        width: "340px",
+        height: "380px",
+        touchAction: "none",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+      }}
       onMouseDown={(e) => {
         e.preventDefault();
         handleInteraction(e.clientX, e.clientY);
@@ -48,40 +56,51 @@ export function PunchMonkey({ onTap, tapping, completed, progress }: PunchMonkey
         const touch = e.touches[0];
         handleInteraction(touch.clientX, touch.clientY);
       }}
-      style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
     >
       {/* Scene: branch + plush sliding + baby monkey */}
       {!completed && (
         <>
-          {/* Branch */}
+          {/* Branch — angled from upper-left to center-right */}
           <img
             src="/images/punch-branch.png"
             alt=""
-            className="absolute top-0 left-0 w-full h-auto pointer-events-none z-10"
-            style={{ transform: "rotate(-8deg)", transformOrigin: "top left" }}
-            draggable={false}
-          />
-
-          {/* Plush monkey sliding down */}
-          <img
-            src="/images/punch-plush.png"
-            alt="Plush monkey"
-            className="absolute w-24 sm:w-28 pointer-events-none z-20 transition-transform duration-100 ease-out"
+            className="absolute pointer-events-none z-10"
             style={{
-              left: "50%",
-              top: "50%",
-              transform: `translate(${plushX}%, ${plushY}%) translate(-50%, -50%)`,
+              top: "5%",
+              left: "-5%",
+              width: "90%",
+              transform: "rotate(-12deg)",
+              transformOrigin: "center center",
             }}
             draggable={false}
           />
 
-          {/* Baby monkey */}
+          {/* Plush monkey sliding down the branch */}
+          <img
+            src="/images/punch-plush.png"
+            alt="Plush monkey"
+            className="absolute pointer-events-none z-20 transition-all duration-150 ease-out"
+            style={{
+              width: "80px",
+              left: `${plushX}%`,
+              top: `${plushY}%`,
+              transform: "translate(-50%, -50%) rotate(-5deg)",
+            }}
+            draggable={false}
+          />
+
+          {/* Baby monkey — bottom right, reaching up */}
           <img
             src="/images/punch-baby-monkey.png"
             alt="Baby monkey"
-            className={`absolute bottom-0 right-0 w-32 sm:w-36 pointer-events-none z-10 ${
+            className={`absolute pointer-events-none z-10 ${
               tapping ? "scale-90" : "animate-idle-bob"
             } transition-transform duration-75`}
+            style={{
+              width: "130px",
+              bottom: "0",
+              right: "0",
+            }}
             draggable={false}
           />
         </>
