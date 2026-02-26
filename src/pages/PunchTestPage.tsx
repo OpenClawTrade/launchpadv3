@@ -671,7 +671,7 @@ export default function PunchTestPage() {
         >
           <div
             style={{
-              width: isMobile ? "92vw" : 400, maxHeight: "75vh",
+              width: isMobile ? "92vw" : 400, height: "75vh",
               background: "rgba(15,15,15,0.98)", borderRadius: 16,
               border: "1px solid rgba(250,204,21,0.15)",
               boxShadow: "0 24px 48px rgba(0,0,0,0.6)",

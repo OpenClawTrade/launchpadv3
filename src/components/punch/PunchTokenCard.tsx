@@ -66,9 +66,10 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice
   const effectiveMcapUsd = marketData?.marketCapUsd
     ?? (token.market_cap_sol && solPrice ? token.market_cap_sol * solPrice : null);
   const effectiveHolders = marketData?.holders ?? token.holder_count ?? null;
-  const change = marketData?.change24h ?? 0;
-  const isPositive = change >= 0;
-  const isNegative = change < 0;
+  const change = marketData?.change24h ?? null;
+  const hasChange = change !== null;
+  const isPositive = hasChange && change >= 0;
+  const isNegative = hasChange && change < 0;
   const hasData = effectiveMcapUsd !== null || effectiveHolders !== null;
 
   return (
@@ -142,10 +143,10 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice
         </span>
 
         {/* 24h Change */}
-        {marketData && marketData.change24h !== 0 && (
+        {hasChange && (
           <span
             className={`font-bold ${
-              isPositive ? "text-green-400" : isNegative ? "text-red-400" : "text-green-400"
+              isNegative ? "text-red-400" : "text-green-400"
             }`}
           >
             {formatChange(change)}
