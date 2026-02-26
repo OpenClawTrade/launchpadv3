@@ -419,14 +419,14 @@ export default function PunchTestPage() {
 
           {/* Progress bar — bottom */}
           <div style={{ position: "absolute", bottom: 44, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div style={{ width: "100%", height: 10, borderRadius: 5, background: "rgba(255,255,255,0.15)", overflow: "hidden", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.4), 0 0 8px rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
               <div
                 className={`h-full rounded-full bg-gradient-to-r ${getBarColor()}`}
-                style={{ width: `${Math.max(progress, 2)}%`, transition: "width 100ms", minWidth: 6 }}
+                style={{ width: `${Math.max(progress, 3)}%`, minWidth: 8, transition: "width 100ms", boxShadow: "0 0 10px rgba(255,255,255,0.2), 0 0 4px currentColor" }}
               />
             </div>
           </div>
