@@ -278,6 +278,7 @@ export default function PunchPage() {
               onTap={handleTap}
               tapping={tapping}
               completed={state === "launching"}
+              progress={progress}
             />
 
             {/* Progress bar */}
