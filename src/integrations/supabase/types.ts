@@ -5835,6 +5835,42 @@ export type Database = {
         }
         Relationships: []
       }
+      punch_users: {
+        Row: {
+          created_at: string
+          fingerprint: string | null
+          id: string
+          ip_address: string | null
+          total_fees_earned_sol: number
+          total_launches: number
+          total_punches: number
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          total_fees_earned_sol?: number
+          total_launches?: number
+          total_punches?: number
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          total_fees_earned_sol?: number
+          total_launches?: number
+          total_punches?: number
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       punch_visitors: {
         Row: {
           created_at: string | null
@@ -9275,6 +9311,10 @@ export type Database = {
         Returns: boolean
       }
       increment_punch_count: { Args: { p_count?: number }; Returns: undefined }
+      increment_punch_user_launches: {
+        Args: { p_wallet_address: string }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
       is_user_banned: { Args: { _user_id: string }; Returns: boolean }
@@ -9305,6 +9345,14 @@ export type Database = {
           p_tweet_author_username: string
         }
         Returns: undefined
+      }
+      upsert_punch_user: {
+        Args: {
+          p_fingerprint?: string
+          p_ip_address?: string
+          p_wallet_address: string
+        }
+        Returns: string
       }
       verify_api_key: {
         Args: { p_api_key: string }
