@@ -1,36 +1,36 @@
 
 
-# Fix Punch Token Fee Distribution for Existing Tokens
+# Fix: Prevent Multiple Token Launches from Single Game Session
 
 ## Problem
-All punch tokens except the first one have `punch_creator_wallet = NULL`, causing the fee distribution to skip them. About 0.21 SOL in claimed fees is sitting undistributed in the treasury.
+There's a race condition causing multiple tokens to launch from a single punch game. When progress reaches 100%, the code does `setTimeout(() => launchToken(), 1500)` but keeps `state` as `"tapping"` during that 1.5-second delay. Every additional tap during that window triggers another `setTimeout`, each calling `launchToken()` independently -- resulting in 5-10+ tokens being created from one session.
 
-## Root Cause
-The `punch_creator_wallet` column wasn't being populated when these tokens were created (the edge function update wasn't deployed yet or the frontend sent the system wallet).
+## Solution
+Add a `useRef` guard (`launchTriggered`) that is set to `true` immediately when the win condition fires, preventing any subsequent taps from scheduling additional launches.
 
-## Fix
+## Changes
 
-### 1. Database Migration: Backfill `punch_creator_wallet`
-Set `punch_creator_wallet` to `J65y5McWeTieCkUEkuWSmpfQsoY2aSWazcvkPfUnBCwr` for all punch tokens that currently have NULL. Since the user who launched all these tokens was using wallet `J65y5Mc...`, this is the correct payout address.
+### File: `src/pages/PunchPage.tsx`
 
-```sql
-UPDATE fun_tokens 
-SET punch_creator_wallet = 'J65y5McWeTieCkUEkuWSmpfQsoY2aSWazcvkPfUnBCwr'
-WHERE launchpad_type = 'punch' 
-  AND punch_creator_wallet IS NULL;
-```
+1. **Add a ref** to track whether launch has been triggered:
+   ```typescript
+   const launchTriggered = useRef(false);
+   ```
 
-### 2. Verify `punch-launch` Edge Function
-Confirm that the current deployed version of `punch-launch/index.ts` correctly stores `punch_creator_wallet: creatorWallet` in the insert. This was already added in a previous edit -- just need to make sure the deployed function matches the code.
+2. **Guard the win condition** -- set the ref immediately (synchronously, before the setTimeout):
+   ```typescript
+   if (progressRef.current >= 100 && tapCount.current >= REQUIRED_TAPS) {
+     if (launchTriggered.current) return; // Already triggered
+     // ... wallet check ...
+     launchTriggered.current = true; // Prevent re-entry
+     setShowConfetti(true);
+     setTimeout(() => launchToken(), 1500);
+   }
+   ```
 
-## Result
-After the backfill, the next `fun-distribute` cron run (every 3 minutes) will:
-- Pick up the ~0.21 SOL in undistributed claims
-- Send 70% to `J65y5Mc...` (the punch creator)
-- Keep 30% in treasury (system share)
+3. **Reset the guard** in the "Launch Another" button handler and on error:
+   ```typescript
+   launchTriggered.current = false;
+   ```
 
-## Technical Details
-- Only 1 DB migration needed (the UPDATE statement above)
-- No code changes required -- the distribution logic already handles punch tokens correctly
-- The `punch-launch` edge function already includes `punch_creator_wallet` in the insert
-
+This is a single-file fix with 4 small edits. No backend changes needed.
