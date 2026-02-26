@@ -5820,6 +5820,30 @@ export type Database = {
         }
         Relationships: []
       }
+      punch_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          username: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          username?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       punch_counters: {
         Row: {
           id: string
