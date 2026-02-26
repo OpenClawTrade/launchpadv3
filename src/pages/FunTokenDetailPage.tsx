@@ -309,7 +309,7 @@ export default function FunTokenDetailPage() {
   const { solPrice } = useSolPrice();
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('trade');
+  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('chart');
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   
@@ -383,6 +383,7 @@ export default function FunTokenDetailPage() {
   const realSolReserves = (bondingProgress / 100) * GRADUATION_THRESHOLD;
   const isGraduated = token?.status === 'graduated';
   const isBonding = token?.status === 'active';
+  const isPunchToken = (token as any)?.launchpad_type === 'punch';
   const priceChange = (token as any)?.price_change_24h || 0;
   const isPriceUp = priceChange >= 0;
 
@@ -745,24 +746,31 @@ export default function FunTokenDetailPage() {
 
           {/* ──── PHONE ONLY: Tab switcher ──── */}
           <div className="md:hidden">
-            <div className="grid grid-cols-3 gap-px terminal-panel-flush rounded-lg overflow-hidden">
-              {(['trade', 'chart', 'comments'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setMobileTab(tab)}
-                  className={`py-3 text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 min-h-[48px] ${
-                    mobileTab === tab
-                      ? 'bg-primary/10 text-primary font-bold border-b-2 border-primary'
-                      : 'text-muted-foreground hover:text-foreground bg-card/20 active:bg-card/40'
-                  }`}
-                >
-                  {tab === 'trade' && <Activity className="h-4 w-4" />}
-                  {tab === 'chart' && <BarChart3 className="h-4 w-4" />}
-                  {tab === 'comments' && <MessageCircle className="h-4 w-4" />}
-                  {tab}
-                </button>
-              ))}
-            </div>
+            {(() => {
+              const tabs = isPunchToken
+                ? (['chart', 'comments'] as const)
+                : (['trade', 'chart', 'comments'] as const);
+              return (
+                <div className={`grid gap-px terminal-panel-flush rounded-lg overflow-hidden ${isPunchToken ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                  {tabs.map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setMobileTab(tab as any)}
+                      className={`py-3 text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 min-h-[48px] ${
+                        mobileTab === tab
+                          ? 'bg-primary/10 text-primary font-bold border-b-2 border-primary'
+                          : 'text-muted-foreground hover:text-foreground bg-card/20 active:bg-card/40'
+                      }`}
+                    >
+                      {tab === 'trade' && <Activity className="h-4 w-4" />}
+                      {tab === 'chart' && <BarChart3 className="h-4 w-4" />}
+                      {tab === 'comments' && <MessageCircle className="h-4 w-4" />}
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
@@ -774,7 +782,7 @@ export default function FunTokenDetailPage() {
 
           {/* ── PHONE layout (< md) ── */}
           <div className="md:hidden flex flex-col gap-2">
-            {mobileTab === 'trade' && (
+            {mobileTab === 'trade' && !isPunchToken && (
               <>
                 <TradeSection />
                 <EmbeddedWalletCard />
@@ -798,22 +806,28 @@ export default function FunTokenDetailPage() {
 
           {/* ── TABLET layout (md to lg) ── */}
           <div className="hidden md:grid lg:hidden grid-cols-12 gap-2">
-            {/* Left: Chart + Info */}
-            <div className="col-span-7 flex flex-col gap-2">
+            <div className={`${isPunchToken ? 'col-span-12' : 'col-span-7'} flex flex-col gap-2`}>
               <ChartSection chartHeight={420} />
               <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={token.holder_count || 0} />
+              {isPunchToken && (
+                <div className="terminal-panel-flush rounded-lg px-4 py-3 flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-mono text-muted-foreground">Trading coming soon for Punch tokens</span>
+                </div>
+              )}
               <TokenDetailsSection />
               <ContractSection />
               <DescriptionSection />
               <CommentsSection />
             </div>
-            {/* Right: Trade + Wallet (sticky) */}
-            <div className="col-span-5 flex flex-col gap-2">
-              <div className="sticky top-2 flex flex-col gap-2">
-                <TradeSection />
-                <EmbeddedWalletCard />
+            {!isPunchToken && (
+              <div className="col-span-5 flex flex-col gap-2">
+                <div className="sticky top-2 flex flex-col gap-2">
+                  <TradeSection />
+                  <EmbeddedWalletCard />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ── DESKTOP layout (lg+) ── */}
@@ -822,7 +836,14 @@ export default function FunTokenDetailPage() {
             <div className="col-span-9 flex flex-col gap-1.5">
               <ChartSection chartHeight={380} />
               <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={token.holder_count || 0} />
-              <TradeSection />
+              {isPunchToken ? (
+                <div className="terminal-panel-flush rounded-lg px-4 py-3 flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-mono text-muted-foreground">Trading coming soon for Punch tokens</span>
+                </div>
+              ) : (
+                <TradeSection />
+              )}
             </div>
             {/* Right: Info + Comments + Wallet */}
             <div className="col-span-3 flex flex-col gap-1.5">
@@ -843,7 +864,7 @@ export default function FunTokenDetailPage() {
                 </div>
               )}
               <CommentsSection />
-              <EmbeddedWalletCard />
+              {!isPunchToken && <EmbeddedWalletCard />}
             </div>
           </div>
 
@@ -851,34 +872,36 @@ export default function FunTokenDetailPage() {
       </div>
 
       {/* ──── PHONE ONLY: Bottom-fixed quick action bar ──── */}
-      <div className="md:hidden fixed left-0 right-0 z-50" style={{ bottom: '40px', backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
-        <div className="flex items-center gap-2 px-4 py-2.5">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="text-[10px] font-mono text-muted-foreground truncate">
-              {(token.price_sol || 0).toFixed(6)} SOL
-            </span>
-            {priceChange !== 0 && (
-              <span className={`text-[10px] font-mono font-bold ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
-                {isPriceUp ? '+' : ''}{priceChange.toFixed(1)}%
+      {!isPunchToken && (
+        <div className="md:hidden fixed left-0 right-0 z-50" style={{ bottom: '40px', backgroundColor: 'hsl(222 30% 7% / 0.95)', backdropFilter: 'blur(16px)', borderTop: '1px solid hsl(222 20% 16%)', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-[10px] font-mono text-muted-foreground truncate">
+                {(token.price_sol || 0).toFixed(6)} SOL
               </span>
-            )}
+              {priceChange !== 0 && (
+                <span className={`text-[10px] font-mono font-bold ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
+                  {isPriceUp ? '+' : ''}{priceChange.toFixed(1)}%
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setMobileTab('trade')}
+              className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95"
+              style={{ background: 'linear-gradient(135deg, hsl(160 84% 39%), hsl(187 80% 45%))', color: 'white' }}
+            >
+              BUY
+            </button>
+            <button
+              onClick={() => setMobileTab('trade')}
+              className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95"
+              style={{ background: 'hsl(222 20% 16%)', color: 'hsl(0 72% 60%)', border: '1px solid hsl(0 72% 40% / 0.3)' }}
+            >
+              SELL
+            </button>
           </div>
-          <button
-            onClick={() => setMobileTab('trade')}
-            className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95"
-            style={{ background: 'linear-gradient(135deg, hsl(160 84% 39%), hsl(187 80% 45%))', color: 'white' }}
-          >
-            BUY
-          </button>
-          <button
-            onClick={() => setMobileTab('trade')}
-            className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95"
-            style={{ background: 'hsl(222 20% 16%)', color: 'hsl(0 72% 60%)', border: '1px solid hsl(0 72% 40% / 0.3)' }}
-          >
-            SELL
-          </button>
         </div>
-      </div>
+      )}
     </LaunchpadLayout>
   );
 }
