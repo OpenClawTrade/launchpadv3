@@ -79,6 +79,8 @@ export default function PunchTestPage() {
   const [showExtras, setShowExtras] = useState(false);
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
   const [wallet, setWallet] = useState("");
+  const [walletShake, setWalletShake] = useState(false);
+  const [walletSaved, setWalletSaved] = useState(false);
   const [launchError, setLaunchError] = useState("");
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -104,6 +106,18 @@ export default function PunchTestPage() {
   const tapTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
+
+  // Save wallet to DB when valid address is entered
+  useEffect(() => {
+    if (isValidWallet && !walletSaved) {
+      setWalletSaved(true);
+      const fp = localStorage.getItem("punch_voter_id") || crypto.randomUUID();
+      supabase.rpc("upsert_punch_user", {
+        p_wallet_address: wallet,
+        p_fingerprint: fp,
+      }).then(() => {});
+    }
+  }, [isValidWallet, wallet, walletSaved]);
 
   // Countdown timer for rate limit
   useEffect(() => {
@@ -169,6 +183,9 @@ export default function PunchTestPage() {
         setShowWalletPrompt(true);
         progressRef.current = 99;
         setProgress(99);
+        // Shake the wallet field to draw attention
+        setWalletShake(true);
+        setTimeout(() => setWalletShake(false), 600);
         return;
       }
       if (decayTimer.current) clearInterval(decayTimer.current);
@@ -202,6 +219,8 @@ export default function PunchTestPage() {
       if (data?.error) throw new Error(data.error);
 
       setTokensLaunched((n) => n + 1);
+      // Increment launch count in DB
+      supabase.rpc("increment_punch_user_launches", { p_wallet_address: wallet }).then(() => {});
       setResult({
         mintAddress: data.mintAddress,
         name: data.name,
@@ -455,9 +474,18 @@ export default function PunchTestPage() {
               style={{ position: "absolute", bottom: 100, left: 16, right: 16, zIndex: 55 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(34,197,94,0.5)", background: "rgba(34,197,94,0.08)", backdropFilter: "blur(8px)" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
-                  🐵 Enter your Solana address where to receive fees!
+              <div
+                style={{
+                  maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12,
+                  border: `1px solid ${walletShake ? "rgba(239,68,68,0.7)" : "rgba(34,197,94,0.5)"}`,
+                  background: walletShake ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)",
+                  backdropFilter: "blur(8px)",
+                  animation: walletShake ? "wallet-shake 0.5s ease-in-out" : "none",
+                  transition: "border-color 0.3s, background 0.3s",
+                }}
+              >
+                <p style={{ fontSize: 11, fontWeight: 700, color: walletShake ? "#f87171" : "#fff", textAlign: "center", marginBottom: 6 }}>
+                  {walletShake ? "⚠️ Enter your wallet to launch!" : "🐵 Enter your Solana address where to receive fees!"}
                 </p>
                 <Input
                   placeholder="Your Solana wallet address"
