@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
           {
             role: "user",
             content:
-              "Generate a funny viral meme image of a plush stuffed monkey toy and a real baby monkey together in a hilarious situation involving punching or fighting playfully. Style: viral meme, punchy vibrant colors, square 1:1 format. No text in the image. Make it cute and shareable.",
+              "Generate a realistic photo of a cute baby monkey in a zoo setting, sweetly cuddling or playing with a small plush stuffed monkey toy. The baby monkey looks adorable and gentle, hugging or holding the toy lovingly. Background is a natural zoo habitat with greenery, rocks, or branches. Photorealistic style, warm natural lighting, square 1:1 format. No text in the image. Wholesome, cute, and shareable.",
           },
         ],
         modalities: ["image", "text"],
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     const vercelPayload = {
       name: tokenName.slice(0, 32),
       ticker: tokenTicker.slice(0, 10),
-      description: `${tokenName} — Punched into existence! 🐵👊 A meme coin launched via Punch Launch.`,
+      description: `${tokenName} — Born in the zoo! 🐵🧸 A meme coin launched via Punch Launch.`,
       imageUrl: storedImageUrl || undefined,
       twitterUrl: "https://x.com/punchitsol/status/2026923770934407218",
       websiteUrl: "https://punchlaunch.fun",
