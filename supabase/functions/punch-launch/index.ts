@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
         website_url: "https://punchlaunch.fun",
         fee_mode: "punch",
         launchpad_type: "punch",
+        creator_fee_bps: 7000,
       })
       .select("id")
       .single();
