@@ -192,9 +192,10 @@ Deno.serve(async (req) => {
     const vercelPayload = {
       name: tokenName.slice(0, 32),
       ticker: tokenTicker.slice(0, 10),
-      description: `${tokenName} — Punched into existence! 🐵👊 A meme coin launched via Punch Mode on ClawMode.`,
+      description: `${tokenName} — Punched into existence! 🐵👊 A meme coin launched via Punch Launch.`,
       imageUrl: storedImageUrl || undefined,
-      twitterUrl: "https://x.com/clawmode",
+      twitterUrl: "https://x.com/punchitsol/status/2026923770934407218",
+      websiteUrl: "https://punchlaunch.fun",
       serverSideSign: true,
       feeRecipientWallet: creatorWallet,
       useVanityAddress: false,
@@ -231,7 +232,8 @@ Deno.serve(async (req) => {
         dbc_pool_address: vercelResult.dbcPoolAddress || null,
         status: "active",
         price_sol: 0.00000003,
-        twitter_url: "https://x.com/clawmode",
+        twitter_url: "https://x.com/punchitsol/status/2026923770934407218",
+        website_url: "https://punchlaunch.fun",
         fee_mode: "punch",
         launchpad_type: "punch",
       })

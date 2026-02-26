@@ -17,13 +17,13 @@ export function DomainRouter() {
       navigate("/sdk", { replace: true });
     }
 
-    // punchlaunch.fun → sandbox to /punch-test only
+    // punchlaunch.fun → show punch page at root
     const isPunchDomain = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
     if (isPunchDomain) {
-      const allowed = ["/punch-test", "/launchpad/"];
-      const isAllowed = allowed.some(p => location.pathname.startsWith(p));
+      const allowed = ["/", "/launchpad/"];
+      const isAllowed = allowed.some(p => location.pathname === p || (p.endsWith("/") && location.pathname.startsWith(p)));
       if (!isAllowed) {
-        navigate("/punch-test", { replace: true });
+        navigate("/", { replace: true });
       }
     }
   }, [location.pathname, navigate]);

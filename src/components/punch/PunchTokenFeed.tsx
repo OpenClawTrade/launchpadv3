@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Rocket, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePunchTokenFeed } from "@/hooks/usePunchTokenFeed";
@@ -9,12 +10,14 @@ export function PunchTokenFeed() {
   const { tokens, loading } = usePunchTokenFeed();
   const tokenIds = tokens.map((t) => t.id);
   const { votes, vote } = usePunchVotes(tokenIds);
-  const marketData = usePunchMarketData(
-    tokens.filter((t) => t.mint_address).map((t) => ({
+  const marketTokens = useMemo(
+    () => tokens.filter((t) => t.mint_address).map((t) => ({
       mint_address: t.mint_address!,
       created_at: t.created_at,
-    }))
+    })),
+    [tokens]
   );
+  const marketData = usePunchMarketData(marketTokens);
 
   return (
     <div className="flex flex-col h-full">
