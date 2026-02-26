@@ -1,0 +1,1 @@
+ALTER TABLE public.fun_tokens ADD COLUMN IF NOT EXISTS punch_creator_wallet text;
