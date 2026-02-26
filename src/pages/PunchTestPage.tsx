@@ -300,8 +300,8 @@ export default function PunchTestPage() {
             </p>
           </div>
 
-          {/* Combo counter — top right */}
-          <div style={{ position: "absolute", top: 0, right: 0, zIndex: 50 }}>
+          {/* Combo counter — top right, below buttons */}
+          <div style={{ position: "absolute", top: 36, right: 14, zIndex: 50 }}>
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
