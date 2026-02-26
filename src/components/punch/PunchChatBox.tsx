@@ -39,13 +39,13 @@ export function PunchChatBox() {
       });
 
       if (error) throw error;
-      const reply = data?.reply || "Ooh... something went wrong 🐵";
+      const reply = data?.reply || "something went wrong, try again";
       setMessages((prev) => [...prev, { role: "punch", content: reply }]);
     } catch (err: any) {
       console.error("[PunchChat]", err);
       setMessages((prev) => [
         ...prev,
-        { role: "punch", content: "🐵 Punch couldn't respond right now. Try again!" },
+        { role: "punch", content: "couldn't respond right now. try again!" },
       ]);
     } finally {
       setLoading(false);
@@ -57,8 +57,7 @@ export function PunchChatBox() {
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         {/* Header */}
         <div className="px-3 py-2 border-b border-border bg-secondary/30 flex items-center gap-2">
-          <span className="text-sm">🐵</span>
-          <span className="text-xs font-bold text-foreground">Ask Punch anything</span>
+          <span className="text-xs font-bold text-foreground">Chat with Punch</span>
         </div>
 
         {/* Messages */}
@@ -66,7 +65,7 @@ export function PunchChatBox() {
           <div className="p-3 space-y-2.5">
             {messages.length === 0 && (
               <p className="text-[11px] text-muted-foreground text-center py-4">
-                No messages yet — ask Punch something!
+                No messages yet — say something!
               </p>
             )}
             {messages.map((m, i) => (
@@ -75,7 +74,7 @@ export function PunchChatBox() {
                 className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
               >
                 <span className="text-[10px] text-muted-foreground mb-0.5">
-                  {m.role === "user" ? m.username || "anon" : "Punch 🐵"}
+                  {m.role === "user" ? m.username || "anon" : "Punch"}
                 </span>
                 <div
                   className={`text-xs px-2.5 py-1.5 rounded-lg max-w-[85%] leading-relaxed ${
@@ -90,7 +89,7 @@ export function PunchChatBox() {
             ))}
             {loading && (
               <div className="flex items-start gap-1.5">
-                <span className="text-[10px] text-muted-foreground">Punch 🐵</span>
+                <span className="text-[10px] text-muted-foreground">Punch</span>
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground mt-0.5" />
               </div>
             )}
@@ -112,7 +111,7 @@ export function PunchChatBox() {
           <div className="flex gap-1.5">
             <input
               type="text"
-              placeholder="Ask Punch something..."
+              placeholder="Type a message..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
