@@ -28,6 +28,45 @@ export default function PunchTestPage() {
   const { totalPunches, uniqueVisitors, reportPunches } = usePunchPageStats();
   const isMobile = useIsMobile();
 
+  // Dynamic SEO for punchlaunch.fun
+  useEffect(() => {
+    const isPunch = window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun";
+    if (!isPunch) return;
+
+    document.title = "Punch and Launch";
+
+    const setMeta = (attr: string, val: string, content: string) => {
+      let el = document.querySelector(`meta[${attr}="${val}"]`) as HTMLMetaElement | null;
+      if (!el) { el = document.createElement("meta"); el.setAttribute(attr.split("=")[0], val); document.head.appendChild(el); }
+      // fix: setAttribute properly
+      if (attr === "name") el.setAttribute("name", val);
+      else el.setAttribute("property", val);
+      el.setAttribute("content", content);
+    };
+
+    const desc = "Punch the Viral Monkey Launchpad";
+    const img = "https://punchlaunch.fun/monkey.png";
+
+    setMeta("name", "description", desc);
+    setMeta("property", "og:title", "Punch and Launch");
+    setMeta("property", "og:description", desc);
+    setMeta("property", "og:image", img);
+    setMeta("property", "og:url", "https://punchlaunch.fun");
+    setMeta("name", "twitter:title", "Punch and Launch");
+    setMeta("name", "twitter:description", desc);
+    setMeta("name", "twitter:image", img);
+    setMeta("name", "twitter:site", "@punchitsol");
+    setMeta("name", "twitter:card", "summary_large_image");
+
+    // Favicon
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
+    link.href = "/monkey.png";
+    link.type = "image/png";
+
+    return () => { document.title = "Claw Mode"; };
+  }, []);
+
   const [state, setState] = useState<GameState>("tapping");
   const [progress, setProgress] = useState(0);
   const [combo, setCombo] = useState(0);

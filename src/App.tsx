@@ -87,6 +87,16 @@ const ConsolePage = lazy(() => import("./pages/ConsolePage"));
 const PunchPage = lazy(() => import("./pages/PunchPage"));
 const PunchTestPage = lazy(() => import("./pages/PunchTestPage"));
 
+// Domain-aware root: render PunchTestPage on punchlaunch.fun, FunLauncherPage otherwise
+function PunchDomainRoot() {
+  const hostname = window.location.hostname;
+  const isPunch = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
+  if (isPunch) {
+    return <Suspense fallback={<RouteLoader />}><PunchTestPage /></Suspense>;
+  }
+  return <FunLauncherPage />;
+}
+
 // Minimal loading spinner for route transitions
 function RouteLoader() {
   return (
@@ -126,7 +136,7 @@ const App = () => (
                 <Suspense fallback={<RouteLoader />}>
                   <MatrixRouteWrapper>
                   <Routes>
-                    <Route path="/" element={<FunLauncherPage />} />
+                    <Route path="/" element={<PunchDomainRoot />} />
                     <Route path="/console" element={<ConsolePage />} />
                     {/* Chain-specific launch routes */}
                     <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
