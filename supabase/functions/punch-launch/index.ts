@@ -61,7 +61,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Generate name + ticker via AI (tool calling)
+    // Step 1: Fetch recent names/tickers to avoid duplicates
+    const { data: recentTokens } = await supabase
+      .from("fun_tokens")
+      .select("name, ticker")
+      .eq("launchpad_type", "punch")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const usedNames = [...new Set((recentTokens || []).map((t: any) => t.name))];
+    const usedTickers = [...new Set((recentTokens || []).map((t: any) => t.ticker))];
+    const blacklist = `ALREADY USED (DO NOT USE THESE):\n- Names: ${usedNames.join(", ")}\n- Tickers: ${usedTickers.join(", ")}`;
+    console.log("[punch-launch] Blacklist:", usedTickers.length, "tickers,", usedNames.length, "names");
+
+    // Step 2: Generate name + ticker via AI (tool calling)
     console.log("[punch-launch] Generating name/ticker...");
     const nameRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -75,12 +88,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You generate funny viral meme coin names about monkeys and apes. Rules:\n- Name: 1-2 words max, under 16 chars. Use monkey species, monkey slang, or ape meme culture. Examples: 'Ooga Booga', 'Monke', 'Baby Gorilla', 'Chad Chimp', 'Ape Lord', 'Banana King', 'Harambe Jr', 'Gibbon God', 'Capybape', 'Degen Ape'\n- Ticker: ONE short meme word, 3-6 letters. Must sound fun. Examples: MONKE, OOGA, CHIMP, BANAN, GORILA, HARAMB, APEGOD, GIBBON, BONOBO, PRIMAL\n- NO violent words (no punch/slap/fist/smash/hit/bonk). Just monkey vibes and meme energy.\n- Be wildly creative and never repeat.",
+              `You generate funny viral meme coin names about monkeys and apes. Rules:\n- Name: 1-2 words max, under 16 chars. Use monkey species, monkey slang, or ape meme culture.\n- Ticker: ONE short meme word, 3-6 letters. Must sound fun.\n- NO violent words (no punch/slap/fist/smash/hit/bonk). Just monkey vibes and meme energy.\n- EVERY name and ticker MUST be completely unique. Never reuse any name or ticker that has been used before.\n\n${blacklist}`,
           },
           {
             role: "user",
             content:
-              "Generate a unique short funny monkey/ape meme coin name and a single-word ticker. Pure primate meme energy, no violence words.",
+              "Generate a BRAND NEW unique short funny monkey/ape meme coin name and ticker that has NEVER been used before. Be wildly creative - invent new words, combine unexpected concepts. Do NOT use any name or ticker from the blacklist.",
           },
         ],
         tools: [
@@ -121,6 +134,17 @@ Deno.serve(async (req) => {
         tokenName = (args.name || "Punch Monkey").slice(0, 24);
         tokenTicker = (args.ticker || "PUNCH").toUpperCase().slice(0, 6);
       } catch {}
+    }
+
+    // Server-side uniqueness enforcement
+    if (usedTickers.includes(tokenTicker)) {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      tokenTicker = tokenTicker.slice(0, 4) + chars[Math.floor(Math.random() * 26)] + chars[Math.floor(Math.random() * 26)];
+      console.log("[punch-launch] Ticker was duplicate, randomized to:", tokenTicker);
+    }
+    if (usedNames.includes(tokenName)) {
+      tokenName = tokenName + " " + Math.floor(Math.random() * 999);
+      console.log("[punch-launch] Name was duplicate, randomized to:", tokenName);
     }
     console.log("[punch-launch] Generated:", tokenName, tokenTicker);
 
