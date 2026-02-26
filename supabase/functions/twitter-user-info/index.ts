@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const CACHE_TTL_HOURS = 24;
@@ -51,23 +51,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch from Twitter API
-    const bearerToken = Deno.env.get('X_BEARER_TOKEN');
-    if (!bearerToken) {
-      return new Response(JSON.stringify({ error: 'Twitter API not configured' }), {
+    // Fetch from twitterapi.io (same as other functions)
+    const apiKey = Deno.env.get('TWITTERAPI_IO_KEY');
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'TWITTERAPI_IO_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const twitterRes = await fetch(
-      `https://api.x.com/2/users/by/username/${cleanUsername}?user.fields=profile_image_url,verified,verified_type`,
-      { headers: { Authorization: `Bearer ${bearerToken}` } },
+      `https://api.twitterapi.io/twitter/user/info?userName=${encodeURIComponent(cleanUsername)}`,
+      { headers: { 'X-API-Key': apiKey } },
     );
 
     if (!twitterRes.ok) {
       const errText = await twitterRes.text();
-      console.error('Twitter API error:', twitterRes.status, errText);
+      console.error('twitterapi.io error:', twitterRes.status, errText);
       // Return cached data if available even if stale
       if (cached) {
         return new Response(JSON.stringify({
@@ -85,20 +85,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    const twitterData = await twitterRes.json();
-    const user = twitterData.data;
+    const responseData = await twitterRes.json();
+    const user = responseData?.data || responseData;
 
-    if (!user) {
+    if (!user || (!user.userName && !user.username)) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Get higher-res image by replacing _normal with _200x200
-    const profileImageUrl = (user.profile_image_url || '').replace('_normal', '_200x200');
-    const verified = user.verified || false;
-    const verifiedType = user.verified_type || null;
+    // Extract profile data from twitterapi.io response format
+    const profileImageUrl = (user.profilePicture || user.avatar || user.profile_image_url_https || '')
+      .replace('_normal', '_200x200');
+    const isBlue = user.isBlueVerified === true || user.is_blue_verified === true;
+    const isGold = user.isGoldVerified === true || user.is_gold_verified === true;
+    const verified = isBlue || isGold || user.isVerified === true || user.verified === true;
+    let verifiedType: string | null = null;
+    if (isGold) verifiedType = 'gold';
+    else if (isBlue || verified) verifiedType = 'blue';
 
     // Update cache
     await supabase.from('twitter_profile_cache').upsert({
@@ -110,7 +115,6 @@ Deno.serve(async (req) => {
     }, { onConflict: 'username' });
 
     // Also update any fun_tokens that have this username in their twitter_url
-    // so the data is cached directly on the token record
     await supabase
       .from('fun_tokens')
       .update({
