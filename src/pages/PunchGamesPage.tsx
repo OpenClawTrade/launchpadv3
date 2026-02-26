@@ -1,4 +1,5 @@
 import { Gamepad2, ArrowLeft, Rocket } from "lucide-react";
+import { PunchStatsFooter } from "@/components/punch/PunchStatsFooter";
 import { Link } from "react-router-dom";
 
 export default function PunchGamesPage() {
@@ -108,6 +109,7 @@ export default function PunchGamesPage() {
           </span>
         </div>
       </div>
+      <PunchStatsFooter />
     </div>
   );
 }
