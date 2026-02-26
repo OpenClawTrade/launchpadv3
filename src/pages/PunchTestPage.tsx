@@ -512,7 +512,7 @@ export default function PunchTestPage() {
                 placeholder="Your Solana wallet address"
                 value={wallet}
                 onChange={(e) => { setWallet(e.target.value.trim()); if (walletSaved) setWalletSaved(false); }}
-                className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60"
+                className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60 focus-visible:ring-green-500/50 focus-visible:border-green-400"
                 onClick={(e) => e.stopPropagation()}
               />
               {isValidWallet && !walletSaved && (
