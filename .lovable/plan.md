@@ -1,67 +1,37 @@
 
 
-## Animated Punch Monkey Scene - Replace Emoji with Real Images
+## Fix Monkey Scene Layout to Match Reference Image
 
-### Overview
-Replace the current monkey emoji (🐵) tapping target with an animated scene composed of the 4 uploaded images. The plush monkey starts at the top of a branch, slides down with each tap, and the baby monkey reaches up from below. At 100 taps (completion), they meet and the final "hug" image is shown.
+### Problem
+The plush monkey (image00004.png / `punch-plush.png`) is not positioned correctly on the branch (image00003.png / `punch-branch.png`). It should be laying ON TOP of the branch and sliding down along it toward the baby monkey's hand.
 
-### Scene Composition (matching reference image)
+### Reference Layout
 ```text
-  [branch.png] ─────────────
-  [plush.png] slides down along branch
-                              ↓
-                    [baby-monkey.png] reaching up
-
-  === On completion (100 taps) ===
-  [monkey-hug.png] replaces everything
+  [branch] ---- angled from upper-left down to center ----
+  [plush]  laying ON the branch, slides along it
+  
+                                    [baby monkey] bottom-right, reaching up
 ```
 
-### Changes
+### Changes to `src/components/punch/PunchMonkey.tsx`
 
-#### 1. Rewrite `PunchMonkey.tsx`
-- Remove the emoji-based display
-- Compose a scene using the 4 images from `/images/`:
-  - **Branch** (`punch-branch.png`): positioned at top, angled from top-left to center-right
-  - **Plush monkey** (`punch-plush.png`): starts at top-left of the branch, slides down toward the baby monkey as progress increases (0-100%)
-  - **Baby monkey** (`punch-baby-monkey.png`): positioned at bottom-right, arm reaching up, with a subtle idle bobbing animation
-- Accept a new `progress` prop (0-100) to control plush position
-- The plush monkey's `translateY` and `translateX` are interpolated based on progress (slides down the branch toward the baby)
-- On tap, the baby monkey does a quick "punch" scale animation (existing behavior)
-- Keep existing ripple effects and tap handling
+1. **Increase container size** to give more room for the composition (400x420px)
+2. **Reposition the branch**: top-left to center, angled ~-15deg, matching reference where it spans the upper portion
+3. **Fix plush monkey positioning**: 
+   - The plush must sit ON the branch visually, not float near it
+   - Start position: upper-left area of the branch
+   - End position: right end of the branch, near baby monkey's reaching hand
+   - The plush should follow the branch's angle (rotate to match the branch slope)
+   - Slide path uses the same angle as the branch so plush travels along it
+4. **Baby monkey**: position bottom-right with hand reaching up toward the end of the branch, matching reference spacing
+5. **All images remain transparent** - no background colors or containers that would obscure transparency
 
-#### 2. Completion animation
-- When `completed` is true (progress >= 100), cross-fade all individual images out and show `punch-monkey-hug.png` centered with a scale-in + glow animation
-- Add a celebratory pulse/glow effect around the hug image
+### Technical: Sliding Math
+The branch is angled at roughly -15 degrees. The plush needs to travel along this angle:
+- At progress=0: plush at left end of branch (left: ~5%, top: ~8%)
+- At progress=100: plush at right end near baby's hand (left: ~55%, top: ~38%)
+- Plush rotation matches branch angle so it looks like it's resting on it
 
-#### 3. Update `PunchPage.tsx`
-- Pass `progress` state to `PunchMonkey` component so it can position the plush accordingly
-
-#### 4. Add keyframes to `src/index.css`
-- `plush-slide`: smooth transition for the plush sliding down
-- `monkey-celebrate`: scale-in with glow for the final hug reveal
-- Keep existing `idle-bob` for the baby monkey's idle state
-
-### Technical Details
-
-**PunchMonkey props change:**
-```typescript
-interface PunchMonkeyProps {
-  onTap: (x: number, y: number) => void;
-  tapping: boolean;
-  completed: boolean;
-  progress: number; // 0-100
-}
-```
-
-**Plush position calculation:**
-- Start position: top-left (translateX: -40%, translateY: -20%)
-- End position: center-right near baby's hand (translateX: 20%, translateY: 60%)
-- Linear interpolation based on `progress` value
-
-**Image sizing:**
-- Container: ~320x320px (responsive)
-- Branch: full width, positioned top
-- Plush: ~120px, absolutely positioned, transforms with progress
-- Baby monkey: ~140px, positioned bottom-right
-- Hug image: ~250px, centered, shown only on completion
+### No changes needed to PunchPage.tsx
+The `progress` prop is already being passed correctly.
 
