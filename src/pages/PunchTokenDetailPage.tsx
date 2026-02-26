@@ -5,7 +5,6 @@ import { usePoolState } from "@/hooks/usePoolState";
 import { PunchStatsFooter } from "@/components/punch/PunchStatsFooter";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
-import { TokenComments } from "@/components/launchpad/TokenComments";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,11 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import {
   Copy, CheckCircle, ExternalLink, Share2, ArrowLeft, Zap,
-  BarChart3, MessageCircle, Info, Lock, ChevronDown, ChevronUp,
+  BarChart3, Info, Lock,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
-const TOTAL_SUPPLY = 1_000_000_000;
 const GRADUATION_THRESHOLD = 85;
 
 function formatCompact(n: number): string {
@@ -34,7 +32,6 @@ export default function PunchTokenDetailPage() {
   const { toast } = useToast();
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chart" | "info">("chart");
-  const [showFullDesc, setShowFullDesc] = useState(false);
 
   const { data: token, isLoading } = useFunToken(mintAddress || "");
 
@@ -227,15 +224,7 @@ export default function PunchTokenDetailPage() {
             </>
           )}
           {mobileTab === "info" && (
-            <>
-              <TokenInfoPanel token={token} solPrice={solPrice} mintAddress={mintAddress || ""} copyAddress={copyAddress} showFullDesc={showFullDesc} setShowFullDesc={setShowFullDesc} />
-              <div className="rounded-xl border border-white/10 p-3 flex flex-col" style={{ background: "rgba(255,255,255,0.03)" }}>
-                <h3 className="text-[10px] font-mono uppercase text-white/40 flex items-center gap-1 mb-2">
-                  <MessageCircle className="h-3 w-3" /> Discussion
-                </h3>
-                <TokenComments tokenId={token.id} />
-              </div>
-            </>
+            <TokenInfoPanel token={token} solPrice={solPrice} mintAddress={mintAddress || ""} copyAddress={copyAddress} />
           )}
         </div>
 
@@ -248,15 +237,7 @@ export default function PunchTokenDetailPage() {
             <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ""} holderCount={token.holder_count || 0} />
           </div>
           <div className="col-span-4 flex flex-col gap-2.5">
-            <TokenInfoPanel token={token} solPrice={solPrice} mintAddress={mintAddress || ""} copyAddress={copyAddress} showFullDesc={showFullDesc} setShowFullDesc={setShowFullDesc} />
-            <div className="rounded-xl border border-white/10 p-3 flex-1 flex flex-col min-h-0 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <h3 className="text-[10px] font-mono uppercase text-white/40 flex items-center gap-1 mb-2">
-                <MessageCircle className="h-3 w-3" /> Discussion
-              </h3>
-              <div className="flex-1 overflow-y-auto">
-                <TokenComments tokenId={token.id} />
-              </div>
-            </div>
+            <TokenInfoPanel token={token} solPrice={solPrice} mintAddress={mintAddress || ""} copyAddress={copyAddress} />
           </div>
         </div>
       </div>
@@ -273,15 +254,11 @@ function TokenInfoPanel({
   solPrice,
   mintAddress,
   copyAddress,
-  showFullDesc,
-  setShowFullDesc,
 }: {
   token: any;
   solPrice: number;
   mintAddress: string;
   copyAddress: () => void;
-  showFullDesc: boolean;
-  setShowFullDesc: (v: boolean) => void;
 }) {
   const formatUsd = (sol: number) => {
     const usd = sol * (solPrice || 0);
@@ -339,23 +316,6 @@ function TokenInfoPanel({
               <Copy className="h-3.5 w-3.5" />
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Description */}
-      {token.description && (
-        <div className="rounded-xl border border-white/10 p-3" style={{ background: "rgba(255,255,255,0.03)" }}>
-          <p className={`text-xs font-mono text-white/50 leading-relaxed ${!showFullDesc ? "line-clamp-3" : ""}`}>
-            {token.description}
-          </p>
-          {token.description.length > 100 && (
-            <button
-              onClick={() => setShowFullDesc(!showFullDesc)}
-              className="text-[10px] font-mono text-orange-400 hover:underline mt-1 flex items-center gap-0.5"
-            >
-              {showFullDesc ? <><ChevronUp className="h-3 w-3" /> Less</> : <><ChevronDown className="h-3 w-3" /> More</>}
-            </button>
-          )}
         </div>
       )}
 
