@@ -12,6 +12,7 @@ import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
 import { MatrixBackground } from "@/components/claw/MatrixBackground";
 import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
+import { PunchVideoPopup } from "@/components/punch/PunchVideoPopup";
 import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext";
 
 function ConditionalMatrixBackground() {
@@ -131,6 +132,7 @@ const App = () => (
             <ErrorBoundary>
               <BrowserRouter>
               <StickyStatsFooter />
+                <PunchVideoPopup />
                 <ConditionalMatrixBackground />
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
