@@ -464,10 +464,10 @@ export default function PunchTestPage() {
               letterSpacing: "-0.03em", lineHeight: 1.2,
               textShadow: "0 2px 12px rgba(0,0,0,0.6)",
             }}>
-              PUNCH A BRANCH TO LAUNCH
+              PUNCH AND LAUNCH
             </h2>
             <p style={{ fontSize: isMobile ? 9 : 11, color: "rgba(255,255,255,0.3)", marginTop: 3 }}>
-              Tap fast to fill the bar — don't stop!
+              Punch a stick to launch a coin.
             </p>
           </div>
 
