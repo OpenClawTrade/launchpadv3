@@ -44,9 +44,8 @@ export function PunchVideoPopup() {
           src={VIDEOS[currentIndex]}
           autoPlay
           muted
-          loop={false}
+          loop
           playsInline
-          onEnded={handleEnded}
           className="w-full h-full object-cover"
         />
 
