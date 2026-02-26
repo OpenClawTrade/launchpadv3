@@ -78,12 +78,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You generate funny, viral meme coin names themed around monkeys, apes, chimps, and primate culture. Rules:\n- Name must be SHORT (1-3 words max, under 20 chars). Think: 'Ape Slap', 'Bonk Chimp', 'Monke Fist'\n- Ticker must be a REAL WORD or short funny word (not random letters). Examples: BONK, SLAP, CHIMP, PUNCH, FIST, SMASH, YEET, CHOMP, CLAP, MONKE, BANAN, OOGA\n- Be creative: mix monkey themes with internet meme culture, fighting, food, chaos\n- NO long multi-word names. NO ticker abbreviations like KSSM or CHMPX. Ticker = one punchy word.",
+              "You generate funny viral meme coin names about monkeys and apes. Rules:\n- Name: 1-2 words max, under 16 chars. Use monkey species, monkey slang, or ape meme culture. Examples: 'Ooga Booga', 'Monke', 'Baby Gorilla', 'Chad Chimp', 'Ape Lord', 'Banana King', 'Harambe Jr', 'Gibbon God', 'Capybape', 'Degen Ape'\n- Ticker: ONE short meme word, 3-6 letters. Must sound fun. Examples: MONKE, OOGA, CHIMP, BANAN, GORILA, HARAMB, APEGOD, GIBBON, BONOBO, PRIMAL\n- NO violent words (no punch/slap/fist/smash/hit/bonk). Just monkey vibes and meme energy.\n- Be wildly creative and never repeat.",
           },
           {
             role: "user",
             content:
-              "Generate a unique short funny meme coin name and a single-word ticker. Monkey/ape themed, internet meme energy.",
+              "Generate a unique short funny monkey/ape meme coin name and a single-word ticker. Pure primate meme energy, no violence words.",
           },
         ],
         tools: [
@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Short funny meme coin name, 1-3 words, max 20 chars" },
-                  ticker: { type: "string", description: "Single funny word ticker, 3-6 uppercase letters, must be a real or meme word" },
+                  name: { type: "string", description: "Short monkey meme name, 1-2 words, max 16 chars" },
+                  ticker: { type: "string", description: "Single fun monkey word ticker, 3-6 uppercase letters" },
                 },
                 required: ["name", "ticker"],
                 additionalProperties: false,
