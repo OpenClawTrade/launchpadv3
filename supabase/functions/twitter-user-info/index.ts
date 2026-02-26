@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
     const user = responseData?.data || responseData;
 
     if (!user || (!user.userName && !user.username)) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
+      return new Response(JSON.stringify({ error: 'User not found', username: cleanUsername }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
