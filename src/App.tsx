@@ -17,7 +17,7 @@ import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext"
 function ConditionalMatrixBackground() {
   const { matrixEnabled } = useMatrixMode();
   const { pathname } = useLocation();
-  if (!matrixEnabled || pathname.startsWith("/launchpad/") || pathname === "/trade" || pathname === "/punch" || pathname === "/punch-test") return null;
+  if (!matrixEnabled || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
   return <MatrixBackground />;
 }
 
@@ -87,6 +87,7 @@ const ConsolePage = lazy(() => import("./pages/ConsolePage"));
 const PunchPage = lazy(() => import("./pages/PunchPage"));
 const PunchTestPage = lazy(() => import("./pages/PunchTestPage"));
 const PunchGamesPage = lazy(() => import("./pages/PunchGamesPage"));
+const PunchTokenDetailPage = lazy(() => import("./pages/PunchTokenDetailPage"));
 
 // Domain-aware root: render PunchTestPage on punchlaunch.fun, FunLauncherPage otherwise
 function PunchDomainRoot() {
@@ -200,6 +201,7 @@ const App = () => (
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
                      <Route path="/punch" element={<PunchPage />} />
                      <Route path="/punch-test" element={<PunchTestPage />} />
+                     <Route path="/punch/token/:mintAddress" element={<PunchTokenDetailPage />} />
                      <Route path="/punch-games" element={<PunchGamesPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -651,7 +651,7 @@ export default function PunchTestPage() {
 
               <div className="flex gap-2">
                 <Button asChild className="flex-1">
-                  <Link to={`/launchpad/${result.mintAddress}`}>View Token</Link>
+                  <Link to={`/punch/token/${result.mintAddress}`}>View Token</Link>
                 </Button>
                 <Button asChild variant="outline" size="icon">
                   <a href={`https://solscan.io/token/${result.mintAddress}`} target="_blank" rel="noopener noreferrer">
