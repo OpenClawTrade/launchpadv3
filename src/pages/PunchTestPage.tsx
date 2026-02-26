@@ -384,7 +384,7 @@ export default function PunchTestPage() {
             >
               <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)", backdropFilter: "blur(8px)" }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
-                  🐵 Enter your Solana address to receive fees!
+                  🐵 Enter your Solana address Launch and receive fees!
                 </p>
                 <Input
                   placeholder="Your Solana wallet address"
