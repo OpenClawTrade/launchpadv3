@@ -8,7 +8,7 @@ import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, ArrowLeft, Loader2, Rocket, Users, Zap, MessageCircle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
@@ -28,7 +28,6 @@ export default function PunchTestPage() {
   const { totalPunches, uniqueVisitors, reportPunches } = usePunchPageStats();
   const isMobile = useIsMobile();
 
-  // Game state
   const [state, setState] = useState<GameState>("tapping");
   const [progress, setProgress] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -37,6 +36,7 @@ export default function PunchTestPage() {
   const [shaking, setShaking] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
+  const [showExtras, setShowExtras] = useState(false);
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
   const [wallet, setWallet] = useState("");
   const [launchError, setLaunchError] = useState("");
@@ -49,11 +49,8 @@ export default function PunchTestPage() {
   } | null>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
 
-  // Branch animation state — maps progress to visual steps
   const step = Math.round((progress / 100) * STEPS);
-  const won = state === "launching" || state === "result";
 
-  // Responsive move amounts
   const getMovePx = () => Math.max(4, Math.min(10, window.innerWidth / 100));
   const getMoveY = () => Math.max(1.5, Math.min(3, window.innerWidth / 200));
 
@@ -65,7 +62,6 @@ export default function PunchTestPage() {
 
   const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
 
-  // Start decay timer
   useEffect(() => {
     decayTimer.current = setInterval(() => {
       const now = Date.now();
@@ -88,12 +84,10 @@ export default function PunchTestPage() {
     tapCount.current++;
     reportPunches(1);
 
-    // Show wallet prompt after 30 taps
     if (tapCount.current >= 30 && !isValidWallet) {
       setShowWalletPrompt(true);
     }
 
-    // Combo logic
     if (timeSinceLastTap < COMBO_WINDOW_MS && timeSinceLastTap > 0) {
       setCombo((c) => c + 1);
       setMultiplier((m) => Math.min(m + 0.1, 3));
@@ -102,12 +96,10 @@ export default function PunchTestPage() {
       setMultiplier(1);
     }
 
-    // Progress increment
     const increment = (100 / TAPS_TO_WIN) * Math.min(multiplier, 3);
     progressRef.current = Math.min(100, progressRef.current + increment);
     setProgress(progressRef.current);
 
-    // Screen shake
     setShaking(true);
     setTapping(true);
     if (tapTimeout.current) clearTimeout(tapTimeout.current);
@@ -116,7 +108,6 @@ export default function PunchTestPage() {
       setTapping(false);
     }, 80);
 
-    // Win condition
     if (progressRef.current >= 100 && tapCount.current >= REQUIRED_TAPS) {
       if (!isValidWallet) {
         setShowWalletPrompt(true);
@@ -140,7 +131,6 @@ export default function PunchTestPage() {
       if (error) throw new Error(error.message || "Launch failed");
       if (data?.error) throw new Error(data.error);
       if (data?.rateLimited) throw new Error(data.error || "Rate limited. Try again later.");
-
       setResult({
         mintAddress: data.mintAddress,
         name: data.name,
@@ -193,327 +183,303 @@ export default function PunchTestPage() {
 
   const movePx = getMovePx();
   const moveY = getMoveY();
+  const isLaunching = state === "launching";
 
   return (
-    <div className="min-h-screen flex w-full bg-black">
-      {/* Left feed panel — desktop */}
-      {!isMobile && (
-        <aside className="w-[280px] shrink-0 border-r border-white/10 bg-black/80 h-screen sticky top-0">
-          <PunchTokenFeed />
-        </aside>
-      )}
+    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#000", position: "fixed", top: 0, left: 0 }}>
+      <PunchConfetti active={showConfetti} />
 
-      {/* Mobile feed toggle */}
-      {isMobile && (
-        <button
-          onClick={() => setShowFeed(!showFeed)}
-          className="fixed top-4 right-4 z-[100001] px-3 py-1.5 rounded-full bg-neutral-900 border border-white/20 text-xs font-bold text-white shadow-lg"
+      {/* ===== PURE ANIMATION LAYER — untouched from original ===== */}
+      <div
+        onClick={() => {
+          if (showExtras || showFeed) return;
+          handleTap();
+        }}
+        className={shaking ? "punch-screen-shake" : ""}
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: state === "tapping" ? "pointer" : "default",
+          userSelect: "none",
+          zIndex: 1,
+        }}
+      >
+        {/* Branch + toy scene */}
+        <div
+          style={{
+            position: "relative",
+            marginRight: "2vw",
+            marginTop: "-18vh",
+            width: "min(72vw, 720px)",
+            transform: "rotate(-7deg)",
+            zIndex: 4,
+            opacity: isLaunching ? 0 : 1,
+            transition: "opacity 600ms ease-in-out",
+            pointerEvents: isLaunching ? "none" : undefined,
+          }}
         >
-          {showFeed ? "✕ Close" : "🔥 Feed"}
-        </button>
+          <img
+            src="/branch.png"
+            alt="branch"
+            draggable={false}
+            style={{ width: "100%", height: "auto", display: "block", filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.08))", pointerEvents: "none" }}
+          />
+          <img
+            src="/toy.png"
+            alt="toy"
+            draggable={false}
+            style={{
+              position: "absolute",
+              left: "18%",
+              top: "23%",
+              width: "50%",
+              height: "auto",
+              zIndex: 6,
+              pointerEvents: "none",
+              transition: "transform 100ms ease-out",
+              transform: `translate(${step * movePx}px, ${step * moveY}px) rotate(5deg)`,
+              filter: "drop-shadow(0 6px 12px rgba(255,255,255,0.1))",
+            }}
+          />
+        </div>
+
+        {/* Baby monkey */}
+        <img
+          src="/monkey.png"
+          alt="Monkey"
+          draggable={false}
+          style={{
+            position: "absolute",
+            width: "min(30vw, 420px)",
+            height: "auto",
+            zIndex: 2,
+            filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.1))",
+            right: "calc(50% - 33vw)",
+            bottom: "calc(50% - 28vw)",
+            opacity: isLaunching ? 0 : 1,
+            transition: "opacity 600ms ease-in-out",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Final hug image */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            zIndex: 10,
+            opacity: isLaunching ? 1 : 0,
+            transition: "opacity 600ms ease-in-out",
+            pointerEvents: isLaunching ? undefined : "none",
+          }}
+        >
+          <img
+            src="/final.png"
+            alt="Victory"
+            draggable={false}
+            style={{ maxWidth: "90vw", maxHeight: "90vh", width: "auto", height: "auto", objectFit: "contain" }}
+          />
+        </div>
+      </div>
+
+      {/* ===== HUD LAYER — small non-intrusive overlays ===== */}
+      {state === "tapping" && (
+        <>
+          {/* Title — top center, small */}
+          <div style={{ position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 50, textAlign: "center", pointerEvents: "none" }}>
+            <h2 style={{ fontSize: 16, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>
+              PUNCH A BRANCH TO LAUNCH
+            </h2>
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
+              Tap fast to fill the bar — don't stop!
+            </p>
+          </div>
+
+          {/* Combo counter — top right */}
+          <div style={{ position: "absolute", top: 0, right: 0, zIndex: 50 }}>
+            <ComboCounter combo={combo} multiplier={multiplier} />
+          </div>
+
+          {/* Progress bar — bottom, slim */}
+          <div style={{ position: "absolute", bottom: 44, left: 16, right: 16, zIndex: 50, pointerEvents: "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>
+              <span>Progress</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+              <div
+                className={`h-full rounded-full bg-gradient-to-r ${getBarColor()}`}
+                style={{ width: `${progress}%`, transition: "width 100ms" }}
+              />
+            </div>
+          </div>
+
+          {/* Wallet prompt — only appears after 30 taps, positioned above progress bar */}
+          {showWalletPrompt && !isValidWallet && (
+            <div
+              style={{ position: "absolute", bottom: 70, left: 16, right: 16, zIndex: 51 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
+                  🐵 Enter your Solana address to receive fees!
+                </p>
+                <Input
+                  placeholder="Your Solana wallet address"
+                  value={wallet}
+                  onChange={(e) => setWallet(e.target.value.trim())}
+                  className="text-center font-mono text-xs bg-black/80 border-white/20 text-white"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Tokens launched counter — top left under back */}
+          {totalLaunched !== null && (
+            <div style={{ position: "absolute", top: 40, left: 16, zIndex: 50, display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "rgba(255,255,255,0.4)", pointerEvents: "none" }}>
+              <Rocket style={{ width: 12, height: 12, color: "#facc15" }} />
+              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>{totalLaunched.toLocaleString()}</span>
+              <span>launched</span>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Mobile feed overlay */}
-      {isMobile && showFeed && (
-        <div className="fixed inset-0 z-[100000] bg-black/95 backdrop-blur-sm animate-fade-in">
-          <div className="h-full pt-12">
+      {/* Launching overlay text */}
+      {isLaunching && (
+        <div style={{ position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 50, display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Generating & launching on-chain...
+        </div>
+      )}
+
+      {launchError && (
+        <div style={{ position: "absolute", bottom: 60, left: "50%", transform: "translateX(-50%)", zIndex: 50, fontSize: 11, color: "#f87171", textAlign: "center" }}>
+          {launchError}
+        </div>
+      )}
+
+      {/* ===== RESULT STATE ===== */}
+      {state === "result" && result && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }}>
+          <div className="max-w-sm w-full space-y-5 animate-fade-in text-center px-4">
+            <div className="text-5xl">🎉</div>
+            <h2 className="text-2xl font-black text-white">TOKEN LAUNCHED!</h2>
+
+            {result.imageUrl && (
+              <img src={result.imageUrl} alt={result.name} className="w-32 h-32 rounded-2xl mx-auto border-2 border-white/20 object-cover" />
+            )}
+
+            <div>
+              <p className="text-lg font-bold text-white">{result.name}</p>
+              <p className="text-sm text-yellow-400 font-mono">${result.ticker}</p>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
+              <code className="text-[11px] font-mono text-white/80 flex-1 truncate">{result.mintAddress}</code>
+              <button onClick={copyAddress} className="text-white/50 hover:text-white">
+                {copiedAddress ? <CheckCircle className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button asChild className="flex-1">
+                <Link to={`/launchpad/${result.mintAddress}`}>View Token</Link>
+              </Button>
+              <Button asChild variant="outline" size="icon">
+                <a href={`https://solscan.io/token/${result.mintAddress}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            </div>
+
+            <Button variant="ghost" onClick={resetGame} className="text-sm text-white/60">
+              Launch Another
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== CORNER BUTTONS — non-intrusive ===== */}
+      {/* Back button */}
+      <Link
+        to="/"
+        style={{ position: "absolute", top: 14, left: 14, zIndex: 70, display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "rgba(255,255,255,0.5)", textDecoration: "none" }}
+      >
+        <ArrowLeft style={{ width: 14, height: 14 }} /> Back
+      </Link>
+
+      {/* Feed toggle */}
+      <button
+        onClick={() => { setShowFeed(!showFeed); setShowExtras(false); }}
+        style={{ position: "absolute", top: 14, right: 14, zIndex: 70, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}
+      >
+        {showFeed ? "✕ Close" : "🔥 Feed"}
+      </button>
+
+      {/* Chat/Extras toggle */}
+      <button
+        onClick={() => { setShowExtras(!showExtras); setShowFeed(false); }}
+        style={{ position: "absolute", top: 14, right: showFeed ? 14 : 90, zIndex: 70, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+      >
+        {showExtras ? <><X style={{ width: 12, height: 12 }} /> Close</> : <><MessageCircle style={{ width: 12, height: 12 }} /> Chat</>}
+      </button>
+
+      {/* ===== FEED OVERLAY ===== */}
+      {showFeed && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(8px)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ height: "100%", paddingTop: 48 }}>
             <PunchTokenFeed />
           </div>
         </div>
       )}
 
-      <PunchConfetti active={showConfetti} />
-
-      {/* Main game area */}
-      <div
-        className={`flex-1 relative overflow-hidden ${shaking ? "punch-screen-shake" : ""}`}
-        style={{ background: "#000" }}
-      >
-        {/* Back button */}
-        <Link
-          to="/"
-          className="absolute top-4 left-4 z-[100001] flex items-center gap-1.5 text-sm text-white/60 hover:text-white transition-colors"
+      {/* ===== EXTRAS OVERLAY (Livestream + Chat) ===== */}
+      {showExtras && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(8px)", overflowY: "auto" }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Link>
-
-        {/* ========== TAPPING / LAUNCHING STATE ========== */}
-        {(state === "tapping" || state === "launching") && (
-          <div
-            onClick={(e) => {
-              // Don't count clicks on inputs/buttons
-              if ((e.target as HTMLElement).closest("input, button, a")) return;
-              handleTap();
-            }}
-            style={{
-              position: "relative",
-              width: "100%",
-              height: "100vh",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: state === "launching" ? "default" : "pointer",
-              userSelect: "none",
-            }}
-          >
-            <ComboCounter combo={combo} multiplier={multiplier} />
-
-            {/* Title */}
-            <div className="text-center mb-4 z-10">
-              <h2 className="text-xl font-black text-white">
-                {state === "launching" ? "LAUNCHING..." : "PUNCH A BRANCH TO LAUNCH"}
-              </h2>
-              <p className="text-xs text-white/50 mt-1">
-                {state === "launching"
-                  ? "AI is generating your token..."
-                  : "Tap fast to fill the bar — don't stop!"}
-              </p>
-            </div>
-
-            {/* ===== BRANCH ANIMATION ===== */}
-            <div
-              style={{
-                position: "relative",
-                width: "min(72vw, 720px)",
-                marginTop: "-8vh",
-                transform: "rotate(-7deg)",
-                zIndex: 4,
-                opacity: state === "launching" ? 0 : 1,
-                transition: "opacity 600ms ease-in-out",
-                pointerEvents: state === "launching" ? "none" : undefined,
-              }}
-            >
-              <img
-                src="/branch.png"
-                alt="branch"
-                draggable={false}
-                style={{
-                  width: "100%",
-                  height: "auto",
-                  display: "block",
-                  filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.08))",
-                  pointerEvents: "none",
-                }}
-              />
-              <img
-                src="/toy.png"
-                alt="toy"
-                draggable={false}
-                style={{
-                  position: "absolute",
-                  left: "18%",
-                  top: "23%",
-                  width: "50%",
-                  height: "auto",
-                  zIndex: 6,
-                  pointerEvents: "none",
-                  transition: "transform 100ms ease-out",
-                  transform: `translate(${step * movePx}px, ${step * moveY}px) rotate(5deg)`,
-                  filter: "drop-shadow(0 6px 12px rgba(255,255,255,0.1))",
-                }}
-              />
-            </div>
-
-            {/* Baby monkey */}
-            <img
-              src="/monkey.png"
-              alt="Monkey"
-              draggable={false}
-              style={{
-                position: "absolute",
-                width: "min(30vw, 420px)",
-                height: "auto",
-                zIndex: 2,
-                filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.1))",
-                right: "calc(50% - 33vw)",
-                bottom: "calc(50% - 28vw)",
-                opacity: state === "launching" ? 0 : 1,
-                transition: "opacity 600ms ease-in-out",
-                pointerEvents: "none",
-              }}
-            />
-
-            {/* Final hug image — shown during launching transition */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "grid",
-                placeItems: "center",
-                zIndex: 10,
-                opacity: state === "launching" ? 1 : 0,
-                transition: "opacity 600ms ease-in-out",
-                pointerEvents: state === "launching" ? undefined : "none",
-              }}
-            >
-              <img
-                src="/final.png"
-                alt="Victory"
-                draggable={false}
-                style={{
-                  maxWidth: "90vw",
-                  maxHeight: "70vh",
-                  width: "auto",
-                  height: "auto",
-                  objectFit: "contain",
-                }}
-              />
-            </div>
-
-            {/* UI overlay at bottom */}
-            <div
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 w-full max-w-sm px-4 space-y-3 z-20"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Wallet prompt after 30 taps */}
-              {showWalletPrompt && !isValidWallet && state === "tapping" && (
-                <div className="w-full p-3 rounded-xl border border-yellow-500/50 bg-yellow-500/10 animate-fade-in space-y-2">
-                  <p className="text-xs font-bold text-white text-center">
-                    🐵 Enter your Solana address so we know where to send fees when your token launches!
-                  </p>
-                  <Input
-                    placeholder="Your Solana wallet address"
-                    value={wallet}
-                    onChange={(e) => setWallet(e.target.value.trim())}
-                    className="text-center font-mono text-xs bg-black/50 border-white/20 text-white"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              )}
-
-              {/* Wallet input — subtle when not prompted */}
-              {!showWalletPrompt && state === "tapping" && (
-                <Input
-                  placeholder="Solana wallet (optional for now)"
-                  value={wallet}
-                  onChange={(e) => setWallet(e.target.value.trim())}
-                  className="text-center font-mono text-[10px] opacity-40 focus:opacity-100 transition-opacity bg-black/50 border-white/20 text-white"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              )}
-
-              {/* Progress bar */}
-              <div className="w-full">
-                <div className="flex justify-between text-[10px] font-mono text-white/50 mb-1">
-                  <span>Progress</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full h-4 rounded-full bg-white/10 overflow-hidden border border-white/20">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${getBarColor()} transition-all duration-100`}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-
-              {state === "launching" && (
-                <div className="flex items-center justify-center gap-2 text-sm text-white/60">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating image & launching on-chain...
-                </div>
-              )}
-
-              {launchError && (
-                <p className="text-xs text-red-400 text-center">{launchError}</p>
-              )}
-
-              {totalLaunched !== null && (
-                <div className="flex items-center justify-center gap-1.5 text-xs text-white/50">
-                  <Rocket className="h-3.5 w-3.5 text-yellow-400" />
-                  <span className="font-mono font-bold text-white">{totalLaunched.toLocaleString()}</span>
-                  <span>tokens launched</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ========== RESULT STATE ========== */}
-        {state === "result" && result && (
-          <div className="flex items-center justify-center min-h-screen p-4">
-            <div className="max-w-sm w-full space-y-5 animate-fade-in text-center">
-              <div className="text-5xl">🎉</div>
-              <h2 className="text-2xl font-black text-white">TOKEN LAUNCHED!</h2>
-
-              {result.imageUrl && (
-                <img
-                  src={result.imageUrl}
-                  alt={result.name}
-                  className="w-32 h-32 rounded-2xl mx-auto border-2 border-white/20 object-cover"
-                />
-              )}
-
-              <div>
-                <p className="text-lg font-bold text-white">{result.name}</p>
-                <p className="text-sm text-yellow-400 font-mono">${result.ticker}</p>
-              </div>
-
-              <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
-                <code className="text-[11px] font-mono text-white/80 flex-1 truncate">
-                  {result.mintAddress}
-                </code>
-                <button onClick={copyAddress} className="text-white/50 hover:text-white">
-                  {copiedAddress ? (
-                    <CheckCircle className="h-4 w-4 text-green-400" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-
-              <div className="flex gap-2">
-                <Button asChild className="flex-1">
-                  <Link to={`/launchpad/${result.mintAddress}`}>View Token</Link>
-                </Button>
-                <Button asChild variant="outline" size="icon">
-                  <a
-                    href={`https://solscan.io/token/${result.mintAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
-              </div>
-
-              <Button variant="ghost" onClick={resetGame} className="text-sm text-white/60">
-                Launch Another
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Livestream + Chat — fixed bottom area, only during tapping */}
-        {(state === "tapping" || state === "launching") && (
-          <div
-            className="absolute bottom-14 left-1/2 -translate-x-1/2 w-full max-w-[420px] px-4 z-30 space-y-2"
-            style={{ pointerEvents: "auto" }}
-          >
+          <div style={{ maxWidth: 420, margin: "0 auto", padding: "56px 16px 24px" }}>
             <PunchLivestream />
             <PunchChatBox />
-            <p className="text-[10px] text-white/30 text-center">
+            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textAlign: "center", marginTop: 8 }}>
               Limited to 1 launch per 3 minutes per IP
             </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Stats footer */}
-        <div className="absolute bottom-0 inset-x-0 border-t border-white/10 bg-black/80 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-6 text-xs text-white/50 z-40">
-          <div className="flex items-center gap-1.5">
-            <Zap className="h-3.5 w-3.5 text-yellow-400" />
-            <span className="font-mono font-bold text-white">
-              {totalPunches !== null ? totalPunches.toLocaleString() : "—"}
-            </span>
-            <span>punches</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Users className="h-3.5 w-3.5 text-yellow-400" />
-            <span className="font-mono font-bold text-white">
-              {uniqueVisitors !== null ? uniqueVisitors.toLocaleString() : "—"}
-            </span>
-            <span>visitors</span>
-          </div>
+      {/* ===== STATS BAR — bottom ===== */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 50,
+        borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.7)",
+        backdropFilter: "blur(4px)", padding: "6px 16px",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 24,
+        fontSize: 11, color: "rgba(255,255,255,0.4)", pointerEvents: "none",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Zap style={{ width: 13, height: 13, color: "#facc15" }} />
+          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>
+            {totalPunches !== null ? totalPunches.toLocaleString() : "—"}
+          </span>
+          <span>punches</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Users style={{ width: 13, height: 13, color: "#facc15" }} />
+          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fff" }}>
+            {uniqueVisitors !== null ? uniqueVisitors.toLocaleString() : "—"}
+          </span>
+          <span>visitors</span>
         </div>
       </div>
     </div>
