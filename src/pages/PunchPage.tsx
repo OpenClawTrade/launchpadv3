@@ -50,6 +50,7 @@ export default function PunchPage() {
   const lastTapTime = useRef(0);
   const tapCount = useRef(0);
   const progressRef = useRef(0);
+  const launchTriggered = useRef(false);
   const decayTimer = useRef<ReturnType<typeof setInterval>>();
   const tapTimeout = useRef<ReturnType<typeof setTimeout>>();
 
@@ -116,6 +117,7 @@ export default function PunchPage() {
 
       // Win condition — needs valid wallet
       if (progressRef.current >= 100 && tapCount.current >= REQUIRED_TAPS) {
+        if (launchTriggered.current) return; // Already triggered
         if (!isValidWallet) {
           setShowWalletPrompt(true);
           // Cap progress at 99 so bar stays full visually but doesn't launch
@@ -123,6 +125,7 @@ export default function PunchPage() {
           setProgress(99);
           return;
         }
+        launchTriggered.current = true;
         if (decayTimer.current) clearInterval(decayTimer.current);
         setShowConfetti(true);
         setTimeout(() => launchToken(), 1500);
@@ -154,6 +157,7 @@ export default function PunchPage() {
     } catch (err: any) {
       console.error("[PunchPage] Launch error:", err);
       setLaunchError(err.message || "Something went wrong");
+      launchTriggered.current = false;
       setState("tapping");
       setProgress(0);
       progressRef.current = 0;
@@ -371,6 +375,7 @@ export default function PunchPage() {
                 setResult(null);
                 tapCount.current = 0;
                 progressRef.current = 0;
+                launchTriggered.current = false;
                 setShowWalletPrompt(false);
                 // Restart decay
                 decayTimer.current = setInterval(() => {
