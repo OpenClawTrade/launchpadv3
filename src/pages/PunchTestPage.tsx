@@ -80,6 +80,9 @@ export default function PunchTestPage() {
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
   const [wallet, setWallet] = useState("");
   const [launchError, setLaunchError] = useState("");
+  const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [tokensLaunched, setTokensLaunched] = useState(0);
   const [result, setResult] = useState<{
     mintAddress: string;
     name: string;
@@ -101,6 +104,19 @@ export default function PunchTestPage() {
   const tapTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (!rateLimitUntil) { setCountdown(0); return; }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((rateLimitUntil - Date.now()) / 1000));
+      setCountdown(remaining);
+      if (remaining <= 0) setRateLimitUntil(null);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [rateLimitUntil]);
 
   useEffect(() => {
     decayTimer.current = setInterval(() => {
@@ -170,9 +186,22 @@ export default function PunchTestPage() {
       });
       const data = res.data;
       const error = res.error;
+
+      // Handle rate limit specifically
+      if (data?.rateLimited) {
+        const waitSec = data.waitSeconds || 180;
+        setRateLimitUntil(Date.now() + waitSec * 1000);
+        setState("tapping");
+        setProgress(0);
+        progressRef.current = 0;
+        setShowConfetti(false);
+        return;
+      }
+
       if (error) throw new Error(error.message || "Launch failed");
-      if (data?.rateLimited) throw new Error(data.error || "Rate limited. Try again later.");
       if (data?.error) throw new Error(data.error);
+
+      setTokensLaunched((n) => n + 1);
       setResult({
         mintAddress: data.mintAddress,
         name: data.name,
@@ -471,43 +500,102 @@ export default function PunchTestPage() {
         </div>
       )}
 
-      {/* ===== RESULT STATE ===== */}
+      {/* ===== RESULT POPUP ===== */}
       {state === "result" && result && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }}>
-          <div className="max-w-sm w-full space-y-5 animate-fade-in text-center px-4">
-            <div className="text-5xl">🎉</div>
-            <h2 className="text-2xl font-black text-white">TOKEN LAUNCHED!</h2>
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { e.stopPropagation(); resetGame(); }}
+        >
+          <div
+            style={{
+              width: isMobile ? "90vw" : 380, maxWidth: 400,
+              background: "rgba(15,15,15,0.98)", borderRadius: 16,
+              border: "1px solid rgba(250,204,21,0.2)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+              padding: "24px 20px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="animate-fade-in"
+          >
+            <div className="text-center space-y-4">
+              <div className="text-4xl">🎉</div>
+              <h2 className="text-xl font-black text-white">TOKEN LAUNCHED!</h2>
 
-            {result.imageUrl && (
-              <img src={result.imageUrl} alt={result.name} className="w-32 h-32 rounded-2xl mx-auto border-2 border-white/20 object-cover" />
-            )}
+              {result.imageUrl && (
+                <img src={result.imageUrl} alt={result.name} className="w-24 h-24 rounded-2xl mx-auto border-2 border-white/20 object-cover" />
+              )}
 
-            <div>
-              <p className="text-lg font-bold text-white">{result.name}</p>
-              <p className="text-sm text-yellow-400 font-mono">${result.ticker}</p>
-            </div>
+              <div>
+                <p className="text-base font-bold text-white">{result.name}</p>
+                <p className="text-sm text-yellow-400 font-mono">${result.ticker}</p>
+              </div>
 
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
-              <code className="text-[11px] font-mono text-white/80 flex-1 truncate">{result.mintAddress}</code>
-              <button onClick={copyAddress} className="text-white/50 hover:text-white">
-                {copiedAddress ? <CheckCircle className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-              </button>
-            </div>
+              <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                <code className="text-[11px] font-mono text-white/80 flex-1 truncate">{result.mintAddress}</code>
+                <button onClick={copyAddress} className="text-white/50 hover:text-white">
+                  {copiedAddress ? <CheckCircle className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
 
-            <div className="flex gap-2">
-              <Button asChild className="flex-1">
-                <Link to={`/launchpad/${result.mintAddress}`}>View Token</Link>
+              {tokensLaunched > 0 && (
+                <p className="text-[11px] text-white/40">Tokens launched this session: {tokensLaunched}</p>
+              )}
+
+              <div className="flex gap-2">
+                <Button asChild className="flex-1">
+                  <Link to={`/launchpad/${result.mintAddress}`}>View Token</Link>
+                </Button>
+                <Button asChild variant="outline" size="icon">
+                  <a href={`https://solscan.io/token/${result.mintAddress}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              </div>
+
+              <Button variant="ghost" onClick={resetGame} className="text-sm text-white/60 w-full">
+                Launch Another
               </Button>
-              <Button asChild variant="outline" size="icon">
-                <a href={`https://solscan.io/token/${result.mintAddress}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== RATE LIMIT POPUP ===== */}
+      {rateLimitUntil && countdown > 0 && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { e.stopPropagation(); setRateLimitUntil(null); }}
+        >
+          <div
+            style={{
+              width: isMobile ? "85vw" : 340,
+              background: "rgba(15,15,15,0.98)", borderRadius: 16,
+              border: "1px solid rgba(250,204,21,0.2)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+              padding: "24px 20px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="animate-fade-in"
+          >
+            <div className="text-center space-y-4">
+              <div className="text-4xl">⏳</div>
+              <h2 className="text-lg font-black text-white">Cooldown Active</h2>
+              <p className="text-sm text-white/60">You're launching too fast! Wait a bit before punching again.</p>
+
+              <div style={{ fontSize: 36, fontWeight: 900, fontFamily: "monospace", color: "#facc15" }}>
+                {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}
+              </div>
+
+              {tokensLaunched > 0 && (
+                <p className="text-sm text-white/50">
+                  🐵 Tokens launched this session: <span className="text-yellow-400 font-bold">{tokensLaunched}</span>
+                </p>
+              )}
+
+              <Button variant="ghost" onClick={() => setRateLimitUntil(null)} className="text-sm text-white/60 w-full">
+                Dismiss
               </Button>
             </div>
-
-            <Button variant="ghost" onClick={resetGame} className="text-sm text-white/60">
-              Launch Another
-            </Button>
           </div>
         </div>
       )}
