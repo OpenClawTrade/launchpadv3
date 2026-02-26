@@ -126,6 +126,7 @@ export default function PunchPage() {
           return;
         }
         launchTriggered.current = true;
+        setState("launching"); // Immediately block further taps
         if (decayTimer.current) clearInterval(decayTimer.current);
         setShowConfetti(true);
         setTimeout(() => launchToken(), 1500);
