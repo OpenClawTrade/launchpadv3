@@ -646,10 +646,8 @@ export default function PunchTestPage() {
         </div>
       )}
 
-      {/* Floating video popup — hidden when wallet prompt is visible */}
-      {!(showWalletPrompt && !isValidWallet) && (
-        <PunchVideoPopup onVideoClick={() => { setShowExtras(true); setShowFeed(false); }} />
-      )}
+      {/* Floating video popup — opens chat */}
+      <PunchVideoPopup onVideoClick={() => { setShowExtras(true); setShowFeed(false); }} />
 
       {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <div style={{
