@@ -475,50 +475,48 @@ export default function PunchTestPage() {
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
-          {/* Wallet prompt — show until saved */}
-          {!walletSaved && (
+          {/* Wallet prompt — always visible during tapping */}
+          <div
+            style={{ position: "absolute", bottom: isMobile ? 160 : 100, left: 16, right: 16, zIndex: 55 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
-              style={{ position: "absolute", bottom: isMobile ? 160 : 100, left: 16, right: 16, zIndex: 55 }}
-              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12,
+                border: `1px solid ${walletShake ? "rgba(239,68,68,0.7)" : walletSaved ? "rgba(34,197,94,0.7)" : "rgba(34,197,94,0.5)"}`,
+                background: walletShake ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)",
+                backdropFilter: "blur(8px)",
+                animation: walletShake ? "wallet-shake 0.5s ease-in-out" : "none",
+                transition: "border-color 0.3s, background 0.3s",
+              }}
             >
-              <div
-                style={{
-                  maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12,
-                  border: `1px solid ${walletShake ? "rgba(239,68,68,0.7)" : isValidWallet ? "rgba(34,197,94,0.7)" : "rgba(34,197,94,0.5)"}`,
-                  background: walletShake ? "rgba(239,68,68,0.12)" : "rgba(34,197,94,0.08)",
-                  backdropFilter: "blur(8px)",
-                  animation: walletShake ? "wallet-shake 0.5s ease-in-out" : "none",
-                  transition: "border-color 0.3s, background 0.3s",
-                }}
-              >
-                <p style={{ fontSize: 11, fontWeight: 700, color: walletShake ? "#f87171" : "#fff", textAlign: "center", marginBottom: 6 }}>
-                  {walletShake ? "⚠️ Enter your wallet to launch!" : "🐵 Enter your Solana address where to receive fees!"}
-                </p>
-                <Input
-                  placeholder="Your Solana wallet address"
-                  value={wallet}
-                  onChange={(e) => setWallet(e.target.value.trim())}
-                  className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                {isValidWallet && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleSaveWallet(); }}
-                    style={{
-                      marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 8,
-                      background: "rgba(34,197,94,0.8)", color: "#fff", fontWeight: 700,
-                      fontSize: 12, border: "none", cursor: "pointer",
-                      transition: "background 0.2s",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,197,94,1)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,197,94,0.8)")}
-                  >
-                    ✅ Save Wallet
-                  </button>
-                )}
-              </div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: walletShake ? "#f87171" : walletSaved ? "rgba(34,197,94,0.9)" : "#fff", textAlign: "center", marginBottom: 6 }}>
+                {walletShake ? "⚠️ Enter your wallet to launch!" : walletSaved ? "✅ Wallet saved! You can change it anytime." : "🐵 Enter your Solana address where to receive fees!"}
+              </p>
+              <Input
+                placeholder="Your Solana wallet address"
+                value={wallet}
+                onChange={(e) => { setWallet(e.target.value.trim()); if (walletSaved) setWalletSaved(false); }}
+                className="text-center font-mono text-xs bg-black/80 border-green-500/30 text-white focus:border-green-400/60"
+                onClick={(e) => e.stopPropagation()}
+              />
+              {isValidWallet && !walletSaved && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleSaveWallet(); }}
+                  style={{
+                    marginTop: 8, width: "100%", padding: "6px 0", borderRadius: 8,
+                    background: "rgba(34,197,94,0.8)", color: "#fff", fontWeight: 700,
+                    fontSize: 12, border: "none", cursor: "pointer",
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(34,197,94,1)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(34,197,94,0.8)")}
+                >
+                  ✅ Save Wallet
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Progress bar — above wallet prompt */}
           <div style={{ position: "absolute", bottom: isMobile ? 250 : 190, left: "50%", transform: "translateX(-50%)", width: "60%", maxWidth: 300, zIndex: 50, pointerEvents: "none" }}>
