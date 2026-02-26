@@ -426,7 +426,7 @@ export default function PunchTestPage() {
             <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
               <div
                 className={`h-full rounded-full bg-gradient-to-r ${getBarColor()}`}
-                style={{ width: `${progress}%`, transition: "width 100ms" }}
+                style={{ width: `${Math.max(progress, 2)}%`, transition: "width 100ms", minWidth: 6 }}
               />
             </div>
           </div>
