@@ -45,7 +45,7 @@ export default function PunchTestPage() {
     };
 
     const desc = "Punch the Viral Monkey Launchpad";
-    const img = "https://punchlaunch.fun/monkey.png";
+    const img = "https://punchlaunch.fun/punch-logo.jpg";
 
     setMeta("name", "description", desc);
     setMeta("property", "og:title", "Punch and Launch");
@@ -61,8 +61,8 @@ export default function PunchTestPage() {
     // Favicon
     let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
     if (!link) { link = document.createElement("link"); link.rel = "icon"; document.head.appendChild(link); }
-    link.href = "/monkey.png";
-    link.type = "image/png";
+    link.href = "/punch-logo.jpg";
+    link.type = "image/jpeg";
 
     return () => { document.title = "Claw Mode"; };
   }, []);
