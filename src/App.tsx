@@ -86,6 +86,7 @@ const PanelPage = lazy(() => import("./pages/PanelPage"));
 const ConsolePage = lazy(() => import("./pages/ConsolePage"));
 const PunchPage = lazy(() => import("./pages/PunchPage"));
 const PunchTestPage = lazy(() => import("./pages/PunchTestPage"));
+const PunchGamesPage = lazy(() => import("./pages/PunchGamesPage"));
 
 // Domain-aware root: render PunchTestPage on punchlaunch.fun, FunLauncherPage otherwise
 function PunchDomainRoot() {
@@ -199,6 +200,7 @@ const App = () => (
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
                      <Route path="/punch" element={<PunchPage />} />
                      <Route path="/punch-test" element={<PunchTestPage />} />
+                     <Route path="/punch-games" element={<PunchGamesPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
                   </MatrixRouteWrapper>

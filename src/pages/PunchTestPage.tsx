@@ -9,7 +9,7 @@ import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { PunchVideoPopup } from "@/components/punch/PunchVideoPopup";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X, Twitter } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X, Twitter, Gamepad2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
@@ -447,6 +447,20 @@ export default function PunchTestPage() {
           >
             🔥 {showFeed ? "Close" : "Feed"}
           </button>
+          <Link
+            to="/punch-games"
+            style={{
+              padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              transition: "all 150ms ease", textDecoration: "none",
+            }}
+          >
+            <Gamepad2 style={{ width: 11, height: 11 }} />
+            Games
+          </Link>
         </div>
       </div>
 
