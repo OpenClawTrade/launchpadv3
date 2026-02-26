@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 
 const STEPS = 18;
-const MOVE_PX = 10;
 
 const PunchTestPage = () => {
   const [step, setStep] = useState(0);
   const [won, setWon] = useState(false);
   const lastClickRef = useRef<number>(Date.now());
+
+  // Responsive move amount based on viewport width
+  const getMovePx = () => Math.max(4, Math.min(10, window.innerWidth / 100));
+  const getMoveY = () => Math.max(1.5, Math.min(3, window.innerWidth / 200));
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -23,6 +26,9 @@ const PunchTestPage = () => {
     }
   }, [step, won]);
 
+  const movePx = getMovePx();
+  const moveY = getMoveY();
+
   return (
     <div
       onClick={() => {
@@ -31,7 +37,9 @@ const PunchTestPage = () => {
         setStep((prev) => Math.min(prev + 1, STEPS));
       }}
       style={{
-        position: "relative",
+        position: "fixed",
+        top: 0,
+        left: 0,
         width: "100vw",
         height: "100vh",
         background: "#000",
@@ -39,6 +47,9 @@ const PunchTestPage = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        zIndex: 99999,
+        margin: 0,
+        padding: 0,
       }}
     >
       {/* Scene */}
@@ -46,9 +57,8 @@ const PunchTestPage = () => {
         style={{
           position: "relative",
           marginRight: "2vw",
-          marginTop: "-18vh",
-          width: "72vw",
-          maxWidth: 720,
+          marginTop: "-12vh",
+          width: "min(72vw, 720px)",
           transform: "rotate(-7deg)",
           zIndex: 4,
           opacity: won ? 0 : 1,
@@ -71,7 +81,7 @@ const PunchTestPage = () => {
             width: "50%",
             height: "auto",
             zIndex: 6,
-            transform: `translate(${step * MOVE_PX}px, ${step * 3}px) rotate(5deg)`,
+            transform: `translate(${step * movePx}px, ${step * moveY}px) rotate(5deg)`,
             filter: "drop-shadow(0 6px 12px rgba(255,255,255,0.1))",
           }}
         />
@@ -81,13 +91,12 @@ const PunchTestPage = () => {
         alt="Monkey"
         style={{
           position: "absolute",
-          width: "30vw",
-          maxWidth: 420,
+          width: "min(30vw, 420px)",
           height: "auto",
           zIndex: 2,
           filter: "drop-shadow(0 8px 16px rgba(255,255,255,0.1))",
           right: "calc(50% - 33vw)",
-          bottom: "calc(50% - 32vw)",
+          bottom: "calc(50% - 28vw)",
           opacity: won ? 0 : 1,
           transition: "opacity 600ms ease-in-out",
           pointerEvents: won ? "none" : undefined,
@@ -110,8 +119,8 @@ const PunchTestPage = () => {
           src="/final.png"
           alt="Victory"
           style={{
-            maxWidth: "80vw",
-            maxHeight: "80vh",
+            maxWidth: "90vw",
+            maxHeight: "90vh",
             width: "auto",
             height: "auto",
             objectFit: "contain",
