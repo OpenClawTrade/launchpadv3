@@ -4,7 +4,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { usePoolState } from "@/hooks/usePoolState";
 import { PunchStatsFooter } from "@/components/punch/PunchStatsFooter";
 import { CodexChart } from "@/components/launchpad/CodexChart";
-import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -218,9 +218,8 @@ export default function PunchTokenDetailPage() {
           {mobileTab === "chart" && (
             <>
               <div className="rounded-xl overflow-hidden border border-white/10" style={{ background: "#0a0a0a" }}>
-                <CodexChart tokenAddress={token.mint_address || mintAddress || ""} height={340} />
+              <CodexChart tokenAddress={token.mint_address || mintAddress || ""} height={340} />
               </div>
-              <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ""} holderCount={token.holder_count || 0} />
             </>
           )}
           {mobileTab === "info" && (
@@ -234,7 +233,6 @@ export default function PunchTokenDetailPage() {
             <div className="rounded-xl overflow-hidden border border-white/10" style={{ background: "#0a0a0a" }}>
               <CodexChart tokenAddress={token.mint_address || mintAddress || ""} height={420} />
             </div>
-            <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ""} holderCount={token.holder_count || 0} />
           </div>
           <div className="col-span-4 flex flex-col gap-2.5">
             <TokenInfoPanel token={token} solPrice={solPrice} mintAddress={mintAddress || ""} copyAddress={copyAddress} />
