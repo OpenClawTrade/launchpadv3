@@ -466,7 +466,7 @@ export default function PunchTestPage() {
           {/* Wallet prompt */}
           {showWalletPrompt && !isValidWallet && (
             <div
-              style={{ position: "absolute", bottom: 70, left: 16, right: 16, zIndex: 55 }}
+              style={{ position: "absolute", bottom: 120, left: 16, right: 16, zIndex: 55 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)", backdropFilter: "blur(8px)" }}>
