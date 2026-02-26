@@ -8,7 +8,7 @@ import { PunchTokenFeed } from "@/components/punch/PunchTokenFeed";
 import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { supabase } from "@/integrations/supabase/client";
-import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X } from "lucide-react";
+import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X, Twitter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
@@ -307,6 +307,22 @@ export default function PunchTestPage() {
 
         {/* Right — nav pills */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <a
+            href="https://x.com/punchitsol"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              width: 28, height: 28, borderRadius: 999,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", transition: "all 150ms ease",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill="rgba(255,255,255,0.7)"/>
+            </svg>
+          </a>
           <button
             onClick={() => { setShowExtras(!showExtras); setShowFeed(false); }}
             style={{
