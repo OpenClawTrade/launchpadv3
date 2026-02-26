@@ -41,7 +41,12 @@ export function usePunchMarketData(tokens: TokenWithAge[]) {
   // Initial fetch + when token list changes
   useEffect(() => {
     const allAddrs = tokens.filter((t) => t.mint_address).map((t) => t.mint_address!);
-    if (allAddrs.length > 0) fetchBatch(allAddrs);
+    if (allAddrs.length > 0) {
+      fetchBatch(allAddrs);
+      // Retry once after 3s for tokens that Codex hasn't indexed yet
+      const retryTimer = setTimeout(() => fetchBatch(allAddrs), 3000);
+      return () => clearTimeout(retryTimer);
+    }
   }, [addressKey, fetchBatch]);
 
   // Fresh tokens polling (5s)

@@ -126,11 +126,17 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
       <div className="flex items-center gap-2 text-[10px] pl-[50px]">
         {/* Market Cap */}
         <span className="text-muted-foreground font-medium">
-          MCap: <span className="text-foreground font-bold">{marketData ? formatMcap(marketData.marketCapUsd) : "..."}</span>
+          MCap: <span className="text-foreground font-bold">
+            {marketData ? formatMcap(marketData.marketCapUsd) : (
+              <span className="inline-flex items-center gap-0.5 text-muted-foreground/60">
+                <span className="animate-pulse">loading</span>
+              </span>
+            )}
+          </span>
         </span>
 
         {/* 24h Change */}
-        {marketData && (
+        {marketData && marketData.change24h !== 0 && (
           <span
             className={`font-bold ${
               isPositive ? "text-green-400" : isNegative ? "text-red-400" : "text-green-400"
@@ -143,7 +149,11 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchT
         {/* Holders */}
         <span className="flex items-center gap-0.5 text-muted-foreground">
           <Users className="h-2.5 w-2.5" />
-          <span className="font-bold text-foreground">{marketData ? formatHolders(marketData.holders) : "..."}</span>
+          <span className="font-bold text-foreground">
+            {marketData ? formatHolders(marketData.holders) : (
+              <span className="animate-pulse text-muted-foreground/60">...</span>
+            )}
+          </span>
         </span>
 
         {/* Copy CA */}
