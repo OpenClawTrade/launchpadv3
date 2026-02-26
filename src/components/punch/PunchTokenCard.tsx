@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Copy, Check, Users } from "lucide-react";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { Link } from "react-router-dom";
 import type { PunchToken } from "@/hooks/usePunchTokenFeed";
 import type { VoteCounts } from "@/hooks/usePunchVotes";
+import type { TokenMarketData } from "@/hooks/usePunchMarketData";
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -15,14 +16,35 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+function formatMcap(usd: number): string {
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  if (usd > 0) return `$${usd.toFixed(0)}`;
+  return "—";
+}
+
+function formatHolders(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
+
+function formatChange(pct: number): string {
+  const abs = Math.abs(pct);
+  if (abs >= 100) return `${pct > 0 ? "+" : ""}${pct.toFixed(0)}%`;
+  return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
+
 interface PunchTokenCardProps {
   token: PunchToken;
   voteCounts: VoteCounts;
   onVote: (tokenId: string, voteType: 1 | -1) => void;
+  marketData?: TokenMarketData;
 }
 
-export function PunchTokenCard({ token, voteCounts, onVote }: PunchTokenCardProps) {
+export function PunchTokenCard({ token, voteCounts, onVote, marketData }: PunchTokenCardProps) {
   const [shaking, setShaking] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleVote = (voteType: 1 | -1) => {
     setShaking(true);
@@ -30,58 +52,115 @@ export function PunchTokenCard({ token, voteCounts, onVote }: PunchTokenCardProp
     setTimeout(() => setShaking(false), 300);
   };
 
+  const handleCopyCA = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!token.mint_address) return;
+    navigator.clipboard.writeText(token.mint_address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const change = marketData?.change24h ?? 0;
+  const isPositive = change > 0;
+  const isNegative = change < 0;
+
   return (
     <div
-      className={`flex items-center gap-2.5 p-2.5 rounded-xl border border-border bg-card/80 transition-all ${
+      className={`flex flex-col gap-1.5 p-2.5 rounded-xl border border-border bg-card/80 transition-all ${
         shaking ? "animate-punch-vote-shake" : ""
       }`}
     >
-      <Link to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"} className="shrink-0">
-        <OptimizedTokenImage
-          src={token.image_url}
-          fallbackText={token.ticker}
-          size={80}
-          className="w-10 h-10 rounded-lg object-cover"
-        />
-      </Link>
-
-      <div className="flex-1 min-w-0">
-        <Link
-          to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"}
-          className="block truncate text-xs font-bold text-foreground hover:text-primary transition-colors"
-        >
-          {token.name}
+      {/* Top row: image + name + votes */}
+      <div className="flex items-center gap-2.5">
+        <Link to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"} className="shrink-0">
+          <OptimizedTokenImage
+            src={token.image_url}
+            fallbackText={token.ticker}
+            size={80}
+            className="w-10 h-10 rounded-lg object-cover"
+          />
         </Link>
-        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="font-mono">${token.ticker}</span>
-          <span>·</span>
-          <span>{timeAgo(token.created_at)}</span>
+
+        <div className="flex-1 min-w-0">
+          <Link
+            to={token.mint_address ? `/launchpad/${token.mint_address}` : "#"}
+            className="block truncate text-xs font-bold text-foreground hover:text-primary transition-colors"
+          >
+            {token.name}
+          </Link>
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="font-mono">${token.ticker}</span>
+            <span>·</span>
+            <span>{timeAgo(token.created_at)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => handleVote(1)}
+            className={`flex items-center gap-0.5 px-1.5 py-1 rounded-md text-[10px] font-bold transition-all active:scale-110 ${
+              voteCounts.userVote === 1
+                ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
+                : "text-muted-foreground hover:text-green-400 hover:bg-green-500/10"
+            }`}
+          >
+            <ThumbsUp className="h-3 w-3" />
+            <span>{voteCounts.likes}</span>
+          </button>
+          <button
+            onClick={() => handleVote(-1)}
+            className={`flex items-center gap-0.5 px-1.5 py-1 rounded-md text-[10px] font-bold transition-all active:scale-110 ${
+              voteCounts.userVote === -1
+                ? "bg-red-500/20 text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+                : "text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+            }`}
+          >
+            <ThumbsDown className="h-3 w-3" />
+            <span>{voteCounts.dislikes}</span>
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={() => handleVote(1)}
-          className={`flex items-center gap-0.5 px-1.5 py-1 rounded-md text-[10px] font-bold transition-all active:scale-110 ${
-            voteCounts.userVote === 1
-              ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]"
-              : "text-muted-foreground hover:text-green-400 hover:bg-green-500/10"
-          }`}
-        >
-          <ThumbsUp className="h-3 w-3" />
-          <span>{voteCounts.likes}</span>
-        </button>
-        <button
-          onClick={() => handleVote(-1)}
-          className={`flex items-center gap-0.5 px-1.5 py-1 rounded-md text-[10px] font-bold transition-all active:scale-110 ${
-            voteCounts.userVote === -1
-              ? "bg-red-500/20 text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
-              : "text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
-          }`}
-        >
-          <ThumbsDown className="h-3 w-3" />
-          <span>{voteCounts.dislikes}</span>
-        </button>
+      {/* Bottom row: market data + copy CA */}
+      <div className="flex items-center gap-2 text-[10px] pl-[50px]">
+        {/* Market Cap */}
+        <span className="text-muted-foreground font-medium">
+          MCap: <span className="text-foreground font-bold">{marketData ? formatMcap(marketData.marketCapUsd) : "..."}</span>
+        </span>
+
+        {/* 24h Change */}
+        {marketData && change !== 0 && (
+          <span
+            className={`font-bold ${
+              isPositive ? "text-green-400" : isNegative ? "text-red-400" : "text-muted-foreground"
+            }`}
+          >
+            {formatChange(change)}
+          </span>
+        )}
+
+        {/* Holders */}
+        <span className="flex items-center gap-0.5 text-muted-foreground">
+          <Users className="h-2.5 w-2.5" />
+          <span className="font-bold text-foreground">{marketData ? formatHolders(marketData.holders) : "..."}</span>
+        </span>
+
+        {/* Copy CA */}
+        {token.mint_address && (
+          <button
+            onClick={handleCopyCA}
+            className="ml-auto flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
+            title="Copy contract address"
+          >
+            {copied ? (
+              <Check className="h-2.5 w-2.5 text-green-400" />
+            ) : (
+              <Copy className="h-2.5 w-2.5" />
+            )}
+            <span className="font-mono">{copied ? "Copied" : "CA"}</span>
+          </button>
+        )}
       </div>
     </div>
   );
