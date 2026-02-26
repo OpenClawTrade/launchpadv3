@@ -17,7 +17,9 @@ import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext"
 function ConditionalMatrixBackground() {
   const { matrixEnabled } = useMatrixMode();
   const { pathname } = useLocation();
-  if (!matrixEnabled || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
+  const hostname = window.location.hostname;
+  const isPunchDomain = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
+  if (!matrixEnabled || isPunchDomain || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
   return <MatrixBackground />;
 }
 
