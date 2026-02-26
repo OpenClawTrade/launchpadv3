@@ -1,48 +1,36 @@
 
 
-# Punch Token Fee Distribution Implementation
+# Fix Punch Token Fee Distribution for Existing Tokens
 
-## Overview
-Fees from punch token swaps are already being claimed from the Meteora pool to the treasury wallet. The problem is twofold: (1) the user's wallet isn't stored anywhere, and (2) `fun-distribute` skips punch tokens entirely. This fix adds a `punch_creator_wallet` column to track the user's payout address separately, then processes punch tokens with a 70/30 split during the normal distribution cycle.
+## Problem
+All punch tokens except the first one have `punch_creator_wallet = NULL`, causing the fee distribution to skip them. About 0.21 SOL in claimed fees is sitting undistributed in the treasury.
 
-## Security Model
-- Fees flow: Pool -> Treasury (via `fun-claim-fees` cron) -> Creator wallet (via `fun-distribute`)
-- Each claim has a `creator_distributed` boolean flag -- once set to `true`, it's never processed again
-- The Record-Before-Send pattern inserts a `pending` distribution record before transferring SOL; on failure, claims stay unprocessed for retry
-- The 70% creator share is calculated from `claimed_sol` at distribution time -- impossible to over-send since each claim is only counted once
-- Minimum threshold of 0.05 SOL prevents dust transactions
+## Root Cause
+The `punch_creator_wallet` column wasn't being populated when these tokens were created (the edge function update wasn't deployed yet or the frontend sent the system wallet).
 
-## Changes
+## Fix
 
-### 1. Database: Add `punch_creator_wallet` column to `fun_tokens`
-- New nullable text column to store the user's payout wallet address
-- `creator_wallet` continues to hold the system deployer wallet (for NFT/bonding authority)
+### 1. Database Migration: Backfill `punch_creator_wallet`
+Set `punch_creator_wallet` to `J65y5McWeTieCkUEkuWSmpfQsoY2aSWazcvkPfUnBCwr` for all punch tokens that currently have NULL. Since the user who launched all these tokens was using wallet `J65y5Mc...`, this is the correct payout address.
 
-### 2. Database: Update existing token record
-- Set `punch_creator_wallet = '6Et74U2Mt6FeF1J4L7jnnEsV8MJW2XMEnneqgiWtrfRd'` for the already-launched token
+```sql
+UPDATE fun_tokens 
+SET punch_creator_wallet = 'J65y5McWeTieCkUEkuWSmpfQsoY2aSWazcvkPfUnBCwr'
+WHERE launchpad_type = 'punch' 
+  AND punch_creator_wallet IS NULL;
+```
 
-### 3. `supabase/functions/punch-launch/index.ts`
-- Add `punch_creator_wallet: creatorWallet` to the insert statement (user's wallet)
-- Keep `creator_wallet` as system's `PUNCH_FEE_WALLET`
-- Update description to wholesome theme
+### 2. Verify `punch-launch` Edge Function
+Confirm that the current deployed version of `punch-launch/index.ts` correctly stores `punch_creator_wallet: creatorWallet` in the insert. This was already added in a previous edit -- just need to make sure the deployed function matches the code.
 
-### 4. `supabase/functions/fun-distribute/index.ts`
-- Add `PUNCH_CREATOR_FEE_SHARE = 0.7` and `PUNCH_SYSTEM_FEE_SHARE = 0.3` constants
-- Replace the punch skip block (lines 252-256) with distribution logic:
-  - Read `punch_creator_wallet` from the token (add it to the select query on line 178)
-  - If no `punch_creator_wallet`, skip (log warning)
-  - Group claims using key `punch:{token.id}:{punch_creator_wallet}`
-  - Set `recipientType` to `"creator"` so it flows into the existing STEP 3-5 logic (pending record, SOL transfer, mark completed)
-  - The 70/30 split is applied in the fee calculation section (around line 508) with a new `isPunchToken` check
-  - Distribution recorded with `distribution_type: 'punch_creator'`
+## Result
+After the backfill, the next `fun-distribute` cron run (every 3 minutes) will:
+- Pick up the ~0.21 SOL in undistributed claims
+- Send 70% to `J65y5Mc...` (the punch creator)
+- Keep 30% in treasury (system share)
 
-### 5. Cron: Add 3-minute schedule for `fun-distribute`
-- Add a new cron entry running every 3 minutes to ensure frequent processing
-
-## File Changes
-- **Migration**: Add `punch_creator_wallet` column
-- **Data update**: Set wallet for existing token
-- **`supabase/functions/punch-launch/index.ts`**: Store user wallet in new column
-- **`supabase/functions/fun-distribute/index.ts`**: Process punch tokens with 70/30 split
-- **Cron SQL**: Schedule `fun-distribute` every 3 minutes
+## Technical Details
+- Only 1 DB migration needed (the UPDATE statement above)
+- No code changes required -- the distribution logic already handles punch tokens correctly
+- The `punch-launch` edge function already includes `punch_creator_wallet` in the insert
 
