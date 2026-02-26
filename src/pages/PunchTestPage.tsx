@@ -158,6 +158,14 @@ export default function PunchTestPage() {
       setShowWalletPrompt(true);
     }
 
+    // At ~70% progress, shake wallet field if no valid wallet entered
+    const nextProgress = Math.min(100, progressRef.current + (100 / TAPS_TO_WIN) * Math.min(multiplier, 3));
+    if (nextProgress >= 70 && !isValidWallet) {
+      setShowWalletPrompt(true);
+      setWalletShake(true);
+      setTimeout(() => setWalletShake(false), 600);
+    }
+
     if (timeSinceLastTap < COMBO_WINDOW_MS && timeSinceLastTap > 0) {
       setCombo((c) => c + 1);
       setMultiplier((m) => Math.min(m + 0.1, 3));
