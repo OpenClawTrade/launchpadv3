@@ -1,46 +1,48 @@
 
 
-# Livestream Video Box on Punch Page
+## Add Punch Chat Box with AI Integration
 
-## Overview
-Add a fake "livestream" style video box at the top of the main game area on the Punch page. It will loop the user's uploaded videos infinitely, styled to look like a live broadcast with a real-time timestamp overlay and a "LIVE" indicator badge.
+### Overview
+Add an introductory text overlay on the livestream video and a compact, professional chat box below it where users can enter a username and ask Punch questions. Punch will be a monkey-themed character (distinct from Claw the lobster) that responds via AI.
 
-## Video Upload
-- The user needs to upload the two MP4 files directly in chat (WeTransfer links can't be downloaded programmatically)
-- Videos will be placed in the `public/` directory for static serving (e.g. `public/videos/punch-stream-1.mp4`, `public/videos/punch-stream-2.mp4`)
+### Changes
 
-## New Component: `PunchLivestream`
-**File:** `src/components/punch/PunchLivestream.tsx`
+#### 1. New Edge Function: `punch-chat`
+Create a new backend function at `supabase/functions/punch-chat/index.ts` with a Punch-specific system prompt:
+- Punch is a monkey who launches meme coins
+- Personality: energetic, playful, crypto-savvy monkey
+- Uses the existing Lovable AI gateway (gemini-2.5-flash for speed)
+- Non-streaming for simplicity (single Q&A, not a conversation)
+- Handles rate limits (429/402) gracefully
 
-- A styled video container that looks like a livestream window
-- Features:
-  - Looping `<video>` element (autoplay, muted, loop, playsInline) cycling between the two videos
-  - Red "LIVE" badge with pulsing dot animation in the top-left corner
-  - Real-time clock timestamp (HH:MM:SS format) in the top-right corner, updating every second
-  - Rounded corners, border, subtle shadow -- matches the meme/dark UI style
-  - Aspect ratio roughly 16:9 or square depending on videos
-  - On video end of first clip, switches to the second, then back (infinite loop)
+#### 2. New Component: `PunchChatBox`
+Create `src/components/punch/PunchChatBox.tsx`:
+- Compact card design with a small header ("Ask Punch anything")
+- Username input field (saved to localStorage for persistence)
+- Message input + send button
+- Shows last few Q&A exchanges in a small scrollable area
+- Loading state while waiting for AI response
+- Max width matching the livestream box (~400px)
 
-## Layout
-- The livestream box sits at the top of the main game content area (above the wallet entry / tapping sections)
-- Max width constrained (~400px) so it doesn't dominate the page
-- Visible in all game states (wallet-entry, tapping, launching, result)
+#### 3. Update `PunchLivestream` Component
+- Add a text overlay on the video: "Hey, I'm Punch. I'm currently busy launching tokens, but you can ask me anything and I'll try to answer."
+- Semi-transparent background overlay at the bottom of the video for readability
 
-## Styling Details
-- Dark overlay gradient at top for the LIVE badge and timestamp readability
-- "LIVE" badge: red background, white text, small pulsing red dot
-- Timestamp: monospace font, white/light text with slight text shadow
-- Border styled like a monitor/camera feed frame
+#### 4. Update `PunchPage`
+- Place the `PunchChatBox` component directly below the livestream section
+- Only visible during the `wallet-entry` state to keep the tapping game uncluttered
 
-## Files to Create
-1. `src/components/punch/PunchLivestream.tsx` -- video player component with LIVE overlay and clock
+### Technical Details
 
-## Files to Modify
-1. `src/pages/PunchPage.tsx` -- add `PunchLivestream` component above the game content area
+**Edge function** will accept `{ username, message }` and return `{ reply }` using a non-streaming call to the AI gateway.
 
-## Technical Notes
-- Videos autoplay muted (browser requirement for autoplay)
-- Uses `onEnded` event to switch between the two video sources for seamless looping
-- Clock uses `setInterval` updating every second, cleaned up on unmount
-- No database changes needed
+**localStorage keys:**
+- `punch-chat-username` for persisting the chosen display name
+
+**UI layout** (within the existing centered column):
+```
+[ Livestream Video with text overlay ]
+[      PunchChatBox (compact)        ]
+[     Wallet Entry / Game Area       ]
+```
 
