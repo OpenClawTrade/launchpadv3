@@ -78,12 +78,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You generate funny, viral meme coin names and tickers themed around monkeys punching things. Be creative and humorous. The ticker should be 3-6 uppercase letters.",
+              "You generate funny, viral meme coin names themed around monkeys, apes, chimps, and primate culture. Rules:\n- Name must be SHORT (1-3 words max, under 20 chars). Think: 'Ape Slap', 'Bonk Chimp', 'Monke Fist'\n- Ticker must be a REAL WORD or short funny word (not random letters). Examples: BONK, SLAP, CHIMP, PUNCH, FIST, SMASH, YEET, CHOMP, CLAP, MONKE, BANAN, OOGA\n- Be creative: mix monkey themes with internet meme culture, fighting, food, chaos\n- NO long multi-word names. NO ticker abbreviations like KSSM or CHMPX. Ticker = one punchy word.",
           },
           {
             role: "user",
             content:
-              "Generate a unique funny meme coin name and ticker about monkeys punching things. Make it catchy and viral-worthy.",
+              "Generate a unique short funny meme coin name and a single-word ticker. Monkey/ape themed, internet meme energy.",
           },
         ],
         tools: [
@@ -95,8 +95,8 @@ Deno.serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Funny meme coin name, max 24 chars" },
-                  ticker: { type: "string", description: "3-6 uppercase letter ticker" },
+                  name: { type: "string", description: "Short funny meme coin name, 1-3 words, max 20 chars" },
+                  ticker: { type: "string", description: "Single funny word ticker, 3-6 uppercase letters, must be a real or meme word" },
                 },
                 required: ["name", "ticker"],
                 additionalProperties: false,
