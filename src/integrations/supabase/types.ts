@@ -3301,6 +3301,7 @@ export type Database = {
           pumpfun_bonding_curve: string | null
           pumpfun_creator: string | null
           pumpfun_signature: string | null
+          punch_creator_wallet: string | null
           starting_mcap_usd: number | null
           status: string | null
           telegram_url: string | null
@@ -3355,6 +3356,7 @@ export type Database = {
           pumpfun_bonding_curve?: string | null
           pumpfun_creator?: string | null
           pumpfun_signature?: string | null
+          punch_creator_wallet?: string | null
           starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
@@ -3409,6 +3411,7 @@ export type Database = {
           pumpfun_bonding_curve?: string | null
           pumpfun_creator?: string | null
           pumpfun_signature?: string | null
+          punch_creator_wallet?: string | null
           starting_mcap_usd?: number | null
           status?: string | null
           telegram_url?: string | null
