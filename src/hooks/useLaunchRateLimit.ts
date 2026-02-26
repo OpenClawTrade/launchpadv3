@@ -16,8 +16,8 @@ export function useLaunchRateLimit() {
   const [state, setState] = useState<RateLimitState>({
     allowed: true,
     launchCount: 0,
-    maxLaunches: 2,
-    remaining: 2,
+    maxLaunches: 3,
+    remaining: 3,
     waitSeconds: 0,
     isLoading: true,
     error: null,
