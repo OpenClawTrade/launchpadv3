@@ -275,6 +275,7 @@ Deno.serve(async (req) => {
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
           devBuySol, // Dev buy amount - atomic with pool creation to prevent frontrunning
           useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
+          specificVanityId: specificVanityId || undefined, // Use a specific reserved keypair if provided
         }),
       });
 
