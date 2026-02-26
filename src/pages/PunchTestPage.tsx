@@ -289,54 +289,86 @@ export default function PunchTestPage() {
         </div>
       </div>
 
-      {/* ===== HUD LAYER — small non-intrusive overlays ===== */}
+      {/* ===== TOP NAV BAR — integrated, professional ===== */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, zIndex: 70,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: isMobile ? "10px 12px" : "12px 20px",
+        background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%)",
+      }}>
+        {/* Left — launched stat */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: isMobile ? 70 : 100 }}>
+          <Rocket style={{ width: 14, height: 14, color: "#facc15", flexShrink: 0 }} />
+          <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: isMobile ? 13 : 14, color: "#facc15" }}>
+            {totalLaunched !== null ? totalLaunched.toLocaleString() : "0"}
+          </span>
+          <span style={{ fontSize: isMobile ? 9 : 10, color: "rgba(255,255,255,0.35)", whiteSpace: "nowrap" }}>launched</span>
+        </div>
+
+        {/* Right — nav pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            onClick={() => { setShowExtras(!showExtras); setShowFeed(false); }}
+            style={{
+              padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
+              background: showExtras ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${showExtras ? "rgba(250,204,21,0.4)" : "rgba(255,255,255,0.1)"}`,
+              fontSize: 11, fontWeight: 600, color: showExtras ? "#facc15" : "rgba(255,255,255,0.7)",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              transition: "all 150ms ease",
+            }}
+          >
+            {showExtras ? <X style={{ width: 11, height: 11 }} /> : <MessageCircle style={{ width: 11, height: 11 }} />}
+            {showExtras ? "Close" : "Chat"}
+          </button>
+          <button
+            onClick={() => { setShowFeed(!showFeed); setShowExtras(false); }}
+            style={{
+              padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
+              background: showFeed ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${showFeed ? "rgba(250,204,21,0.4)" : "rgba(255,255,255,0.1)"}`,
+              fontSize: 11, fontWeight: 600, color: showFeed ? "#facc15" : "rgba(255,255,255,0.7)",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              transition: "all 150ms ease",
+            }}
+          >
+            🔥 {showFeed ? "Close" : "Feed"}
+          </button>
+        </div>
+      </div>
+
+      {/* ===== HUD LAYER — tapping state overlays ===== */}
       {state === "tapping" && (
         <>
-          {/* ── Top bar: title center, stats left, combo right ── */}
+          {/* Title — centered below nav bar */}
           <div style={{
-            position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, pointerEvents: "none",
-            display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-            padding: "14px 16px 0",
+            position: "absolute", top: isMobile ? 48 : 54, left: 0, right: 0, zIndex: 50,
+            textAlign: "center", pointerEvents: "none",
           }}>
-            {/* Left: launched count */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 80 }}>
-              {totalLaunched !== null && (
-                <>
-                  <Rocket style={{ width: 13, height: 13, color: "#facc15" }} />
-                  <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#fff", fontSize: 12 }}>
-                    {totalLaunched.toLocaleString()}
-                  </span>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>launched</span>
-                </>
-              )}
-            </div>
-
-            {/* Center: title */}
-            <div style={{ textAlign: "center", flex: 1, paddingTop: 2 }}>
-              <h2 style={{ fontSize: isMobile ? 14 : 17, fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.03em", lineHeight: 1.2 }}>
-                PUNCH A BRANCH TO LAUNCH
-              </h2>
-              <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
-                Tap fast to fill the bar — don't stop!
-              </p>
-            </div>
-
-            {/* Right: combo (spacer to balance, actual combo is positioned separately to avoid pointer-events: none) */}
-            <div style={{ minWidth: 80 }} />
+            <h2 style={{
+              fontSize: isMobile ? 15 : 20, fontWeight: 900, color: "#fff", margin: 0,
+              letterSpacing: "-0.03em", lineHeight: 1.2,
+              textShadow: "0 2px 12px rgba(0,0,0,0.6)",
+            }}>
+              PUNCH A BRANCH TO LAUNCH
+            </h2>
+            <p style={{ fontSize: isMobile ? 9 : 11, color: "rgba(255,255,255,0.3)", marginTop: 3 }}>
+              Tap fast to fill the bar — don't stop!
+            </p>
           </div>
 
-          {/* Combo counter — top right, needs pointer events */}
-          <div style={{ position: "absolute", top: 40, right: 14, zIndex: 50 }}>
+          {/* Combo counter — right side, below nav */}
+          <div style={{ position: "absolute", top: isMobile ? 80 : 95, right: isMobile ? 10 : 20, zIndex: 50 }}>
             <ComboCounter combo={combo} multiplier={multiplier} />
           </div>
 
-          {/* Progress bar — bottom, slim */}
+          {/* Progress bar — bottom */}
           <div style={{ position: "absolute", bottom: 44, left: 16, right: 16, zIndex: 50, pointerEvents: "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>
               <span>Progress</span>
               <span>{Math.round(progress)}%</span>
             </div>
-            <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.1)", overflow: "hidden" }}>
+            <div style={{ width: "100%", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
               <div
                 className={`h-full rounded-full bg-gradient-to-r ${getBarColor()}`}
                 style={{ width: `${progress}%`, transition: "width 100ms" }}
@@ -350,7 +382,7 @@ export default function PunchTestPage() {
               style={{ position: "absolute", bottom: 70, left: 16, right: 16, zIndex: 51 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)" }}>
+              <div style={{ maxWidth: 380, margin: "0 auto", padding: 10, borderRadius: 12, border: "1px solid rgba(234,179,8,0.4)", background: "rgba(234,179,8,0.08)", backdropFilter: "blur(8px)" }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center", marginBottom: 6 }}>
                   🐵 Enter your Solana address to receive fees!
                 </p>
@@ -421,24 +453,6 @@ export default function PunchTestPage() {
           </div>
         </div>
       )}
-
-      {/* ===== CORNER BUTTONS — non-intrusive ===== */}
-
-      {/* Feed toggle */}
-      <button
-        onClick={() => { setShowFeed(!showFeed); setShowExtras(false); }}
-        style={{ position: "absolute", top: 14, right: 14, zIndex: 70, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}
-      >
-        {showFeed ? "✕ Close" : "🔥 Feed"}
-      </button>
-
-      {/* Chat/Extras toggle */}
-      <button
-        onClick={() => { setShowExtras(!showExtras); setShowFeed(false); }}
-        style={{ position: "absolute", top: 14, right: showFeed ? 14 : 90, zIndex: 70, padding: "4px 10px", borderRadius: 20, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-      >
-        {showExtras ? <><X style={{ width: 12, height: 12 }} /> Close</> : <><MessageCircle style={{ width: 12, height: 12 }} /> Chat</>}
-      </button>
 
       {/* ===== FEED OVERLAY ===== */}
       {showFeed && (
