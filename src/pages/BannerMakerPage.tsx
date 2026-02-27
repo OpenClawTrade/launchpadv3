@@ -5,11 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Copy, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const BANNER_W = 1500;
-const BANNER_H = 500;
 const BASE_IMG = "/images/banner-base.png";
-
 const STORAGE_KEY = "banner-maker-settings";
+
+interface SizePreset {
+  label: string;
+  w: number;
+  h: number;
+  ratio: string;
+}
+
+const SIZE_PRESETS: SizePreset[] = [
+  { label: "X Header", w: 1500, h: 500, ratio: "3/1" },
+  { label: "X Post", w: 1600, h: 900, ratio: "16/9" },
+  { label: "Square Post", w: 1080, h: 1080, ratio: "1/1" },
+  { label: "X Card", w: 1200, h: 628, ratio: "1.91/1" },
+];
 
 interface TextBlock {
   text: string;
@@ -23,17 +34,19 @@ interface TextBlock {
 interface BannerSettings {
   line1: TextBlock;
   line2: TextBlock;
+  sizeIndex: number;
 }
 
 const defaults: BannerSettings = {
   line1: { text: "", x: 80, y: 200, fontSize: 72, color: "#ffffff", bold: true },
   line2: { text: "", x: 80, y: 300, fontSize: 36, color: "#ffffffbb", bold: false },
+  sizeIndex: 0,
 };
 
 function loadSettings(): BannerSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { ...defaults, ...JSON.parse(raw) };
   } catch {}
   return defaults;
 }
@@ -44,88 +57,83 @@ export default function BannerMakerPage() {
   const [baseImg, setBaseImg] = useState<HTMLImageElement | null>(null);
   const [line1, setLine1] = useState<TextBlock>(() => loadSettings().line1);
   const [line2, setLine2] = useState<TextBlock>(() => loadSettings().line2);
+  const [sizeIndex, setSizeIndex] = useState(() => loadSettings().sizeIndex);
   const [dragging, setDragging] = useState<"line1" | "line2" | null>(null);
   const { toast } = useToast();
 
-  // Load base image
+  const size = SIZE_PRESETS[sizeIndex] ?? SIZE_PRESETS[0];
+
   useEffect(() => {
     const img = new Image();
     img.onload = () => setBaseImg(img);
     img.src = BASE_IMG;
   }, []);
 
-  // Draw banner
   const drawBanner = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !baseImg) return;
+    canvas.width = size.w;
+    canvas.height = size.h;
     const ctx = canvas.getContext("2d")!;
 
-    // Draw base image stretched to fill
-    ctx.drawImage(baseImg, 0, 0, BANNER_W, BANNER_H);
-
-    // Draw line 1
-    if (line1.text) {
-      ctx.fillStyle = line1.color;
-      ctx.font = `${line1.bold ? "bold " : ""}${line1.fontSize}px 'Inter', sans-serif`;
-      ctx.textBaseline = "top";
-      ctx.fillText(line1.text, line1.x, line1.y);
+    // Cover-fit the base image
+    const imgRatio = baseImg.width / baseImg.height;
+    const canvasRatio = size.w / size.h;
+    let sw = baseImg.width, sh = baseImg.height, sx = 0, sy = 0;
+    if (imgRatio > canvasRatio) {
+      sw = baseImg.height * canvasRatio;
+      sx = (baseImg.width - sw) / 2;
+    } else {
+      sh = baseImg.width / canvasRatio;
+      sy = (baseImg.height - sh) / 2;
     }
+    ctx.drawImage(baseImg, sx, sy, sw, sh, 0, 0, size.w, size.h);
 
-    // Draw line 2
-    if (line2.text) {
-      ctx.fillStyle = line2.color;
-      ctx.font = `${line2.bold ? "bold " : ""}${line2.fontSize}px 'Inter', sans-serif`;
+    // Draw texts
+    const drawText = (block: TextBlock) => {
+      if (!block.text) return;
+      ctx.fillStyle = block.color;
+      ctx.font = `${block.bold ? "bold " : ""}${block.fontSize}px 'Inter', sans-serif`;
       ctx.textBaseline = "top";
-      ctx.fillText(line2.text, line2.x, line2.y);
-    }
-  }, [baseImg, line1, line2]);
+      ctx.fillText(block.text, block.x, block.y);
+    };
+    drawText(line1);
+    drawText(line2);
+  }, [baseImg, line1, line2, size]);
 
-  useEffect(() => {
-    drawBanner();
-  }, [drawBanner]);
+  useEffect(() => { drawBanner(); }, [drawBanner]);
 
-  // Mouse handlers for dragging text on preview
   const getCanvasCoords = (e: React.MouseEvent) => {
     const preview = previewRef.current;
     if (!preview) return null;
     const rect = preview.getBoundingClientRect();
-    const scaleX = BANNER_W / rect.width;
-    const scaleY = BANNER_H / rect.height;
-    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    return {
+      x: (e.clientX - rect.left) * (size.w / rect.width),
+      y: (e.clientY - rect.top) * (size.h / rect.height),
+    };
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    const coords = getCanvasCoords(e);
-    if (!coords) return;
-
-    // Check which text block is closer
-    const d1 = Math.hypot(coords.x - line1.x, coords.y - line1.y);
-    const d2 = Math.hypot(coords.x - line2.x, coords.y - line2.y);
-
-    if (line1.text && (d1 < 150 || !line2.text)) {
-      setDragging("line1");
-    } else if (line2.text) {
-      setDragging("line2");
-    }
+    const c = getCanvasCoords(e);
+    if (!c) return;
+    const d1 = Math.hypot(c.x - line1.x, c.y - line1.y);
+    const d2 = Math.hypot(c.x - line2.x, c.y - line2.y);
+    if (line1.text && (d1 < 150 || !line2.text)) setDragging("line1");
+    else if (line2.text) setDragging("line2");
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragging) return;
-    const coords = getCanvasCoords(e);
-    if (!coords) return;
-
-    if (dragging === "line1") {
-      setLine1((p) => ({ ...p, x: Math.max(0, coords.x), y: Math.max(0, coords.y) }));
-    } else {
-      setLine2((p) => ({ ...p, x: Math.max(0, coords.x), y: Math.max(0, coords.y) }));
-    }
+    const c = getCanvasCoords(e);
+    if (!c) return;
+    const setter = dragging === "line1" ? setLine1 : setLine2;
+    setter((p) => ({ ...p, x: Math.max(0, c.x), y: Math.max(0, c.y) }));
   };
 
   const handleMouseUp = () => setDragging(null);
 
-  // Save to localStorage
   const saveSettings = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ line1, line2 }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ line1, line2, sizeIndex }));
     toast({ title: "Settings saved! 💾" });
   };
 
@@ -133,7 +141,7 @@ export default function BannerMakerPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const link = document.createElement("a");
-    link.download = "banner-1500x500.png";
+    link.download = `banner-${size.w}x${size.h}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
   };
@@ -152,11 +160,7 @@ export default function BannerMakerPage() {
     }
   };
 
-  const updateLine = (
-    which: "line1" | "line2",
-    field: keyof TextBlock,
-    value: string | number | boolean
-  ) => {
+  const updateLine = (which: "line1" | "line2", field: keyof TextBlock, value: string | number | boolean) => {
     const setter = which === "line1" ? setLine1 : setLine2;
     setter((p) => ({ ...p, [field]: value }));
   };
@@ -166,81 +170,57 @@ export default function BannerMakerPage() {
       <div className="max-w-5xl mx-auto space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Banner Maker</h1>
         <p className="text-muted-foreground text-sm">
-          Add text to the banner, drag to reposition, then download. Settings are saved for next time.
+          Pick a size, add text, drag to reposition, then download.
         </p>
+
+        {/* Size Picker */}
+        <div className="flex gap-2 flex-wrap">
+          {SIZE_PRESETS.map((preset, i) => (
+            <Button
+              key={preset.label}
+              size="sm"
+              variant={i === sizeIndex ? "default" : "outline"}
+              onClick={() => setSizeIndex(i)}
+            >
+              {preset.label}
+              <span className="ml-1.5 text-xs opacity-60">{preset.w}×{preset.h}</span>
+            </Button>
+          ))}
+        </div>
 
         {/* Controls */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Text Lines</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">Text Lines</CardTitle></CardHeader>
           <CardContent className="space-y-5">
-            {/* Line 1 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Main Text</label>
-              <div className="flex gap-3 items-end flex-wrap">
-                <Input
-                  className="flex-1 min-w-[200px]"
-                  value={line1.text}
-                  onChange={(e) => updateLine("line1", "text", e.target.value)}
-                  placeholder="e.g. PUNCHIT"
-                />
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-muted-foreground">Size</label>
-                  <Input
-                    type="number"
-                    className="w-20"
-                    value={line1.fontSize}
-                    onChange={(e) => updateLine("line1", "fontSize", Number(e.target.value))}
-                    min={12}
-                    max={120}
-                  />
+            {(["line1", "line2"] as const).map((key, idx) => {
+              const block = key === "line1" ? line1 : line2;
+              return (
+                <div key={key} className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    {idx === 0 ? "Main Text" : "Sub Text (optional)"}
+                  </label>
+                  <div className="flex gap-3 items-end flex-wrap">
+                    <Input
+                      className="flex-1 min-w-[200px]"
+                      value={block.text}
+                      onChange={(e) => updateLine(key, "text", e.target.value)}
+                      placeholder={idx === 0 ? "e.g. PUNCHIT" : "e.g. Launch tokens in one click"}
+                    />
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">Size</label>
+                      <Input type="number" className="w-20" value={block.fontSize}
+                        onChange={(e) => updateLine(key, "fontSize", Number(e.target.value))} min={12} max={160} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground">Color</label>
+                      <input type="color" value={block.color.slice(0, 7)}
+                        onChange={(e) => updateLine(key, "color", e.target.value)}
+                        className="h-10 w-12 rounded cursor-pointer border border-border" />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-muted-foreground">Color</label>
-                  <input
-                    type="color"
-                    value={line1.color.slice(0, 7)}
-                    onChange={(e) => updateLine("line1", "color", e.target.value)}
-                    className="h-10 w-12 rounded cursor-pointer border border-border"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Line 2 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Sub Text (optional)</label>
-              <div className="flex gap-3 items-end flex-wrap">
-                <Input
-                  className="flex-1 min-w-[200px]"
-                  value={line2.text}
-                  onChange={(e) => updateLine("line2", "text", e.target.value)}
-                  placeholder="e.g. Launch tokens in one click"
-                />
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-muted-foreground">Size</label>
-                  <Input
-                    type="number"
-                    className="w-20"
-                    value={line2.fontSize}
-                    onChange={(e) => updateLine("line2", "fontSize", Number(e.target.value))}
-                    min={12}
-                    max={120}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-muted-foreground">Color</label>
-                  <input
-                    type="color"
-                    value={line2.color.slice(0, 7)}
-                    onChange={(e) => updateLine("line2", "color", e.target.value)}
-                    className="h-10 w-12 rounded cursor-pointer border border-border"
-                  />
-                </div>
-              </div>
-            </div>
-
+              );
+            })}
             <p className="text-xs text-muted-foreground">💡 Click &amp; drag on the preview to reposition text</p>
           </CardContent>
         </Card>
@@ -248,22 +228,13 @@ export default function BannerMakerPage() {
         {/* Preview */}
         <Card>
           <CardContent className="p-4">
-            <div
-              ref={previewRef}
-              className="relative select-none"
+            <div ref={previewRef} className="relative select-none"
               style={{ cursor: dragging ? "grabbing" : "grab" }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            >
-              <canvas
-                ref={canvasRef}
-                width={BANNER_W}
-                height={BANNER_H}
+              onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+              <canvas ref={canvasRef} width={size.w} height={size.h}
                 className="w-full rounded-lg border border-border"
-                style={{ aspectRatio: "3/1" }}
-              />
+                style={{ aspectRatio: size.ratio }} />
             </div>
           </CardContent>
         </Card>
