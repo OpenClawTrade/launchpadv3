@@ -290,26 +290,13 @@ export default function PunchTestPage() {
       setState("result");
     } catch (err: any) {
       console.error("[PunchTestPage] Launch error:", err);
-      const raw = err.message || "Something went wrong";
-      // Map technical errors to friendly messages
-      let friendly = "Something went wrong. Try again in a moment! 🐵";
-      if (/insufficient lamports|insufficient funds|0x1/i.test(raw)) {
-        friendly = "The launch monkey ran out of gas ⛽🐒 We're refueling — try again shortly!";
-      } else if (/rate.?limit|too many/i.test(raw)) {
-        friendly = "Whoa, slow down! Too many launches. Wait a bit and try again 🍌";
-      } else if (/timeout|timed out/i.test(raw)) {
-        friendly = "The chain is congested 🚧 Give it a sec and punch again!";
-      } else if (/simulation failed/i.test(raw)) {
-        friendly = "Transaction didn't go through — the blockchain is busy. Retry soon! 🔄";
-      } else if (/non-2xx/i.test(raw)) {
-        friendly = "Our servers hiccuped 🤒 Hang tight and try again!";
-      }
-      setLaunchError(friendly);
+      setLaunchError("Something went wrong, Punch will fix it within a few — let him know in the chat 🐵💬");
+      launchTriggered.current = false;
       setState("tapping");
       setProgress(0);
       progressRef.current = 0;
       setShowConfetti(false);
-      toast({ title: "Launch failed", description: friendly, variant: "destructive" });
+      toast({ title: "Launch failed", description: "Something went wrong, Punch will fix it within a few!", variant: "destructive" });
     }
   };
 
