@@ -254,6 +254,27 @@ Deno.serve(async (req) => {
     let txIsVersioned: boolean[] = [];
     let vanityKeypairId: string | null = null;
 
+    // Pre-reserve vanity address if no specificVanityId provided (prefer pnch, then claw)
+    let resolvedVanityId = specificVanityId || undefined;
+    if (!resolvedVanityId) {
+      const suffixes = ['pnch', 'claw'];
+      for (const suffix of suffixes) {
+        try {
+          const { data: vData, error: vError } = await supabase.rpc('backend_reserve_vanity_address', {
+            p_suffix: suffix
+          });
+          if (!vError && vData && vData.length > 0) {
+            resolvedVanityId = vData[0].id;
+            console.log(`[fun-phantom-create] Pre-reserved vanity (${suffix}):`, vData[0].public_key);
+            break;
+          }
+          console.log(`[fun-phantom-create] No vanity for suffix '${suffix}'`);
+        } catch (e) {
+          console.warn(`[fun-phantom-create] Vanity reservation failed for '${suffix}':`, e);
+        }
+      }
+    }
+
     try {
       // Call the pool creation API - will return unsigned transactions for Phantom to sign
       const poolResponse = await fetch(`${meteoraApiUrl}/api/pool/create-phantom`, {
@@ -274,8 +295,8 @@ Deno.serve(async (req) => {
           feeRecipientWallet: phantomWallet, // All fees go to Phantom wallet
           tradingFeeBps: tradingFeeBps || 200, // Default 2%, allow 0.1%-10%
           devBuySol, // Dev buy amount - atomic with pool creation to prevent frontrunning
-          useVanityAddress: true, // Use pre-generated TNA vanity addresses from pool
-          specificVanityId: specificVanityId || undefined, // Use a specific reserved keypair if provided
+          useVanityAddress: true, // Use pre-generated vanity addresses from pool
+          specificVanityId: resolvedVanityId, // Use pre-reserved or user-specified keypair
         }),
       });
 
