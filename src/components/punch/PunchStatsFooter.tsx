@@ -3,7 +3,7 @@ import { Rocket, Copy, CheckCircle } from "lucide-react";
 import { usePunchTokenCount } from "@/hooks/usePunchTokenCount";
 import { usePunchPageStats } from "@/hooks/usePunchPageStats";
 
-const PUNCH_CA: string = "Coming Soon";
+const PUNCH_CA: string = "7sPfZLkrkBRGi1Sr7yU1j9nL7xgNEC31AZd7xDmWPnch";
 
 export function PunchStatsFooter() {
   const totalLaunched = usePunchTokenCount();
