@@ -81,9 +81,12 @@ export default function PunchTestPage() {
   const [showFeed, setShowFeed] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
-  const [wallet, setWallet] = useState("");
+  const [wallet, setWallet] = useState(() => localStorage.getItem("punch_wallet") || "");
   const [walletShake, setWalletShake] = useState(false);
-  const [walletSaved, setWalletSaved] = useState(false);
+  const [walletSaved, setWalletSaved] = useState(() => {
+    const saved = localStorage.getItem("punch_wallet") || "";
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(saved);
+  });
   const [launchError, setLaunchError] = useState("");
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -114,6 +117,7 @@ export default function PunchTestPage() {
   // Save wallet to DB when user clicks Save
   const handleSaveWallet = () => {
     if (!isValidWallet) return;
+    localStorage.setItem("punch_wallet", wallet);
     setWalletSaved(true);
     const fp = localStorage.getItem("punch_voter_id") || crypto.randomUUID();
     supabase.rpc("upsert_punch_user", {
