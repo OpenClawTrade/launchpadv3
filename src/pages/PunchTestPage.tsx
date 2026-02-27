@@ -107,6 +107,7 @@ export default function PunchTestPage() {
   const progressRef = useRef(0);
   const decayTimer = useRef<ReturnType<typeof setInterval>>();
   const tapTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const launchTriggered = useRef(false);
 
   const isValidWallet = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
 
@@ -156,7 +157,7 @@ export default function PunchTestPage() {
   }, []);
 
   const handleTap = useCallback(() => {
-    if (state !== "tapping") return;
+    if (state !== "tapping" || launchTriggered.current) return;
     const now = Date.now();
     const timeSinceLastTap = now - lastTapTime.current;
     lastTapTime.current = now;
@@ -205,6 +206,7 @@ export default function PunchTestPage() {
         setTimeout(() => setWalletShake(false), 600);
         return;
       }
+      launchTriggered.current = true;
       if (decayTimer.current) clearInterval(decayTimer.current);
       setShowConfetti(true);
       setTimeout(() => launchToken(), 1500);
