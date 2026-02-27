@@ -1,27 +1,31 @@
 
-# Remove Matrix Background on Punch Domain
+
+# Fix: Prevent Multiple Token Launches on Punch
 
 ## Problem
-On `punchlaunch.fun`, the homepage renders at `/` (not `/punch`), so the Matrix background suppression check (`pathname.startsWith("/punch")`) doesn't trigger. The green Matrix rain (a Claw Mode visual) bleeds into the Punch experience.
+When progress hits 100%, every additional tap schedules another `setTimeout(() => launchToken(), 1500)`. There is **no guard ref** to prevent this, so 10 extra taps = 10 token launches.
+
+The similar names issue comes from the AI prompt being too narrow ("monkey/ape" theme) -- it runs out of ideas quickly when many tokens exist.
 
 ## Solution
-Update the `ConditionalMatrixBackground` component in `src/App.tsx` to also check the hostname. If the visitor is on `punchlaunch.fun`, suppress the Matrix background entirely regardless of the route.
 
-## Technical Details
+### 1. Add a `launchTriggered` ref guard (PunchTestPage.tsx)
 
-**File: `src/App.tsx`** (lines 17-22)
+- Add `const launchTriggered = useRef(false);` alongside the other refs
+- At the top of `handleTap`, return immediately if `launchTriggered.current` is true
+- Set `launchTriggered.current = true` **synchronously** right when progress hits 100%, before the setTimeout
+- Reset it in `resetGame()`
 
-Update `ConditionalMatrixBackground` to detect the punch domain and return null:
+### 2. Improve name uniqueness (punch-launch edge function)
 
-```typescript
-function ConditionalMatrixBackground() {
-  const { matrixEnabled } = useMatrixMode();
-  const { pathname } = useLocation();
-  const hostname = window.location.hostname;
-  const isPunchDomain = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
-  if (!matrixEnabled || isPunchDomain || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
-  return <MatrixBackground />;
-}
-```
+- Add a `temperature: 1.5` parameter to the AI name generation call to increase randomness
+- Expand the system prompt to encourage more creative, diverse names beyond just "monkey species" -- include themes like jungle fruits, tropical animals, zoo characters, safari vibes
+- Add an explicit instruction: "Your name and ticker MUST NOT be similar-sounding to any blacklisted entry"
 
-This is a single-line domain check addition -- no other files need changes.
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `src/pages/PunchTestPage.tsx` | Add `launchTriggered` ref, guard in `handleTap`, reset in `resetGame` |
+| `supabase/functions/punch-launch/index.ts` | Add `temperature: 1.5`, broaden AI prompt for more diversity |
+
