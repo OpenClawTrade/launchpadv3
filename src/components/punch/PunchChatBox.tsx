@@ -29,7 +29,7 @@ export function PunchChatBox() {
         .limit(100);
 
       if (data && data.length > 0) {
-        setMessages(data.map((m) => ({ role: m.role as "user" | "punch", content: m.content, username: m.username ?? undefined })));
+        setMessages(data.map((m: any) => ({ role: m.role as "user" | "punch", content: m.content, username: m.username ?? undefined, _id: m.id })));
       }
       setHistoryLoaded(true);
     };
@@ -45,11 +45,10 @@ export function PunchChatBox() {
         { event: "INSERT", schema: "public", table: "punch_chat_messages" },
         (payload) => {
           const m = payload.new as any;
-          // Only add if not already in state (avoid duplicates from own inserts)
           setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last && last.role === m.role && last.content === m.content) return prev;
-            return [...prev, { role: m.role, content: m.content, username: m.username ?? undefined }];
+            // Deduplicate by checking if we already have this exact DB row id
+            if (prev.some((p) => (p as any)._id === m.id)) return prev;
+            return [...prev, { role: m.role, content: m.content, username: m.username ?? undefined, _id: m.id } as any];
           });
         }
       )
@@ -64,12 +63,13 @@ export function PunchChatBox() {
     }
   }, [messages]);
 
-  const saveMessage = async (msg: Message) => {
-    await supabase.from("punch_chat_messages").insert({
+  const saveMessage = async (msg: Message): Promise<string | null> => {
+    const { data } = await supabase.from("punch_chat_messages").insert({
       role: msg.role,
       content: msg.content,
       username: msg.username || null,
-    });
+    }).select("id").single();
+    return data?.id ?? null;
   };
 
   const send = async () => {
@@ -77,12 +77,12 @@ export function PunchChatBox() {
     if (!msg || loading) return;
 
     const userMsg: Message = { role: "user", content: msg, username };
-    setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
-    // Save user message
-    await saveMessage(userMsg);
+    // Save user message and get its ID
+    const userId = await saveMessage(userMsg);
+    setMessages((prev) => [...prev, { ...userMsg, _id: userId } as any]);
 
     try {
       const { data, error } = await supabase.functions.invoke("punch-chat", {
@@ -92,10 +92,10 @@ export function PunchChatBox() {
       if (error) throw error;
       const reply = data?.reply || "something went wrong, try again";
       const punchMsg: Message = { role: "punch", content: reply };
-      setMessages((prev) => [...prev, punchMsg]);
 
-      // Save punch reply
-      await saveMessage(punchMsg);
+      // Save punch reply and get its ID
+      const punchId = await saveMessage(punchMsg);
+      setMessages((prev) => [...prev, { ...punchMsg, _id: punchId } as any]);
     } catch (err: any) {
       console.error("[PunchChat]", err);
       const errMsg: Message = { role: "punch", content: "couldn't respond right now. try again!" };
