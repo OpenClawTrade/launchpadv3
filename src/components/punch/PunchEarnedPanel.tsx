@@ -27,31 +27,34 @@ export function PunchEarnedPanel() {
   const fetchDistributions = async () => {
     setLoading(true);
     try {
-      // Fetch all creator distributions (punch tokens have "Punched into existence" descriptions)
-      const query = supabase
+      // First get all punch token IDs (launchpad_type = 'punch')
+      const { data: punchTokens } = await supabase
+        .from("fun_tokens")
+        .select("id, name, ticker")
+        .eq("launchpad_type", "punch");
+
+      const punchTokenIds = (punchTokens || []).map(t => t.id);
+      const tokenMap: Record<string, { name: string; ticker: string }> = {};
+      (punchTokens || []).forEach(t => { tokenMap[t.id] = { name: t.name, ticker: t.ticker }; });
+
+      if (punchTokenIds.length === 0) {
+        setDistributions([]);
+        setTotalEarned(0);
+        setLoading(false);
+        return;
+      }
+
+      // Only fetch distributions for punch tokens
+      const { data, error } = await supabase
         .from("fun_distributions")
         .select("id, amount_sol, creator_wallet, signature, status, created_at, fun_token_id")
         .in("distribution_type", ["creator", "creator_claim"])
+        .in("fun_token_id", punchTokenIds)
         .not("signature", "is", null)
         .order("created_at", { ascending: false })
         .limit(100);
 
-      const { data, error } = await query;
       if (error) throw error;
-
-      // Fetch token names for the distributions
-      const tokenIds = [...new Set((data || []).map(d => d.fun_token_id).filter(Boolean))];
-      let tokenMap: Record<string, { name: string; ticker: string }> = {};
-
-      if (tokenIds.length > 0) {
-        const { data: tokens } = await supabase
-          .from("fun_tokens")
-          .select("id, name, ticker")
-          .in("id", tokenIds);
-        if (tokens) {
-          tokens.forEach(t => { tokenMap[t.id] = { name: t.name, ticker: t.ticker }; });
-        }
-      }
 
       const enriched = (data || []).map(d => ({
         ...d,
