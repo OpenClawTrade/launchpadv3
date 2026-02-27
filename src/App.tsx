@@ -82,6 +82,7 @@ const FunModePage = lazy(() => import("./pages/FunModePage"));
 const NfaPage = lazy(() => import("./pages/NfaPage"));
 const NfaDetailPage = lazy(() => import("./pages/NfaDetailPage"));
 const NfaMarketplacePage = lazy(() => import("./pages/NfaMarketplacePage"));
+const BannerMakerPage = lazy(() => import("./pages/BannerMakerPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const PanelPage = lazy(() => import("./pages/PanelPage"));
@@ -196,7 +197,8 @@ const App = () => (
                      <Route path="/fun" element={<FunModePage />} />
                      
                      <Route path="/panel" element={<PanelPage />} />
-                     <Route path="/nfa" element={<NfaPage />} />
+                    <Route path="/nfa" element={<NfaPage />} />
+                     <Route path="/banner-maker" element={<BannerMakerPage />} />
                      <Route path="/nfa/:id" element={<NfaDetailPage />} />
                      <Route path="/nfa/marketplace" element={<NfaMarketplacePage />} />
                      <Route path="/portfolio" element={<Navigate to="/panel?tab=portfolio" replace />} />
