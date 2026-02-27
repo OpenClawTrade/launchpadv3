@@ -48,7 +48,7 @@ export function PunchEarnedPanel() {
       const { data, error } = await supabase
         .from("fun_distributions")
         .select("id, amount_sol, creator_wallet, signature, status, created_at, fun_token_id")
-        .in("distribution_type", ["creator", "creator_claim"])
+        .in("distribution_type", ["punch_creator", "creator", "creator_claim"])
         .in("fun_token_id", punchTokenIds)
         .not("signature", "is", null)
         .order("created_at", { ascending: false })
