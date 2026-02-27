@@ -39,34 +39,39 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Try to get a pre-mined vanity keypair with CLAW suffix
+// Try to get a pre-mined vanity keypair — prefer pnch suffix, fallback to claw
 async function getVanityKeypair(supabase: any, encryptionKey: string): Promise<{ publicKey: string; privateKeyBase64: string; id: string } | null> {
-  try {
-    const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
-      p_suffix: 'claw'
-    });
+  const suffixes = ['pnch', 'claw'];
+  for (const suffix of suffixes) {
+    try {
+      const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
+        p_suffix: suffix
+      });
+
+      if (error || !data || data.length === 0) {
+        console.log(`[fun-create] No vanity address for suffix '${suffix}':`, error?.message || "empty result");
+        continue; // Try next suffix
+      }
     
-    if (error || !data || data.length === 0) {
-      console.log("[fun-create] No vanity address available:", error?.message || "empty result");
-      return null;
+      const reserved = data[0];
+      console.log(`[fun-create] Reserved vanity address (${suffix}):`, reserved.public_key);
+    
+      // Decrypt the secret key
+      const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
+      const privateKeyBase64 = bytesToBase64(secretKeyBytes);
+    
+      return {
+        publicKey: reserved.public_key,
+        privateKeyBase64,
+        id: reserved.id
+      };
+    } catch (e) {
+      console.error(`[fun-create] Error getting vanity keypair (${suffix}):`, e);
+      continue; // Try next suffix
     }
-    
-    const reserved = data[0];
-    console.log("[fun-create] Reserved vanity address:", reserved.public_key);
-    
-    // Decrypt the secret key
-    const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
-    const privateKeyBase64 = bytesToBase64(secretKeyBytes);
-    
-    return {
-      publicKey: reserved.public_key,
-      privateKeyBase64,
-      id: reserved.id
-    };
-  } catch (e) {
-    console.error("[fun-create] Error getting vanity keypair:", e);
-    return null;
   }
+  console.log("[fun-create] No vanity address available for any suffix");
+  return null;
 }
 
 function isHeliusMaxUsageError(message: string): boolean {

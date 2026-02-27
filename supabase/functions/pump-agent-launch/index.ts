@@ -34,44 +34,47 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-// Try to get a pre-mined vanity keypair with CLAW suffix
+// Try to get a pre-mined vanity keypair — prefer pnch suffix, fallback to claw
 async function getVanityKeypair(supabase: any, encryptionKey: string): Promise<{ keypair: Keypair; publicKey: string; id: string } | null> {
-  try {
-    const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
-      p_suffix: 'claw'
-    });
-    
-    if (error || !data || data.length === 0) {
-      console.log("[pump-agent-launch] No vanity address available:", error?.message || "empty result");
-      return null;
-    }
-    
-    const reserved = data[0];
-    console.log("[pump-agent-launch] Reserved vanity address:", reserved.public_key);
-    
-    // Decrypt the secret key
-    const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
-    const keypair = Keypair.fromSecretKey(secretKeyBytes);
-    
-    // Verify the public key matches
-    const derivedPublicKey = keypair.publicKey.toBase58();
-    if (derivedPublicKey !== reserved.public_key) {
-      console.error("[pump-agent-launch] Vanity keypair mismatch!", { 
-        expected: reserved.public_key, 
-        got: derivedPublicKey 
+  const suffixes = ['pnch', 'claw'];
+  for (const suffix of suffixes) {
+    try {
+      const { data, error } = await supabase.rpc('backend_reserve_vanity_address', {
+        p_suffix: suffix
       });
-      return null;
-    }
     
-    return {
-      keypair,
-      publicKey: reserved.public_key,
-      id: reserved.id
-    };
-  } catch (e) {
-    console.error("[pump-agent-launch] Error getting vanity keypair:", e);
-    return null;
+      if (error || !data || data.length === 0) {
+        console.log(`[pump-agent-launch] No vanity address for suffix '${suffix}':`, error?.message || "empty result");
+        continue;
+      }
+    
+      const reserved = data[0];
+      console.log(`[pump-agent-launch] Reserved vanity address (${suffix}):`, reserved.public_key);
+    
+      const secretKeyBytes = decryptSecretKey(reserved.secret_key_encrypted, encryptionKey);
+      const keypair = Keypair.fromSecretKey(secretKeyBytes);
+    
+      const derivedPublicKey = keypair.publicKey.toBase58();
+      if (derivedPublicKey !== reserved.public_key) {
+        console.error(`[pump-agent-launch] Vanity keypair mismatch (${suffix})!`, { 
+          expected: reserved.public_key, 
+          got: derivedPublicKey 
+        });
+        continue;
+      }
+    
+      return {
+        keypair,
+        publicKey: reserved.public_key,
+        id: reserved.id
+      };
+    } catch (e) {
+      console.error(`[pump-agent-launch] Error getting vanity keypair (${suffix}):`, e);
+      continue;
+    }
   }
+  console.log("[pump-agent-launch] No vanity address available for any suffix");
+  return null;
 }
 
 // Generate a proper Ed25519 keypair for the mint using Solana's Keypair (fallback)
