@@ -70,10 +70,12 @@
     }
     </script>
 
-    <!-- Domain-aware branding: swap to Claw Mode on clawsai.fun -->
+    <!-- Domain-aware branding: restore Claw Mode on clawsai.fun (hidden from punchlaunch.fun source) -->
     <script>
     (function(){
       var h = location.hostname;
+      var isPunch = h === 'punchlaunch.fun' || h === 'www.punchlaunch.fun';
+      if (isPunch) return; // No Claw branding on Punch domain
       if (h === 'clawsai.fun' || h === 'www.clawsai.fun' || h.endsWith('.lovable.app')) {
         var t = 'Claw Mode \u2014 AI Agent Launchpad, Trading Terminal & NFAs on Solana';
         var d = 'Claw Mode is the first agent-only token launchpad on Solana. Mint Non-Fungible Agents, launch tokens via AI, leverage trade, stake, and earn fees.';
@@ -99,7 +101,6 @@
         m('name="twitter:image"',img);
         l('canonical',u);
         l('image_src',img);
-        // Update JSON-LD
         var ld=document.querySelector('script[type="application/ld+json"]');
         if(ld)ld.textContent=JSON.stringify({"@context":"https://schema.org","@type":"WebApplication","name":"Claw Mode","url":u,"description":"The autonomous AI agent launchpad on Solana. Launch tokens with AI agents instantly.","applicationCategory":"FinanceApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"creator":{"@type":"Organization","name":"Claw Mode","url":u,"sameAs":["https://twitter.com/clawmode"]}});
       }

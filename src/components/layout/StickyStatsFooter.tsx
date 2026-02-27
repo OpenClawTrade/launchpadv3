@@ -21,8 +21,9 @@ export function StickyStatsFooter() {
     };
   }, []);
 
-  // Hide footer on punch page
-  if (pathname.startsWith("/punch")) return null;
+  // Hide footer on punch pages and on punchlaunch.fun domain
+  const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
+  if (pathname.startsWith("/punch") || pathname.startsWith("/punch-test") || isPunchDomain) return null;
 
   const tokens = stats?.totalTokensLaunched ?? 0;
   const agents = stats?.totalAgents ?? 0;
