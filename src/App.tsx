@@ -198,6 +198,7 @@ const App = () => (
                      
                      <Route path="/panel" element={<PanelPage />} />
                     <Route path="/nfa" element={<NfaPage />} />
+                     {/* Banner Maker */}
                      <Route path="/banner-maker" element={<BannerMakerPage />} />
                      <Route path="/nfa/:id" element={<NfaDetailPage />} />
                      <Route path="/nfa/marketplace" element={<NfaMarketplacePage />} />
