@@ -1,32 +1,188 @@
-import { useState } from "react";
-import { Copy, CheckCircle, ExternalLink } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { ExternalLink, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Distribution {
+  id: string;
+  amount_sol: number;
+  creator_wallet: string;
+  signature: string | null;
+  status: string | null;
+  created_at: string | null;
+  fun_token_id: string | null;
+  token_name?: string;
+  token_ticker?: string;
+}
 
 export function PunchEarnedPanel() {
-  const { toast } = useToast();
+  const [distributions, setDistributions] = useState<Distribution[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalEarned, setTotalEarned] = useState(0);
+  const wallet = localStorage.getItem("punch_wallet") || "";
+
+  useEffect(() => {
+    fetchDistributions();
+  }, []);
+
+  const fetchDistributions = async () => {
+    setLoading(true);
+    try {
+      // Fetch all creator distributions (punch tokens have "Punched into existence" descriptions)
+      let query = supabase
+        .from("fun_distributions")
+        .select("id, amount_sol, creator_wallet, signature, status, created_at, fun_token_id")
+        .in("distribution_type", ["creator", "creator_claim"])
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      // If user has a wallet, filter to their distributions
+      if (wallet) {
+        query = query.eq("creator_wallet", wallet);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Fetch token names for the distributions
+      const tokenIds = [...new Set((data || []).map(d => d.fun_token_id).filter(Boolean))];
+      let tokenMap: Record<string, { name: string; ticker: string }> = {};
+
+      if (tokenIds.length > 0) {
+        const { data: tokens } = await supabase
+          .from("fun_tokens")
+          .select("id, name, ticker")
+          .in("id", tokenIds);
+        if (tokens) {
+          tokens.forEach(t => { tokenMap[t.id] = { name: t.name, ticker: t.ticker }; });
+        }
+      }
+
+      const enriched = (data || []).map(d => ({
+        ...d,
+        token_name: d.fun_token_id ? tokenMap[d.fun_token_id]?.name : undefined,
+        token_ticker: d.fun_token_id ? tokenMap[d.fun_token_id]?.ticker : undefined,
+      }));
+
+      setDistributions(enriched);
+      setTotalEarned(enriched.reduce((sum, d) => sum + (d.amount_sol || 0), 0));
+    } catch (err) {
+      console.error("[PunchEarned] Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (ts: string | null) => {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return d.toLocaleDateString();
+  };
 
   return (
     <div style={{ padding: 16, color: "#fff" }}>
       <h3 style={{ fontSize: 16, fontWeight: 900, color: "#facc15", marginBottom: 4, textAlign: "center" }}>
         💰 Earned
       </h3>
-      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 16 }}>
-        Creator fee claims & processed transactions
+      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 12 }}>
+        Creator fee distributions
       </p>
 
+      {/* Total earned */}
       <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: "40px 20px", borderRadius: 12,
-        background: "rgba(250,204,21,0.04)",
-        border: "1px solid rgba(250,204,21,0.1)",
+        textAlign: "center", padding: "12px 16px", borderRadius: 12, marginBottom: 12,
+        background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.12)",
       }}>
-        <span style={{ fontSize: 32, marginBottom: 12 }}>🚧</span>
-        <p style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>
-          Coming Soon
+        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 2 }}>
+          {wallet ? "Your Total Earned" : "All Creator Payouts"}
         </p>
-        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6, textAlign: "center", maxWidth: 260 }}>
-          Track your creator earnings, fee claims, and on-chain distributions here.
+        <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: "#facc15" }}>
+          {loading ? "..." : `${totalEarned.toFixed(4)} SOL`}
         </p>
+      </div>
+
+      {!wallet && (
+        <p style={{
+          fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "center", marginBottom: 10,
+          fontStyle: "italic",
+        }}>
+          Save your wallet to filter your earnings
+        </p>
+      )}
+
+      {/* Distributions list */}
+      <div style={{ maxHeight: 320, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: 24 }}>
+            <Loader2 style={{ width: 20, height: 20, color: "#facc15" }} className="animate-spin" />
+          </div>
+        ) : distributions.length === 0 ? (
+          <div style={{
+            textAlign: "center", padding: "24px 16px", borderRadius: 10,
+            background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+          }}>
+            <span style={{ fontSize: 28 }}>🐵</span>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
+              {wallet ? "No payouts yet for this wallet" : "No distributions found"}
+            </p>
+          </div>
+        ) : (
+          distributions.map((d) => (
+            <div
+              key={d.id}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px", borderRadius: 10, marginBottom: 6,
+                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                transition: "background 0.15s",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{
+                    fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: "#22c55e",
+                  }}>
+                    +{d.amount_sol.toFixed(4)} SOL
+                  </span>
+                  <span style={{
+                    fontSize: 9, padding: "1px 6px", borderRadius: 999,
+                    background: d.status === "completed" ? "rgba(34,197,94,0.15)" : "rgba(250,204,21,0.15)",
+                    color: d.status === "completed" ? "#22c55e" : "#facc15",
+                    fontWeight: 600,
+                  }}>
+                    {d.status || "pending"}
+                  </span>
+                </div>
+                {d.token_name && (
+                  <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
+                    {d.token_name} {d.token_ticker ? `($${d.token_ticker})` : ""}
+                  </p>
+                )}
+                <p style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 1 }}>
+                  {formatTime(d.created_at)}
+                  {d.creator_wallet && !wallet && (
+                    <> · {d.creator_wallet.slice(0, 4)}...{d.creator_wallet.slice(-4)}</>
+                  )}
+                </p>
+              </div>
+              {d.signature && (
+                <a
+                  href={`https://solscan.io/tx/${d.signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink style={{ width: 13, height: 13 }} />
+                </a>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
