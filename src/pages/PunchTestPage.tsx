@@ -290,12 +290,26 @@ export default function PunchTestPage() {
       setState("result");
     } catch (err: any) {
       console.error("[PunchTestPage] Launch error:", err);
-      setLaunchError(err.message || "Something went wrong");
+      const raw = err.message || "Something went wrong";
+      // Map technical errors to friendly messages
+      let friendly = "Something went wrong. Try again in a moment! 🐵";
+      if (/insufficient lamports|insufficient funds|0x1/i.test(raw)) {
+        friendly = "The launch monkey ran out of gas ⛽🐒 We're refueling — try again shortly!";
+      } else if (/rate.?limit|too many/i.test(raw)) {
+        friendly = "Whoa, slow down! Too many launches. Wait a bit and try again 🍌";
+      } else if (/timeout|timed out/i.test(raw)) {
+        friendly = "The chain is congested 🚧 Give it a sec and punch again!";
+      } else if (/simulation failed/i.test(raw)) {
+        friendly = "Transaction didn't go through — the blockchain is busy. Retry soon! 🔄";
+      } else if (/non-2xx/i.test(raw)) {
+        friendly = "Our servers hiccuped 🤒 Hang tight and try again!";
+      }
+      setLaunchError(friendly);
       setState("tapping");
       setProgress(0);
       progressRef.current = 0;
       setShowConfetti(false);
-      toast({ title: "Launch failed", description: err.message, variant: "destructive" });
+      toast({ title: "Launch failed", description: friendly, variant: "destructive" });
     }
   };
 
@@ -619,8 +633,11 @@ export default function PunchTestPage() {
       )}
 
       {launchError && (
-        <div style={{ position: "absolute", bottom: 60, left: "50%", transform: "translateX(-50%)", zIndex: 50, fontSize: 11, color: "#f87171", textAlign: "center" }}>
-          {launchError}
+        <div className="absolute z-50 animate-fade-in" style={{ bottom: 60, left: "50%", transform: "translateX(-50%)" }}>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-destructive/15 border border-destructive/30 backdrop-blur-sm shadow-lg max-w-[300px]">
+            <span className="text-lg shrink-0">🙈</span>
+            <p className="text-[11px] leading-snug text-destructive font-medium">{launchError}</p>
+          </div>
         </div>
       )}
 
