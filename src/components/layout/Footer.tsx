@@ -2,6 +2,10 @@ import { Link } from "react-router-dom";
 import { XLogo } from "@phosphor-icons/react";
 
 export function Footer() {
+  // Hide Claw footer entirely on punchlaunch.fun domain
+  const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
+  if (isPunchDomain) return null;
+
   return (
     <footer className="border-t border-border bg-card/30 backdrop-blur-md py-10 px-4 mt-12 overflow-hidden">
       <div className="max-w-[1400px] mx-auto">
