@@ -1,4 +1,14 @@
+// DISABLED — @clawmode bot posting fully suspended
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  return new Response(JSON.stringify({ success: true, message: "Bot posting is disabled", repliesSent: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+});
+
+/* ORIGINAL CODE BELOW — kept for reference but never reached */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
