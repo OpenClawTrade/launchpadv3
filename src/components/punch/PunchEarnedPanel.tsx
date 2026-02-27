@@ -28,17 +28,13 @@ export function PunchEarnedPanel() {
     setLoading(true);
     try {
       // Fetch all creator distributions (punch tokens have "Punched into existence" descriptions)
-      let query = supabase
+      const query = supabase
         .from("fun_distributions")
         .select("id, amount_sol, creator_wallet, signature, status, created_at, fun_token_id")
         .in("distribution_type", ["creator", "creator_claim"])
+        .not("signature", "is", null)
         .order("created_at", { ascending: false })
-        .limit(50);
-
-      // If user has a wallet, filter to their distributions
-      if (wallet) {
-        query = query.eq("creator_wallet", wallet);
-      }
+        .limit(100);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -86,33 +82,27 @@ export function PunchEarnedPanel() {
   return (
     <div style={{ padding: 16, color: "#fff" }}>
       <h3 style={{ fontSize: 16, fontWeight: 900, color: "#facc15", marginBottom: 4, textAlign: "center" }}>
-        💰 Earned
+        💰 Creator Payouts
       </h3>
       <p style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textAlign: "center", marginBottom: 12 }}>
-        Creator fee distributions
+        All fee distributions to creators
       </p>
 
-      {/* Total earned */}
+      {/* Total distributed */}
       <div style={{
         textAlign: "center", padding: "12px 16px", borderRadius: 12, marginBottom: 12,
         background: "rgba(250,204,21,0.06)", border: "1px solid rgba(250,204,21,0.12)",
       }}>
         <p style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginBottom: 2 }}>
-          {wallet ? "Your Total Earned" : "All Creator Payouts"}
+          Total Distributed
         </p>
         <p style={{ fontSize: 22, fontWeight: 900, fontFamily: "monospace", color: "#facc15" }}>
           {loading ? "..." : `${totalEarned.toFixed(4)} SOL`}
         </p>
-      </div>
-
-      {!wallet && (
-        <p style={{
-          fontSize: 10, color: "rgba(255,255,255,0.3)", textAlign: "center", marginBottom: 10,
-          fontStyle: "italic",
-        }}>
-          Save your wallet to filter your earnings
+        <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
+          {loading ? "" : `${distributions.length} transactions`}
         </p>
-      )}
+      </div>
 
       {/* Distributions list */}
       <div style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -164,7 +154,7 @@ export function PunchEarnedPanel() {
                 )}
                 <p style={{ fontSize: 9, color: "rgba(255,255,255,0.25)", marginTop: 1 }}>
                   {formatTime(d.created_at)}
-                  {d.creator_wallet && !wallet && (
+                  {d.creator_wallet && (
                     <> · {d.creator_wallet.slice(0, 4)}...{d.creator_wallet.slice(-4)}</>
                   )}
                 </p>
