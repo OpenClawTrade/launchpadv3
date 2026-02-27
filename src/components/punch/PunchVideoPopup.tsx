@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 const VIDEO_SRC = "/videos/punch-stream-1.mp4";
 const SHOWN_ROUTES = ["/punch-test"];
+const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
 
 export function PunchVideoPopup({ onVideoClick }: { onVideoClick?: () => void }) {
   const { pathname } = useLocation();
@@ -12,7 +13,7 @@ export function PunchVideoPopup({ onVideoClick }: { onVideoClick?: () => void })
     () => sessionStorage.getItem("punch-video-dismissed") === "1"
   );
 
-  const visible = !dismissed && SHOWN_ROUTES.some((r) => pathname.startsWith(r));
+  const visible = !dismissed && (SHOWN_ROUTES.some((r) => pathname.startsWith(r)) || (isPunchDomain && pathname === "/"));
 
   useEffect(() => {
     if (visible && videoRef.current) {
