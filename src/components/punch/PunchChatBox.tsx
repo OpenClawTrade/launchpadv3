@@ -58,8 +58,11 @@ export function PunchChatBox() {
   }, []);
 
   useEffect(() => {
-    if (messages.length > 0) {
-      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > 0 && scrollRef.current) {
+      const viewport = scrollRef.current.closest('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages]);
 
