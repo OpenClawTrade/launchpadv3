@@ -302,6 +302,7 @@ export default function PunchTestPage() {
     setResult(null);
     tapCount.current = 0;
     progressRef.current = 0;
+    launchTriggered.current = false;
     setShowWalletPrompt(false);
     decayTimer.current = setInterval(() => {
       const now = Date.now();
