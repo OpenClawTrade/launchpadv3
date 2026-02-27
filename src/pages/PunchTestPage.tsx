@@ -9,6 +9,7 @@ import { PunchLivestream } from "@/components/punch/PunchLivestream";
 import { PunchChatBox } from "@/components/punch/PunchChatBox";
 import { PunchVideoPopup } from "@/components/punch/PunchVideoPopup";
 import { PunchStatsFooter } from "@/components/punch/PunchStatsFooter";
+import { PunchEarnedPanel } from "@/components/punch/PunchEarnedPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Copy, CheckCircle, ExternalLink, Loader2, Rocket, MessageCircle, X, Twitter, Gamepad2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -80,6 +81,7 @@ export default function PunchTestPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
   const [showExtras, setShowExtras] = useState(false);
+  const [showEarned, setShowEarned] = useState(false);
   const [showWalletPrompt, setShowWalletPrompt] = useState(false);
   const [wallet, setWallet] = useState(() => localStorage.getItem("punch_wallet") || "");
   const [walletShake, setWalletShake] = useState(false);
@@ -343,7 +345,7 @@ export default function PunchTestPage() {
       {/* ===== PURE ANIMATION LAYER — untouched from original ===== */}
       <div
         onClick={() => {
-          if (showExtras || showFeed) return;
+          if (showExtras || showFeed || showEarned) return;
           handleTap();
         }}
         className={shaking ? "punch-screen-shake" : ""}
@@ -475,7 +477,7 @@ export default function PunchTestPage() {
             </svg>
           </a>
           <button
-            onClick={() => { setShowExtras(!showExtras); setShowFeed(false); }}
+            onClick={() => { setShowExtras(!showExtras); setShowFeed(false); setShowEarned(false); }}
             style={{
               padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
               background: showExtras ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.06)",
@@ -489,7 +491,7 @@ export default function PunchTestPage() {
             {showExtras ? "Close" : "Chat"}
           </button>
           <button
-            onClick={() => { setShowFeed(!showFeed); setShowExtras(false); }}
+            onClick={() => { setShowFeed(!showFeed); setShowExtras(false); setShowEarned(false); }}
             style={{
               padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
               background: showFeed ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.06)",
@@ -500,6 +502,19 @@ export default function PunchTestPage() {
             }}
           >
             🔥 {showFeed ? "Close" : "Feed"}
+          </button>
+          <button
+            onClick={() => { setShowEarned(!showEarned); setShowFeed(false); setShowExtras(false); }}
+            style={{
+              padding: isMobile ? "5px 10px" : "5px 14px", borderRadius: 999,
+              background: showEarned ? "rgba(250,204,21,0.15)" : "rgba(255,255,255,0.06)",
+              border: `1px solid ${showEarned ? "rgba(250,204,21,0.4)" : "rgba(255,255,255,0.1)"}`,
+              fontSize: 11, fontWeight: 600, color: showEarned ? "#facc15" : "rgba(255,255,255,0.7)",
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              transition: "all 150ms ease",
+            }}
+          >
+            💰 {showEarned ? "Close" : "Earned"}
           </button>
           <Link
             to="/punch-games"
@@ -792,8 +807,29 @@ export default function PunchTestPage() {
         </div>
       )}
 
+      {/* ===== EARNED OVERLAY ===== */}
+      {showEarned && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 65, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { e.stopPropagation(); setShowEarned(false); }}
+        >
+          <div
+            style={{
+              width: isMobile ? "92vw" : 400, maxHeight: "80vh",
+              background: "rgba(15,15,15,0.98)", borderRadius: 16,
+              border: "1px solid rgba(250,204,21,0.15)",
+              boxShadow: "0 24px 48px rgba(0,0,0,0.6)",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <PunchEarnedPanel />
+          </div>
+        </div>
+      )}
+
       {/* Floating video popup — opens chat */}
-      <PunchVideoPopup onVideoClick={() => { setShowExtras(true); setShowFeed(false); }} />
+      <PunchVideoPopup onVideoClick={() => { setShowExtras(true); setShowFeed(false); setShowEarned(false); }} />
 
       {/* ===== MONKEY-THEMED STATS BAR — bottom ===== */}
       <PunchStatsFooter />
