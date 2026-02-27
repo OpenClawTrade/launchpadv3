@@ -84,16 +84,17 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
+        temperature: 1.5,
         messages: [
           {
             role: "system",
             content:
-              `You generate funny viral meme coin names about monkeys and apes. Rules:\n- Name: 1-2 words max, under 16 chars. Use monkey species, monkey slang, or ape meme culture.\n- Ticker: ONE short meme word, 3-6 letters. Must sound fun.\n- NO violent words (no punch/slap/fist/smash/hit/bonk). Just monkey vibes and meme energy.\n- EVERY name and ticker MUST be completely unique. Never reuse any name or ticker that has been used before.\n\n${blacklist}`,
+              `You generate wildly creative, unique meme coin names. Rules:\n- Name: 1-2 words max, under 16 chars. Draw from ANY of these themes: monkey species, jungle fruits, tropical birds, safari animals, zoo characters, rainforest creatures, island vibes, banana varieties, tree-dwelling animals, primate slang, coconut culture, vine-swinging energy.\n- Ticker: ONE short meme word, 3-6 letters. Must sound fun and be completely unlike any existing ticker.\n- NO violent words (no punch/slap/fist/smash/hit/bonk). Just vibes and meme energy.\n- EVERY name and ticker MUST be completely unique. Never reuse any name or ticker that has been used before.\n- Your name and ticker MUST NOT be similar-sounding to any blacklisted entry. No rhymes, no slight spelling variations.\n- Be WILDLY creative — invent new words, mash concepts together, use unexpected combinations.\n\n${blacklist}`,
           },
           {
             role: "user",
             content:
-              "Generate a BRAND NEW unique short funny monkey/ape meme coin name and ticker that has NEVER been used before. Be wildly creative - invent new words, combine unexpected concepts. Do NOT use any name or ticker from the blacklist.",
+              "Generate a BRAND NEW unique short funny meme coin name and ticker that has NEVER been used before. Be wildly creative - invent new words, combine unexpected concepts. Do NOT use any name or ticker from the blacklist. Do NOT use similar-sounding names.",
           },
         ],
         tools: [
@@ -105,8 +106,8 @@ Deno.serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Short monkey meme name, 1-2 words, max 16 chars" },
-                  ticker: { type: "string", description: "Single fun monkey word ticker, 3-6 uppercase letters" },
+                  name: { type: "string", description: "Short creative meme name, 1-2 words, max 16 chars" },
+                  ticker: { type: "string", description: "Single fun word ticker, 3-6 uppercase letters" },
                 },
                 required: ["name", "ticker"],
                 additionalProperties: false,
