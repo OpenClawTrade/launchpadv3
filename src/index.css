@@ -519,44 +519,7 @@
   cursor: pointer !important;
 }
 
-/* Matrix Mode — force all page backgrounds transparent so canvas shows through */
-.matrix-active .min-h-screen {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-.matrix-active [style*="background"] {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-/* Keep cards/surfaces semi-transparent for readability */
-.matrix-active .bg-card,
-.matrix-active [class*="bg-card"] {
-  background-color: hsl(var(--card) / 0.7) !important;
-}
-.matrix-active .pulse-column {
-  background-color: hsl(var(--card) / 0.75) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.matrix-active .pulse-card:hover {
-  background-color: hsl(var(--card) / 0.9) !important;
-}
-.matrix-active .pulse-col-header {
-  background-color: hsl(var(--background) / 0.8) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.matrix-active header,
-.matrix-active aside {
-  background-color: hsl(var(--background) / 0.8) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-/* Hide matrix canvas on specific pages (e.g. /panel) */
-body.matrix-hidden canvas {
-  display: none !important;
-}
+/* Matrix mode removed — dark theme is now the default */
 
 /* Claw Mode Terminal Utilities */
 .claw-panel {
@@ -620,25 +583,23 @@ body.matrix-hidden canvas {
 
 /* ── Ultra-Premium Token Card 2026 ── */
 .lt-card {
-  background: linear-gradient(145deg, hsl(215 28% 13% / 0.65), hsl(220 25% 10% / 0.5));
-  border: 1px solid hsl(215 20% 28% / 0.45);
-  border-radius: 20px;
+  background: linear-gradient(145deg, hsl(var(--card)), hsl(var(--background)));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
   transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   position: relative;
   overflow: hidden;
   box-shadow:
     0 4px 24px -6px rgb(0 0 0 / 0.4),
-    0 0 0 0.5px hsl(215 20% 35% / 0.15) inset;
+    0 0 0 0.5px hsl(var(--border) / 0.15) inset;
 }
 .lt-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 20px;
+  border-radius: 6px;
   padding: 1px;
-  background: linear-gradient(135deg, hsl(187 80% 53% / 0.08) 0%, transparent 40%, hsl(var(--border-light) / 0.12) 60%, transparent 100%);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, transparent 40%, hsl(var(--border) / 0.12) 60%, transparent 100%);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -650,12 +611,12 @@ body.matrix-hidden canvas {
   opacity: 1;
 }
 .lt-card:hover {
-  border-color: hsl(187 80% 53% / 0.35);
+  border-color: hsl(var(--primary) / 0.35);
   transform: translateY(-3px) scale(1.025);
   box-shadow:
     0 16px 40px -8px rgb(0 0 0 / 0.55),
-    0 0 0 1px hsl(187 80% 53% / 0.12),
-    0 0 32px -6px hsl(187 80% 53% / 0.1);
+    0 0 0 1px hsl(var(--primary) / 0.12),
+    0 0 32px -6px hsl(var(--primary) / 0.1);
 }
 .lt-card-hot {
   border-color: hsl(24 95% 53% / 0.25);
@@ -733,9 +694,9 @@ body.matrix-hidden canvas {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, hsl(187 80% 53%) 0%, hsl(187 80% 53% / 0.2) 100%);
+  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.2) 100%);
   border-radius: 2px;
-  box-shadow: 0 0 8px hsl(187 80% 53% / 0.4);
+  box-shadow: 0 0 8px hsl(var(--primary) / 0.4);
 }
 
 /* ── Terminal Trading Page ── */

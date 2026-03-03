@@ -74,7 +74,7 @@ export default function TokenomicsPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <div className="md:ml-[48px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
 
         <main className="max-w-5xl mx-auto px-4 py-10 space-y-12 w-full">

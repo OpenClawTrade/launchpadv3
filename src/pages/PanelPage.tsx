@@ -42,9 +42,9 @@ export default function PanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0A0E1A] overflow-x-hidden">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-        <div className="md:ml-[160px] flex flex-col min-h-screen">
+        <div className="md:ml-[48px] flex flex-col min-h-screen">
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16">
             {/* Glassmorphic login card */}
@@ -89,9 +89,9 @@ export default function PanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A] overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <div className="md:ml-[48px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
 
         {/* Constrained center column — wider for NFA tab */}

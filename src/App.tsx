@@ -10,27 +10,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
-import { MatrixBackground } from "@/components/claw/MatrixBackground";
 import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
-import { MatrixModeProvider, useMatrixMode } from "@/contexts/MatrixModeContext";
-
-function ConditionalMatrixBackground() {
-  const { matrixEnabled } = useMatrixMode();
-  const { pathname } = useLocation();
-  const hostname = window.location.hostname;
-  const isPunchDomain = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
-  if (!matrixEnabled || isPunchDomain || pathname.startsWith("/launchpad/") || pathname.startsWith("/punch") || pathname === "/trade") return null;
-  return <MatrixBackground />;
-}
-
-function MatrixRouteWrapper({ children }: { children: React.ReactNode }) {
-  const { matrixEnabled } = useMatrixMode();
-  return (
-    <div className={`relative z-[1] ${matrixEnabled ? 'matrix-active' : ''}`}>
-      {children}
-    </div>
-  );
-}
+import { MatrixModeProvider } from "@/contexts/MatrixModeContext";
 
 // Critical: Load FunLauncherPage eagerly for instant home page
 import FunLauncherPage from "./pages/FunLauncherPage";
@@ -136,11 +117,11 @@ const App = () => (
             <ErrorBoundary>
               <BrowserRouter>
               <StickyStatsFooter />
-                <ConditionalMatrixBackground />
+                
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
-                  <MatrixRouteWrapper>
-                  <Routes>
+                   <div className="relative z-[1]">
+                   <Routes>
                     <Route path="/" element={<PunchDomainRoot />} />
                     <Route path="/console" element={<ConsolePage />} />
                     {/* Chain-specific launch routes */}
@@ -210,7 +191,7 @@ const App = () => (
                      <Route path="/punch-games" element={<PunchGamesPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
-                  </MatrixRouteWrapper>
+                  </div>
                 </Suspense>
               </BrowserRouter>
             </ErrorBoundary>

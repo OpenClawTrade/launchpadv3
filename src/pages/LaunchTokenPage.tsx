@@ -10,7 +10,7 @@ export default function LaunchTokenPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <div className="md:ml-[48px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
         <main className="flex-1 px-4 py-8 max-w-6xl mx-auto w-full">
           {/* Page Header */}

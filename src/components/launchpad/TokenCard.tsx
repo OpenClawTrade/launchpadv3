@@ -212,7 +212,7 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           <h3 className="text-sm font-bold truncate leading-tight" style={{ color: "hsl(0 0% 95%)" }}>
             {token.name}
           </h3>
-          <span className="text-xs font-mono font-semibold flex-shrink-0" style={{ color: "hsl(187 80% 55%)" }}>
+          <span className="text-xs font-mono font-semibold flex-shrink-0 text-primary">
             ${token.ticker}
           </span>
         </div>
@@ -258,7 +258,7 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
                 {xUsername[0]?.toUpperCase()}
               </div>
             )}
-            <span className="text-[11px] font-medium truncate" style={{ color: "hsl(187 70% 60%)" }}>
+            <span className="text-[11px] font-medium truncate text-primary">
               @{xUsername}
             </span>
             {isVerified && (

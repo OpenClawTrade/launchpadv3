@@ -15,7 +15,7 @@ export default function AgentsPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <div className="md:ml-[48px] flex flex-col min-h-screen">
         <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
         <main className="flex-1 p-4 pb-14">
             <div className="space-y-8">

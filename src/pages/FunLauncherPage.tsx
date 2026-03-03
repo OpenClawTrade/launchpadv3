@@ -137,7 +137,7 @@ export default function FunLauncherPage() {
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
 
       {/* Main content — offset by sidebar width on desktop */}
-      <div className="md:ml-[160px] flex flex-col min-h-screen">
+      <div className="md:ml-[48px] flex flex-col min-h-screen">
         {/* Top bar */}
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
 
