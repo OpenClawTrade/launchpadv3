@@ -1,64 +1,46 @@
 
 
-## Honest Assessment: What Tools Are Needed
+## Problems Identified
 
-Since this is a **unique custom template** (no live URL), Firecrawl and similar web-scraping tools **cannot help** — there's nothing to scrape. The only input is the uploaded image.
+From the screenshot, the main page still looks nothing like the template because:
 
-Here's what **will** work:
+1. **Matrix background is still rendering** — green Japanese characters visible behind everything. The `ConditionalMatrixBackground` in App.tsx only suppresses it on `/launchpad/`, `/punch`, and `/trade` — NOT on `/` (home page).
 
-### Tool #1: My Image Analysis (Already Available)
-I can see the template image directly. From it I extract:
-- **Background**: `#0d0d0f` (near-black)
-- **Surface/cards**: `#1a1a1c`
-- **Borders**: `#2a2a2c`
-- **Primary accent**: `#c8ff00` (chartreuse)
-- **Text primary**: `#e8e8e8`
-- **Text secondary**: `#6b6b6b`
-- **Positive**: `#00c076`, **Negative**: `#ff4d4d`
-- **Font**: Monospace/technical (IBM Plex Mono or similar)
-- **Sidebar**: ~48px, icon-only, vertical
-- **Border radius**: Small (4-6px), not rounded
+2. **FunLauncherPage uses `md:ml-[160px]`** (line 140) instead of `md:ml-[48px]` — sidebar offset was never updated in this page. Same problem exists in **8 other pages** (WhitepaperPage, TrendingPage, TokenomicsPage, ClawSDKPage, ApiDashboardPage, AgentsPage, PanelPage, LaunchTokenPage).
 
-### Tool #2: Browser Screenshot Comparison (Already Available)
-After each phase of changes, I use `browser--screenshot` to take a screenshot of the result and compare it visually against the template to catch mismatches in spacing, colors, or positioning.
+3. **Matrix mode CSS** (lines 522-554 in index.css) forces backgrounds transparent with `!important`, overriding the dark theme colors — this is why cards look semi-transparent with the matrix showing through.
 
-### Tool #3 (Optional): If You Can Provide More
-If you have access to the **Figma file**, **CSS source**, or **HTML source** of this template, paste it here and I can extract pixel-perfect values. Otherwise, the image is sufficient.
+4. **Token cards still use old blue/teal colors** — `lt-card` uses `hsl(215 28% 13%)` backgrounds and `hsl(187 80% 53%)` (teal) hover borders instead of the chartreuse accent.
 
----
+5. **Token card ticker color** is hardcoded teal `hsl(187 80% 55%)` instead of using `--primary` (chartreuse).
 
-## Implementation Plan (5 Phases, ~30 files)
+6. **MatrixModeContext defaults to `true`** — new visitors see matrix by default.
 
-### Phase 1: Design System Overhaul
-Update `src/index.css` CSS variables (`.dark` block) and `tailwind.config.ts`:
-- Swap all color tokens to match template palette
-- Switch font to `IBM Plex Mono` / monospace stack
-- Update `btn-gradient-green` to chartreuse `#c8ff00`
-- Update border-radius to smaller values (4-6px)
-- Update shadow tokens
+## Plan
 
-### Phase 2: Sidebar → 48px Icon-Only
-- Rebuild `Sidebar.tsx`: remove labels, shrink to 48px, icon-only with chartreuse active indicator
-- Update `LaunchpadLayout.tsx`: change offset from 160px to 48px
-- Update `App.css` footer offset
+### 1. Kill the Matrix background globally
+- Change `MatrixModeContext` default from `true` to `false` 
+- Update `ConditionalMatrixBackground` to always return `null` (or simply remove the matrix import and rendering from App.tsx entirely)
+- Remove the `.matrix-active` CSS rules that force transparent backgrounds
 
-### Phase 3: Header Restyle
-- Restyle `AppHeader.tsx`: compact monospace, chartreuse accents, match template search bar and wallet display
+### 2. Fix sidebar offset on ALL pages
+- Replace all `md:ml-[160px]` with `md:ml-[48px]` across 9 files:
+  - FunLauncherPage.tsx
+  - WhitepaperPage.tsx, TrendingPage.tsx, TokenomicsPage.tsx
+  - ClawSDKPage.tsx, ApiDashboardPage.tsx, AgentsPage.tsx
+  - PanelPage.tsx, LaunchTokenPage.tsx
 
-### Phase 4: Trading Terminal & Token Cards
-- Update chart colors, buy/sell panels, token cards to chartreuse/dark scheme
-- Update all card components (`pf-card`, `lt-card`, `pulse-card`)
+### 3. Rebrand token cards to chartreuse
+- Update `lt-card` CSS in index.css: change background gradient to use dark `#0d0d0f`-based colors, border to use `hsl(var(--border))`, hover border to chartreuse
+- Update `TokenCard.tsx`: change ticker color from teal to `hsl(var(--primary))`, update all hardcoded teal/blue references to use CSS variables
 
-### Phase 5: All Remaining Pages & Polish
-- Update landing (`ClawHero.tsx`), agents, console, whitepaper pages
-- Update `claw-theme.css`, `gate-theme.css`, `clawbook-theme.css`
-- Screenshot-compare and fix mismatches
+### 4. Update LaunchpadLayout offset
+- Already fixed to 48px — confirm it's correct
 
----
-
-## Summary
-
-**No external API is needed.** I have the image, I have the codebase, and I have browser screenshot tools for verification. The work is systematic CSS variable updates + component layout changes across ~30 files.
-
-**Say "start" and I'll begin with Phase 1** — the design system overhaul that transforms 80% of the site instantly. Then I'll screenshot-compare and iterate through the remaining phases.
+### Files to modify (~12 files):
+- `src/contexts/MatrixModeContext.tsx` — default to false
+- `src/App.tsx` — remove ConditionalMatrixBackground entirely
+- `src/index.css` — remove `.matrix-active` rules, update `lt-card` to chartreuse theme
+- `src/components/launchpad/TokenCard.tsx` — swap teal hardcodes to chartreuse/primary
+- 9 page files — fix `md:ml-[160px]` → `md:ml-[48px]`
 
