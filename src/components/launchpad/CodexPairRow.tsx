@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
+import { LaunchpadBadge } from "./LaunchpadBadge";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
 
@@ -191,6 +192,8 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
               {gradPct.toFixed(gradPct >= 1 ? 0 : 1)}%
             </span>
           </div>
+
+          <LaunchpadBadge launchpadName={token.launchpadName} iconUrl={token.launchpadIconUrl} />
 
           {/* DS badge */}
           <span className="pulse-metric-dot pulse-metric-dot--neutral">DS</span>

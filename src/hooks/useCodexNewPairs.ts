@@ -23,6 +23,7 @@ export interface CodexPairToken {
   websiteUrl: string | null;
   telegramUrl: string | null;
   discordUrl: string | null;
+  launchpadIconUrl: string | null;
 }
 
 async function fetchCodexTokens(column: "new" | "completing" | "completed", limit = 50): Promise<CodexPairToken[]> {
