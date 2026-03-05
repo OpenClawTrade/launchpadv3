@@ -29,14 +29,38 @@ serve(async (req) => {
     }
 
     // Use Helius enhanced transactions API to find funding source
-    const url = `https://api.helius.dev/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}&limit=100`;
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      const errText = await resp.text();
-      throw new Error(`Helius API error (${resp.status}): ${errText}`);
+    const urls = [
+      `https://api.helius.xyz/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}&limit=100`,
+      `https://api.helius.dev/v0/addresses/${walletAddress}/transactions?api-key=${apiKey}&limit=100`, // legacy fallback
+    ];
+
+    let transactions: any[] = [];
+    let lastFetchError: string | null = null;
+
+    for (const url of urls) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const errText = await resp.text();
+          lastFetchError = `Helius API error (${resp.status}): ${errText}`;
+          continue;
+        }
+
+        const parsed = await resp.json();
+        if (Array.isArray(parsed)) {
+          transactions = parsed;
+          break;
+        }
+
+        lastFetchError = "Invalid Helius response format";
+      } catch (e: any) {
+        lastFetchError = e?.message || "Helius request failed";
+      }
     }
 
-    const transactions = await resp.json();
+    if (transactions.length === 0 && lastFetchError) {
+      console.error("[holder-funding] Helius fetch failed:", lastFetchError);
+    }
 
     // Transactions are returned newest-first; reverse to find oldest
     const reversed = [...transactions].reverse();
@@ -91,9 +115,17 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
+    console.error("[holder-funding] Unexpected error:", err);
     return new Response(
-      JSON.stringify({ error: err.message || "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        fundingSource: null,
+        fundingAmount: 0,
+        fundingTimestamp: null,
+        age: null,
+        totalTxChecked: 0,
+        error: err?.message || "Unknown error",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
