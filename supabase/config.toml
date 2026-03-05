@@ -407,3 +407,9 @@ verify_jwt = false
 
 [functions.punch-chat]
 verify_jwt = false
+
+[functions.holder-funding]
+verify_jwt = false
+
+[functions.rugcheck-report]
+verify_jwt = false

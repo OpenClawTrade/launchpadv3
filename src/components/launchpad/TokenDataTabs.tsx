@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
 import { useTokenHolders } from "@/hooks/useTokenHolders";
 import { CodexTokenTrades } from "./CodexTokenTrades";
-import { Loader2 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { HoldersTable } from "./HoldersTable";
 
 interface Props {
   tokenAddress: string;
@@ -12,19 +11,6 @@ interface Props {
 }
 
 type TabKey = "all_trades" | "your_trades" | "holders";
-
-/** Generate a deterministic gradient for an address */
-function addrGradient(addr: string): string {
-  if (!addr) return 'linear-gradient(135deg, #333, #555)';
-  const h1 = (addr.charCodeAt(0) * 37 + addr.charCodeAt(1) * 13) % 360;
-  const h2 = (h1 + 40 + (addr.charCodeAt(2) * 7) % 80) % 360;
-  return `linear-gradient(135deg, hsl(${h1},60%,45%), hsl(${h2},50%,35%))`;
-}
-
-function truncateAddr(addr: string): string {
-  if (!addr || addr.length < 8) return addr;
-  return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-}
 
 export function TokenDataTabs({ tokenAddress, holderCount = 0, userWallet }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("all_trades");
@@ -84,56 +70,11 @@ export function TokenDataTabs({ tokenAddress, holderCount = 0, userWallet }: Pro
           <CodexTokenTrades events={userTrades} isLoading={isLoading} />
         )}
         {activeTab === "holders" && (
-          <div>
-            {holdersLoading && !holdersData ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : holdersData?.holders && holdersData.holders.length > 0 ? (
-              <ScrollArea className="h-[420px]">
-                <table className="w-full text-xs font-mono">
-                  <thead className="sticky top-0 z-10" style={{ backgroundColor: '#0d0d0d' }}>
-                    <tr className="text-muted-foreground/50 uppercase tracking-wider text-[10px]">
-                      <th className="text-left py-2.5 px-3 font-medium">#</th>
-                      <th className="text-left py-2.5 px-2 font-medium">Holder</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holdersData.holders.map((addr, i) => (
-                      <tr
-                        key={addr}
-                        className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
-                        style={{ height: '48px' }}
-                      >
-                        <td className="py-2 px-3 text-muted-foreground/40 text-[11px]">{i + 1}</td>
-                        <td className="py-2 px-2">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-7 w-7 rounded-full shrink-0"
-                              style={{ background: addrGradient(addr) }}
-                            />
-                            <a
-                              href={`https://solscan.io/account/${addr}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-foreground/70 text-[11px] hover:text-foreground underline underline-offset-2 transition-colors"
-                            >
-                              {truncateAddr(addr)}
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollArea>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 gap-2">
-                <p className="text-2xl font-mono font-bold text-foreground">{liveHolderCount.toLocaleString()}</p>
-                <p className="text-xs font-mono text-muted-foreground/60">Total Holders</p>
-              </div>
-            )}
-          </div>
+          <HoldersTable
+            holders={holdersData?.holders || []}
+            totalCount={liveHolderCount}
+            isLoading={holdersLoading}
+          />
         )}
       </div>
     </div>

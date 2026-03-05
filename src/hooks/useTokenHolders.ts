@@ -1,9 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-interface TokenHoldersResult {
-  holders: string[];
+export interface HolderInfo {
+  address: string;
+  tokenAmount: number;
+  percentage: number;
+  solBalance: number;
+}
+
+export interface TokenHoldersResult {
+  holders: HolderInfo[];
   count: number;
+  totalSupply: number;
+  decimals: number;
   pages: number;
 }
 
@@ -18,7 +27,7 @@ export function useTokenHolders(mintAddress: string, enabled: boolean) {
       return data as TokenHoldersResult;
     },
     enabled: !!mintAddress && enabled,
-    refetchInterval: enabled ? 5000 : false,
-    staleTime: 0,
+    refetchInterval: enabled ? 30000 : false,
+    staleTime: 15000,
   });
 }
