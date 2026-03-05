@@ -1,31 +1,65 @@
 
 
-## Issues to Fix
+## Problems Identified
 
-### 1. Sell tab styling mismatch
-When SELL is active, the preset buttons use red/destructive colors but the overall layout is correct. The issue is that the sell tab should show the same structure as buy but with red-tinted elements. Currently missing: the sell tab doesn't show an "INSTA SELL" toggle equivalent, and the label says "Amount to sell" without specifying the token ticker clearly.
+### 1. "No Route Found" Bug
+In `UniversalTradePanel.tsx` line 41: `const useJupiterRoute = token.graduated !== false;`  
+When Jupiter fails to find a quote (returns null), the button shows "No route found" and is **disabled** — user cannot trade at all. There is no fallback to PumpPortal.
 
-### 2. EmbeddedWalletCard shows redundant balance
-The card displays a large balance section (3xl font, centered) that duplicates the header balance. Need to remove the balance display and keep only: Deposit, Export Key, Copy Address, and Solscan link. Restyle the entire card to match the trade panel's terminal aesthetic.
+**Fix**: When Jupiter quote fails, allow the trade anyway via PumpPortal fallback. Remove the hard gate that requires a quote before enabling the button.
 
-### 3. Token Details and Contract boxes use `terminal-panel-flush` but don't match the trade panel style
-These boxes below the trade panel use a generic card style. They need the same dark background, border color, font sizes, and density as the trade panel.
+### 2. Jito Infrastructure Exists but Is Never Used
+`src/lib/jitoBundle.ts` has full Jito bundle submission code but **zero imports** anywhere in the project. All swaps currently go through Privy's standard `signAndSendTransaction` which uses the regular Helius RPC — no Jito fast-lane.
 
-## Plan
+### 3. Privy Popup Already Suppressed
+`useSolanaWalletPrivy.ts` already sets `showWalletUIs: false` — confirmed working.
 
-### File: `src/components/launchpad/EmbeddedWalletCard.tsx`
-- Remove the entire balance section (the large "0.0000 SOL" centered block)
-- Remove the address row (already shown in header dropdown)
-- Restyle as a compact terminal-style card matching the trade panel: `bg-[hsl(var(--card))]`, `border border-border/40 rounded-lg`
-- Keep 4 action buttons in a 2x2 grid: **Deposit**, **Export Key**, **Copy Address**, **Solscan**
-- Use small mono text, olive/chartreuse accents to match the trade panel aesthetic
-- Remove the "Powered by Privy" subtitle, replace header with minimal "Wallet" label
+---
 
-### File: `src/pages/FunTokenDetailPage.tsx`
-- Update `TokenDetailsSection` and `ContractSection` to use `border border-border/40 rounded-lg bg-[hsl(var(--card))]` instead of `terminal-panel-flush`
-- Match text sizes and spacing to the trade panel density
+## Plan for Axiom-Like Speed
 
-### Files: `TradePanelWithSwap.tsx` and `UniversalTradePanel.tsx`
-- Sell tab: change preset buttons from `destructive` red to a muted red-olive style matching the buy tab's olive-green pattern (red-tinted borders `#5a2a2a`, active fill `#4a1a1a`, text `#ff6666`)
-- Ensure sell mode input label says `Amount of ${token.ticker} to sell`
+### Architecture: Jito `sendTransaction` Endpoint (not bundles)
+
+Axiom and other fast trading bots use **Jito's `sendTransaction` endpoint** (`https://mainnet.block-engine.jito.wtf/api/v1/transactions`), which:
+- Acts as a proxy to Solana's sendTransaction RPC
+- Routes directly to Jito validators for faster block inclusion
+- Supports priority fees for landing priority
+- Does NOT require bundling or tips (tips optional for priority)
+
+This is simpler and faster than full bundle submission for single-transaction swaps.
+
+### Files to Modify
+
+#### 1. `src/hooks/useSolanaWalletPrivy.ts` — Add Jito Fast Send
+- After Privy signs + sends via standard RPC, **also** submit the same signed transaction to Jito's `sendTransaction` endpoint as a parallel "fast lane"
+- Alternatively: since Privy's `signAndSendTransaction` both signs AND sends, we can't separate them. Instead, after getting the signature back, we fire-and-forget the same serialized tx to Jito endpoints for redundancy
+- **Better approach**: Create a new `signAndSendTransactionFast` method that:
+  1. Uses Privy to sign + send (standard path, returns signature)
+  2. Simultaneously submits to Jito `sendTransaction` endpoint for faster landing
+  3. Both paths race — whichever confirms first wins
+
+#### 2. `src/components/launchpad/UniversalTradePanel.tsx` — Fix "No Route Found"
+- When Jupiter quote fails, fall back to PumpPortal instead of disabling the button
+- Change routing logic: try Jupiter first, if quote is null, switch `useJupiterRoute` to false dynamically
+- Remove the disabled condition that requires `quote` when `useJupiterRoute` is true
+- In `handleTrade`: if Jupiter route was intended but no quote exists, use PumpPortal as fallback
+
+#### 3. `src/hooks/useJupiterSwap.ts` — Add Jito Submission
+- In `executeSwap`, after deserializing the Jupiter swap transaction:
+  - Sign via Privy (existing flow)
+  - Also submit to Jito's `sendTransaction` endpoint in parallel for faster landing
+
+#### 4. `src/lib/jitoBundle.ts` — Add `sendTransactionViaJito` Helper
+- Add a lightweight function (separate from bundles) that submits a single signed transaction to Jito's `/api/v1/transactions` endpoint
+- Multiple region failover (existing endpoint list)
+- This is what Axiom uses for fast execution
+
+#### 5. `src/hooks/useRealSwap.ts` — Integrate Jito Fast Send
+- After Privy signs the Meteora DBC swap tx, also submit via Jito for faster landing
+
+### Summary of Speed Improvements
+- **Dual-submit**: Every signed transaction goes to both standard RPC (via Privy) AND Jito's fast endpoint simultaneously
+- **Priority fees**: Already in Jupiter swap params (`prioritizationFeeLamports: 'auto'`), keep as-is
+- **No popup**: Already implemented via `showWalletUIs: false`
+- **Route fallback**: Jupiter → PumpPortal fallback eliminates "No route found" dead ends
 
