@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
+import { useAllTokenTrades } from "@/hooks/useAllTokenTrades";
 import { useTokenHolders } from "@/hooks/useTokenHolders";
 import { CodexTokenTrades } from "./CodexTokenTrades";
 import { HoldersTable } from "./HoldersTable";
@@ -16,9 +17,11 @@ type TabKey = "all_trades" | "your_trades" | "holders";
 export function TokenDataTabs({ tokenAddress, holderCount = 0, userWallet, currentPriceUsd = 0 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("all_trades");
   const { data, isLoading } = useCodexTokenEvents(tokenAddress);
+  const isHoldersTab = activeTab === "holders";
+  const { data: allTradesData, isLoading: allTradesLoading } = useAllTokenTrades(tokenAddress, isHoldersTab);
   const { data: holdersData, isLoading: holdersLoading } = useTokenHolders(
     tokenAddress,
-    activeTab === "holders"
+    isHoldersTab
   );
 
   const liveHolderCount = holdersData?.count ?? holderCount;
@@ -74,8 +77,8 @@ export function TokenDataTabs({ tokenAddress, holderCount = 0, userWallet, curre
           <HoldersTable
             holders={holdersData?.holders || []}
             totalCount={liveHolderCount}
-            isLoading={holdersLoading}
-            trades={data?.events || []}
+            isLoading={holdersLoading || allTradesLoading}
+            trades={allTradesData || data?.events || []}
             currentPriceUsd={currentPriceUsd}
           />
         )}
