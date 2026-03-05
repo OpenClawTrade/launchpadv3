@@ -1,50 +1,84 @@
 
 
-## Two Changes: Public User Profiles + Discover Page Fix
+## Ultra-Fast Trade Execution System (Axiom-Level Speed)
 
-### 1. Public User Profile Page (`/profile/:username`)
+### Current Bottlenecks
 
-Create a new page at `/profile/:usernameOrWallet` that displays any user's public profile with trading data, styled like the reference screenshot (dark terminal aesthetic with retro uppercase headings).
+Your current flow has ~1.5-3 seconds of latency *before the transaction even hits the network*:
 
-**New file: `src/pages/UserProfilePage.tsx`**
-- Resolve user by username or wallet address from `profiles` table
-- Display profile header: avatar, display name, username, wallet (truncated), verified badge, bio, join date
-- Stats row: Coins Held, Coins Created, Followers, Following (from `profiles` counts + `follows` + `fun_tokens` tables)
-- **Tokens tab**: Query `fun_tokens` where `creator_wallet` matches the profile's wallet — show tokens they created with market cap, status
-- **Trades tab**: Query `launchpad_transactions` where `user_profile_id` matches — show recent buy/sell trades with token name, SOL amount, time
-- Follow/Unfollow button (if authenticated and viewing another user)
-- Uses `LaunchpadLayout` for consistent site chrome
+| Step | Current Latency | Where |
+|------|----------------|-------|
+| Balance check (RPC) | 200-500ms | `PulseQuickBuyButton.checkBalance()` |
+| Get blockhash (RPC) | 200-500ms | `useSolanaWalletPrivy.signAndSendTransaction()` |
+| Jupiter quote API | 300-600ms | `useJupiterSwap.getQuote()` |
+| Jupiter swap API | 300-600ms | `useJupiterSwap` POST `/swap` |
+| Dynamic import (Meteora SDK) | 100-300ms | `useRealSwap.swapBondingCurve()` |
+| Dynamic import (bs58, web3.js) | 50-150ms | Multiple places |
+| Privy sign | 50-200ms | Privy SDK |
+| Privy sendTransaction (standard RPC) | 200-500ms | Primary path |
+| Jito dual-submit | fire-and-forget | Secondary path |
+| **Wait for confirmation** | **2-10 seconds** | Blocks UI |
 
-**Style** (matching reference screenshot):
-- Dark card backgrounds with subtle borders
-- Uppercase bold section headers (POINTS → TOKENS, TRADES)
-- Monospace values, compact data rows
-- Cover banner area + avatar overlapping it
+**Total click-to-network: ~1.5-3s. Total click-to-UI-response: ~4-13s.**
 
-**Route addition in `src/App.tsx`:**
-- Add `<Route path="/profile/:identifier" element={<UserProfilePage />} />`
-- Lazy import the page
+Axiom achieves ~200-400ms click-to-network by eliminating every unnecessary step.
 
-**New hook: `src/hooks/useUserProfile.ts`**
-- Fetch profile by username or wallet
-- Fetch created tokens count, trade history, follower/following counts
+### Plan: 7 Optimizations
 
-### 2. Discover Page: Filter Out Rugged Tokens
+#### 1. Pre-cached Blockhash Service (`src/lib/blockhashCache.ts`)
+Create a singleton that polls for fresh blockhashes every 2 seconds in the background. Every swap uses the cached value instantly (0ms) instead of making an RPC call (200-500ms).
 
-**File: `supabase/functions/dexscreener-trending/index.ts`**
+```text
+[Background poller] ──2s interval──> RPC getLatestBlockhash
+                                         │
+                                    cache.blockhash (always fresh)
+                                         │
+[Trade click] ──instant read──> use cached blockhash (0ms)
+```
 
-In step 4 (merge and build response), add a filter after building results:
-- Remove any token where `priceChange6h < -50` (hides -50% and worse)
-- Re-rank remaining tokens sequentially (1, 2, 3...)
+#### 2. Remove Pre-flight Balance Check
+The `checkBalance()` call in `PulseQuickBuyButton` adds 200-500ms per trade. Remove it entirely — let the transaction fail on-chain naturally. The user already sees their balance in the UI. Saves 200-500ms.
 
-This is a server-side filter so the client receives clean data.
+#### 3. Jito as Primary Submission Path
+Currently: Privy sends via standard Helius RPC (primary), then Jito fire-and-forget (secondary).
 
-### Summary of files
+New: Build and sign the transaction ourselves, then submit directly to ALL Jito endpoints in parallel as the primary path, plus Helius as secondary. Jito validators give priority inclusion. This requires a new `sendRawTransaction` path that bypasses Privy's `signAndSendTransaction` for the send step — we still use Privy for signing only.
 
-| File | Action |
-|------|--------|
-| `src/pages/UserProfilePage.tsx` | Create — full public profile page |
-| `src/hooks/useUserProfile.ts` | Create — data fetching hook |
-| `src/App.tsx` | Edit — add `/profile/:identifier` route |
-| `supabase/functions/dexscreener-trending/index.ts` | Edit — filter tokens with priceChange6h < -50, re-rank |
+New hook: `useFastSwap.ts` — signs via Privy (`signTransaction`), then submits raw bytes to Jito + Helius simultaneously.
+
+#### 4. Optimistic UI (Don't Wait for Confirmation)
+Currently the UI blocks until `confirmTransaction()` resolves (2-10s). Change to optimistic: show success toast with signature immediately after submission. Confirmation polling moves to background. Saves 2-10 seconds of perceived latency.
+
+#### 5. Eager Module Loading
+Remove all `await import(...)` from the hot path. Pre-import Meteora SDK, bs58, web3.js at module level or via a warm-up function on page load. Saves 100-400ms.
+
+#### 6. Skip Preflight Simulation
+Pass `skipPreflight: true` and `preflightCommitment: 'processed'` to `sendRawTransaction`. Standard RPC preflight simulation adds ~200ms. Axiom skips this.
+
+#### 7. Jupiter Fast Mode
+Use Jupiter's `swapMode: 'ExactIn'` with `dynamicSlippage` and `prioritizationFeeLamports: 'auto'` already set (good), but also add `asLegacyTransaction: false` to ensure VersionedTransaction (smaller, faster). Pre-warm quote cache for the user's quick-buy amount when they hover a token card.
+
+### Files to Create/Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/lib/blockhashCache.ts` | Create | Background blockhash polling singleton |
+| `src/hooks/useFastSwap.ts` | Create | Ultra-fast swap hook: sign-only + parallel Jito submit |
+| `src/lib/jitoBundle.ts` | Modify | Add `sendRawToJitoAndHelius()` — parallel multi-endpoint raw tx submission |
+| `src/hooks/useSolanaWalletPrivy.ts` | Modify | Add `signTransaction()` (sign-only, no send) method |
+| `src/hooks/useRealSwap.ts` | Modify | Use fast path, remove blocking confirmation |
+| `src/components/launchpad/PulseQuickBuyButton.tsx` | Modify | Remove balance check, use optimistic UI |
+| `src/hooks/useJupiterSwap.ts` | Modify | Remove dynamic imports, use cached blockhash |
+
+### Expected Result
+
+```text
+BEFORE:  Click → 200ms balance → 400ms blockhash → 500ms quote → 500ms swap-tx → 150ms sign → 300ms send → 5s confirm = ~7s total
+AFTER:   Click → 0ms (no balance) → 0ms (cached blockhash) → 500ms quote+swap → 100ms sign → 50ms parallel-submit → optimistic done = ~650ms to UI response
+```
+
+The ~500ms Jupiter API round-trip is the irreducible minimum for graduated tokens (need fresh quote). For bonding curve tokens (Meteora), it can be even faster (~300ms) since we build the tx locally.
+
+### Limitation Note
+Privy's embedded wallet SDK may not expose a pure `signTransaction` without sending. If that's the case, we'll intercept the serialized+signed bytes from `signAndSendTransaction` before Privy sends them, and race our own Jito submission against Privy's RPC send. The dual-submit already does this partially — we just need to make Jito the priority path and make the UI not wait for confirmation.
 
