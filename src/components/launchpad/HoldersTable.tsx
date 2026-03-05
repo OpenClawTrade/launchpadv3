@@ -25,7 +25,7 @@ interface HolderStats {
 function buildHolderStatsMap(trades: TokenTradeEvent[]): Map<string, HolderStats> {
   const map = new Map<string, { buyUsd: number; buyTokens: number; sellUsd: number; sellTokens: number }>();
   for (const t of trades) {
-    const key = t.maker.toLowerCase();
+    const key = t.maker;
     const entry = map.get(key) || { buyUsd: 0, buyTokens: 0, sellUsd: 0, sellTokens: 0 };
     if (t.type === "Buy") {
       entry.buyUsd += t.totalUsd;
@@ -225,7 +225,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   {/* Bought (Avg Buy) */}
                   <td className="py-2 px-2 text-right">
                     {(() => {
-                      const s = statsMap.get(holder.address.toLowerCase());
+                      const s = statsMap.get(holder.address);
                       if (!s || s.totalBoughtTokens === 0) return <span className="text-muted-foreground/30 text-[11px]">—</span>;
                       return (
                         <div className="flex flex-col items-end gap-0.5">
@@ -239,7 +239,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   {/* Sold (Avg Sell) */}
                   <td className="py-2 px-2 text-right">
                     {(() => {
-                      const s = statsMap.get(holder.address.toLowerCase());
+                      const s = statsMap.get(holder.address);
                       if (!s || s.totalSoldTokens === 0) return <span className="text-muted-foreground/30 text-[11px]">—</span>;
                       return (
                         <div className="flex flex-col items-end gap-0.5">
@@ -253,7 +253,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   {/* Unrealized PnL */}
                   <td className="py-2 px-2 text-right">
                     {(() => {
-                      const s = statsMap.get(holder.address.toLowerCase());
+                      const s = statsMap.get(holder.address);
                       if (!s || s.totalBoughtTokens === 0) return <span className="text-muted-foreground/30 text-[11px]">—</span>;
                       const unrealizedValue = holder.tokenAmount * currentPriceUsd;
                       const costBasis = holder.tokenAmount * s.avgBuyPrice;
