@@ -5,7 +5,8 @@ import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Wallet, AlertTriangle, ChevronDown, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
+import { Loader2, Wallet, AlertTriangle, ChevronDown, CheckCircle2, XCircle, ExternalLink, HelpCircle } from "lucide-react";
+import { useRugCheck } from "@/hooks/useRugCheck";
 import { useToast } from "@/hooks/use-toast";
 import { useRealSwap } from "@/hooks/useRealSwap";
 
@@ -148,6 +149,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
     }
   };
 
+  // Real on-chain safety data from RugCheck.xyz (must be before early returns)
+  const { data: rugCheck, isLoading: rugLoading } = useRugCheck(token.mint_address);
+
   const isGraduated = token.status === 'graduated';
 
   if (isGraduated) {
@@ -170,12 +174,12 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
 
   const tradingDisabled = isLoading || isSwapLoading;
 
-  // Safety checks derived from token metadata
+
   const safetyChecks = [
-    { label: "ff Launched", passed: token.status === 'graduated' },
-    { label: "Authority revoked", passed: true },
-    { label: "Liquidity locked", passed: true },
-    { label: "No creator allocation", passed: false },
+    { label: "ff Launched", passed: token.status === 'graduated', loading: false },
+    { label: "Authority revoked", passed: rugCheck?.mintAuthorityRevoked ?? null, loading: rugLoading },
+    { label: "Liquidity locked", passed: rugCheck?.liquidityLocked ?? null, loading: rugLoading },
+    { label: "Top 10 < 30%", passed: rugCheck ? rugCheck.topHolderPct < 30 : null, loading: rugLoading },
   ];
 
   return (
@@ -355,10 +359,14 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
             <div className="grid grid-cols-4 gap-2">
               {safetyChecks.map((check) => (
                 <div key={check.label} className="flex flex-col items-center gap-1 py-2">
-                  {check.passed ? (
+                  {check.loading ? (
+                    <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                  ) : check.passed === true ? (
                     <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  ) : (
+                  ) : check.passed === false ? (
                     <XCircle className="h-6 w-6 text-destructive" />
+                  ) : (
+                    <HelpCircle className="h-6 w-6 text-muted-foreground/50" />
                   )}
                   <span className="text-[8px] font-mono text-muted-foreground text-center leading-tight">{check.label}</span>
                 </div>

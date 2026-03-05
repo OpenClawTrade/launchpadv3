@@ -7,8 +7,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
 import { usePumpFunSwap } from "@/hooks/usePumpFunSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
-import { Loader2, Wallet, AlertTriangle, ExternalLink, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Wallet, AlertTriangle, ExternalLink, ChevronDown, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useRugCheck } from "@/hooks/useRugCheck";
 import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
 
 interface TokenInfo {
@@ -215,11 +216,13 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
 
   const buttonLoading = isLoading || swapLoading;
 
+  const { data: rugCheck, isLoading: rugLoading } = useRugCheck(token.mint_address);
+
   const safetyChecks = [
-    { label: "ff Launched", passed: token.graduated !== false },
-    { label: "Authority revoked", passed: true },
-    { label: "Liquidity locked", passed: true },
-    { label: "No creator allocation", passed: false },
+    { label: "ff Launched", passed: token.graduated !== false, loading: false },
+    { label: "Authority revoked", passed: rugCheck?.mintAuthorityRevoked ?? null, loading: rugLoading },
+    { label: "Liquidity locked", passed: rugCheck?.liquidityLocked ?? null, loading: rugLoading },
+    { label: "Top 10 < 30%", passed: rugCheck ? rugCheck.topHolderPct < 30 : null, loading: rugLoading },
   ];
 
   return (
@@ -398,10 +401,14 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
             <div className="grid grid-cols-4 gap-2">
               {safetyChecks.map((check) => (
                 <div key={check.label} className="flex flex-col items-center gap-1 py-2">
-                  {check.passed ? (
+                  {check.loading ? (
+                    <Loader2 className="h-6 w-6 text-muted-foreground animate-spin" />
+                  ) : check.passed === true ? (
                     <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  ) : (
+                  ) : check.passed === false ? (
                     <XCircle className="h-6 w-6 text-destructive" />
+                  ) : (
+                    <HelpCircle className="h-6 w-6 text-muted-foreground/50" />
                   )}
                   <span className="text-[8px] font-mono text-muted-foreground text-center leading-tight">{check.label}</span>
                 </div>
