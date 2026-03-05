@@ -280,7 +280,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
                 MAX
               </button>
               <span className="text-xs font-mono font-bold text-muted-foreground flex items-center gap-1">
-                {isBuy && <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL" className="w-4 h-4 rounded-full" />}
+                {isBuy
+                  ? <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="SOL" className="w-4 h-4 rounded-full" />
+                  : token.image_url && <img src={token.image_url} alt={token.ticker} className="w-4 h-4 rounded-full" />}
                 {isBuy ? 'SOL' : token.ticker}
               </span>
             </div>
@@ -327,7 +329,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
               ) : isBuy ? (
                 <span className="flex items-center gap-1">QUICK BUY <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" alt="" className="w-4 h-4 rounded-full" /> {numericAmount || ''}</span>
               ) : (
-                `SELL ${token.ticker}`
+                <span className="flex items-center gap-1">SELL {token.image_url && <img src={token.image_url} alt={token.ticker} className="w-4 h-4 rounded-full" />} {token.ticker}</span>
               )}
             </button>
             {isBuy && (
