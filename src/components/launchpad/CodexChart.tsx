@@ -29,6 +29,7 @@ export function CodexChart({
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const priceLineRef = useRef<any>(null);
+  const initialScrollDone = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const {
@@ -70,6 +71,7 @@ export function CodexChart({
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
       priceLineRef.current = null;
+      initialScrollDone.current = false;
     }
 
     const chartH = isFullscreen ? window.innerHeight - 40 : height;
@@ -107,9 +109,9 @@ export function CodexChart({
         timeVisible: true,
         secondsVisible: resolution.includes("S"),
         borderColor: "#222",
-        rightOffset: 8,
-        barSpacing: 6,
-        minBarSpacing: 2,
+        rightOffset: 12,
+        barSpacing: 4,
+        minBarSpacing: 1,
         fixLeftEdge: false,
         fixRightEdge: false,
       },
@@ -233,19 +235,23 @@ export function CodexChart({
       });
     }
 
-    // Position: anchor latest candles to right
+    // Position: anchor latest candles to right (only on first load or resolution change)
     const isSparseData = bars.length < 25;
     if (isSparseData) {
-      // Adjust bar spacing for sparse data
-      chart.timeScale().applyOptions({ barSpacing: 14, minBarSpacing: 4 });
+      chart.timeScale().applyOptions({ barSpacing: 8, minBarSpacing: 2 });
       chart.timeScale().setVisibleLogicalRange({
-        from: -2,
-        to: bars.length + 3,
+        from: -5,
+        to: bars.length + 5,
       });
-    } else {
-      chart.timeScale().applyOptions({ barSpacing: 6, minBarSpacing: 2 });
-      // Scroll so latest candle is near the right edge
-      chart.timeScale().scrollToPosition(5, false);
+    } else if (!initialScrollDone.current) {
+      initialScrollDone.current = true;
+      chart.timeScale().applyOptions({ barSpacing: 4, minBarSpacing: 1 });
+      // Show only the last ~120 candles anchored to the right
+      const visibleBars = Math.min(bars.length, 120);
+      chart.timeScale().setVisibleLogicalRange({
+        from: bars.length - visibleBars,
+        to: bars.length + 10,
+      });
     }
   }, [bars, showVolume]);
 
