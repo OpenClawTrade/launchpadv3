@@ -38,14 +38,14 @@ export function TokenDataTabs({ tokenAddress, holderCount = 0, userWallet, curre
   ];
 
   return (
-    <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+    <div className="terminal-panel-flush rounded-lg overflow-hidden min-w-0" style={{ backgroundColor: '#0a0a0a' }}>
       {/* Tab bar */}
-      <div className="flex items-center gap-0 border-b border-white/[0.06] px-1">
+      <div className="flex items-center gap-0 border-b border-white/[0.06] px-1 overflow-x-auto scrollbar-none w-full min-w-0">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors relative ${
+            className={`px-2 sm:px-3 py-2.5 text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap shrink-0 ${
               activeTab === tab.key
                 ? "text-foreground"
                 : "text-muted-foreground/50 hover:text-muted-foreground"
