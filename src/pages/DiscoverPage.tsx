@@ -4,6 +4,7 @@ import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { TrendingUp, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
 function formatNumber(n: number | null): string {
   if (n === null || n === undefined) return "—";
@@ -99,17 +100,17 @@ export default function DiscoverPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background pl-0 md:pl-12">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+    <LaunchpadLayout hideFooter noPadding>
+      <div className="space-y-0 relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <TrendingUp className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Top Last 6 Hour Trending Coins</h1>
-              <p className="text-xs text-muted-foreground">
+              <h1 className="text-[15px] font-bold text-foreground tracking-tight">Top Last 6 Hour Trending Coins</h1>
+              <p className="text-[10px] text-muted-foreground font-mono">
                 DexScreener top boosted · Solana · Updates every 2 min
               </p>
             </div>
@@ -121,36 +122,34 @@ export default function DiscoverPage() {
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-secondary/30">
-                  <th className="py-2.5 px-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-12">#</th>
-                  <th className="py-2.5 px-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Token</th>
-                  <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Market Cap</th>
-                  <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Liquidity</th>
-                  <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Volume 24h</th>
-                  <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">6h %</th>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-secondary/30">
+                <th className="py-2.5 px-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider w-12">#</th>
+                <th className="py-2.5 px-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Token</th>
+                <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Market Cap</th>
+                <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Liquidity</th>
+                <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Volume 24h</th>
+                <th className="py-2.5 px-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">6h %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <SkeletonRows />
+              ) : tokens && tokens.length > 0 ? (
+                tokens.map((token) => <TokenRow key={token.address} token={token} />)
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    No trending tokens found
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  <SkeletonRows />
-                ) : tokens && tokens.length > 0 ? (
-                  tokens.map((token) => <TokenRow key={token.address} token={token} />)
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                      No trending tokens found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
+    </LaunchpadLayout>
   );
 }
