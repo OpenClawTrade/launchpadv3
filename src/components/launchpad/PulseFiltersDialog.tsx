@@ -76,7 +76,7 @@ export function PulseFiltersDialog({ open, onOpenChange, filters, activeColumn, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md sm:max-w-lg p-0 gap-0 bg-background border-border">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg p-0 gap-0 bg-background border-border sm:w-full max-h-[85vh] overflow-y-auto rounded-xl">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="text-sm font-bold">Filters</DialogTitle>
         </DialogHeader>
