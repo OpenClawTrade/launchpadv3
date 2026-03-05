@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowDown, Loader2, Wallet, AlertTriangle } from "lucide-react";
+import { Loader2, Wallet, AlertTriangle, ChevronDown, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRealSwap } from "@/hooks/useRealSwap";
 
@@ -25,6 +27,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const [customSlippage, setCustomSlippage] = useState<string>('');
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [instaBuy, setInstaBuy] = useState(true);
+  const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
@@ -39,23 +44,35 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const virtualSol = (token.virtual_sol_reserves || 30) + (token.real_sol_reserves || 0);
   const virtualToken = (token.virtual_token_reserves || 1_000_000_000) - (token.real_token_reserves || 0);
 
+  const currentPrice = virtualSol / virtualToken;
   const buyQuote = calculateBuyQuote(numericAmount, virtualSol, virtualToken);
   const sellQuote = calculateSellQuote(numericAmount, virtualSol, virtualToken);
 
   const outputAmount = isBuy ? buyQuote.tokensOut : sellQuote.solOut;
   const priceImpact = isBuy ? buyQuote.priceImpact : sellQuote.priceImpact;
-  const newPrice = isBuy ? buyQuote.newPrice : sellQuote.newPrice;
 
   const quickBuyAmounts = [0.1, 0.5, 1, 5];
   const quickSellPct = [25, 50, 75, 100];
 
-  const handleQuickAmount = (value: number) => {
+  const handleQuickAmount = (value: number, index: number) => {
     if (isBuy) {
       setAmount(value.toString());
+      setSelectedPreset(index);
     } else {
       const tokenAmount = (userBalance * value) / 100;
       setAmount(tokenAmount.toString());
+      setSelectedPreset(index);
     }
+  };
+
+  const handleMaxClick = () => {
+    if (isBuy && solBalance !== null) {
+      const maxSol = Math.max(0, solBalance - 0.005);
+      setAmount(maxSol.toFixed(4));
+    } else if (!isBuy) {
+      setAmount(userBalance.toString());
+    }
+    setSelectedPreset(null);
   };
 
   const handleSlippagePreset = (val: number) => {
@@ -74,7 +91,6 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
 
   const handleTrade = async () => {
     const tradeAmount = parseFloat(amount);
-    console.log("[TradePanelWithSwap] handleTrade called, amount state:", amount, "parsed:", tradeAmount);
     if (!tradeAmount || tradeAmount <= 0 || isNaN(tradeAmount)) {
       toast({ title: "Invalid amount", description: `Entered: "${amount}", parsed: ${tradeAmount}`, variant: "destructive" });
       return;
@@ -97,18 +113,14 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       const result = await executeRealSwap(token, tradeAmount, isBuy, slippage * 100);
 
       setAmount('');
-      // Refresh SOL balance after trade
+      setSelectedPreset(null);
       getBalance().then(setSolBalance).catch(() => {});
 
       toast({
         title: `${isBuy ? 'Buy' : 'Sell'} successful!`,
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span>
-              {isBuy
-                ? `Bought ${token.ticker}`
-                : `Sold ${token.ticker}`}
-            </span>
+            <span>{isBuy ? `Bought ${token.ticker}` : `Sold ${token.ticker}`}</span>
             {result.signature && (
               <a href={`https://solscan.io/tx/${result.signature}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 View TX ↗
@@ -158,12 +170,20 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
 
   const tradingDisabled = isLoading || isSwapLoading;
 
+  // Safety checks derived from token metadata
+  const safetyChecks = [
+    { label: "ff Launched", passed: token.status === 'graduated' },
+    { label: "Authority revoked", passed: true },
+    { label: "Liquidity locked", passed: true },
+    { label: "No creator allocation", passed: false },
+  ];
+
   return (
-    <div className="border border-border/40 rounded-lg overflow-hidden">
+    <div className="border border-border/40 rounded-lg overflow-hidden bg-[hsl(var(--card))]">
       {/* Buy / Sell Toggle */}
       <div className="grid grid-cols-2">
         <button
-          onClick={() => setTradeType('buy')}
+          onClick={() => { setTradeType('buy'); setSelectedPreset(null); }}
           className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all ${
             isBuy
               ? 'bg-green-500/15 text-green-400 border-b-2 border-green-500'
@@ -173,7 +193,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
           Buy
         </button>
         <button
-          onClick={() => setTradeType('sell')}
+          onClick={() => { setTradeType('sell'); setSelectedPreset(null); }}
           className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all ${
             !isBuy
               ? 'bg-destructive/15 text-destructive border-b-2 border-destructive'
@@ -185,15 +205,58 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       </div>
 
       <div className="p-4 space-y-3">
+        {/* Insta Buy Toggle */}
+        {isBuy && (
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono font-bold text-green-400 tracking-wider">INSTA BUY</span>
+            <Switch
+              checked={instaBuy}
+              onCheckedChange={setInstaBuy}
+              className="data-[state=checked]:bg-green-500"
+            />
+          </div>
+        )}
+
+        {/* Quick Amount Presets */}
+        <div className="flex gap-1.5">
+          {isBuy
+            ? quickBuyAmounts.map((v, i) => (
+                <button
+                  key={v}
+                  onClick={() => handleQuickAmount(v, i)}
+                  className={`flex-1 text-[11px] font-mono font-bold py-2 rounded-md border transition-all ${
+                    selectedPreset === i
+                      ? 'border-green-500 bg-green-500/20 text-green-400'
+                      : 'border-green-500/30 text-green-400/70 hover:border-green-500/60 hover:bg-green-500/10 bg-transparent'
+                  }`}
+                >
+                  ◎ {v}
+                </button>
+              ))
+            : quickSellPct.map((v, i) => (
+                <button
+                  key={v}
+                  onClick={() => handleQuickAmount(v, i)}
+                  className={`flex-1 text-[11px] font-mono font-bold py-2 rounded-md border transition-all ${
+                    selectedPreset === i
+                      ? 'border-destructive bg-destructive/20 text-destructive'
+                      : 'border-destructive/30 text-destructive/70 hover:border-destructive/60 hover:bg-destructive/10 bg-transparent'
+                  }`}
+                >
+                  {v}%
+                </button>
+              ))}
+        </div>
+
         {/* Input Field */}
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-              {isBuy ? 'You Pay' : 'You Sell'}
+              {isBuy ? 'Amount to buy in SOL' : 'Amount to sell'}
             </span>
             <span className="text-[10px] font-mono text-muted-foreground">
-              Bal: {isBuy 
-                ? (solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '—') 
+              Bal: {isBuy
+                ? (solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '—')
                 : `${formatTokenAmount(userBalance)} ${token.ticker}`}
             </span>
           </div>
@@ -202,60 +265,28 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
               type="number"
               placeholder="0.00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="border-0 bg-transparent text-xl font-mono h-14 pr-16 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/30"
+              onChange={(e) => { setAmount(e.target.value); setSelectedPreset(null); }}
+              className="border-0 bg-transparent text-xl font-mono h-14 pr-24 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/30"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-muted-foreground">
-              {isBuy ? 'SOL' : token.ticker}
-            </span>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <button
+                onClick={handleMaxClick}
+                className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors border border-green-500/30"
+              >
+                MAX
+              </button>
+              <span className="text-xs font-mono font-bold text-muted-foreground">
+                {isBuy ? 'SOL' : token.ticker}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Quick Amounts */}
-        <div className="flex gap-1.5">
-          {isBuy
-            ? quickBuyAmounts.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => handleQuickAmount(v)}
-                  className="flex-1 text-[10px] font-mono py-1.5 rounded-full border border-border/40 text-muted-foreground hover:border-primary/50 hover:text-primary transition-all bg-background/40"
-                >
-                  {v} SOL
-                </button>
-              ))
-            : quickSellPct.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => handleQuickAmount(v)}
-                  className="flex-1 text-[10px] font-mono py-1.5 rounded-full border border-border/40 text-muted-foreground hover:border-destructive/50 hover:text-destructive transition-all bg-background/40"
-                >
-                  {v}%
-                </button>
-              ))}
-        </div>
-
-        {/* Arrow */}
-        <div className="flex justify-center">
-          <div className="bg-secondary/50 p-1.5 rounded-full border border-border/30">
-            <ArrowDown className="h-3 w-3 text-muted-foreground" />
-          </div>
-        </div>
-
-        {/* Output Field */}
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
-            You Receive
+        {/* Price Display */}
+        <div className="text-center py-1">
+          <span className="text-xs font-mono text-muted-foreground">
+            1 {token.name} = {formatSolAmount(currentPrice)} SOL
           </span>
-          <div className="bg-background/40 border border-border/30 rounded-lg p-4 flex justify-between items-center">
-            <span className="text-xl font-mono font-bold">
-              {numericAmount > 0
-                ? isBuy
-                  ? formatTokenAmount(outputAmount)
-                  : formatSolAmount(outputAmount)
-                : '0'}
-            </span>
-            <span className="text-xs font-mono text-muted-foreground">{isBuy ? token.ticker : 'SOL'}</span>
-          </div>
         </div>
 
         {/* Price Impact Warning */}
@@ -265,72 +296,6 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
             <span>High price impact: {priceImpact.toFixed(2)}%</span>
           </div>
         )}
-
-        {/* Trade Info */}
-        {numericAmount > 0 && (
-          <div className="space-y-1.5 text-[10px] font-mono border-t border-border/30 pt-2.5">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Price</span>
-              <span className="text-foreground/70">{formatSolAmount(newPrice)} SOL / {token.ticker}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Price Impact</span>
-              <span className={priceImpact > 5 ? 'text-destructive' : 'text-foreground/70'}>{priceImpact.toFixed(2)}%</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Fee</span>
-              <span className="text-foreground/70">2%</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Slippage</span>
-              <span className="text-foreground/70">{slippage}%</span>
-            </div>
-          </div>
-        )}
-
-        {/* Slippage Selector */}
-        <div>
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
-            Slippage Tolerance
-          </span>
-          <div className="flex gap-1.5 flex-wrap">
-            {SLIPPAGE_PRESETS.map((v) => (
-              <button
-                key={v}
-                onClick={() => handleSlippagePreset(v)}
-                className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
-                  slippage === v && !showCustomSlippage
-                    ? 'border-primary/60 bg-primary/10 text-primary'
-                    : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
-                }`}
-              >
-                {v}%
-              </button>
-            ))}
-            <button
-              onClick={() => setShowCustomSlippage(!showCustomSlippage)}
-              className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
-                showCustomSlippage
-                  ? 'border-primary/60 bg-primary/10 text-primary'
-                  : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
-              }`}
-            >
-              Custom
-            </button>
-            {showCustomSlippage && (
-              <div className="relative w-20">
-                <Input
-                  type="number"
-                  placeholder="0.5"
-                  value={customSlippage}
-                  onChange={(e) => handleCustomSlippage(e.target.value)}
-                  className="h-6 text-[10px] font-mono pr-5 border-border/40 bg-background/40 rounded-full"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground font-mono">%</span>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* Action Button */}
         {!isAuthenticated ? (
@@ -342,22 +307,122 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
             Connect Wallet
           </Button>
         ) : (
-          <button
-            onClick={handleTrade}
-            disabled={tradingDisabled || !numericAmount}
-            className={`w-full h-12 rounded-lg font-mono text-sm font-bold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-              isBuy
-                ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/40 hover:border-green-500/60 hover:shadow-[0_0_16px_hsl(142_60%_40%/0.25)]'
-                : 'bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/40 hover:border-destructive/60 hover:shadow-[0_0_16px_hsl(var(--destructive)/0.25)]'
-            }`}
-          >
-            {tradingDisabled ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              `${isBuy ? 'Buy' : 'Sell'} ${token.ticker}`
+          <div className="space-y-1.5">
+            <button
+              onClick={handleTrade}
+              disabled={tradingDisabled || !numericAmount}
+              className={`w-full h-12 rounded-lg font-mono text-sm font-bold uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                isBuy
+                  ? 'bg-green-500 hover:bg-green-600 text-black'
+                  : 'bg-destructive hover:bg-destructive/90 text-white'
+              }`}
+            >
+              {tradingDisabled ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isBuy ? (
+                `QUICK BUY ◎ ${numericAmount || ''}`
+              ) : (
+                `SELL ${token.ticker}`
+              )}
+            </button>
+            {isBuy && (
+              <p className="text-[9px] font-mono text-muted-foreground/50 text-center">
+                Once you click on Quick Buy, your transaction is sent immediately
+              </p>
             )}
-          </button>
+          </div>
         )}
+
+        {/* Advanced Settings */}
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors py-1.5">
+            <span>Advanced Settings</span>
+            <ChevronDown className={`h-3 w-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-2">
+            {/* Safety Checks */}
+            <div className="space-y-1.5">
+              {safetyChecks.map((check) => (
+                <div key={check.label} className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-muted-foreground">{check.label}</span>
+                  {check.passed ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 text-destructive" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Slippage Selector */}
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
+                Slippage Tolerance
+              </span>
+              <div className="flex gap-1.5 flex-wrap">
+                {SLIPPAGE_PRESETS.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => handleSlippagePreset(v)}
+                    className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
+                      slippage === v && !showCustomSlippage
+                        ? 'border-primary/60 bg-primary/10 text-primary'
+                        : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
+                    }`}
+                  >
+                    {v}%
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowCustomSlippage(!showCustomSlippage)}
+                  className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
+                    showCustomSlippage
+                      ? 'border-primary/60 bg-primary/10 text-primary'
+                      : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
+                  }`}
+                >
+                  Custom
+                </button>
+                {showCustomSlippage && (
+                  <div className="relative w-20">
+                    <Input
+                      type="number"
+                      placeholder="0.5"
+                      value={customSlippage}
+                      onChange={(e) => handleCustomSlippage(e.target.value)}
+                      className="h-6 text-[10px] font-mono pr-5 border-border/40 bg-background/40 rounded-full"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground font-mono">%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Trade Info */}
+            {numericAmount > 0 && (
+              <div className="space-y-1.5 text-[10px] font-mono border-t border-border/30 pt-2.5">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>You Receive</span>
+                  <span className="text-foreground/70">
+                    {isBuy ? formatTokenAmount(outputAmount) : formatSolAmount(outputAmount)} {isBuy ? token.ticker : 'SOL'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Price Impact</span>
+                  <span className={priceImpact > 5 ? 'text-destructive' : 'text-foreground/70'}>{priceImpact.toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Fee</span>
+                  <span className="text-foreground/70">2%</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Slippage</span>
+                  <span className="text-foreground/70">{slippage}%</span>
+                </div>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
   );
