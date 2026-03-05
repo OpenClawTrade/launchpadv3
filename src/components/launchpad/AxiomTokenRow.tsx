@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
+import { LaunchpadBadge } from "./LaunchpadBadge";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { toast } from "sonner";
 
@@ -209,6 +210,8 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
               {(token.trading_fee_bps / 100).toFixed(0)}%
             </span>
           )}
+
+          <LaunchpadBadge launchpadType={token.launchpad_type} />
 
           {/* DS badge */}
           <span className="pulse-metric-dot pulse-metric-dot--neutral">DS</span>

@@ -12,21 +12,21 @@ function buildQuery(column: Column, limit: number): string {
   let filters: string;
   let rankings: string;
 
-  // Only show tokens created in the last 24 hours for new/completing
+  const allLaunchpads = `["Pump.fun", "Bonk", "Moonshot", "Believe", "boop", "Jupiter Studio"]`;
   const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
   const twoDaysAgo = Math.floor(Date.now() / 1000) - 172800;
 
   switch (column) {
     case "new":
-      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, createdAt: { gte: ${oneDayAgo} } }`;
+      filters = `{ network: [1399811149], launchpadName: ${allLaunchpads}, launchpadCompleted: false, launchpadMigrated: false, createdAt: { gte: ${oneDayAgo} } }`;
       rankings = `{ attribute: createdAt, direction: DESC }`;
       break;
     case "completing":
-      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50, lte: 99 }, createdAt: { gte: ${twoDaysAgo} } }`;
+      filters = `{ network: [1399811149], launchpadName: ${allLaunchpads}, launchpadCompleted: false, launchpadMigrated: false, launchpadGraduationPercent: { gte: 50, lte: 99 }, createdAt: { gte: ${twoDaysAgo} } }`;
       rankings = `{ attribute: marketCap, direction: DESC }`;
       break;
     case "completed":
-      filters = `{ network: [1399811149], launchpadName: ["Pump.fun"], launchpadMigrated: true }`;
+      filters = `{ network: [1399811149], launchpadMigrated: true }`;
       rankings = `{ attribute: createdAt, direction: DESC }`;
       break;
   }
@@ -62,6 +62,7 @@ function buildQuery(column: Column, limit: number): string {
           graduationPercent
           poolAddress
           launchpadName
+          launchpadIconUrl
           completed
           migrated
           completedAt
@@ -136,6 +137,7 @@ Deno.serve(async (req) => {
       graduationPercent: r.token?.launchpad?.graduationPercent ?? 0,
       poolAddress: r.token?.launchpad?.poolAddress ?? null,
       launchpadName: r.token?.launchpad?.launchpadName ?? "Pump.fun",
+      launchpadIconUrl: r.token?.launchpad?.launchpadIconUrl ?? null,
       completed: r.token?.launchpad?.completed ?? false,
       migrated: r.token?.launchpad?.migrated ?? false,
       completedAt: r.token?.launchpad?.completedAt ?? null,
