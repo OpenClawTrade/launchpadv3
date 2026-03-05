@@ -14,11 +14,11 @@ import { CodexChartToolbar } from "./CodexChartToolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Spacing constants (5x thinner than previous 4/8 defaults)
-const NORMAL_BAR_SPACING = 0.8;
-const NORMAL_MIN_BAR_SPACING = 0.2;
-const SPARSE_BAR_SPACING = 1.6;
-const SPARSE_MIN_BAR_SPACING = 0.4;
-const RIGHT_PADDING_BARS = 2;
+const NORMAL_BAR_SPACING = 2;
+const NORMAL_MIN_BAR_SPACING = 0.5;
+const SPARSE_BAR_SPACING = 4;
+const SPARSE_MIN_BAR_SPACING = 1;
+const RIGHT_PADDING_BARS = 3;
 
 interface CodexChartProps {
   tokenAddress: string;
