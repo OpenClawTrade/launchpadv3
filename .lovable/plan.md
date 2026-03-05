@@ -1,48 +1,41 @@
 
 
-## Add Real On-Chain Rug-Check Data
+## Populate Bought, Sold, and PnL columns in the Holders Table
 
 ### Current State
-The safety indicators in `UniversalTradePanel.tsx` (lines 218-223) and `TradePanelWithSwap.tsx` (lines 174-178) are **hardcoded**:
-- "Authority revoked" → always `true`
-- "Liquidity locked" → always `true`
-- "No creator allocation" → always `false`
+The HoldersTable shows "—" placeholders for Bought (Avg Buy), Sold (Avg Sell), and U. PnL columns. The trade data already exists — `useCodexTokenEvents` fetches all trades with maker address, amounts, and USD prices. We just need to cross-reference holders with their trades.
 
-These provide zero actual safety information.
+### Approach
+Use the **existing Codex trade events** data (already fetched in `TokenDataTabs`) to compute per-holder trade stats. No new API calls or edge functions needed.
 
-### Best API: RugCheck.xyz
+### Changes
 
-**RugCheck.xyz** (`https://api.rugcheck.xyz/v1/tokens/{mint}/report`) is the most accurate and widely-used Solana token safety API. It returns:
-- **Mint authority status** (revoked or not)
-- **Freeze authority status**
-- **Liquidity lock/burn status** (LP burned percentage)
-- **Top holder concentration**
-- **Risk level** and **risk score**
-- **Specific warnings** (honeypot, hidden mint, etc.)
+#### 1. `src/components/launchpad/TokenDataTabs.tsx`
+- Pass the full trade events list and current token price USD to `HoldersTable` as new props
+- Add `currentPriceUsd` prop from parent (already available in FunTokenDetailPage via Codex enrichment)
 
-It's free (5 req/min rate limit on public tier), no API key required for basic usage. We'll proxy through an edge function to avoid CORS and add caching.
+#### 2. `src/components/launchpad/HoldersTable.tsx`
+- Accept new props: `trades: TokenTradeEvent[]` and `currentPriceUsd: number`
+- Build a per-holder stats map from trades:
+  - **totalBoughtUsd**: sum of all Buy `totalUsd` for this maker
+  - **totalBoughtTokens**: sum of all Buy `tokenAmount`
+  - **avgBuyPrice**: `totalBoughtUsd / totalBoughtTokens`
+  - **totalSoldUsd**: sum of all Sell `totalUsd`
+  - **totalSoldTokens**: sum of all Sell `tokenAmount`
+  - **avgSellPrice**: `totalSoldUsd / totalSoldTokens`
+  - **remainingTokens**: from holder data (already have)
+  - **unrealizedValueUsd**: `remainingTokens * currentPriceUsd`
+  - **costBasisOfRemaining**: `remainingTokens * avgBuyPrice`
+  - **unrealizedPnlUsd**: `unrealizedValueUsd - costBasisOfRemaining + totalSoldUsd - totalBoughtUsd` (realized + unrealized)
+  - **pnlPercent**: `(pnlUsd / totalBoughtUsd) * 100`
+- Display in the table:
+  - **Bought (Avg Buy)**: `$1.2K ($0.0023)` — total bought USD + avg buy price
+  - **Sold (Avg Sell)**: `$800 ($0.0031)` — total sold USD + avg sell price, or "—" if no sells
+  - **U. PnL**: `+$420 (+35%)` in green, or `-$120 (-8%)` in red. Show `—` if no trade data
 
-### Plan
+#### 3. `src/pages/FunTokenDetailPage.tsx`
+- Pass `currentPriceUsd` (from Codex enrichment) down to `TokenDataTabs`
 
-#### 1. Create edge function `supabase/functions/rugcheck-report/index.ts`
-- Accepts `{ mintAddress: string }`
-- Calls `https://api.rugcheck.xyz/v1/tokens/{mint}/report`
-- Extracts and returns: `mintAuthorityRevoked`, `freezeAuthorityRevoked`, `liquidityLocked` (bool), `liquidityLockedPct` (number), `topHolderPct`, `riskLevel` (string), `riskScore` (number), `warnings` (string array)
-- Caches results in memory (Map) for 60s to respect rate limits
-
-#### 2. Create hook `src/hooks/useRugCheck.ts`
-- Calls the edge function via `supabase.functions.invoke("rugcheck-report", { body: { mintAddress } })`
-- Returns typed `RugCheckReport` with loading/error states
-- `staleTime: 60_000`, `refetchInterval: 120_000` (light polling)
-- Enabled only when `mintAddress` is provided
-
-#### 3. Update `UniversalTradePanel.tsx` and `TradePanelWithSwap.tsx`
-- Import and call `useRugCheck(token.mint_address)`
-- Replace hardcoded `safetyChecks` array with real data:
-  - **"ff Launched"** → keep existing logic (`token.graduated !== false`)
-  - **"Authority revoked"** → `rugCheck?.mintAuthorityRevoked === true`
-  - **"Liquidity locked"** → `rugCheck?.liquidityLocked === true`
-  - **"Top 10 < 30%"** → `rugCheck?.topHolderPct < 30` (replaces "No creator allocation" with a more useful metric)
-- Show a small loading spinner on each indicator while data loads
-- If rugcheck fails, fall back to `null` (show a neutral "?" icon instead of green/red)
+#### 4. `src/components/launchpad/TokenDataTabs.tsx`
+- Accept `currentPriceUsd` prop and forward it along with `data?.events` to `HoldersTable`
 
