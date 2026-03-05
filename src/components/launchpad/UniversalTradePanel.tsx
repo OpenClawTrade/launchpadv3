@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
 import { usePumpFunSwap } from "@/hooks/usePumpFunSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
-import { Loader2, Wallet, AlertTriangle, ExternalLink, ChevronDown, Check, X } from "lucide-react";
+import { Loader2, Wallet, AlertTriangle, ExternalLink, ChevronDown, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
 
@@ -218,20 +218,20 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
       <div className="grid grid-cols-2">
         <button
           onClick={() => { setTradeType('buy'); setQuote(null); setSelectedPreset(null); }}
-          className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all ${
+          className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all bg-transparent ${
             isBuy
-              ? 'bg-green-500/15 text-green-400 border-b-2 border-green-500'
-              : 'bg-card/50 text-muted-foreground hover:text-foreground border-b border-border/40'
+              ? 'text-[#c8ff00] border-b-2 border-[#c8ff00]'
+              : 'text-muted-foreground hover:text-foreground border-b border-border/40'
           }`}
         >
           Buy
         </button>
         <button
           onClick={() => { setTradeType('sell'); setQuote(null); setSelectedPreset(null); }}
-          className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all ${
+          className={`py-3 text-sm font-bold font-mono uppercase tracking-widest transition-all bg-transparent ${
             !isBuy
-              ? 'bg-destructive/15 text-destructive border-b-2 border-destructive'
-              : 'bg-card/50 text-muted-foreground hover:text-foreground border-b border-border/40'
+              ? 'text-destructive border-b-2 border-destructive'
+              : 'text-muted-foreground hover:text-foreground border-b border-border/40'
           }`}
         >
           Sell
@@ -241,13 +241,13 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
       <div className="p-4 space-y-3">
         {/* Insta Buy Toggle */}
         {isBuy && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold text-green-400 tracking-wider">INSTA BUY</span>
+          <div className="flex items-center gap-2">
             <Switch
               checked={instaBuy}
               onCheckedChange={setInstaBuy}
-              className="data-[state=checked]:bg-green-500"
+              className="data-[state=checked]:bg-[#c8ff00] h-5 w-9"
             />
+            <span className="text-xs font-mono font-bold text-[#c8ff00] tracking-wider">INSTA BUY</span>
           </div>
         )}
 
@@ -260,8 +260,8 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
                   onClick={() => handleQuickAmount(v, i)}
                   className={`flex-1 text-[11px] font-mono font-bold py-2 rounded-md border transition-all ${
                     selectedPreset === i
-                      ? 'border-green-500 bg-green-500/20 text-green-400'
-                      : 'border-green-500/30 text-green-400/70 hover:border-green-500/60 hover:bg-green-500/10 bg-transparent'
+                      ? 'border-[#4a5a2a] bg-[#3a4a1a] text-[#c8ff00]'
+                      : 'border-[#3a4a1a] text-[#8a9a5a] hover:border-[#4a5a2a] hover:bg-[#2a3a0a]/50 bg-transparent'
                   }`}
                 >
                   ◎ {v}
@@ -305,7 +305,7 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               <button
                 onClick={handleMaxClick}
-                className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors border border-green-500/30"
+                className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#2a2a1a] text-[#c8b400] hover:bg-[#3a3a2a] transition-colors border border-[#4a4a2a]"
               >
                 MAX
               </button>
@@ -317,7 +317,7 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
         </div>
 
         {/* Price Display */}
-        <div className="text-center py-1">
+        <div className="py-1">
           <span className="text-xs font-mono text-muted-foreground">
             1 {token.name} = {token.price_sol ? token.price_sol.toFixed(6) : '—'} SOL
           </span>
@@ -368,23 +368,34 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
           </div>
         )}
 
+        {/* Share P&L */}
+        <div className="flex items-center justify-between py-2 border-t border-border/30">
+          <span className="text-[10px] font-mono text-muted-foreground">Share your P&L</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-mono font-bold text-[#c8ff00] bg-[#c8ff00]/10 px-1.5 py-0.5 rounded">+200</span>
+            <button className="text-[10px] font-mono font-bold text-[#c8ff00] hover:text-[#d9ff33] flex items-center gap-1 transition-colors">
+              TWEET <ExternalLink className="h-2.5 w-2.5" />
+            </button>
+          </div>
+        </div>
+
         {/* Advanced Settings */}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <CollapsibleTrigger className="flex items-center justify-between w-full text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors py-1.5">
+          <CollapsibleTrigger className="flex items-center justify-center w-full text-xs font-mono font-bold uppercase tracking-widest text-[#c8ff00] hover:text-[#d9ff33] transition-colors py-2">
             <span>Advanced Settings</span>
-            <ChevronDown className={`h-3 w-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-3.5 w-3.5 ml-1.5 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-3 pt-2">
-            {/* Safety Checks */}
-            <div className="space-y-1.5">
+            {/* Safety Checks - horizontal grid */}
+            <div className="grid grid-cols-4 gap-2">
               {safetyChecks.map((check) => (
-                <div key={check.label} className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-muted-foreground">{check.label}</span>
+                <div key={check.label} className="flex flex-col items-center gap-1 py-2">
                   {check.passed ? (
-                    <Check className="h-3.5 w-3.5 text-green-500" />
+                    <CheckCircle2 className="h-6 w-6 text-green-500" />
                   ) : (
-                    <X className="h-3.5 w-3.5 text-destructive" />
+                    <XCircle className="h-6 w-6 text-destructive" />
                   )}
+                  <span className="text-[8px] font-mono text-muted-foreground text-center leading-tight">{check.label}</span>
                 </div>
               ))}
             </div>
