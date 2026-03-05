@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
@@ -11,6 +11,7 @@ interface AxiomTokenRowProps {
   token: FunToken;
   solPrice: number | null;
   quickBuyAmount?: number;
+  proTraders?: number;
 }
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
@@ -56,7 +57,7 @@ function formatHolders(n: number): string {
   return String(n);
 }
 
-export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount }: AxiomTokenRowProps) {
+export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount, proTraders = 0 }: AxiomTokenRowProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const bondingProgress = token.bonding_progress ?? 0;
   const isAgent = !!token.agent_id;
@@ -117,25 +118,30 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
             )}
           </div>
 
-          {/* Line 2: Age + social icons row with counts */}
+          {/* Line 2: Age + social icons + holders + pro traders */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
             <span className="text-[10px] font-mono text-foreground/50">{age}</span>
             <span className="pulse-icon-separator" />
             {token.twitter_url && (
-              <a href={token.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
+              <a href={token.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Twitter">
                 <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
             )}
-            <span className="pulse-social-icon"><Users className="h-2.5 w-2.5" /></span>
             {token.website_url && (
-              <a href={token.website_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
+              <a href={token.website_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Website">
                 <Globe className="h-2.5 w-2.5" />
               </a>
             )}
-            <span className="pulse-social-icon"><MessageCircle className="h-2.5 w-2.5" /></span>
-            <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
+            <span className="pulse-icon-separator" />
             {holders > 0 && (
-              <span className="text-[9px] font-mono text-foreground/45">{formatHolders(holders)}</span>
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/50" title="Holders">
+                <Users className="h-2.5 w-2.5" />{formatHolders(holders)}
+              </span>
+            )}
+            {proTraders > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-primary/80" title="Pro Traders">
+                <Crown className="h-2.5 w-2.5" />{proTraders}
+              </span>
             )}
           </div>
 
@@ -144,12 +150,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
             {xUsername ? (
               <span className="text-[10px] text-foreground/45 font-mono">by <span className="text-foreground/65">@{xUsername}</span></span>
             ) : (
-            <span className="text-[10px] text-foreground/40 font-mono">by {token.launchpad_type === 'dbc' ? 'Meteora' : token.launchpad_type === 'pump' ? 'Pump.fun' : token.creator_wallet.slice(0, 6) + '...'}</span>
-            )}
-            {holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/40">
-                <Users className="h-2.5 w-2.5" />{formatHolders(holders)}
-              </span>
+              <span className="text-[10px] text-foreground/40 font-mono">by {token.launchpad_type === 'dbc' ? 'Meteora' : token.launchpad_type === 'pump' ? 'Pump.fun' : token.creator_wallet.slice(0, 6) + '...'}</span>
             )}
           </div>
         </div>

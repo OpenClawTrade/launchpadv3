@@ -896,7 +896,97 @@
   min-height: 0;
 }
 
-/* ── Premium Column Header ── */
+/* ── Axiom-Style Column Header Bar ── */
+.pulse-axiom-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: hsl(var(--background-secondary));
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.pulse-axiom-qb {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border) / 0.3);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.pulse-axiom-qb:hover {
+  background: hsl(var(--muted) / 0.7);
+}
+
+.pulse-axiom-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  color: hsl(var(--muted-foreground) / 0.6);
+  transition: all 150ms ease;
+}
+.pulse-axiom-icon-btn:hover {
+  background: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+}
+
+.pulse-axiom-filter-active {
+  color: hsl(var(--primary)) !important;
+  background: hsl(var(--primary) / 0.1);
+}
+
+.pulse-axiom-presets {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.pulse-axiom-preset {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'IBM Plex Mono', monospace;
+  color: hsl(var(--muted-foreground) / 0.5);
+  border: 1px solid transparent;
+  transition: all 150ms ease;
+}
+.pulse-axiom-preset:hover {
+  color: hsl(var(--foreground) / 0.7);
+}
+.pulse-axiom-preset.active {
+  background: hsl(var(--muted) / 0.3);
+}
+
+/* ── Filter Input ── */
+.pulse-filter-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  background: hsl(var(--muted) / 0.3);
+  border: 1px solid hsl(var(--border) / 0.3);
+  color: hsl(var(--foreground));
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.pulse-filter-input:focus {
+  border-color: hsl(var(--primary) / 0.5);
+}
+.pulse-filter-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* ── Legacy Premium Column Header (kept for compat) ── */
 .pulse-col-header-v2 {
   position: relative;
   display: flex;
@@ -904,46 +994,6 @@
   padding: 10px 14px;
   background: hsl(var(--background-secondary));
   border-bottom: 1px solid hsl(var(--border) / 0.5);
-}
-
-.pulse-col-icon-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.pulse-live-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: 4px;
-  padding: 2px 8px 2px 6px;
-  border-radius: 9999px;
-  background: hsl(var(--muted) / 0.5);
-}
-
-.pulse-live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.4; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-
-.pulse-col-accent-line {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
 }
 
 /* ── Column Scroll V2 ── */

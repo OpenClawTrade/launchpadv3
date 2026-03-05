@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Search } from "lucide-react";
+import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
@@ -46,7 +46,7 @@ function formatTxCount(holders: number): string {
   return String(holders);
 }
 
-export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }: { token: CodexPairToken; quickBuyAmount?: number }) {
+export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, proTraders = 0 }: { token: CodexPairToken; quickBuyAmount?: number; proTraders?: number }) {
   const [copiedCA, setCopiedCA] = useState(false);
   const gradPct = token.graduationPercent ?? 0;
   const mcap = formatUsdCompact(token.marketCap);
@@ -102,29 +102,35 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }
             <ExternalLink className="h-2.5 w-2.5 text-muted-foreground/40 flex-shrink-0" />
           </div>
 
-          {/* Line 2: Age + social icons */}
+          {/* Line 2: Age + social icons + holders + pro traders */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
             <span className="text-[10px] font-mono text-foreground/50">{age}</span>
             <span className="pulse-icon-separator" />
             {token.twitterUrl && (
-              <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
+              <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Twitter">
                 <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
             )}
-            <span className="pulse-social-icon"><Users className="h-2.5 w-2.5" /></span>
             {token.websiteUrl && (
-              <a href={token.websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
+              <a href={token.websiteUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Website">
                 <Globe className="h-2.5 w-2.5" />
               </a>
             )}
             {token.telegramUrl && (
-              <a href={token.telegramUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon">
+              <a href={token.telegramUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Telegram">
                 <MessageCircle className="h-2.5 w-2.5" />
               </a>
             )}
-            <span className="pulse-social-icon"><Search className="h-2.5 w-2.5" /></span>
+            <span className="pulse-icon-separator" />
             {token.holders > 0 && (
-              <span className="text-[9px] font-mono text-foreground/45">{formatTxCount(token.holders)}</span>
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/50" title="Holders">
+                <Users className="h-2.5 w-2.5" />{formatTxCount(token.holders)}
+              </span>
+            )}
+            {proTraders > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-primary/80" title="Pro Traders">
+                <Crown className="h-2.5 w-2.5" />{proTraders}
+              </span>
             )}
           </div>
 
@@ -134,11 +140,6 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount }
               <span className="text-[10px] text-foreground/45 font-mono">by <span className="text-foreground/65">@{xUsername}</span></span>
             ) : (
               <span className="text-[10px] text-foreground/40 font-mono">by {token.launchpadName}</span>
-            )}
-            {token.holders > 0 && (
-              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/40">
-                <Users className="h-2.5 w-2.5" />{formatTxCount(token.holders)}
-              </span>
             )}
           </div>
         </div>

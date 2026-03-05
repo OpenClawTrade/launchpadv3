@@ -5,6 +5,7 @@ import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useGraduatedTokens } from "@/hooks/useGraduatedTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useCodexNewPairs } from "@/hooks/useCodexNewPairs";
+import { useProTradersCount } from "@/hooks/useProTradersCount";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 import {
   List, Settings, Bookmark, Monitor, Volume2, LayoutGrid, ChevronDown, Zap
@@ -49,6 +50,9 @@ export default function TradePage() {
     const missingGraduated = graduatedTokens.filter(t => !tokenIds.has(t.id));
     return [...tokens, ...missingGraduated];
   }, [tokens, graduatedTokens]);
+
+  const mintAddresses = useMemo(() => allTokens.map(t => t.mint_address).filter(Boolean) as string[], [allTokens]);
+  const { data: proTradersMap } = useProTradersCount(mintAddresses);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return allTokens;
@@ -125,6 +129,7 @@ export default function TradePage() {
           codexCompleting={codexCompleting}
           codexGraduated={codexGraduated}
           quickBuyAmount={quickBuyAmount}
+          proTradersMap={proTradersMap ?? {}}
         />
       </div>
     </LaunchpadLayout>

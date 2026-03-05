@@ -4,8 +4,11 @@ import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { useKingOfTheHill } from "@/hooks/useKingOfTheHill";
 import { AxiomTokenRow } from "./AxiomTokenRow";
 import { CodexPairRow } from "./CodexPairRow";
+import { PulseColumnHeaderBar } from "./PulseColumnHeaderBar";
+import { PulseFiltersDialog } from "./PulseFiltersDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Rocket, Flame, CheckCircle2, Zap, Radio } from "lucide-react";
+import { Rocket, Flame, CheckCircle2, Radio } from "lucide-react";
+import { usePulseFilters, ColumnId } from "@/hooks/usePulseFilters";
 
 interface AxiomTerminalGridProps {
   tokens: FunToken[];
@@ -15,34 +18,16 @@ interface AxiomTerminalGridProps {
   codexCompleting?: CodexPairToken[];
   codexGraduated?: CodexPairToken[];
   quickBuyAmount: number;
+  proTradersMap?: Record<string, number>;
 }
 
 const COLUMN_TABS = [
-  { id: "new", label: "New Pairs", icon: Rocket, color: "var(--col-new)" },
-  { id: "final", label: "Final Stretch", icon: Flame, color: "var(--col-final)" },
-  { id: "migrated", label: "Migrated", icon: CheckCircle2, color: "var(--col-migrated)" },
-] as const;
+  { id: "new" as const, label: "New Pairs", icon: Rocket, color: "160 84% 39%" },
+  { id: "final" as const, label: "Final Stretch", icon: Flame, color: "38 92% 50%" },
+  { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, color: "220 90% 56%" },
+];
 
 type ColumnTab = typeof COLUMN_TABS[number]["id"];
-
-/* ── Premium Column Header ── */
-function PulseColumnHeader({ label, count, icon: Icon, color }: { label: string; count: number; icon: React.ElementType; color: string }) {
-  return (
-    <div className="pulse-col-header-v2" style={{ "--col-accent": color } as React.CSSProperties}>
-      <div className="flex items-center gap-2.5">
-        <div className="pulse-col-icon-pill" style={{ background: `hsl(${color} / 0.12)` }}>
-          <Icon className="h-3.5 w-3.5" style={{ color: `hsl(${color})` }} />
-        </div>
-        <span className="text-[12px] font-semibold tracking-wide uppercase text-foreground/90">{label}</span>
-        <div className="pulse-live-count">
-          <span className="pulse-live-dot" style={{ background: `hsl(${color})` }} />
-          <span className="text-[10px] font-mono font-bold text-foreground/70">{count}</span>
-        </div>
-      </div>
-      <div className="pulse-col-accent-line" style={{ background: `linear-gradient(90deg, hsl(${color} / 0.6), transparent)` }} />
-    </div>
-  );
-}
 
 function PulseColumnSkeleton() {
   return (
@@ -77,12 +62,19 @@ function PulseEmptyColumn({ label, color }: { label: string; color: string }) {
   );
 }
 
-export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [], quickBuyAmount }: AxiomTerminalGridProps) {
+export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs = [], codexCompleting = [], codexGraduated = [], quickBuyAmount, proTradersMap = {} }: AxiomTerminalGridProps) {
   const [mobileTab, setMobileTab] = useState<ColumnTab>("new");
   const [tabletRightTab, setTabletRightTab] = useState<"final" | "migrated">("final");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { tokens: kingTokens } = useKingOfTheHill();
   const tabBarRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+
+  const {
+    filters, activeFilterColumn, setActiveFilterColumn,
+    updateFilter, resetFilter, hasActiveFilters,
+    applyFilterToFunTokens, applyFilterToCodexTokens,
+  } = usePulseFilters();
 
   const { newPairs, finalStretch, migrated } = useMemo(() => {
     const newPairs = tokens
@@ -123,11 +115,26 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
     return { newPairs, finalStretch, migrated };
   }, [tokens, kingTokens]);
 
+  // Apply filters
+  const filteredNewPairs = useMemo(() => applyFilterToFunTokens(newPairs, "new", solPrice), [newPairs, filters, solPrice]);
+  const filteredFinalStretch = useMemo(() => applyFilterToFunTokens(finalStretch, "final", solPrice), [finalStretch, filters, solPrice]);
+  const filteredMigrated = useMemo(() => applyFilterToFunTokens(migrated, "migrated", solPrice), [migrated, filters, solPrice]);
+
+  const filteredCodexNew = useMemo(() => applyFilterToCodexTokens(codexNewPairs, "new"), [codexNewPairs, filters]);
+  const filteredCodexCompleting = useMemo(() => applyFilterToCodexTokens(codexCompleting, "final"), [codexCompleting, filters]);
+  const filteredCodexGraduated = useMemo(() => applyFilterToCodexTokens(codexGraduated, "migrated"), [codexGraduated, filters]);
+
   const columns = [
-    { id: "new" as const, label: "New Pairs", icon: Rocket, tokens: newPairs, codex: codexNewPairs, color: COLUMN_TABS[0].color },
-    { id: "final" as const, label: "Final Stretch", icon: Flame, tokens: finalStretch, codex: codexCompleting, color: COLUMN_TABS[1].color },
-    { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, tokens: migrated, codex: codexGraduated, color: COLUMN_TABS[2].color },
+    { id: "new" as const, label: "New Pairs", icon: Rocket, tokens: filteredNewPairs, codex: filteredCodexNew, color: COLUMN_TABS[0].color },
+    { id: "final" as const, label: "Final Stretch", icon: Flame, tokens: filteredFinalStretch, codex: filteredCodexCompleting, color: COLUMN_TABS[1].color },
+    { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, tokens: filteredMigrated, codex: filteredCodexGraduated, color: COLUMN_TABS[2].color },
   ];
+
+  const counts: Record<ColumnId, number> = {
+    new: filteredNewPairs.length + filteredCodexNew.length,
+    final: filteredFinalStretch.length + filteredCodexCompleting.length,
+    migrated: filteredMigrated.length + filteredCodexGraduated.length,
+  };
 
   const activeColumn = columns.find(c => c.id === mobileTab)!;
 
@@ -138,12 +145,14 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
     const tabs = tabBarRef.current.querySelectorAll<HTMLButtonElement>('[data-tab]');
     const tab = tabs[idx];
     if (tab) {
-      setIndicatorStyle({
-        left: tab.offsetLeft,
-        width: tab.offsetWidth,
-      });
+      setIndicatorStyle({ left: tab.offsetLeft, width: tab.offsetWidth });
     }
   }, [mobileTab]);
+
+  const openFiltersForColumn = (col: ColumnId) => {
+    setActiveFilterColumn(col);
+    setFiltersOpen(true);
+  };
 
   const renderColumnContent = (col: typeof columns[number]) => {
     if (isLoading) return <PulseColumnSkeleton />;
@@ -151,10 +160,10 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
     return (
       <div className="pulse-card-list">
         {col.codex.map(t => (
-          <CodexPairRow key={`codex-${t.address}`} token={t} quickBuyAmount={quickBuyAmount} />
+          <CodexPairRow key={`codex-${t.address}`} token={t} quickBuyAmount={quickBuyAmount} proTraders={0} />
         ))}
         {col.tokens.map(token => (
-          <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
+          <AxiomTokenRow key={token.id} token={token} solPrice={solPrice} quickBuyAmount={quickBuyAmount} proTraders={proTradersMap[token.id] ?? 0} />
         ))}
       </div>
     );
@@ -164,6 +173,18 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
 
   return (
     <div className="w-full">
+      {/* Filters Dialog */}
+      <PulseFiltersDialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        activeColumn={activeFilterColumn}
+        onColumnChange={setActiveFilterColumn}
+        onUpdate={updateFilter}
+        onReset={resetFilter}
+        counts={counts}
+      />
+
       {/* ═══ Mobile: Premium Tab Switcher (<640px) ═══ */}
       <div className="sm:hidden">
         <div className="pulse-mobile-tabs" ref={tabBarRef}>
@@ -179,7 +200,6 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
               >
                 <span className="pulse-tab-dot" style={{ background: `hsl(${tab.color})` }} />
                 <span>{tab.label}</span>
-                <span className="pulse-tab-count">{isLoading ? '…' : col.tokens.length + col.codex.length}</span>
               </button>
             );
           })}
@@ -192,20 +212,22 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
 
       {/* ═══ Tablet: Two-Column Split (640px-1279px) ═══ */}
       <div className="hidden sm:grid sm:grid-cols-2 xl:hidden border-t border-border">
-        {/* Left: Always New Pairs */}
         <div className="pulse-column-v2 border-r border-border">
-          <PulseColumnHeader label="New Pairs" count={newPairs.length + codexNewPairs.length} icon={Rocket} color={COLUMN_TABS[0].color} />
+          <PulseColumnHeaderBar
+            label="New Pairs" color={COLUMN_TABS[0].color} icon={Rocket}
+            quickBuyAmount={quickBuyAmount}
+            onOpenFilters={() => openFiltersForColumn("new")}
+            hasActiveFilters={hasActiveFilters("new")}
+          />
           <div className="pulse-column-scroll-v2">
             {renderColumnContent(columns[0])}
           </div>
         </div>
-        {/* Right: Toggle between Final Stretch / Migrated */}
         <div className="pulse-column-v2">
           <div className="pulse-tablet-toggle-header">
             <div className="pulse-segmented-control">
               {(["final", "migrated"] as const).map(id => {
                 const tab = COLUMN_TABS.find(t => t.id === id)!;
-                const col = columns.find(c => c.id === id)!;
                 const isActive = tabletRightTab === id;
                 return (
                   <button
@@ -216,7 +238,6 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
                   >
                     <tab.icon className="h-3 w-3" />
                     <span>{tab.label}</span>
-                    <span className="pulse-seg-count">{isLoading ? '…' : col.tokens.length + col.codex.length}</span>
                   </button>
                 );
               })}
@@ -232,7 +253,12 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
       <div className="hidden xl:grid grid-cols-3 gap-0 border-t border-border">
         {columns.map((col, i) => (
           <div key={col.id} className={`pulse-column-v2 ${i < 2 ? "border-r border-border" : ""}`}>
-            <PulseColumnHeader label={col.label} count={col.tokens.length + col.codex.length} icon={col.icon} color={col.color} />
+            <PulseColumnHeaderBar
+              label={col.label} color={col.color} icon={col.icon}
+              quickBuyAmount={quickBuyAmount}
+              onOpenFilters={() => openFiltersForColumn(col.id)}
+              hasActiveFilters={hasActiveFilters(col.id)}
+            />
             <div className="pulse-column-scroll-v2">
               {renderColumnContent(col)}
             </div>
