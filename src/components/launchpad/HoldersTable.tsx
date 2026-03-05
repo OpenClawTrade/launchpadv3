@@ -155,21 +155,21 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
   }
 
   return (
-    <ScrollArea className="h-[480px]">
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs font-mono min-w-[900px]">
-          <thead className="sticky top-0 z-10" style={{ backgroundColor: "#0d0d0d" }}>
-            <tr className="text-muted-foreground/50 uppercase tracking-wider text-[9px] border-b border-white/[0.06]">
-              <th className="text-left py-2.5 px-2 font-medium w-8">#</th>
-              <th className="text-left py-2.5 px-2 font-medium">Wallet</th>
-              <th className="text-right py-2.5 px-2 font-medium">SOL Balance</th>
-              <th className="text-right py-2.5 px-2 font-medium">Bought (Avg Buy)</th>
-              <th className="text-right py-2.5 px-2 font-medium">Sold (Avg Sell)</th>
-              <th className="text-right py-2.5 px-2 font-medium">U. PnL ↕</th>
-              <th className="text-right py-2.5 px-2 font-medium">% Holdings</th>
-              <th className="text-left py-2.5 px-2 font-medium">Funding</th>
-            </tr>
-          </thead>
+     <ScrollArea className="h-[480px]">
+       <div className="overflow-x-auto">
+         <table className="w-full text-xs font-mono min-w-[750px]">
+           <thead className="sticky top-0 z-10" style={{ backgroundColor: "#0d0d0d" }}>
+             <tr className="text-muted-foreground/50 uppercase tracking-wider text-[9px] border-b border-white/[0.06]">
+               <th className="text-left py-2.5 px-1.5 font-medium w-6">#</th>
+               <th className="text-left py-2.5 px-1.5 font-medium">Wallet</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">SOL Bal</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">Bought (Avg)</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">Sold (Avg)</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">U. PnL ↕</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">% Hold</th>
+               <th className="text-left py-2.5 px-1.5 font-medium">Funding</th>
+             </tr>
+           </thead>
           <tbody>
             {holders.map((holder, i) => {
               const label = KNOWN_LABELS[holder.address];
@@ -180,11 +180,11 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   style={{ height: "52px" }}
                 >
                   {/* Rank */}
-                  <td className="py-2 px-2 text-muted-foreground/40 text-[11px]">{i + 1}</td>
+                  <td className="py-2 px-1.5 text-muted-foreground/40 text-[11px]">{i + 1}</td>
 
                   {/* Wallet */}
-                  <td className="py-2 px-2">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2 px-1.5">
+                    <div className="flex items-center gap-1.5">
                       <Filter className="h-3 w-3 text-muted-foreground/30 shrink-0 cursor-pointer hover:text-muted-foreground/60 transition-colors" />
                       <a
                         href={`https://solscan.io/account/${holder.address}`}
@@ -216,15 +216,15 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   </td>
 
                   {/* SOL Balance */}
-                  <td className="py-2 px-2 text-right">
-                    <span className="text-foreground/60 text-[11px] flex items-center gap-1">
+                  <td className="py-2 px-1.5 text-right">
+                    <span className="text-foreground/60 text-[11px] flex items-center justify-end gap-1">
                       <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" className="w-3.5 h-3.5 rounded-full" alt="SOL" />
                       {formatSol(holder.solBalance)}
                     </span>
                   </td>
 
                   {/* Bought (Avg Buy) */}
-                  <td className="py-2 px-2 text-right">
+                  <td className="py-2 px-1.5 text-right">
                     {(() => {
                       const s = statsMap.get(holder.address.trim());
                       const totalBoughtUsd = s?.totalBoughtUsd ?? 0;
@@ -239,7 +239,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   </td>
 
                   {/* Sold (Avg Sell) */}
-                  <td className="py-2 px-2 text-right">
+                  <td className="py-2 px-1.5 text-right">
                     {(() => {
                       const s = statsMap.get(holder.address.trim());
                       const totalSoldUsd = s?.totalSoldUsd ?? 0;
@@ -254,7 +254,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   </td>
 
                   {/* Unrealized PnL */}
-                  <td className="py-2 px-2 text-right">
+                  <td className="py-2 px-1.5 text-right">
                     {(() => {
                       const s = statsMap.get(holder.address.trim());
                       const totalBoughtUsd = s?.totalBoughtUsd ?? 0;
@@ -281,16 +281,16 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   </td>
 
                   {/* % Holdings */}
-                  <td className="py-2 px-2 text-right">
+                  <td className="py-2 px-1.5 text-right">
                     <div className="flex flex-col items-end gap-0.5">
                       <span className="text-foreground/80 text-[11px]">
                         {formatUsdCompact(holder.tokenAmount * currentPriceUsd)}
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-muted-foreground/70">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-white/[0.06] text-muted-foreground/70">
                           {holder.percentage.toFixed(holder.percentage >= 1 ? 2 : 3)}%
                         </span>
-                        <div className="w-16 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div className="w-12 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -304,7 +304,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                   </td>
 
                   {/* Funding */}
-                  <td className="py-2 px-2">
+                  <td className="py-2 px-1.5">
                     <HolderFundingCell address={holder.address} />
                   </td>
                 </tr>
