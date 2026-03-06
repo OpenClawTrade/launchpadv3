@@ -103,8 +103,35 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   codexToken,
   quickBuyAmount,
   isCompact,
+  chain = 'solana',
 }: PulseQuickBuyButtonProps) {
+  const isBnb = chain === 'bnb';
   const { executeFastSwap, isLoading, lastLatencyMs, walletAddress } = useFastSwap();
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
+  const [isSelling, setIsSelling] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const mintAddress = funToken?.mint_address ?? codexToken?.address ?? null;
+
+  // For BNB tokens, render a simple PancakeSwap link button
+  if (isBnb && mintAddress) {
+    const pancakeUrl = `https://pancakeswap.finance/swap?outputCurrency=${mintAddress}&chain=bsc`;
+    return (
+      <a
+        href={pancakeUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={isCompact ? "discover-quick-buy-btn" : "pulse-sol-btn"}
+      >
+        <Zap className={isCompact ? "h-3 w-3" : "h-2.5 w-2.5"} />
+        <span>PancakeSwap</span>
+      </a>
+    );
+  }
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
