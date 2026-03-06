@@ -1,8 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets, useSignAndSendTransaction as usePrivySolanaSignAndSend } from "@privy-io/react-auth/solana";
-import { Connection, Transaction, VersionedTransaction } from "@solana/web3.js";
+import { Connection, Transaction, VersionedTransaction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getRpcUrl } from "./useSolanaWallet";
+import { getCachedBlockhash } from "@/lib/blockhashCache";
+import bs58 from "bs58";
+import { sendRawToAllEndpoints } from "@/lib/jitoBundle";
 
 // Hook that uses Privy - MUST only be called inside PrivyProvider when privyAvailable is true
 // IMPORTANT: This project uses EMBEDDED wallets only. External wallets are intentionally ignored.
@@ -65,13 +68,11 @@ export function useSolanaWalletWithPrivy() {
         setIsConnecting(true);
 
         // Use cached blockhash for speed (0ms vs 200-500ms)
-        const { getCachedBlockhash } = await import("@/lib/blockhashCache");
         const { blockhash, lastValidBlockHeight } = await getCachedBlockhash();
 
         // Update legacy transaction blockhash + fee payer
         if (!(transaction as any)?.version) {
           (transaction as Transaction).recentBlockhash = blockhash;
-          const { PublicKey } = await import("@solana/web3.js");
           (transaction as Transaction).feePayer = wallet.address ? new PublicKey(wallet.address) : undefined;
         }
 
@@ -93,7 +94,6 @@ export function useSolanaWalletWithPrivy() {
         });
 
         // result.signature is Uint8Array — convert to base58 string
-        const { default: bs58 } = await import("bs58");
         const signature = typeof result.signature === "string"
           ? result.signature
           : bs58.encode(Buffer.from(result.signature));
@@ -102,7 +102,6 @@ export function useSolanaWalletWithPrivy() {
 
         // Parallel submit to ALL Jito endpoints + Helius for maximum speed (fire-and-forget)
         try {
-          const { sendRawToAllEndpoints } = await import("@/lib/jitoBundle");
           sendRawToAllEndpoints(serializedTx);
         } catch {
           // Non-fatal: parallel submission is best-effort
@@ -135,7 +134,6 @@ export function useSolanaWalletWithPrivy() {
 
     try {
       const connection = getConnection();
-      const { PublicKey, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
       const pubkey = new PublicKey(walletAddress);
       const balance = await connection.getBalance(pubkey);
       return balance / LAMPORTS_PER_SOL;
@@ -149,7 +147,6 @@ export function useSolanaWalletWithPrivy() {
     if (!walletAddress) throw new Error("No wallet address");
 
     const connection = getConnection();
-    const { PublicKey, LAMPORTS_PER_SOL } = await import("@solana/web3.js");
     const pubkey = new PublicKey(walletAddress);
     const balance = await connection.getBalance(pubkey);
     return balance / LAMPORTS_PER_SOL;
