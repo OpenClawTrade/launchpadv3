@@ -318,8 +318,8 @@ Deno.serve(async (req) => {
 
     console.log(`[BNB Deploy] ✅ Liquidity added! LP tx: ${addLiqHash}`);
 
-    // Step 6: Record in database
-    console.log("[BNB Deploy] Step 6: Recording in database...");
+    // Step 5: Record in database
+    console.log("[BNB Deploy] Step 5: Recording in database...");
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
