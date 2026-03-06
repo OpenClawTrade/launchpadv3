@@ -132,21 +132,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
       </a>
     );
   }
-  const { isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
-  const [isSelling, setIsSelling] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-
-  const mintAddress = funToken?.mint_address ?? codexToken?.address ?? null;
-
-  // Fetch on-chain token balance for sell button
-  const { data: tokenBalance } = useQuery({
-    queryKey: ["quick-sell-balance", walletAddress, mintAddress],
-    queryFn: async () => {
-      if (!walletAddress || !mintAddress) return 0;
-      try {
+  // Fetch on-chain token balance for sell button (Solana only)
         const connection = new Connection(getRpcUrl().url, "confirmed");
         const owner = new PublicKey(walletAddress);
         const mint = new PublicKey(mintAddress);
