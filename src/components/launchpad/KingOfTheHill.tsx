@@ -371,8 +371,14 @@ function KingCard({ token, rank, quickBuyAmount, sparklineData }: { token: KingT
           </TooltipProvider>
         </div>
 
-        {/* Buttons row */}
-        <div className="king-footer-actions flex items-center gap-2">
+        {/* Buttons row — onMouseDown capture prevents card navigation */}
+        <div
+          className="king-footer-actions flex items-center gap-2"
+          onClickCapture={e => e.stopPropagation()}
+          onMouseDownCapture={e => e.stopPropagation()}
+          onTouchStartCapture={e => e.stopPropagation()}
+          onPointerDownCapture={e => e.stopPropagation()}
+        >
           <button
             onClick={(e) => { e.stopPropagation(); navigate(url); }}
             className={cn(
