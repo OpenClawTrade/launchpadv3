@@ -11,7 +11,7 @@ import bs58 from "bs58";
 
 const ADMIN_PASSWORD = "claw";
 const BATCH_SIZE = 20;
-const HELIUS_PUBLIC_RPC = "https://mainnet.helius-rpc.com/?api-key=15319bf4-4506-4808-8780-5764b2338e1a";
+const HELIUS_PUBLIC_RPC = import.meta.env.VITE_HELIUS_RPC_URL || `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY || ""}`;
 
 interface LogEntry {
   time: string;
