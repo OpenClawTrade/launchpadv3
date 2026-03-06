@@ -28,8 +28,21 @@ import {
   Loader2,
   Search,
   Rocket,
-  Database
+  Database,
+  Skull,
+  AlertTriangle
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { BaseDeployPanel } from "@/components/admin/BaseDeployPanel";
 
 const VERCEL_API_URL = "https://clawmode.vercel.app";
@@ -187,6 +200,8 @@ export default function TreasuryAdminPage() {
   const [allPoolAddresses, setAllPoolAddresses] = useState<string[]>([]);
   const [claimResults, setClaimResults] = useState<ClaimResult[]>([]);
   const [selectedPools, setSelectedPools] = useState<Set<string>>(new Set());
+  const [isReclaiming, setIsReclaiming] = useState(false);
+  const [reclaimResults, setReclaimResults] = useState<any>(null);
   const { toast } = useToast();
 
   // Check stored auth
@@ -198,6 +213,38 @@ export default function TreasuryAdminPage() {
       loadClaimHistory();
     }
   }, []);
+
+  const handleReclaimAll = async () => {
+    setIsReclaiming(true);
+    setReclaimResults(null);
+    try {
+      toast({ title: "Reclaiming...", description: "Processing all trading agent wallets. This may take several minutes." });
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/trading-agent-reclaim-all`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ adminSecret: "claw-admin-2024" }),
+      });
+
+      const data = await response.json();
+      setReclaimResults(data);
+
+      if (data.success) {
+        toast({
+          title: "Reclaim Complete",
+          description: `Recovered ${data.summary.totalSolRecovered.toFixed(4)} SOL from ${data.summary.processed} agents (${data.summary.failures} failures)`,
+        });
+      } else {
+        toast({ title: "Reclaim Failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Reclaim Failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setIsReclaiming(false);
+    }
+  };
 
   const handleLogin = () => {
     if (password === ADMIN_PASSWORD) {
@@ -544,10 +591,14 @@ export default function TreasuryAdminPage() {
         </div>
 
         <Tabs defaultValue="fees" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="fees" className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
               Fee Recovery
+            </TabsTrigger>
+            <TabsTrigger value="reclaim" className="flex items-center gap-2">
+              <Skull className="h-4 w-4" />
+              Agent Reclaim
             </TabsTrigger>
             <TabsTrigger value="base-deploy" className="flex items-center gap-2">
               <Rocket className="h-4 w-4" />
@@ -565,6 +616,138 @@ export default function TreasuryAdminPage() {
 
           <TabsContent value="alt-setup" className="mt-6">
             <AltSetupPanel />
+          </TabsContent>
+
+          <TabsContent value="reclaim" className="mt-6 space-y-6">
+            <Card className="border-destructive/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  Reclaim All Trading Agent SOL
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Force-sells all token positions across ALL trading agents (both old and claw), 
+                  transfers remaining SOL to treasury, and marks agents as disabled.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isReclaiming} className="w-full md:w-auto">
+                      {isReclaiming ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Skull className="w-4 h-4 mr-2" />
+                      )}
+                      {isReclaiming ? "Reclaiming... (this takes minutes)" : "Reclaim All Agent SOL"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will force-sell ALL token positions from ALL trading agents and transfer 
+                        all SOL to the treasury wallet. All agents will be marked as disabled. 
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleReclaimAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Yes, Reclaim Everything
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                {/* Results */}
+                {reclaimResults?.success && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="text-2xl font-bold">{reclaimResults.summary.totalAgents}</div>
+                          <p className="text-xs text-muted-foreground">Total Agents</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="text-2xl font-bold text-primary">{reclaimResults.summary.processed}</div>
+                          <p className="text-xs text-muted-foreground">Processed</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="text-2xl font-bold text-primary">
+                            {reclaimResults.summary.totalSolRecovered.toFixed(4)} SOL
+                          </div>
+                          <p className="text-xs text-muted-foreground">Total Recovered</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="text-2xl font-bold text-destructive">{reclaimResults.summary.failures}</div>
+                          <p className="text-xs text-muted-foreground">Failures</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Per-agent results table */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Agent Results</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Agent</TableHead>
+                                <TableHead>Wallet</TableHead>
+                                <TableHead>Table</TableHead>
+                                <TableHead className="text-right">SOL Recovered</TableHead>
+                                <TableHead className="text-right">Tokens Sold</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {reclaimResults.results.map((r: any) => (
+                                <TableRow key={r.id}>
+                                  <TableCell className="font-medium">{r.name}</TableCell>
+                                  <TableCell className="font-mono text-xs">
+                                    {r.wallet ? `${r.wallet.slice(0, 4)}...${r.wallet.slice(-4)}` : "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary">{r.table === "claw_trading_agents" ? "Claw" : "Old"}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono text-primary">
+                                    {(r.solRecovered || 0).toFixed(4)}
+                                  </TableCell>
+                                  <TableCell className="text-right">{r.tokensSold || 0}</TableCell>
+                                  <TableCell>
+                                    {r.status === "reclaimed" ? (
+                                      <Badge className="bg-primary text-primary-foreground">
+                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                        Done
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="destructive">
+                                        <AlertCircle className="w-3 h-3 mr-1" />
+                                        {r.errors?.[0]?.slice(0, 30) || "Error"}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="fees" className="mt-6 space-y-6">
