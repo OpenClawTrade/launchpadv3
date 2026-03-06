@@ -121,7 +121,14 @@ export default function UserProfilePage() {
             </button>
           )}
 
-          <VerifyAccountModal open={verifyOpen} onOpenChange={setVerifyOpen} />
+        <EditProfileModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          profile={profile}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["user-profile", identifier] })}
+        />
+
+        <VerifyAccountModal open={verifyOpen} onOpenChange={setVerifyOpen} />
 
           {/* Stats Row */}
           <div className="grid grid-cols-4 gap-3 border border-border/30 rounded-lg p-3 bg-muted/20">
