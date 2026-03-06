@@ -3,6 +3,8 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
 import { DelegationPrompt } from "@/components/DelegationPrompt";
+import { useAnnouncements } from "@/hooks/useAnnouncements";
+import { useLiveTradeToasts } from "@/hooks/useLiveTradeToasts";
 
 interface LaunchpadLayoutProps {
   children: ReactNode;
@@ -13,6 +15,8 @@ interface LaunchpadLayoutProps {
 
 export function LaunchpadLayout({ children, hideFooter, noPadding }: LaunchpadLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useAnnouncements();
+  useLiveTradeToasts();
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">

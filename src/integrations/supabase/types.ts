@@ -520,6 +520,42 @@ export type Database = {
         }
         Relationships: []
       }
+      announcements: {
+        Row: {
+          action_label: string | null
+          action_url: string | null
+          created_at: string
+          description: string | null
+          emoji: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          title: string
+        }
+        Insert: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+        }
+        Update: {
+          action_label?: string | null
+          action_url?: string | null
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+        }
+        Relationships: []
+      }
       api_accounts: {
         Row: {
           api_key_hash: string

@@ -39,24 +39,6 @@ export default function ClawBookPage() {
   useSubTunaRealtime({ enabled: true });
   const navigate = useNavigate();
 
-  // Show Console announcement popup once per session
-  useEffect(() => {
-    const shown = sessionStorage.getItem("console-announce");
-    if (shown) return;
-    sessionStorage.setItem("console-announce", "1");
-    
-    const timer = setTimeout(() => {
-      toast("🦞 Claw Console is LIVE!", {
-        description: "Our fully automated AI agent is now available directly on the platform. Same lobster, same vibes — no X needed.",
-        action: {
-          label: "Open Console",
-          onClick: () => navigate("/console"),
-        },
-        duration: 8000,
-      });
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [navigate]);
 
   const handleVote = useCallback((postId: string, voteType: 1 | -1) => {
     setUserVotes((prev) => {
