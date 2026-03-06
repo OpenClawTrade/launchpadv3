@@ -76,6 +76,7 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
           symbol
           imageSmallUrl
           imageLargeUrl
+          imageThumbUrl
         }
         socialLinks {
           twitter
