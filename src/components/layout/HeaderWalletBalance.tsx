@@ -21,6 +21,7 @@ function HeaderWalletBalanceInner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<{ display_name?: string | null; avatar_url?: string | null } | null>(null);
 
@@ -132,6 +133,11 @@ function HeaderWalletBalanceInner() {
                 onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}
               />
               <MenuItem
+                icon={<Wallet className="h-4 w-4" />}
+                label="Portfolio"
+                onClick={() => { setMenuOpen(false); setPortfolioOpen(true); }}
+              />
+              <MenuItem
                 icon={<Zap className="h-4 w-4" />}
                 label="Pulse"
                 onClick={() => { setMenuOpen(false); navigate("/trade"); }}
@@ -167,6 +173,11 @@ function HeaderWalletBalanceInner() {
       <AccountSecurityModal
         open={accountOpen}
         onClose={() => setAccountOpen(false)}
+      />
+
+      <PortfolioModal
+        open={portfolioOpen}
+        onClose={() => setPortfolioOpen(false)}
       />
     </>
   );
