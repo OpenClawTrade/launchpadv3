@@ -93,7 +93,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   codexToken,
   quickBuyAmount,
 }: PulseQuickBuyButtonProps) {
-  const { executeFastSwap, isLoading } = useFastSwap();
+  const { executeFastSwap, isLoading, lastLatencyMs } = useFastSwap();
   const { isAuthenticated, login } = useAuth();
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
@@ -119,7 +119,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
           .then((result) => {
             if (result.success) {
               toast.success(`Bought with ${quickBuyAmount} SOL`, {
-                description: result.signature ? `TX: ${result.signature.slice(0, 8)}...` : undefined,
+                description: result.signature ? `TX: ${result.signature.slice(0, 8)}... · ${lastLatencyMs || ''}ms` : undefined,
                 action: result.signature
                   ? { label: "View", onClick: () => window.open(`https://solscan.io/tx/${result.signature}`, "_blank") }
                   : undefined,
@@ -157,7 +157,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
         if (result.success) {
           toast.success(`Bought with ${amount} SOL`, {
             description: result.signature
-              ? `TX: ${result.signature.slice(0, 8)}...`
+              ? `TX: ${result.signature.slice(0, 8)}... · ${lastLatencyMs || ''}ms`
               : undefined,
             action: result.signature
               ? {

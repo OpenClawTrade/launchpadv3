@@ -58,6 +58,8 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
   const [instaBuy, setInstaBuy] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
+  const [showLatency, setShowLatency] = useState(false);
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
@@ -175,6 +177,7 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
     }
 
     setIsLoading(true);
+    const t0 = performance.now();
     try {
       let result: { signature?: string; outputAmount?: number };
 
@@ -187,6 +190,11 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
         const pumpResult = await pumpFunSwap(token.mint_address, numericAmount, isBuy, slippage);
         result = { signature: pumpResult.signature, outputAmount: pumpResult.outputAmount };
       }
+
+      const latency = Math.round(performance.now() - t0);
+      setLastLatencyMs(latency);
+      setShowLatency(true);
+      setTimeout(() => setShowLatency(false), 5000);
 
       setAmount(''); setQuote(null); setSelectedPreset(null);
 
@@ -375,7 +383,12 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
                 <span className="flex items-center gap-1">SELL {token.imageUrl && <img src={token.imageUrl} alt={token.ticker} className="w-4 h-4 rounded-full" />} {token.ticker}</span>
               )}
             </button>
-            {isBuy && (
+            {showLatency && lastLatencyMs !== null && (
+              <p className="text-[10px] font-mono text-primary/60 text-center animate-in fade-in duration-300">
+                ⚡ {lastLatencyMs}ms
+              </p>
+            )}
+            {isBuy && !showLatency && (
               <p className="text-[9px] font-mono text-muted-foreground/50 text-center">
                 Once you click on Quick Buy, your transaction is sent immediately
               </p>

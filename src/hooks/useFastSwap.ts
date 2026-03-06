@@ -40,6 +40,7 @@ export function useFastSwap() {
   const { profileId } = useAuth();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
   // Start blockhash poller on mount
   useEffect(() => {
@@ -154,7 +155,9 @@ export function useFastSwap() {
         result = await swapBondingCurve(token, amount, isBuy, slippageBps);
       }
 
-      console.log(`[FastSwap] Done in ${(performance.now() - t0).toFixed(0)}ms, sig: ${result.signature.slice(0, 12)}...`);
+      const latency = Math.round(performance.now() - t0);
+      setLastLatencyMs(latency);
+      console.log(`[FastSwap] Done in ${latency}ms, sig: ${result.signature.slice(0, 12)}...`);
 
       // Invalidate queries in background (non-blocking)
       setTimeout(() => {
@@ -175,5 +178,6 @@ export function useFastSwap() {
     executeFastSwap,
     isLoading,
     walletAddress,
+    lastLatencyMs,
   };
 }

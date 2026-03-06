@@ -3,8 +3,11 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, ExternalLink, Copy, CheckCircle } from "lucide-react";
+import { Loader2, ExternalLink, Copy, CheckCircle, BadgeCheck } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { VerifiedBadge } from "@/components/ui/verified-badge";
+import { VerifyAccountModal } from "@/components/launchpad/VerifyAccountModal";
 
 function truncateWallet(addr: string | null) {
   if (!addr) return "—";
@@ -20,7 +23,10 @@ function formatSol(val: number | null) {
 export default function UserProfilePage() {
   const { identifier } = useParams<{ identifier: string }>();
   const { profile, isLoading, error, tokens, tokensLoading, trades, tradesLoading } = useUserProfile(identifier);
+  const { profileId } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const isOwnProfile = profileId && profile?.id === profileId;
 
   const copyWallet = () => {
     if (!profile?.solana_wallet_address) return;
@@ -78,7 +84,7 @@ export default function UserProfilePage() {
                   {profile.display_name || profile.username || truncateWallet(profile.solana_wallet_address)}
                 </h1>
                 {profile.verified_type && (
-                  <CheckCircle className="w-4 h-4 text-primary shrink-0" />
+                  <VerifiedBadge type={profile.verified_type === "gold" ? "gold" : "blue"} className="w-4 h-4 shrink-0" />
                 )}
               </div>
               {profile.username && (
@@ -100,6 +106,18 @@ export default function UserProfilePage() {
           {profile.bio && (
             <p className="text-sm text-muted-foreground mb-4">{profile.bio}</p>
           )}
+
+          {isOwnProfile && !profile.verified_type && (
+            <button
+              onClick={() => setVerifyOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#c8ff00] hover:text-[#d9ff33] transition-colors bg-[#c8ff00]/10 px-3 py-1.5 rounded-lg border border-[#c8ff00]/20 mb-3"
+            >
+              <BadgeCheck className="w-3.5 h-3.5" />
+              Verify Account
+            </button>
+          )}
+
+          <VerifyAccountModal open={verifyOpen} onOpenChange={setVerifyOpen} />
 
           {/* Stats Row */}
           <div className="grid grid-cols-4 gap-3 border border-border/30 rounded-lg p-3 bg-muted/20">
