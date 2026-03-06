@@ -1,45 +1,74 @@
 
 
-## Two Issues to Fix
+## Plan: BNB Chain Launchpad — Immediately DEX-Tradable Tokens
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+### Approach
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+Instead of a custom bonding curve, we deploy an ERC20 on BSC and **immediately create a PancakeSwap V2 liquidity pool** with initial BNB + token liquidity. The token is instantly tradable on PancakeSwap, Axiom, any BSC aggregator — no migration step needed.
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+This mirrors how many real BSC launches work: deploy token → add PancakeSwap liquidity → done.
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+### Changes
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+#### 1. Database Migration
+- Add `backend_create_bnb_token` DB function (mirrors `backend_create_base_token` but with `chain = 'bnb'`, `chain_id = 56`)
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+#### 2. Edge Function: `bnb-create-token`
+- Clone `base-create-token` pattern but target BSC (`bsc` chain from viem, RPC `https://bsc-dataseed.binance.org`)
+- Deploy ERC20 contract (same `ClawToken` source, 1B supply)
+- After deployment: approve PancakeSwap V2 Router, call `addLiquidityETH` to create a BNB/token pool with initial seed liquidity
+- The deployer sends a small amount of BNB as initial liquidity (configurable, e.g. 0.1 BNB)
+- Tokens are split: portion to liquidity pool, remainder to creator wallet
+- Records in `fun_tokens` via `backend_create_bnb_token`
+- Uses `BASE_DEPLOYER_PRIVATE_KEY` (same EVM key)
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
+#### 3. Enable BNB Chain
+**`src/providers/EvmWalletProvider.tsx`:**
+- Import `bsc` from `wagmi/chains`
+- Add to chains array and transports
 
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
+**`src/contexts/ChainContext.tsx`:**
+- Set `bnb.isEnabled = true`
 
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
+**`src/hooks/useEvmWallet.ts`:**
+- Add `isOnBnb`, `switchToBnb()` alongside existing `isOnBase`, `switchToBase`
 
-### Technical Details
+#### 4. Frontend: `BnbLauncher.tsx`
+- Clone `BaseLauncher` pattern
+- BNB branding (yellow theme, PancakeSwap references)
+- Form: name, ticker, description, image, socials
+- Initial liquidity amount selector (0.05, 0.1, 0.5 BNB)
+- Calls `bnb-create-token` edge function
+- Shows BscScan link on success
 
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+#### 5. Page Integration
+**`src/pages/FunLauncherPage.tsx`:**
+- Add `chain === 'bnb'` branch rendering `<BnbLauncher />`
+- Query `fun_tokens` filtered by `chain = 'bnb'` for token grid (future)
 
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
+#### 6. Token Detail / Trading
+- BNB tokens link directly to PancakeSwap for trading (like graduated Solana tokens link to Jupiter)
+- No custom trade panel needed — DEX handles everything
 
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+### Files to Create/Modify
+| File | Action |
+|------|--------|
+| DB migration | Create `backend_create_bnb_token` function |
+| `supabase/functions/bnb-create-token/index.ts` | New edge function |
+| `src/providers/EvmWalletProvider.tsx` | Add BSC chain |
+| `src/contexts/ChainContext.tsx` | Enable BNB |
+| `src/hooks/useEvmWallet.ts` | Add BNB helpers |
+| `src/components/launchpad/BnbLauncher.tsx` | New component |
+| `src/pages/FunLauncherPage.tsx` | Add BNB branch |
+
+### PancakeSwap V2 Router Integration (Edge Function)
+The key difference from `base-create-token`: after deploying the ERC20, the edge function:
+1. Approves PancakeSwap V2 Router (`0x10ED43C718714eb63d5aA57B78B54917e56f3157`) to spend tokens
+2. Calls `addLiquidityETH()` with seed BNB + tokens to create the pool
+3. LP tokens go to deployer (can be locked/burned later)
+
+Token is immediately tradable on any BSC DEX aggregator.
+
+### No Additional Secrets Needed
+`BASE_DEPLOYER_PRIVATE_KEY` works on BSC. Just needs BNB funded to the same address.
 
