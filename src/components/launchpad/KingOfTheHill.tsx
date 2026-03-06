@@ -291,14 +291,12 @@ function KingCard({ token, rank, quickBuyAmount }: { token: KingToken; rank: num
           </div>
         </div>
       </div>
-      {token.codex_volume_24h_usd != null && token.codex_volume_24h_usd > 0 && (
-        <div className="mb-3">
-          <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-1">Vol 24h</span>
-          <span className="text-sm font-mono font-bold text-foreground/80">
-            ${token.codex_volume_24h_usd >= 1_000_000 ? `${(token.codex_volume_24h_usd / 1_000_000).toFixed(1)}M` : token.codex_volume_24h_usd >= 1_000 ? `${(token.codex_volume_24h_usd / 1_000).toFixed(1)}K` : token.codex_volume_24h_usd.toFixed(0)}
-          </span>
-        </div>
-      )}
+      <div className="mb-3">
+        <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-1">Vol 24h</span>
+        <span className="text-sm font-mono font-bold text-foreground/80">
+          ${token.codex_volume_24h_usd != null && token.codex_volume_24h_usd > 0 ? (token.codex_volume_24h_usd >= 1_000_000 ? `${(token.codex_volume_24h_usd / 1_000_000).toFixed(1)}M` : token.codex_volume_24h_usd >= 1_000 ? `${(token.codex_volume_24h_usd / 1_000).toFixed(1)}K` : token.codex_volume_24h_usd.toFixed(0)) : "0"}
+        </span>
+      </div>
 
       {/* Progress Bar */}
       <div className="mb-3">
