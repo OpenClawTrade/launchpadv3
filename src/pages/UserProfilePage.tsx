@@ -95,6 +95,14 @@ export default function UserProfilePage() {
                 <p className="text-muted-foreground text-sm font-mono">@{profile.username}</p>
               )}
             </div>
+            {isOwnProfile && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="ml-auto px-4 py-1.5 rounded-full text-xs font-bold border border-border text-foreground hover:bg-muted/50 transition-colors self-center shrink-0"
+              >
+                Edit profile
+              </button>
+            )}
           </div>
 
           {/* Wallet + Bio */}
