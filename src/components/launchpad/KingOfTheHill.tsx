@@ -63,7 +63,11 @@ function ProgressBar({ value }: { value: number }) {
 
   return (
     <div className="w-full">
-      <div className="h-[6px] w-full rounded-full overflow-hidden bg-muted/30">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold font-mono">Bonding Progress</span>
+        <span className="text-[12px] font-bold font-mono tabular-nums text-foreground">{value.toFixed(0)}%</span>
+      </div>
+      <div className="h-[8px] w-full rounded-full overflow-hidden bg-muted/30">
         <div
           className={cn(
             "h-full rounded-full bg-gradient-to-r transition-all duration-[1.2s] ease-out relative",
@@ -76,10 +80,6 @@ function ProgressBar({ value }: { value: number }) {
             <div className="absolute -left-full top-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
           </div>
         </div>
-      </div>
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 font-medium">Progress</span>
-        <span className="text-[11px] font-bold font-mono tabular-nums text-foreground">{value.toFixed(0)}%</span>
       </div>
     </div>
   );
@@ -248,30 +248,35 @@ function KingCard({ token, rank, quickBuyAmount }: { token: KingToken; rank: num
             {isPump && <PumpBadge mintAddress={token.mint_address ?? undefined} showText={false} size="sm" className="px-0 py-0 bg-transparent hover:bg-transparent" />}
             {isBags && <BagsBadge mintAddress={token.mint_address ?? undefined} showText={false} />}
           </div>
-          {xUser && (
-            <div className="flex items-center gap-1 mt-0.5">
-              {xAvatar && (
-                <img src={xAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-border/20" />
-              )}
-              <span className="text-[11px] text-muted-foreground/45 truncate">@{xUser}</span>
-              {verified && <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: checkClr }} />}
-            </div>
-          )}
+          <div className="flex items-center gap-1 mt-0.5 min-h-[18px]">
+            <svg className="w-3 h-3 flex-shrink-0 text-muted-foreground/40" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            {xUser ? (
+              <>
+                {xAvatar && (
+                  <img src={xAvatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0 border border-border/20" />
+                )}
+                <span className="text-[11px] text-muted-foreground/45 truncate">@{xUser}</span>
+                {verified && <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" style={{ color: checkClr }} />}
+              </>
+            ) : (
+              <span className="text-[11px] text-muted-foreground/25 italic">— None</span>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Middle: MCAP + 24h Change + Holders */}
-      <div className="flex items-center gap-4 mb-3">
+      <div className="flex items-center gap-4 mb-4">
         <div>
           <span className="text-[9px] uppercase tracking-widest text-muted-foreground/40 block mb-0.5">MCap</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-lg font-bold font-mono tabular-nums text-emerald-400 leading-none">
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-black font-mono tabular-nums text-emerald-400 leading-none">
               ${mcapUsd >= 1_000_000 ? `${(mcapUsd / 1_000_000).toFixed(2)}M` : mcapUsd >= 1_000 ? `${(mcapUsd / 1_000).toFixed(1)}K` : mcapUsd.toFixed(0)}
             </span>
             {change24h !== 0 && (
               <span className={cn(
-                "text-[10px] font-mono font-bold",
-                change24h > 0 ? "text-success" : "text-destructive"
+                "text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md",
+                change24h > 0 ? "text-emerald-300 bg-emerald-500/15" : "text-red-400 bg-red-500/15"
               )}>
                 {change24h > 0 ? "+" : ""}{change24h.toFixed(1)}%
               </span>
@@ -305,20 +310,21 @@ function KingCard({ token, rank, quickBuyAmount }: { token: KingToken; rank: num
       </div>
 
       {/* Bottom Tools Row */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/10">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between pt-3 border-t border-border/10">
+        <div className="king-footer-actions flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); navigate(url); }}
             className={cn(
-              "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+              "flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold transition-all duration-200 font-mono",
               "bg-primary/10 text-primary hover:bg-primary/20",
               "border border-primary/20 hover:border-primary/40",
+              "hover:scale-[1.03] active:scale-[0.97]",
             )}
           >
-            <TrendingUp className="w-3 h-3" />
+            <TrendingUp className="w-3.5 h-3.5" />
             Trade
           </button>
-          <div onClick={e => e.stopPropagation()}>
+          <div onClick={e => e.stopPropagation()} className="king-quick-buy-wrapper">
             <PulseQuickBuyButton funToken={funToken} quickBuyAmount={quickBuyAmount} />
           </div>
         </div>
