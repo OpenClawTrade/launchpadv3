@@ -1,30 +1,44 @@
 
 
-## Fix: ClawModePage is not defined
+## Plan: Remove All Colosseum Code
 
-### Root Cause
+### Files to Delete
+- `src/pages/ColosseumAdminPage.tsx`
+- `supabase/functions/colosseum-auto-engage/` (entire directory)
+- `supabase/functions/colosseum-bridge/` (entire directory)
+- `supabase/functions/colosseum-forum/` (entire directory)
+- `supabase/functions/colosseum-submit/` (entire directory)
+- `.lovable/colosseum-hackathon-plan.md`
 
-This is a **transient HMR/build error**. All source files are correct:
-- `src/pages/ClawModePage.tsx` exists with a valid `export default`
-- `src/App.tsx` has the correct `lazy(() => import("./pages/ClawModePage"))` declaration
-- All imports within `ClawModePage.tsx` resolve to existing files
+### Files to Edit
 
-The error occurs because during hot module replacement, the lazy chunk failed to load, leaving the variable `undefined`. This commonly happens after multiple rapid file edits.
+**`supabase/config.toml`** — Remove these entries (lines 228-235):
+```toml
+[functions.colosseum-bridge]
+verify_jwt = false
 
-### Fix
+[functions.colosseum-forum]
+verify_jwt = false
 
-**No code changes needed.** A simple page refresh or rebuild should resolve it. However, to make lazy imports more resilient against chunk load failures, I can wrap the `ClawModePage` route (and others) with better error boundaries or add a retry mechanism to the lazy import.
-
-If you want me to add a **retry wrapper** for all lazy imports to prevent this class of error in the future, I can implement a `lazyWithRetry` utility that retries failed dynamic imports up to 3 times before giving up. This is a one-file change:
-
-**`src/utils/lazyWithRetry.ts`** — Create utility:
-```ts
-function lazyWithRetry(importFn, retries = 3) {
-  return lazy(() => importFn().catch(() => retry...));
-}
+[functions.colosseum-submit]
+verify_jwt = false
 ```
 
-**`src/App.tsx`** — Replace `lazy()` calls with `lazyWithRetry()` for all page imports.
+**`src/pages/AdminPanelPage.tsx`** — Remove:
+- `ColosseumAdminPage` lazy import
+- `Globe` icon import
+- `{ value: "colosseum", label: "Colosseum", icon: Globe }` from TAB_CONFIG
+- The `<TabsContent value="colosseum">` block
 
-But if you just want the error gone now, a rebuild will fix it immediately.
+**`src/App.tsx`** — Remove the redirect route:
+```tsx
+<Route path="/admin/colosseum" element={<Navigate to="/admin?tab=colosseum" replace />} />
+```
+
+### Database Tables (left in place)
+The tables `colosseum_activity`, `colosseum_engagement_log`, `colosseum_forum_posts`, `colosseum_forum_comments`, `colosseum_registrations` will remain in the database but become unused. Dropping them via migration is optional — they have no RLS cost and no active queries will hit them. I can add a migration to drop them if you want.
+
+### Not Touched
+- `src/integrations/supabase/types.ts` — auto-generated, never edited manually
+- `BACKUP/`, `cli/`, `sdk/` — documentation/reference files with mentions
 
