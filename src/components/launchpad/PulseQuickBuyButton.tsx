@@ -116,7 +116,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
     queryFn: async () => {
       if (!walletAddress || !mintAddress) return 0;
       try {
-        const connection = new Connection(getRpcUrl(), "confirmed");
+        const connection = new Connection(getRpcUrl().url, "confirmed");
         const owner = new PublicKey(walletAddress);
         const mint = new PublicKey(mintAddress);
         const resp = await connection.getParsedTokenAccountsByOwner(owner, { mint });
