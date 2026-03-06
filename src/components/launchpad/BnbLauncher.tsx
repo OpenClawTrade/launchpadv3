@@ -122,8 +122,8 @@ export function BnbLauncher() {
               <div className="flex items-center gap-2 p-3 bg-secondary/30 rounded-lg">
                 <Coins className="h-4 w-4 text-green-500" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Supply Split</p>
-                  <p className="text-sm font-semibold">50% LP + 50% Creator</p>
+                  <p className="text-xs text-muted-foreground">Supply</p>
+                  <p className="text-sm font-semibold">100% to LP</p>
                 </div>
               </div>
             </div>
@@ -303,15 +303,11 @@ export function BnbLauncher() {
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">2.</span>
-              <p>50% of tokens + your seed BNB added to PancakeSwap V2</p>
+              <p>100% of supply + your seed BNB added to PancakeSwap V2 liquidity</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">3.</span>
-              <p>Remaining 50% tokens sent to your wallet</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-yellow-400 font-bold shrink-0">4.</span>
-              <p>Token is instantly tradable on PancakeSwap, Axiom, or any BSC DEX</p>
+              <p>Token is instantly tradable on PancakeSwap and all BSC DEX aggregators</p>
             </div>
           </CardContent>
         </Card>

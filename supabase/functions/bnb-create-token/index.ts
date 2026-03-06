@@ -277,9 +277,9 @@ Deno.serve(async (req) => {
 
     console.log(`[BNB Deploy] ✅ Token deployed at: ${tokenAddress}`);
 
-    // Step 3: Approve PancakeSwap Router to spend tokens
+    // Step 3: Approve PancakeSwap Router to spend ALL tokens (100% to LP)
     console.log("[BNB Deploy] Step 3: Approving PancakeSwap Router...");
-    const lpTokenAmount = parseEther("500000000"); // 500M tokens to LP (50%)
+    const lpTokenAmount = totalSupply; // 100% of supply to LP — no creator allocation
 
     const approveHash = await walletClient.writeContract({
       address: tokenAddress,
@@ -291,8 +291,8 @@ Deno.serve(async (req) => {
     await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1, timeout: 30_000 });
     console.log(`[BNB Deploy] ✅ Approved router`);
 
-    // Step 4: Add liquidity on PancakeSwap V2
-    console.log("[BNB Deploy] Step 4: Adding PancakeSwap V2 liquidity...");
+    // Step 4: Add liquidity on PancakeSwap V2 — full supply
+    console.log("[BNB Deploy] Step 4: Adding PancakeSwap V2 liquidity (100% supply)...");
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 600); // 10 min deadline
 
     const addLiqHash = await walletClient.writeContract({
@@ -317,29 +317,6 @@ Deno.serve(async (req) => {
     });
 
     console.log(`[BNB Deploy] ✅ Liquidity added! LP tx: ${addLiqHash}`);
-
-    // Step 5: Transfer remaining tokens to creator
-    console.log("[BNB Deploy] Step 5: Transferring remaining tokens to creator...");
-    const remainingTokens = totalSupply - lpTokenAmount; // 500M to creator
-
-    const transferHash = await walletClient.writeContract({
-      address: tokenAddress,
-      abi: [{
-        name: "transfer",
-        type: "function",
-        stateMutability: "nonpayable",
-        inputs: [
-          { name: "to", type: "address" },
-          { name: "value", type: "uint256" },
-        ],
-        outputs: [{ name: "", type: "bool" }],
-      }],
-      functionName: "transfer",
-      args: [body.creatorWallet as `0x${string}`, remainingTokens],
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash: transferHash, confirmations: 1, timeout: 30_000 });
-    console.log(`[BNB Deploy] ✅ ${formatEther(remainingTokens)} tokens sent to creator`);
 
     // Step 6: Record in database
     console.log("[BNB Deploy] Step 6: Recording in database...");
