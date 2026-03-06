@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useFastSwap } from "@/hooks/useFastSwap";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import type { Token } from "@/hooks/useLaunchpad";
 import type { FunToken } from "@/hooks/useFunTokensPaginated";
 import type { CodexPairToken } from "@/hooks/useCodexNewPairs";
@@ -94,16 +95,17 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   quickBuyAmount,
 }: PulseQuickBuyButtonProps) {
   const { executeFastSwap, isLoading, lastLatencyMs } = useFastSwap();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleTriggerClick = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (!isAuthenticated) {
-        login();
+        setShowLoginModal(true);
         return;
       }
       // If quickBuyAmount is set, execute immediately without popover
@@ -135,7 +137,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
       }
       setOpen((prev) => !prev);
     },
-    [isAuthenticated, login, quickBuyAmount, funToken, codexToken, executeFastSwap],
+    [isAuthenticated, quickBuyAmount, funToken, codexToken, executeFastSwap],
   );
 
   const handleBuy = useCallback(
@@ -187,50 +189,53 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   const isBusy = isLoading || buyingAmount !== null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          onClick={handleTriggerClick}
-          className="pulse-sol-btn"
-          disabled={isBusy}
+    <>
+      <NotLoggedInModal open={showLoginModal} onOpenChange={setShowLoginModal} />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            onClick={handleTriggerClick}
+            className="pulse-sol-btn"
+            disabled={isBusy}
+          >
+            {isBusy ? (
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            ) : (
+              <Zap className="h-2.5 w-2.5" />
+            )}
+            <span>{isBusy ? "Buying..." : quickBuyAmount ? `${quickBuyAmount} SOL` : "Buy"}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto p-2 bg-card border-border"
+          side="top"
+          align="end"
+          sideOffset={6}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
-          {isBusy ? (
-            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-          ) : (
-            <Zap className="h-2.5 w-2.5" />
-          )}
-          <span>{isBusy ? "Buying..." : quickBuyAmount ? `${quickBuyAmount} SOL` : "Buy"}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-2 bg-card border-border"
-        side="top"
-        align="end"
-        sideOffset={6}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-      >
-        <div className="flex items-center gap-1.5">
-          {PRESET_AMOUNTS.map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              disabled={isBusy}
-              onClick={(e) => handleBuy(amt, e)}
-              className="px-3 py-1.5 rounded-md text-[11px] font-mono font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              {buyingAmount === amt ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                `${amt} SOL`
-              )}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+          <div className="flex items-center gap-1.5">
+            {PRESET_AMOUNTS.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                disabled={isBusy}
+                onClick={(e) => handleBuy(amt, e)}
+                className="px-3 py-1.5 rounded-md text-[11px] font-mono font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                {buyingAmount === amt ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  `${amt} SOL`
+                )}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </>
   );
 });

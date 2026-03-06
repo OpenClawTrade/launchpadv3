@@ -1,21 +1,35 @@
 import { TokenCard, WalletBalanceCard } from "@/components/launchpad";
 import { TopPerformersToday } from "@/components/launchpad/TopPerformersToday";
+import { PulseColumnHeaderBar } from "@/components/launchpad/PulseColumnHeaderBar";
+import { PulseFiltersDialog } from "@/components/launchpad/PulseFiltersDialog";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
+import { usePulseFilters } from "@/hooks/usePulseFilters";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 
 const HEADER_LOGO_SRC = "/claw-logo.png";
 
 export default function LaunchpadPage() {
   const { tokens, isLoadingTokens } = useLaunchpad();
+  const { solPrice } = useSolPrice();
+  const { filters, activeFilterColumn, setActiveFilterColumn, updateFilter, resetFilter, hasActiveFilters, applyFilterToFunTokens } = usePulseFilters();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("new");
+  const [quickBuyAmount, setQuickBuyAmount] = useState(() => {
+    try { const v = localStorage.getItem("pulse-qb-P1"); if (v) { const n = parseFloat(v); if (n > 0) return n; } } catch {}
+    return 0.5;
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const handleQuickBuyChange = useCallback((amount: number) => {
+    setQuickBuyAmount(amount);
+  }, []);
   // Calculate "hotness" score for trending algorithm
   const calculateHotScore = (token: typeof tokens[0]) => {
     const now = Date.now();
@@ -171,6 +185,29 @@ export default function LaunchpadPage() {
         </Tabs>
       </header>
 
+      {/* Pulse Header Bar */}
+      <div className="max-w-4xl mx-auto px-4 pt-3">
+        <PulseColumnHeaderBar
+          label="Launchpad"
+          color="160 84% 39%"
+          icon={Rocket}
+          quickBuyAmount={quickBuyAmount}
+          onQuickBuyChange={handleQuickBuyChange}
+          onOpenFilters={() => setFiltersOpen(true)}
+          hasActiveFilters={hasActiveFilters("new")}
+        />
+      </div>
+
+      <PulseFiltersDialog
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        activeColumn={activeFilterColumn}
+        onColumnChange={setActiveFilterColumn}
+        onUpdate={updateFilter}
+        onReset={resetFilter}
+      />
+
       {/* Content */}
       {activeTab === "top" ? (
         <TopPerformersToday />
@@ -229,7 +266,7 @@ export default function LaunchpadPage() {
                 className="animate-fadeIn" 
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <TokenCard token={token as any} solPrice={null} />
+                <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
               </div>
             ))
           )}

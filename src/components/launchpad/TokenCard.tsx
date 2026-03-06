@@ -7,6 +7,7 @@ import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
 import { PhantomBadge } from "@/components/clawbook/PhantomBadge";
+import { PulseQuickBuyButton } from "@/components/launchpad/PulseQuickBuyButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ interface TokenCardProps {
   creatorUsername?: string | null;
   creatorAvatarUrl?: string | null;
   creatorVerified?: boolean;
+  quickBuyAmount?: number;
 }
 
 interface XProfileInfo {
@@ -55,7 +57,7 @@ function extractXUsername(twitterUrl?: string | null): string | null {
   }
 }
 
-export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creatorAvatarUrl, creatorVerified }: TokenCardProps) {
+export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creatorAvatarUrl, creatorVerified, quickBuyAmount }: TokenCardProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const [xProfile, setXProfile] = useState<XProfileInfo | null>(null);
@@ -312,6 +314,13 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
             />
           </div>
         </div>
+
+        {/* ── Quick Buy Button ── */}
+        {quickBuyAmount != null && (
+          <div className="mt-2 flex justify-end" onClick={e => e.preventDefault()}>
+            <PulseQuickBuyButton funToken={token} quickBuyAmount={quickBuyAmount} />
+          </div>
+        )}
       </div>
     </Link>
   );
