@@ -131,7 +131,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       setShowProfitCard(true);
 
       toast({
-        title: `${isBuy ? 'Buy' : 'Sell'} successful!`,
+        title: `✅ ${isBuy ? 'Buy' : 'Sell'} successful!`,
         description: (
           <div className="flex items-center gap-2 font-mono text-xs">
             <span>{isBuy ? `Bought ${token.ticker}` : `Sold ${token.ticker}`}</span>
@@ -142,6 +142,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
             )}
           </div>
         ),
+        variant: "default",
       });
 
       if (result.graduated) {

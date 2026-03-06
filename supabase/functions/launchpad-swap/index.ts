@@ -206,6 +206,34 @@ serve(async (req) => {
         volume_sol: solAmount, interval_type: '1m', timestamp: new Date().toISOString(),
       });
 
+      // Insert into alpha_trades for the Alpha Tracker feed
+      try {
+        let traderDisplayName: string | null = null;
+        let traderAvatarUrl: string | null = null;
+        if (profileId) {
+          const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", profileId).single();
+          if (profile) {
+            traderDisplayName = profile.display_name;
+            traderAvatarUrl = profile.avatar_url;
+          }
+        }
+        await supabase.from("alpha_trades").insert({
+          wallet_address: userWallet,
+          token_mint: token.mint_address,
+          token_name: token.name,
+          token_ticker: token.ticker,
+          trade_type: isBuy ? "buy" : "sell",
+          amount_sol: solAmount,
+          amount_tokens: tokenAmount,
+          price_usd: null,
+          tx_hash: clientSignature,
+          trader_display_name: traderDisplayName,
+          trader_avatar_url: traderAvatarUrl,
+        });
+      } catch (alphaErr) {
+        console.warn("[launchpad-swap] alpha_trades insert failed (non-fatal):", alphaErr);
+      }
+
       // Record referral reward if trader has a referrer (5% of system fee)
       if (profileId && systemFee > 0) {
         try {
@@ -463,6 +491,34 @@ serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .eq("token_id", token.id).gt("balance", 0);
     await supabase.from("tokens").update({ holder_count: holderCount || 0 }).eq("id", token.id);
+
+    // Insert into alpha_trades for the Alpha Tracker feed (legacy mode)
+    try {
+      let traderDisplayName: string | null = null;
+      let traderAvatarUrl: string | null = null;
+      if (profileId) {
+        const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", profileId).single();
+        if (profile) {
+          traderDisplayName = profile.display_name;
+          traderAvatarUrl = profile.avatar_url;
+        }
+      }
+      await supabase.from("alpha_trades").insert({
+        wallet_address: userWallet,
+        token_mint: token.mint_address,
+        token_name: token.name,
+        token_ticker: token.ticker,
+        trade_type: isBuy ? "buy" : "sell",
+        amount_sol: solAmount,
+        amount_tokens: tokenAmount,
+        price_usd: null,
+        tx_hash: signature,
+        trader_display_name: traderDisplayName,
+        trader_avatar_url: traderAvatarUrl,
+      });
+    } catch (alphaErr) {
+      console.warn("[launchpad-swap] alpha_trades insert failed (non-fatal):", alphaErr);
+    }
 
     // Record referral reward for legacy mode too
     if (profileId && systemFee > 0) {

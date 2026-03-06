@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 
 interface Announcement {
@@ -69,21 +69,9 @@ export function useAnnouncements() {
 
     unseen.forEach((a, i) => {
       setTimeout(() => {
-        const toastTitle = `${a.emoji || "📢"} ${a.title}`;
-        toast(toastTitle, {
+        toast({
+          title: `${a.emoji || "📢"} ${a.title}`,
           description: a.description || undefined,
-          action: a.action_label && a.action_url
-            ? {
-                label: a.action_label,
-                onClick: () => {
-                  if (a.action_url!.startsWith("http")) {
-                    window.open(a.action_url!, "_blank");
-                  } else {
-                    navigate(a.action_url!);
-                  }
-                },
-              }
-            : undefined,
           duration: 8000,
         });
         markSeen(a.id);
