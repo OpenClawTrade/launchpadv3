@@ -6103,6 +6103,54 @@ export type Database = {
           },
         ]
       }
+      referral_rewards: {
+        Row: {
+          created_at: string | null
+          id: string
+          referred_id: string
+          referrer_id: string
+          reward_pct: number
+          reward_sol: number
+          trade_signature: string | null
+          trade_sol_amount: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          referred_id: string
+          referrer_id: string
+          reward_pct?: number
+          reward_sol?: number
+          trade_signature?: string | null
+          trade_sol_amount?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+          reward_pct?: number
+          reward_sol?: number
+          trade_signature?: string | null
+          trade_sol_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_rewards_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referrals: {
         Row: {
           created_at: string | null
@@ -6110,6 +6158,7 @@ export type Database = {
           referred_id: string
           referred_wallet: string | null
           referrer_id: string
+          total_rewards_sol: number | null
         }
         Insert: {
           created_at?: string | null
@@ -6117,6 +6166,7 @@ export type Database = {
           referred_id: string
           referred_wallet?: string | null
           referrer_id: string
+          total_rewards_sol?: number | null
         }
         Update: {
           created_at?: string | null
@@ -6124,6 +6174,7 @@ export type Database = {
           referred_id?: string
           referred_wallet?: string | null
           referrer_id?: string
+          total_rewards_sol?: number | null
         }
         Relationships: [
           {
@@ -9476,6 +9527,15 @@ export type Database = {
           total_mcap_sol: number
         }[]
       }
+      get_referral_stats: {
+        Args: { p_referrer_id: string }
+        Returns: {
+          rewards_this_month: number
+          total_referrals: number
+          total_rewards_sol: number
+        }[]
+      }
+      get_referrer_for_user: { Args: { p_user_id: string }; Returns: string }
       get_suggested_users: {
         Args: { current_user_id: string; limit_count?: number }
         Returns: {

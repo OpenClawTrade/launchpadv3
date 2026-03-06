@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -39,6 +39,67 @@ export function useReferralCode() {
     : null;
 
   return { referralCode, referralLink, referralCount, loading };
+}
+
+/**
+ * Full referral dashboard stats
+ */
+export function useReferralDashboard() {
+  const { profileId } = useAuth();
+  const [stats, setStats] = useState<{
+    totalReferrals: number;
+    totalRewardsSol: number;
+    rewardsThisMonth: number;
+  }>({ totalReferrals: 0, totalRewardsSol: 0, rewardsThisMonth: 0 });
+  const [recentReferrals, setRecentReferrals] = useState<any[]>([]);
+  const [recentRewards, setRecentRewards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!profileId) return;
+    setLoading(true);
+
+    (async () => {
+      try {
+        // Get stats
+        const { data: statsData } = await supabase.rpc("get_referral_stats", {
+          p_referrer_id: profileId,
+        });
+        if (statsData && Array.isArray(statsData) && statsData.length > 0) {
+          const s = statsData[0];
+          setStats({
+            totalReferrals: Number(s.total_referrals) || 0,
+            totalRewardsSol: Number(s.total_rewards_sol) || 0,
+            rewardsThisMonth: Number(s.rewards_this_month) || 0,
+          });
+        }
+
+        // Recent referrals
+        const { data: refs } = await supabase
+          .from("referrals")
+          .select("id, referred_id, referred_wallet, created_at")
+          .eq("referrer_id", profileId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        setRecentReferrals(refs ?? []);
+
+        // Recent rewards
+        const { data: rewards } = await supabase
+          .from("referral_rewards")
+          .select("id, trade_sol_amount, reward_sol, reward_pct, created_at")
+          .eq("referrer_id", profileId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        setRecentRewards(rewards ?? []);
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [profileId]);
+
+  return { stats, recentReferrals, recentRewards, loading };
 }
 
 /**
