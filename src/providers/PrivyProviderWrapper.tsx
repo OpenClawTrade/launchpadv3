@@ -36,36 +36,44 @@ function getHeliusRpcUrlFromRuntime(): string | null {
   const isValidHttpsUrl = (value?: string | null) =>
     !!value && value.startsWith("https://") && !value.includes("${");
 
+  const isBrowser = typeof window !== "undefined";
+
   // 1) runtime config on window (freshest)
-  if (typeof window !== "undefined") {
+  if (isBrowser) {
     const fromWindow = (window as any)?.__PUBLIC_CONFIG__?.heliusRpcUrl as string | undefined;
     if (isValidHttpsUrl(fromWindow)) {
       return fromWindow!.trim();
     }
-  }
 
-  // 2) build-time env
-  const fromEnv = import.meta.env.VITE_HELIUS_RPC_URL;
-  if (isValidHttpsUrl(fromEnv)) {
-    return fromEnv!.trim();
-  }
+    // Avoid stale baked env keys before runtime config finishes loading.
+    const runtimeLoaded = !!(window as any)?.__PUBLIC_CONFIG_LOADED__;
+    if (!runtimeLoaded) {
+      const fromStorage = localStorage.getItem("heliusRpcUrl");
+      if (isValidHttpsUrl(fromStorage)) return fromStorage!.trim();
+      return "https://mainnet.helius-rpc.com";
+    }
 
-  // 3) api key -> construct paid Helius URL
-  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
-  if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10 && !apiKey.includes("${")) {
-    return `https://mainnet.helius-rpc.com/?api-key=${apiKey.trim()}`;
-  }
-
-  // 4) localStorage cache (last to avoid stale keys)
-  if (typeof window !== "undefined") {
+    // runtime loaded but window config missing: try persisted URL
     const fromStorage = localStorage.getItem("heliusRpcUrl");
     if (isValidHttpsUrl(fromStorage)) {
       return fromStorage!.trim();
     }
   }
 
-  // 5) fallback
-  return "https://mainnet.helius-rpc.com/?api-key=placeholder-upgrade-helius";
+  // 2) build-time env (last resort)
+  const fromEnv = import.meta.env.VITE_HELIUS_RPC_URL;
+  if (isValidHttpsUrl(fromEnv)) {
+    return fromEnv!.trim();
+  }
+
+  // 3) api key -> construct paid Helius URL (last resort)
+  const apiKey = import.meta.env.VITE_HELIUS_API_KEY;
+  if (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10 && !apiKey.includes("${")) {
+    return `https://mainnet.helius-rpc.com/?api-key=${apiKey.trim()}`;
+  }
+
+  // 4) fallback
+  return "https://mainnet.helius-rpc.com";
 }
 
 function toWebsocketUrl(httpUrl: string): string {

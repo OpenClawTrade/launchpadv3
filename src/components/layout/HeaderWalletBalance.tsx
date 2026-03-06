@@ -26,7 +26,7 @@ function HeaderWalletBalanceInner() {
   useEffect(() => {
     if (!embeddedAddress) return;
     const fetchProfile = async () => {
-      const { data } = await (supabase as any).from("profiles").select("display_name, avatar_url").eq("wallet_address", embeddedAddress).maybeSingle();
+      const { data } = await (supabase as any).from("profiles").select("display_name, avatar_url").eq("solana_wallet_address", embeddedAddress).maybeSingle();
       if (data) setProfile(data);
     };
     fetchProfile();

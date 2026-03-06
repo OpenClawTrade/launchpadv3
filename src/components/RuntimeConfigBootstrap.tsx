@@ -11,6 +11,7 @@ declare global {
   interface Window {
     __PUBLIC_CONFIG__?: PublicConfig;
     __PUBLIC_CONFIG_LOADED__?: boolean;
+    __RUNTIME_RPC_URL?: string;
   }
 }
 
@@ -75,6 +76,9 @@ export function RuntimeConfigBootstrap() {
         // Store to window
         window.__PUBLIC_CONFIG__ = cfg;
         window.__PUBLIC_CONFIG_LOADED__ = true;
+        if (cfg.heliusRpcUrl) {
+          window.__RUNTIME_RPC_URL = cfg.heliusRpcUrl;
+        }
 
         // Persist to localStorage for next page load
         if (cfg.meteoraApiUrl) {
