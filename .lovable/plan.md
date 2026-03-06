@@ -1,82 +1,93 @@
 
 
-## Merch Store for Saturn Trade
+## Redesign: KingCard Token Card (King of the Hill)
 
-Build a full merch store at `/merch` with Solana payment checkout. The uploaded logo (transparent background version) will be placed on all merchandise mockups.
+Based on the reference screenshot and the listed issues, the KingCard in `KingOfTheHill.tsx` needs a visual overhaul. The `CodexPairRow` (Pulse terminal list card) is a separate component — the screenshot clearly shows the KingCard layout (vertical card with image, mcap, progress bar, quick buy button).
 
----
+### Problems Identified
 
-### What Gets Built
+1. **X/Twitter handle**: When missing, no placeholder shown → layout shifts between cards
+2. **Quick Buy button**: Uses generic `pulse-sol-btn` class (chartreuse pill) — doesn't match the prominent yellow-gold button in the reference screenshot
+3. **Progress bar**: Label and percentage too small, bar too thin (6px)
+4. **Visual hierarchy**: MCap price doesn't pop enough, change % is small
+5. **Mobile cramping**: Card padding and text sizing not optimized
+6. **Card hover**: Decent but can be improved with glow
 
-**1. New Assets**
-- Copy `user-uploads://FullLogo_Transparent-2.png` → `src/assets/saturn-merch-logo.png` (transparent logo for product mockups)
-- Copy `user-uploads://image-537.png` → `public/saturn-og-merch.png` (dark logo for OG/social)
+### Changes — `src/components/launchpad/KingOfTheHill.tsx`
 
-**2. New Page: `src/pages/MerchStorePage.tsx`**
-- Professional merch grid with product cards
-- Hardcoded product catalog (no DB needed): T-Shirts, Hoodies, Hats, Stickers, Mugs, Phone Cases
-- Each product has: image mockup with Saturn logo overlay, name, price in SOL, size/color variants
-- "Add to Cart" functionality with local state
-- Cart drawer/sidebar showing items, quantities, total SOL
-- Checkout flow: collect shipping info (name, address, email) → generate Solana payment transaction → confirmation page
-- No auth required — anyone can browse and buy
-- Payment via SOL transfer to treasury wallet address (memo with order ID)
+**1. X handle fallback (line ~251-259)**
+- Always show X icon row. If no `xUser`, display `— None` in muted text
+- Prevents layout shift when some cards have handles and others don't
 
-**3. Product Cards**
-- Saturn-themed dark cards matching `claw-theme` styling
-- Product image with the Saturn logo overlaid (CSS positioned)
-- Price displayed in SOL with USD estimate (using existing `useSolPrice` hook)
-- Size selector for apparel (S/M/L/XL/2XL)
-- Color options where applicable
+**2. Quick Buy button styling**
+- Replace the generic `PulseQuickBuyButton` wrapper div with a styled container
+- Add new CSS class `king-quick-buy-btn` in `src/index.css` with:
+  - Gold gradient background (`#F4C430 → #FFB300`)
+  - White bold text, 13px font
+  - `border-radius: 12px`, padding `8px 20px`
+  - Hover: `scale(1.03)`, `box-shadow: 0 0 16px rgba(244,196,48,0.4)`
+  - Same height as "Trade" button
+- Place "Trade" and "Quick Buy" side-by-side with equal flex, gap-2
 
-**4. Checkout Process**
-- Step 1: Cart review (quantities, sizes, totals)
-- Step 2: Shipping form (name, email, address, city, state, zip, country)
-- Step 3: Payment — show SOL amount, user sends transaction via Privy wallet (or any connected Solana wallet)
-- Step 4: Confirmation with order number and tx signature
-- Orders saved to a new `merch_orders` database table for fulfillment tracking
+**3. Progress bar improvements**
+- Increase height from 6px to 8px
+- "BONDING PROGRESS" label left-aligned, percentage right-aligned, both `text-[10px]` uppercase mono
+- Match the reference screenshot layout exactly
 
-**5. Database: `merch_orders` table**
-```sql
-CREATE TABLE public.merch_orders (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_number text UNIQUE NOT NULL,
-  buyer_wallet text,
-  buyer_email text NOT NULL,
-  shipping_name text NOT NULL,
-  shipping_address jsonb NOT NULL,
-  items jsonb NOT NULL,
-  total_sol numeric NOT NULL,
-  tx_signature text,
-  status text DEFAULT 'pending',
-  created_at timestamptz DEFAULT now()
-);
--- Public insert (anyone can place order), admin select
-ALTER TABLE public.merch_orders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can insert orders" ON public.merch_orders FOR INSERT WITH CHECK (true);
+**4. MCap visual hierarchy**
+- MCap price: bump to `text-xl` bold
+- Change % displayed as colored pill/badge next to price (red/green bg)
+
+**5. Card layout & spacing**
+- Token image: larger, aspect-ratio preserved, rounded-xl
+- Description line: 2-line clamp if description exists
+- CA address with copy button inline
+- Consistent 20px padding, gap-4 between sections
+
+**6. Mobile responsive**
+- On screens < 380px, Trade + QuickBuy stack vertically
+- Use `clamp()` for key font sizes
+
+### Changes — `src/index.css`
+
+Add new CSS class:
+```css
+.king-quick-buy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #F4C430, #FFB300);
+  color: #fff;
+  transition: all 200ms ease;
+  flex-shrink: 0;
+}
+.king-quick-buy-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 16px rgba(244,196,48,0.4);
+}
+.king-quick-buy-btn:active {
+  transform: scale(0.97);
+}
+.king-quick-buy-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 ```
 
-**6. Navigation**
-- Add "Merch" link to `Sidebar.tsx` NAV_LINKS array (using `ShoppingBag` icon from lucide)
-- Add route `/merch` → `MerchStorePage` in `App.tsx`
-
-**7. Components Structure**
-- `src/components/merch/ProductCard.tsx` — individual product display
-- `src/components/merch/CartDrawer.tsx` — slide-out cart
-- `src/components/merch/CheckoutFlow.tsx` — multi-step checkout
-- `src/components/merch/MerchHeader.tsx` — store header with cart icon + count
-
----
-
-### Files to Create
-- `src/pages/MerchStorePage.tsx`
-- `src/components/merch/ProductCard.tsx`
-- `src/components/merch/CartDrawer.tsx`
-- `src/components/merch/CheckoutFlow.tsx`
-- `src/assets/saturn-merch-logo.png`
-
 ### Files to Modify
-- `src/App.tsx` — add route
-- `src/components/layout/Sidebar.tsx` — add Merch nav link
-- Database migration — create `merch_orders` table
+- `src/components/launchpad/KingOfTheHill.tsx` — KingCard component rewrite
+- `src/index.css` — Add `king-quick-buy-btn` styles
+- `src/components/launchpad/PulseQuickBuyButton.tsx` — No changes (reused as-is, just wrapper styling changes)
+
+### What Will NOT Change
+- Overall KingOfTheHill container/layout (3-column row)
+- Rank badge system / glow logic
+- PulseQuickBuyButton internal logic (swap, popover, auth)
+- CodexPairRow component (separate card, not in scope)
+- No new features added
 
