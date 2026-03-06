@@ -111,7 +111,7 @@ export default function DiscoverPage() {
             <div>
               <h1 className="text-[15px] font-bold text-foreground tracking-tight">Top Last 6 Hour Trending Coins</h1>
               <p className="text-[10px] text-muted-foreground font-mono">
-                DexScreener top boosted · Solana · Updates every 2 min
+                Top boosted · Solana · Updates every 2 min
               </p>
             </div>
           </div>
