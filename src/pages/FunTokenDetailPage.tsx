@@ -324,22 +324,30 @@ export default function FunTokenDetailPage() {
   const { solanaAddress } = useAuth();
   const privyAvailable = usePrivyAvailable();
   const { solPrice } = useSolPrice();
+  const { bnbPrice } = useBnbPrice();
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('chart');
+
+  // Detect if this is a BSC token (0x prefix)
+  const isBsc = isEvmAddress(mintAddress || '');
+  const networkId = isBsc ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  const activePrice = isBsc ? bnbPrice : solPrice;
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   
   // Fallback: fetch from Codex if not in our database
   const { data: externalToken, isLoading: externalLoading } = useExternalToken(
     mintAddress || '',
-    !isLoading && !token
+    !isLoading && !token,
+    networkId
   );
 
   // Also fetch Codex data for internal tokens — gives accurate price, holders, mcap
   const { data: codexEnrichment } = useExternalToken(
     mintAddress || '',
-    !!token && !!mintAddress
+    !!token && !!mintAddress,
+    networkId
   );
 
   const { data: livePoolState, refetch: refetchPoolState } = usePoolState({
@@ -431,7 +439,7 @@ export default function FunTokenDetailPage() {
 
   // External token (not in our DB but found on-chain via Codex)
   if (!token && externalToken) {
-    return <ExternalTokenView token={externalToken} mintAddress={mintAddress || ''} solPrice={solPrice} />;
+    return <ExternalTokenView token={externalToken} mintAddress={mintAddress || ''} solPrice={activePrice} isBsc={isBsc} />;
   }
 
   // Not found anywhere
