@@ -1,62 +1,49 @@
 
 
-## Two Features: Trade Latency Indicator + Verification Popup
+## Investigation Results
 
-### 1. Trade Latency Indicator
+That notification popup on the right side comes from **Sonner** (the toast library). It's triggered in `src/pages/ClawBookPage.tsx` (line 49) — a one-time "Claw Console is LIVE!" toast that fires 1.5 seconds after visiting the page, stored in `sessionStorage` so it only shows once per session.
 
-Add a small latency badge to both trade panels that shows milliseconds from click to transaction submission after each trade.
+The styling comes from `src/components/ui/sonner.tsx` which applies the dark glassmorphic theme to all Sonner toasts.
 
-**Changes:**
+## Plan: Announcement System + Live Trade Notifications
 
-**`src/hooks/useFastSwap.ts`** — Return the last latency value from state:
-- Add `lastLatencyMs` state (number | null)
-- Set it in `executeFastSwap` after `performance.now() - t0`
-- Return it from the hook
+### 1. Create a Global Announcement Toast System
 
-**`src/components/launchpad/PulseQuickBuyButton.tsx`** — Show latency after trade:
-- Read `lastLatencyMs` from `useFastSwap()`
-- After a successful trade, show the latency in the success toast description: `"TX: abc123... · 642ms"`
+**New file: `src/hooks/useAnnouncements.ts`**
+- Query a new `announcements` table for active announcements
+- Show each unseen announcement as a styled Sonner toast (with action button)
+- Track seen announcements in `localStorage` by ID
+- Run globally from `App.tsx` or `MainLayout` so it works on every page
 
-**`src/components/launchpad/UniversalTradePanel.tsx`** — Show latency indicator:
-- Add a small `lastLatencyMs` state, set it after `handleTrade` completes
-- Display a subtle monospace badge below the trade button: `"⚡ 642ms"` that fades after 5 seconds
-- Style: `text-[10px] font-mono text-primary/60`
+**Database migration** — Create `announcements` table:
+- `id`, `title`, `description`, `action_label`, `action_url`, `emoji`, `is_active`, `created_at`, `expires_at`
+- No RLS needed (public read)
+- You can insert new rows to create announcements — they'll show to all users automatically
 
-### 2. Verification Popup (Link Email + X Account)
+### 2. Live Trade Notification Toasts
 
-Create a modal that lets users link their email and X (Twitter) account via Privy, earning a verified badge on their profile. Styled like the reference screenshot — dark card, uppercase headers, olive/yellow CTA.
+**New file: `src/hooks/useLiveTradeToasts.ts`**
+- Subscribe to realtime `INSERT` events on `launchpad_transactions`
+- On each new trade, fetch the token name (from cache or quick lookup) and the trader's wallet/username
+- Show a compact Sonner toast: `"🟢 user123 bought 1.2 SOL of $TOKEN"` / `"🔴 user456 sold 0.5 SOL of $TOKEN"`
+- Rate-limit to max 1 toast per 3 seconds to avoid spam during high volume
+- Truncate wallet to `abc...xyz` format, use username if `user_profile_id` is available
 
-**New file: `src/components/launchpad/VerifyAccountModal.tsx`**
-- Dialog with header "ADD CELEBRITY LINKS" (or "VERIFY YOUR ACCOUNT")
-- Description text explaining the benefit (trust badge, verified status)
-- **Link X Account** button — calls `usePrivy().linkTwitter()`
-- **Link Email** button — calls `usePrivy().linkEmail()`
-- Shows current linked status (checkmark if already linked)
-- "I'M A CELEBRITY AND I WANT TO CONNECT MY TWITTER" bold text section
-- "ADD LINKS" CTA button (olive/yellow bg matching reference)
-- Terms text at bottom
-- On successful link, update `profiles.verified_type` to `'blue'` via a backend call
+**Integration**: Mount the hook in `MainLayout.tsx` so trade toasts appear globally across all pages.
 
-**Database migration:**
-- Ensure `profiles.verified_type` column exists (it already does based on existing code)
-- No new tables needed
+### 3. Remove Hardcoded ClawBook Announcement
 
-**Integration points:**
-- Add a "Verify Account" button in `UserProfilePage.tsx` (when viewing own profile)
-- Add the modal trigger in the header dropdown / settings area
-- When X is linked, show the X verified badge (VerifiedBadge component) on the user's profile page using the existing `verified_type` field
-
-**`src/pages/UserProfilePage.tsx`** — Show VerifiedBadge properly:
-- Replace the generic `CheckCircle` icon with the existing `VerifiedBadge` component
-- Add "Verify Account" button when the logged-in user views their own profile
+**File: `src/pages/ClawBookPage.tsx`**
+- Remove the hardcoded "Claw Console is LIVE!" toast (lines 43-58) since announcements will now come from the database
 
 ### Files Summary
 
 | File | Action |
 |------|--------|
-| `src/hooks/useFastSwap.ts` | Edit — add `lastLatencyMs` state + return |
-| `src/components/launchpad/PulseQuickBuyButton.tsx` | Edit — show latency in success toast |
-| `src/components/launchpad/UniversalTradePanel.tsx` | Edit — show latency badge after trade |
-| `src/components/launchpad/VerifyAccountModal.tsx` | Create — email + X verification popup |
-| `src/pages/UserProfilePage.tsx` | Edit — add verify button + proper VerifiedBadge |
+| `src/hooks/useAnnouncements.ts` | Create — DB-driven announcement toasts |
+| `src/hooks/useLiveTradeToasts.ts` | Create — realtime trade notification toasts |
+| `src/components/layout/MainLayout.tsx` | Edit — mount both hooks globally |
+| `src/pages/ClawBookPage.tsx` | Edit — remove hardcoded announcement |
+| Database migration | Create `announcements` table |
 
