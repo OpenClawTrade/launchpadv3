@@ -1,5 +1,5 @@
 import { useAccount, useBalance, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { base, bsc } from 'wagmi/chains';
 import { formatEther } from 'viem';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 
@@ -26,6 +26,7 @@ export function useEvmWallet() {
   });
 
   const isOnBase = chainId === base.id;
+  const isOnBnb = chainId === bsc.id;
 
   const balance = balanceData 
     ? parseFloat(formatEther(balanceData.value)).toFixed(4) 
@@ -34,6 +35,12 @@ export function useEvmWallet() {
   const switchToBase = async () => {
     if (switchChain) {
       await switchChain({ chainId: base.id });
+    }
+  };
+
+  const switchToBnb = async () => {
+    if (switchChain) {
+      await switchChain({ chainId: bsc.id });
     }
   };
 
@@ -57,8 +64,10 @@ export function useEvmWallet() {
     balanceRaw: balanceData?.value,
     isBalanceLoading,
     isOnBase,
+    isOnBnb,
     connect,
     disconnect,
     switchToBase,
+    switchToBnb,
   };
 }

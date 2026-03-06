@@ -9113,6 +9113,24 @@ export type Database = {
         }
         Returns: string
       }
+      backend_create_bnb_token: {
+        Args: {
+          p_creator_fee_bps?: number
+          p_creator_wallet: string
+          p_description?: string
+          p_evm_factory_tx_hash: string
+          p_evm_pool_address: string
+          p_evm_token_address: string
+          p_fair_launch_duration_mins?: number
+          p_image_url?: string
+          p_name: string
+          p_starting_mcap_usd?: number
+          p_ticker: string
+          p_twitter_url?: string
+          p_website_url?: string
+        }
+        Returns: string
+      }
       backend_create_fee_earner: {
         Args: {
           p_earner_type: string

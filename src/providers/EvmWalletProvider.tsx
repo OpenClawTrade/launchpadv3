@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { base, mainnet } from 'wagmi/chains';
+import { base, mainnet, bsc } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, getDefaultConfig, darkTheme } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -9,10 +9,11 @@ import '@rainbow-me/rainbowkit/styles.css';
 const config = getDefaultConfig({
   appName: 'Claw Mode',
   projectId: 'claw-launchpad-base', // WalletConnect project ID (can be updated)
-  chains: [base, mainnet],
+  chains: [base, mainnet, bsc],
   transports: {
     [base.id]: http('https://mainnet.base.org'),
     [mainnet.id]: http('https://eth.llamarpc.com'),
+    [bsc.id]: http('https://bsc-dataseed.binance.org'),
   },
   ssr: false,
 });

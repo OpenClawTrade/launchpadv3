@@ -21,6 +21,7 @@ import { useChainRoute } from "@/hooks/useChainRoute";
 import { useChain } from "@/contexts/ChainContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BaseLauncher } from "@/components/launchpad/BaseLauncher";
+import { BnbLauncher } from "@/components/launchpad/BnbLauncher";
 import { LaunchCountdown } from "@/components/LaunchCountdown";
 import { PromoteModal } from "@/components/launchpad/PromoteModal";
 import { CreateTokenModal } from "@/components/launchpad/CreateTokenModal";
@@ -204,8 +205,13 @@ export default function FunLauncherPage() {
           <div className="p-4"><BaseLauncher /></div>
         )}
 
-        {/* Coming Soon for non-Solana, non-base */}
-        {!isSolana && chain !== 'base' && (
+        {/* BNB Chain Launcher */}
+        {chain === 'bnb' && (
+          <div className="p-4"><BnbLauncher /></div>
+        )}
+
+        {/* Coming Soon for non-Solana, non-base, non-bnb */}
+        {!isSolana && chain !== 'base' && chain !== 'bnb' && (
           <div className="flex flex-col items-center justify-center flex-1 py-20 space-y-4">
             <AlertCircle className="h-12 w-12 text-primary" />
             <h2 className="text-xl font-bold text-white">{chainConfig.name} Coming Soon</h2>

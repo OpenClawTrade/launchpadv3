@@ -53,7 +53,8 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     nativeCurrency: { symbol: 'BNB', decimals: 18 },
     explorerUrl: 'https://bscscan.com',
     chainId: 56,
-    isEnabled: false, // Coming soon
+    isEnabled: true,
+    rpcUrl: 'https://bsc-dataseed.binance.org',
   },
 };
 
