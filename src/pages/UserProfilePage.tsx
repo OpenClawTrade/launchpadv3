@@ -8,6 +8,8 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { VerifyAccountModal } from "@/components/launchpad/VerifyAccountModal";
+import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { useQueryClient } from "@tanstack/react-query";
 
 function truncateWallet(addr: string | null) {
   if (!addr) return "—";
