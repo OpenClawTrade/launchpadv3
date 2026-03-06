@@ -1,45 +1,34 @@
 
 
-## Two Issues to Fix
+## Plan: Add Portfolio Page to Wallet Dropdown Menu
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+### Problem
+The wallet dropdown menu (screenshot) has no "Portfolio" option. The user wants a dedicated portfolio view accessible from this menu showing all active token holdings with one-click sell (individually or all at once).
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+### What will be built
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+**1. New Portfolio Modal/Page** (`src/components/portfolio/PortfolioModal.tsx`)
+- A full-screen modal (consistent with AccountSecurityModal pattern) showing all active holdings
+- Each holding row shows: token image, name, ticker, balance, value in SOL, and a **"Sell 100%"** button
+- A **"Sell All Positions"** button at the top to dump every holding in sequence
+- Uses existing `useUserHoldings` hook to fetch holdings with token data
+- Uses existing `useFastSwap` hook (`executeFastSwap`) to execute sells — routes through Meteora (bonding) or Jupiter (graduated) automatically
+- Progress indicator showing sell status per token during batch sell
+- Holdings with zero balance are already filtered by the query (`gt('balance', 0)`)
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+**2. Add "Portfolio" menu item to wallet dropdown** (`src/components/layout/HeaderWalletBalance.tsx`)
+- Add a new `MenuItem` with a `Wallet` or `Briefcase` icon between "Settings" and "Pulse"
+- Opens the PortfolioModal (same pattern as settings/account modals)
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+### Technical details
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+- **Sell mechanism**: For each holding, call `executeFastSwap(token, balance, false)` with `isBuy=false`. The token object needs `status`, `mint_address`, `dbc_pool_address` — the holdings query already joins the `tokens` table with these fields (need to add `dbc_pool_address` and `status` to the select).
+- **Batch sell**: Sequential execution with a progress state array tracking `idle | pending | success | error` per holding.
+- **Holdings query enhancement**: The current `useUserHoldings` select needs `dbc_pool_address`, `virtual_sol_reserves`, `virtual_token_reserves`, `total_supply`, `graduation_threshold_sol`, `market_cap_sol`, `volume_24h_sol`, `holder_count` added to enable constructing a full `Token` object for the swap hook.
+- **One-click individual sell**: Each row gets a red "Sell" button that sells 100% of that token's balance.
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
-
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
-
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
-
-### Technical Details
-
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
-
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
-
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+### Files to create/modify
+1. **Create** `src/components/portfolio/PortfolioModal.tsx` — modal with holdings list + sell buttons
+2. **Modify** `src/components/layout/HeaderWalletBalance.tsx` — add Portfolio menu item + modal state
+3. **Modify** `src/hooks/useLaunchpad.ts` — expand the `tokens` join in `useUserHoldings` to include fields needed for swap execution
 
