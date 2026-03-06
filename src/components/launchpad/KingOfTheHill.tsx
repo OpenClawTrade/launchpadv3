@@ -1,16 +1,18 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check } from "lucide-react";
+import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check, Zap } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PumpBadge } from "@/components/clawbook/PumpBadge";
 import { BagsBadge } from "@/components/clawbook/BagsBadge";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useVisitorTracking } from "@/hooks/useVisitorTracking";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { copyToClipboard } from "@/lib/clipboard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { PulseQuickBuyButton } from "@/components/launchpad/PulseQuickBuyButton";
+import type { FunToken } from "@/hooks/useFunTokensPaginated";
 
 /* ── rank config ── */
 const RANKS = [
@@ -83,9 +85,46 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
+function kingToFunToken(t: KingToken): FunToken {
+  return {
+    id: t.id,
+    name: t.name,
+    ticker: t.ticker,
+    image_url: t.image_url,
+    mint_address: t.mint_address,
+    dbc_pool_address: t.dbc_pool_address,
+    status: t.status as any,
+    bonding_progress: t.bonding_progress ?? 0,
+    market_cap_sol: t.market_cap_sol ?? 0,
+    holder_count: t.holder_count ?? 0,
+    trading_fee_bps: t.trading_fee_bps ?? 0,
+    fee_mode: t.fee_mode ?? null,
+    agent_id: t.agent_id ?? null,
+    launchpad_type: t.launchpad_type ?? null,
+    trading_agent_id: t.trading_agent_id ?? null,
+    is_trading_agent_token: t.is_trading_agent_token ?? false,
+    creator_wallet: t.creator_wallet ?? null,
+    twitter_url: t.twitter_url ?? null,
+    twitter_avatar_url: t.twitter_avatar_url ?? null,
+    twitter_verified: t.twitter_verified ?? false,
+    twitter_verified_type: t.twitter_verified_type ?? null,
+    telegram_url: t.telegram_url ?? null,
+    website_url: t.website_url ?? null,
+    discord_url: t.discord_url ?? null,
+    created_at: t.created_at,
+    price_sol: 0,
+    volume_24h_sol: 0,
+    description: null,
+    total_fees_earned: 0,
+    last_distribution_at: null,
+    updated_at: t.created_at,
+  } as unknown as FunToken;
+}
+
 /* ── premium card ── */
-function KingCard({ token, rank }: { token: KingToken; rank: number }) {
+function KingCard({ token, rank, quickBuyAmount }: { token: KingToken; rank: number; quickBuyAmount: number }) {
   const navigate = useNavigate();
+  const funToken = useMemo(() => kingToFunToken(token), [token]);
   const [blink, setBlink] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -267,17 +306,22 @@ function KingCard({ token, rank }: { token: KingToken; rank: number }) {
 
       {/* Bottom Tools Row */}
       <div className="flex items-center justify-between pt-2 border-t border-border/10">
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(url); }}
-          className={cn(
-            "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
-            "bg-primary/10 text-primary hover:bg-primary/20",
-            "border border-primary/20 hover:border-primary/40",
-          )}
-        >
-          <TrendingUp className="w-3 h-3" />
-          Trade
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(url); }}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200",
+              "bg-primary/10 text-primary hover:bg-primary/20",
+              "border border-primary/20 hover:border-primary/40",
+            )}
+          >
+            <TrendingUp className="w-3 h-3" />
+            Trade
+          </button>
+          <div onClick={e => e.stopPropagation()}>
+            <PulseQuickBuyButton funToken={funToken} quickBuyAmount={quickBuyAmount} />
+          </div>
+        </div>
 
         <div className="flex items-center gap-1.5">
           {/* Social Links */}
@@ -384,6 +428,13 @@ function KingCardSkeleton() {
 export function KingOfTheHill() {
   const { tokens, isLoading } = useKingOfTheHill();
   const { onlineCount } = useVisitorTracking();
+  const [quickBuyAmount] = useState(() => {
+    try {
+      const v = localStorage.getItem("pulse-quick-buy-amount");
+      if (v) { const n = parseFloat(v); if (n > 0 && isFinite(n)) return n; }
+    } catch {}
+    return 0.5;
+  });
 
   return (
     <div className="w-full">
@@ -414,7 +465,7 @@ export function KingOfTheHill() {
       <div className="flex flex-col md:flex-row gap-4">
         {isLoading
           ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
-          : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} />)
+          : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} quickBuyAmount={quickBuyAmount} />)
         }
       </div>
     </div>
