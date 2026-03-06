@@ -115,7 +115,7 @@ function TokenRow({ token, quickBuyAmount }: { token: TrendingToken; quickBuyAmo
         <PriceChange value={token.priceChange6h} />
       </td>
       <td className="py-2 px-2 text-right" onClick={e => e.stopPropagation()}>
-        <PulseQuickBuyButton codexToken={codexToken} quickBuyAmount={quickBuyAmount} />
+        <PulseQuickBuyButton codexToken={codexToken} quickBuyAmount={quickBuyAmount} isCompact />
       </td>
     </tr>
   );

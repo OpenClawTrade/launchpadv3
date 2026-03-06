@@ -17,6 +17,8 @@ interface PulseQuickBuyButtonProps {
   codexToken?: CodexPairToken;
   /** When provided, clicking Buy executes immediately with this amount */
   quickBuyAmount?: number;
+  /** Compact style for table/list views */
+  isCompact?: boolean;
 }
 
 function bridgeFunToken(t: FunToken): Token {
@@ -93,6 +95,7 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   funToken,
   codexToken,
   quickBuyAmount,
+  isCompact,
 }: PulseQuickBuyButtonProps) {
   const { executeFastSwap, isLoading, lastLatencyMs } = useFastSwap();
   const { isAuthenticated } = useAuth();
@@ -196,13 +199,13 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
           <button
             type="button"
             onClick={handleTriggerClick}
-            className="pulse-sol-btn"
+            className={isCompact ? "discover-quick-buy-btn" : "pulse-sol-btn"}
             disabled={isBusy}
           >
             {isBusy ? (
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              <Loader2 className={isCompact ? "h-3 w-3 animate-spin" : "h-2.5 w-2.5 animate-spin"} />
             ) : (
-              <Zap className="h-2.5 w-2.5" />
+              <Zap className={isCompact ? "h-3 w-3" : "h-2.5 w-2.5"} />
             )}
             <span>{isBusy ? "Buying..." : quickBuyAmount ? `${quickBuyAmount} SOL` : "Buy"}</span>
           </button>
