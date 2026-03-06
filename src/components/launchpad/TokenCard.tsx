@@ -229,12 +229,10 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
           </span>
         </div>
 
-        {/* Description */}
-        {token.description && (
-          <p className="text-[11px] leading-relaxed line-clamp-2 mb-2" style={{ color: "hsl(215 15% 65%)" }}>
-            {token.description}
-          </p>
-        )}
+        {/* Description (fixed height for aligned card rows) */}
+        <p className="text-[11px] leading-relaxed line-clamp-2 min-h-[2.25rem] mb-2" style={{ color: "hsl(215 15% 65%)" }}>
+          {token.description?.trim() ? token.description : <span className="opacity-0">placeholder line</span>}
+        </p>
 
         {/* ── Creator Attribution ── */}
         {xUsername ? (
