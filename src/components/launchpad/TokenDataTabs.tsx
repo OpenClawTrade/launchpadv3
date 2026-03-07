@@ -9,6 +9,7 @@ interface Props {
   tokenAddress: string;
   holderCount?: number;
   userWallet?: string;
+  userWallets?: string[];
   currentPriceUsd?: number;
 }
 
