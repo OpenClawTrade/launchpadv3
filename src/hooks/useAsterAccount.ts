@@ -20,7 +20,22 @@ export interface AsterAccountInfo {
   totalUnrealizedProfit: string;
   totalMarginBalance: string;
   availableBalance: string;
+  totalInitialMargin: string;
+  totalMaintMargin: string;
+  totalPositionInitialMargin: string;
+  totalOpenOrderInitialMargin: string;
   positions: AsterPosition[];
+  assets?: AsterAssetBalance[];
+}
+
+export interface AsterAssetBalance {
+  asset: string;
+  walletBalance: string;
+  unrealizedProfit: string;
+  marginBalance: string;
+  availableBalance: string;
+  crossWalletBalance: string;
+  crossUnPnl: string;
 }
 
 export interface AsterOpenOrder {
@@ -35,12 +50,41 @@ export interface AsterOpenOrder {
   stopPrice: string;
 }
 
+export interface AsterOrderHistory {
+  orderId: number;
+  symbol: string;
+  type: string;
+  side: string;
+  price: string;
+  origQty: string;
+  executedQty: string;
+  status: string;
+  time: number;
+  avgPrice: string;
+}
+
+export interface AsterTradeHistory {
+  id: number;
+  symbol: string;
+  side: string;
+  price: string;
+  qty: string;
+  realizedPnl: string;
+  commission: string;
+  commissionAsset: string;
+  time: number;
+  buyer: boolean;
+  maker: boolean;
+}
+
 export function useAsterAccount() {
   const { user, isAuthenticated } = useAuth();
   const privyUserId = user?.privyId || null;
 
   const [account, setAccount] = useState<AsterAccountInfo | null>(null);
   const [openOrders, setOpenOrders] = useState<AsterOpenOrder[]>([]);
+  const [orderHistory, setOrderHistory] = useState<AsterOrderHistory[]>([]);
+  const [tradeHistory, setTradeHistory] = useState<AsterTradeHistory[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +112,6 @@ export function useAsterAccount() {
     }
   }, [invokeAster, privyUserId]);
 
-  // Auto-check API key on mount and when auth changes
   useEffect(() => {
     if (isAuthenticated && privyUserId) {
       checkApiKey();
@@ -100,6 +143,32 @@ export function useAsterAccount() {
     }
   }, [invokeAster]);
 
+  const fetchOrderHistory = useCallback(async (symbol?: string) => {
+    try {
+      const data = await invokeAster("all_orders", { symbol, limit: 50 });
+      setOrderHistory(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to fetch order history:", err);
+    }
+  }, [invokeAster]);
+
+  const fetchTradeHistory = useCallback(async (symbol?: string) => {
+    try {
+      const data = await invokeAster("trade_history", { symbol, limit: 50 });
+      setTradeHistory(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to fetch trade history:", err);
+    }
+  }, [invokeAster]);
+
+  // Auto-fetch account data when API key is confirmed
+  useEffect(() => {
+    if (hasApiKey === true) {
+      fetchAccount();
+      fetchOpenOrders();
+    }
+  }, [hasApiKey, fetchAccount, fetchOpenOrders]);
+
   const placeOrder = useCallback(async (params: {
     symbol: string;
     side: "BUY" | "SELL";
@@ -117,6 +186,10 @@ export function useAsterAccount() {
     return invokeAster("cancel_order", { symbol, orderId });
   }, [invokeAster]);
 
+  const cancelAllOrders = useCallback(async (symbol: string) => {
+    return invokeAster("cancel_all_orders", { symbol });
+  }, [invokeAster]);
+
   const changeLeverage = useCallback(async (symbol: string, leverage: number) => {
     return invokeAster("change_leverage", { symbol, leverage });
   }, [invokeAster]);
@@ -125,9 +198,18 @@ export function useAsterAccount() {
     return invokeAster("save_key", { apiKey, apiSecret });
   }, [invokeAster]);
 
+  const deleteApiKey = useCallback(async () => {
+    await invokeAster("delete_key");
+    setHasApiKey(false);
+    setAccount(null);
+    setOpenOrders([]);
+    setOrderHistory([]);
+    setTradeHistory([]);
+  }, [invokeAster]);
+
   return {
-    account, openOrders, loading, hasApiKey, error,
-    checkApiKey, fetchAccount, fetchOpenOrders,
-    placeOrder, cancelOrder, changeLeverage, saveApiKey,
+    account, openOrders, orderHistory, tradeHistory, loading, hasApiKey, error,
+    checkApiKey, fetchAccount, fetchOpenOrders, fetchOrderHistory, fetchTradeHistory,
+    placeOrder, cancelOrder, cancelAllOrders, changeLeverage, saveApiKey, deleteApiKey,
   };
 }
