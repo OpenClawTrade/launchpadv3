@@ -66,6 +66,7 @@ function formatSolAmount(amount: number): string {
 /** Lightweight view for tokens not in our database — fetched from Codex on-chain data */
 function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number; isBsc?: boolean }) {
   const privyAvailable = usePrivyAvailable();
+  const { solanaAddress } = useAuth();
   const { toast } = useToast();
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart'>('trade');
 
@@ -240,7 +241,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
                   <CodexChart tokenAddress={mintAddress} height={340} />
                 </div>
-                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} currentPriceUsd={token.priceUsd || 0} />
               </>
             )}
           </div>
@@ -251,7 +252,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
                 <CodexChart tokenAddress={mintAddress} height={420} />
               </div>
-              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} currentPriceUsd={token.priceUsd || 0} />
               <div className="terminal-panel-flush rounded-lg p-3 space-y-1.5">
                 <h3 className="text-[9px] font-mono uppercase tracking-[0.14em] text-muted-foreground/70">Contract</h3>
                 <div className="flex items-center gap-2">
@@ -276,7 +277,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               <div className="terminal-panel-flush rounded-lg overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
                 <CodexChart tokenAddress={mintAddress} height={380} />
               </div>
-              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} />
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} currentPriceUsd={token.priceUsd || 0} />
             </div>
             <div className="col-span-3 flex flex-col gap-1.5">
               {privyAvailable && (
