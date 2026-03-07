@@ -8077,8 +8077,8 @@ export type Database = {
           exchange: string
           id: string
           label: string | null
+          profile_id: string
           updated_at: string
-          user_id: string
         }
         Insert: {
           api_key_encrypted: string
@@ -8087,8 +8087,8 @@ export type Database = {
           exchange?: string
           id?: string
           label?: string | null
+          profile_id: string
           updated_at?: string
-          user_id: string
         }
         Update: {
           api_key_encrypted?: string
@@ -8097,8 +8097,8 @@ export type Database = {
           exchange?: string
           id?: string
           label?: string | null
+          profile_id?: string
           updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
