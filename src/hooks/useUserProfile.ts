@@ -17,6 +17,7 @@ export interface UserProfile {
   posts_count: number;
   created_at: string;
   solana_wallet_address: string | null;
+  isRegistered?: boolean;
 }
 
 export interface CreatedToken {
