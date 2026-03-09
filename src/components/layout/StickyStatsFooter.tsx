@@ -232,22 +232,35 @@ export function StickyStatsFooter() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
-                padding: "3px 8px",
-                borderRadius: "6px",
+                gap: "0px",
+                padding: "4px 8px",
+                borderRadius: "999px",
                 border: "1px solid hsl(var(--border))",
                 background: "hsl(var(--muted))",
                 cursor: "pointer",
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "hsl(var(--foreground))",
-                whiteSpace: "nowrap",
               }}
             >
-              <Layers style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))" }} />
-              <span>{totalLpTokens.toLocaleString()}</span>
-              <ChevronDown style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))", transform: launchpadOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              {/* Show first 3 launchpad icons stacked */}
+              {(launchpadStats || []).slice(0, 3).map((lp, i) => {
+                const icon = getLaunchpadIcon(lp.type);
+                return icon ? (
+                  <img
+                    key={lp.type}
+                    src={icon}
+                    alt=""
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                      border: "2px solid hsl(var(--muted))",
+                      marginLeft: i > 0 ? "-6px" : "0",
+                      position: "relative",
+                      zIndex: 3 - i,
+                    }}
+                  />
+                ) : null;
+              })}
             </button>
 
             {launchpadOpen && (
