@@ -16,6 +16,7 @@ export interface AlphaTrade {
   created_at: string;
   trader_display_name: string | null;
   trader_avatar_url: string | null;
+  token_image_url?: string | null;
 }
 
 export interface PositionSummary {
@@ -70,8 +71,6 @@ function computePositions(trades: AlphaTrade[]): Map<string, PositionSummary> {
       pos.total_bought_tokens > 0
         ? pos.total_bought_sol / pos.total_bought_tokens
         : 0;
-
-    // realized PnL = SOL received from sells - cost basis of sold tokens
     const costOfSold = pos.avg_buy_price_sol * pos.total_sold_tokens;
     pos.realized_pnl_sol = pos.total_sold_sol - costOfSold;
 
@@ -90,6 +89,7 @@ function computePositions(trades: AlphaTrade[]): Map<string, PositionSummary> {
 export function useAlphaTrades(limit = 50) {
   const [trades, setTrades] = useState<AlphaTrade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tokenImages, setTokenImages] = useState<Map<string, string>>(new Map());
 
   const fetchTrades = useCallback(async () => {
     const { data, error } = await (supabase as any)
@@ -98,7 +98,24 @@ export function useAlphaTrades(limit = 50) {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (!error && data) {
-      setTrades(data as AlphaTrade[]);
+      const tradesData = data as AlphaTrade[];
+      setTrades(tradesData);
+
+      // Fetch token images for unique mints
+      const mints = [...new Set(tradesData.map((t) => t.token_mint).filter(Boolean))];
+      if (mints.length > 0) {
+        const { data: tokens } = await supabase
+          .from("tokens")
+          .select("mint_address, image_url")
+          .in("mint_address", mints);
+        if (tokens) {
+          const imgMap = new Map<string, string>();
+          for (const t of tokens) {
+            if (t.image_url) imgMap.set(t.mint_address, t.image_url);
+          }
+          setTokenImages(imgMap);
+        }
+      }
     }
     setLoading(false);
   }, [limit]);
@@ -125,5 +142,13 @@ export function useAlphaTrades(limit = 50) {
 
   const positions = useMemo(() => computePositions(trades), [trades]);
 
-  return { trades, loading, positions };
+  // Enrich trades with token images
+  const enrichedTrades = useMemo(() => {
+    return trades.map((t) => ({
+      ...t,
+      token_image_url: tokenImages.get(t.token_mint) || null,
+    }));
+  }, [trades, tokenImages]);
+
+  return { trades: enrichedTrades, loading, positions };
 }

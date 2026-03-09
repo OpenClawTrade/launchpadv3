@@ -84,13 +84,13 @@ export default function AlphaTrackerPage() {
                   key={trade.id}
                   className="flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
                 >
-                  {/* Avatar */}
+                  {/* Token Logo */}
                   <div className="h-8 w-8 rounded-full bg-muted border border-border overflow-hidden flex-shrink-0 flex items-center justify-center mt-0.5">
-                    {trade.trader_avatar_url ? (
-                      <img src={trade.trader_avatar_url} alt="" className="h-full w-full object-cover" />
+                    {trade.token_image_url ? (
+                      <img src={trade.token_image_url} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <span className="text-[10px] font-bold text-muted-foreground">
-                        {(trade.trader_display_name || trade.wallet_address)?.slice(0, 2)?.toUpperCase()}
+                        {(trade.token_ticker || trade.token_name || trade.token_mint)?.slice(0, 2)?.toUpperCase()}
                       </span>
                     )}
                   </div>
