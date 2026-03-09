@@ -269,7 +269,7 @@ export function StickyStatsFooter() {
                 position: "absolute",
                 bottom: "calc(100% + 8px)",
                 right: 0,
-                width: "300px",
+                width: "320px",
                 background: "linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)",
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "16px",
