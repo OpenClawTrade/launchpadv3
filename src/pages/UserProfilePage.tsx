@@ -20,6 +20,8 @@ export default function UserProfilePage() {
   const { identifier } = useParams<{ identifier: string }>();
   const { profile, isLoading, error, tokens, tokensLoading, trades, tradesLoading, alphaTrades, alphaTradesLoading, alphaPositions, tradingStats } = useUserProfile(identifier);
   const { profileId } = useAuth();
+  const wallet = profile?.solana_wallet_address ?? (identifier && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(identifier) ? identifier : null);
+  const { data: walletHoldings = [], isLoading: holdingsLoading } = useWalletHoldings(wallet);
   const [copied, setCopied] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
