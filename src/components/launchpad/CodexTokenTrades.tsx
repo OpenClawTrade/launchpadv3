@@ -18,7 +18,7 @@ function formatUsd(v: number): string {
   if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
   if (v >= 1) return `$${v.toFixed(2)}`;
   if (v > 0) return `$${v.toFixed(4)}`;
-  return '$0';
+  return '$0.00';
 }
 
 function formatTokenAmt(v: number): string {
