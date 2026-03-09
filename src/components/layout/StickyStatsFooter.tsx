@@ -7,7 +7,7 @@ import { useLocation } from "react-router-dom";
 import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import tunaLogo from "@/assets/tuna-logo.png";
-import bonkIcon from "@/assets/bonk-icon.ico";
+import bonkIcon from "@/assets/bonk-icon.jpg";
 import bagsIcon from "@/assets/bags-icon.ico";
 import moonshotIcon from "@/assets/moonshot-icon.ico";
 import raydiumIcon from "@/assets/raydium-icon.ico";
