@@ -1,45 +1,45 @@
 
 
-## Problem
+## Two Issues to Fix
 
-1. **Flat sparklines for new tokens**: The Codex `tokenSparklines` API returns very few data points (or identical values) for brand-new tokens. When all values are the same, `range = max - min` becomes 0, so the fallback `range = 1` draws a flat line in the vertical center — not useful.
+### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
 
-2. **Visual style gap vs Azura**: Azura's sparklines are more prominent — brighter line, stronger gradient fill, positioned in the right ~60% of the card, and clearly visible even with minimal price movement.
+The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
 
-## Root Cause
+**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
 
-- The `tokenSparklines` Codex query returns 24h sparkline data. For tokens that are minutes old, there are very few data points with near-identical values → flat line.
-- Current rendering: line opacity 0.3, gradient fill 0.15→0.01 — too faint.
-- The sparkline fills the entire card width, diluting visual impact.
+Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
 
-## Plan
+**Changes:**
+- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
 
-### 1. Enhance SparklineCanvas rendering (Azura-style)
+### 2. Alpha Tracker Shows No Trades from the Platform
 
-**File**: `src/components/launchpad/SparklineCanvas.tsx`
+The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
 
-- **Brighter line**: Increase stroke opacity from 0.3 → 0.7, line width from 1.5 → 2
-- **Stronger gradient fill**: Change from 0.15/0.01 → 0.35/0.02 for a more vivid area fill
-- **Right-aligned chart**: Only draw in the right ~55% of the canvas (like Azura), leaving the left side for token info to be more readable
-- **Normalize flat data**: When `range` is near-zero (< 0.1% of the mean), add synthetic micro-variance so the line shows slight natural movement instead of a ruler-straight line
-- **Smooth curves**: Use `quadraticCurveTo` instead of straight `lineTo` for smoother, more professional-looking lines
+**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
 
-### 2. Use chart bars as sparkline fallback for very new tokens
+**Changes:**
+- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
 
-**File**: `src/hooks/useSparklineBatch.ts`
+### Technical Details
 
-- The `tokenSparklines` API may return empty/null for tokens younger than ~5 minutes
-- When sparkline data has fewer than 3 points or all values are identical, the component should still render a meaningful visualization
-- Add a small random walk noise to flat data (seeded by address hash for consistency) so every card shows some movement pattern
+**alpha_trades schema** (from types.ts):
+- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
 
-### 3. Reduce polling overhead
+**Data available in launchpad-swap:**
+- `userWallet` -> `wallet_address`
+- `token.mint_address` -> `token_mint`  
+- `token.name` -> `token_name`
+- `token.ticker` -> `token_ticker`
+- `isBuy ? "buy" : "sell"` -> `trade_type`
+- `solAmount` -> `amount_sol`
+- `tokenAmount` -> `amount_tokens`
+- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
+- `clientSignature` / generated signature -> `tx_hash`
+- Profile lookup for display name/avatar
 
-**File**: `src/hooks/useSparklineBatch.ts`
-
-- Current: `refetchInterval: 500` (every 0.5s) — this is extremely aggressive and hammers the edge function
-- Change to `refetchInterval: 5_000` (every 5s) — still real-time enough, matches the Codex API update cadence, and reduces load dramatically
-
-### Files to modify
-- `src/components/launchpad/SparklineCanvas.tsx` — Azura-style rendering (brighter, right-aligned, smooth curves, flat-data normalization)
-- `src/hooks/useSparklineBatch.ts` — reduce polling from 500ms to 5s
+**Files to modify:**
+1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
+2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
 

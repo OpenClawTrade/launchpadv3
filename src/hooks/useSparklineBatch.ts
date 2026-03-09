@@ -37,8 +37,8 @@ export function useSparklineBatch(addresses: string[], networkId: number = SOLAN
     queryKey: ["sparklines-batch", networkId, key],
     queryFn: () => fetchSparklines(uniqueAddresses, networkId),
     enabled: uniqueAddresses.length > 0,
-    refetchInterval: 500,
-    staleTime: 400,
+    refetchInterval: 5_000,
+    staleTime: 4_000,
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   });
