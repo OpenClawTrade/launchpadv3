@@ -203,8 +203,8 @@ export function StickyStatsFooter() {
               className={isOnline ? "pulse-dot" : ""}
               style={{
                 display: "inline-block",
-                width: "8px",
-                height: "8px",
+                width: "6px",
+                height: "6px",
                 borderRadius: "50%",
                 backgroundColor: isOnline ? "hsl(152, 60%, 45%)" : "hsl(0, 84%, 60%)",
                 flexShrink: 0,
@@ -212,7 +212,7 @@ export function StickyStatsFooter() {
             />
             <span style={{
               fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "11px",
+              fontSize: "9px",
               fontWeight: 500,
               color: isOnline ? "hsl(152, 50%, 55%)" : "hsl(0, 70%, 60%)",
               whiteSpace: "nowrap",
