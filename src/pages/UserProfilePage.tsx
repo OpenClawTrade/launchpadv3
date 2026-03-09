@@ -41,24 +41,22 @@ export default function UserProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex bg-background">
-        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-        <main className={cn("flex-1 min-h-screen flex items-center justify-center", !isMobile && "ml-[48px]")}>
+      <LaunchpadLayout>
+        <div className="flex-1 min-h-[60vh] flex items-center justify-center">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </main>
-      </div>
+        </div>
+      </LaunchpadLayout>
     );
   }
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen flex bg-background">
-        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-        <main className={cn("flex-1 min-h-screen flex flex-col items-center justify-center gap-2", !isMobile && "ml-[48px]")}>
+      <LaunchpadLayout>
+        <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center gap-2">
           <p className="text-muted-foreground font-mono text-sm uppercase tracking-wider">Profile not found</p>
           <Link to="/" className="text-primary text-xs hover:underline">← Back home</Link>
-        </main>
-      </div>
+        </div>
+      </LaunchpadLayout>
     );
   }
 
