@@ -10,6 +10,7 @@ import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useCodexNewPairs, SOLANA_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
+import { SparklineCanvas } from "@/components/launchpad/SparklineCanvas";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
