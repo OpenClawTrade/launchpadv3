@@ -200,7 +200,7 @@ export function StickyStatsFooter() {
             alignItems: "center",
             gap: "6px",
             padding: "2px 8px",
-            borderRadius: "999px",
+            borderRadius: "4px",
             background: isOnline ? "hsla(152, 60%, 18%, 0.6)" : "hsla(0, 60%, 18%, 0.6)",
             border: `1px solid ${isOnline ? "hsla(152, 50%, 30%, 0.5)" : "hsla(0, 50%, 30%, 0.5)"}`,
           }}>
