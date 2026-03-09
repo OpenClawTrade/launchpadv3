@@ -181,19 +181,37 @@ export function useUserProfile(identifier: string | undefined) {
   });
 
   const tradesQuery = useQuery({
-    queryKey: ["user-profile-trades", profileId],
+    queryKey: ["user-profile-trades", wallet, profileId],
     queryFn: async () => {
-      if (!profileId) return [];
-      const { data, error } = await supabase
-        .from("launchpad_transactions")
-        .select("id, transaction_type, sol_amount, token_amount, price_per_token, created_at, token_id, signature")
-        .eq("user_profile_id", profileId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data ?? []) as UserTrade[];
+      if (!wallet && !profileId) return [];
+      
+      // Try wallet-based query first (covers both registered and unregistered)
+      if (wallet) {
+        const { data, error } = await supabase
+          .from("launchpad_transactions")
+          .select("id, transaction_type, sol_amount, token_amount, price_per_token, created_at, token_id, signature")
+          .eq("user_wallet", wallet)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        if (data && data.length > 0) return data as UserTrade[];
+      }
+      
+      // Fallback to profile ID
+      if (profileId) {
+        const { data, error } = await supabase
+          .from("launchpad_transactions")
+          .select("id, transaction_type, sol_amount, token_amount, price_per_token, created_at, token_id, signature")
+          .eq("user_profile_id", profileId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        return (data ?? []) as UserTrade[];
+      }
+      
+      return [];
     },
-    enabled: !!profileId,
+    enabled: !!wallet || !!profileId,
   });
 
   // Alpha trades for this wallet

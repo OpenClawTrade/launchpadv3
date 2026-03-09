@@ -1,20 +1,21 @@
 import { useParams, Link } from "react-router-dom";
 import defaultAvatar from "@/assets/default-avatar.png";
-import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-import { Loader2, ExternalLink, Copy, CheckCircle, BadgeCheck } from "lucide-react";
+import { Loader2, ExternalLink, Copy, CheckCircle, BadgeCheck, Menu, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { VerifiedBadge } from "@/components/ui/verified-badge";
 import { VerifyAccountModal } from "@/components/launchpad/VerifyAccountModal";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
-import { ProfileTradingStats } from "@/components/profile/ProfileTradingStats";
 import { ProfilePositionsTab, ProfileActivityTab } from "@/components/profile/ProfileTradingTabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatSol, truncateWallet } from "@/lib/tradeUtils";
 import { useWalletHoldings } from "@/hooks/useWalletHoldings";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export default function UserProfilePage() {
   const { identifier } = useParams<{ identifier: string }>();
@@ -25,9 +26,11 @@ export default function UserProfilePage() {
   const [copied, setCopied] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const isOwnProfile = profileId && profile?.id === profileId && profile?.isRegistered !== false;
   const isRegistered = profile?.isRegistered !== false;
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const copyWallet = () => {
     if (!profile?.solana_wallet_address) return;
@@ -38,43 +41,63 @@ export default function UserProfilePage() {
 
   if (isLoading) {
     return (
-      <LaunchpadLayout hideFooter>
-        <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="min-h-screen flex bg-background">
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+        <main className={cn("flex-1 min-h-screen flex items-center justify-center", !isMobile && "ml-[48px]")}>
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      </LaunchpadLayout>
+        </main>
+      </div>
     );
   }
 
   if (error || !profile) {
     return (
-      <LaunchpadLayout hideFooter>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-2">
+      <div className="min-h-screen flex bg-background">
+        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+        <main className={cn("flex-1 min-h-screen flex flex-col items-center justify-center gap-2", !isMobile && "ml-[48px]")}>
           <p className="text-muted-foreground font-mono text-sm uppercase tracking-wider">Profile not found</p>
           <Link to="/" className="text-primary text-xs hover:underline">← Back home</Link>
-        </div>
-      </LaunchpadLayout>
+        </main>
+      </div>
     );
   }
 
   const hasAlphaData = alphaTrades.length > 0;
   const hasHoldings = walletHoldings.length > 0;
   const showPositionsTab = hasAlphaData || hasHoldings;
+  const pnlPositive = tradingStats.realizedPnl >= 0;
+  const totalTxns = tradingStats.totalBuys + tradingStats.totalSells;
+  const maxDistCount = Math.max(...tradingStats.pnlDistribution.map((d) => d.count), 1);
 
   return (
-    <LaunchpadLayout hideFooter>
-      <div className="max-w-3xl mx-auto pb-16">
-        {/* Cover */}
-        <div className="h-32 md:h-40 rounded-t-lg bg-gradient-to-r from-primary/20 via-primary/10 to-accent/20 relative overflow-hidden border border-b-0 border-border/40">
+    <div className="min-h-screen flex bg-background">
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+
+      <main className={cn("flex-1 min-h-screen", !isMobile && "ml-[48px]")}>
+        {/* Mobile header */}
+        {isMobile && (
+          <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur-md border-b border-border">
+            <button onClick={() => setMobileOpen(true)}>
+              <Menu className="w-5 h-5 text-muted-foreground" />
+            </button>
+            <span className="text-sm font-bold text-foreground">Profile</span>
+          </div>
+        )}
+
+        {/* Cover Banner - Full width */}
+        <div className="h-36 md:h-48 bg-gradient-to-r from-primary/20 via-primary/5 to-accent/20 relative overflow-hidden">
           {profile.cover_url && (
             <img src={profile.cover_url} alt="" className="w-full h-full object-cover absolute inset-0" />
           )}
+          {/* Gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
         </div>
 
-        {/* Avatar + Info */}
-        <div className="border border-border/40 bg-card rounded-b-lg px-4 md:px-6 pb-6 relative">
-          <div className="flex items-end gap-4 -mt-10 md:-mt-12 mb-4">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-card bg-muted overflow-hidden shrink-0">
+        {/* Profile Content */}
+        <div className="max-w-6xl mx-auto px-4 md:px-8 pb-20">
+          {/* Avatar + Info Row */}
+          <div className="relative -mt-14 md:-mt-16 flex items-end gap-4 md:gap-6 mb-6">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-background bg-muted overflow-hidden shrink-0 shadow-lg">
               {profile.avatar_url ? (
                 <img src={profile.avatar_url} alt={profile.display_name || ""} className="w-full h-full object-cover" />
               ) : (
@@ -82,200 +105,293 @@ export default function UserProfilePage() {
               )}
             </div>
             <div className="flex-1 min-w-0 pb-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl md:text-2xl font-bold text-foreground truncate">
                   {profile.display_name || profile.username || truncateWallet(profile.solana_wallet_address)}
                 </h1>
                 {profile.verified_type && (
-                  <VerifiedBadge type={profile.verified_type === "gold" ? "gold" : "blue"} className="w-4 h-4 shrink-0" />
+                  <VerifiedBadge type={profile.verified_type === "gold" ? "gold" : "blue"} className="w-5 h-5 shrink-0" />
                 )}
                 {!isRegistered && (
-                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full border border-border/40">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground bg-muted/60 px-2.5 py-1 rounded-full border border-border/40">
                     Global Wallet
                   </span>
                 )}
               </div>
               {profile.username && (
-                <p className="text-muted-foreground text-sm font-mono">@{profile.username}</p>
+                <p className="text-muted-foreground text-sm font-mono mt-0.5">@{profile.username}</p>
               )}
             </div>
-            {isOwnProfile && (
-              <button
-                onClick={() => setEditOpen(true)}
-                className="ml-auto px-4 py-1.5 rounded-full text-xs font-bold border border-border text-foreground hover:bg-muted/50 transition-colors self-center shrink-0"
-              >
-                Edit profile
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0 self-center">
+              {isOwnProfile && isRegistered && !profile.verified_type && (
+                <button
+                  onClick={() => setVerifyOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors bg-primary/10 px-3 py-2 rounded-lg border border-primary/20"
+                >
+                  <BadgeCheck className="w-3.5 h-3.5" />
+                  Verify
+                </button>
+              )}
+              {isOwnProfile && (
+                <button
+                  onClick={() => setEditOpen(true)}
+                  className="px-4 py-2 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted/50 transition-colors"
+                >
+                  Edit profile
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Wallet + Bio */}
-          {profile.solana_wallet_address && (
-            <button
-              onClick={copyWallet}
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors bg-muted/50 px-2 py-1 rounded mb-3"
-            >
-              {truncateWallet(profile.solana_wallet_address)}
-              {copied ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-            </button>
-          )}
-          {profile.bio && (
-            <p className="text-sm text-muted-foreground mb-4">{profile.bio}</p>
-          )}
-
-          {isOwnProfile && isRegistered && !profile.verified_type && (
-            <button
-              onClick={() => setVerifyOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-primary hover:text-primary/80 transition-colors bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/20 mb-3"
-            >
-              <BadgeCheck className="w-3.5 h-3.5" />
-              Verify Account
-            </button>
-          )}
-
-          <EditProfileModal
-            open={editOpen}
-            onClose={() => setEditOpen(false)}
-            profile={profile}
-            onSaved={() => queryClient.invalidateQueries({ queryKey: ["user-profile", identifier] })}
-          />
-
-          <VerifyAccountModal open={verifyOpen} onOpenChange={setVerifyOpen} />
-
-          {/* Stats Row */}
-          <div className="grid grid-cols-4 gap-3 border border-border/30 rounded-lg p-3 bg-muted/20">
-            <StatBox label="COINS HELD" value={holdingsLoading ? "..." : walletHoldings.length.toString()} />
-            <StatBox label="COINS CREATED" value={tokens.length.toString()} />
-            <StatBox label="FOLLOWERS" value={(profile.followers_count || 0).toString()} />
-            <StatBox label="FOLLOWING" value={(profile.following_count || 0).toString()} />
+          <div className="mb-6">
+            {profile.solana_wallet_address && (
+              <button
+                onClick={copyWallet}
+                className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors bg-muted/40 px-2.5 py-1.5 rounded-lg border border-border/30 mb-3"
+              >
+                {truncateWallet(profile.solana_wallet_address)}
+                {copied ? <CheckCircle className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+              </button>
+            )}
+            {profile.bio && (
+              <p className="text-sm text-muted-foreground max-w-2xl">{profile.bio}</p>
+            )}
           </div>
 
-          <p className="text-[10px] text-muted-foreground/60 mt-3 font-mono uppercase tracking-wider">
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <StatCard label="Coins Held" value={holdingsLoading ? "..." : walletHoldings.length.toString()} />
+            <StatCard label="Coins Created" value={tokens.length.toString()} />
+            <StatCard label="Followers" value={(profile.followers_count || 0).toString()} />
+            <StatCard label="Following" value={(profile.following_count || 0).toString()} />
+          </div>
+
+          <p className="text-[10px] text-muted-foreground/50 font-mono uppercase tracking-wider mb-6">
             Joined {formatDistanceToNow(new Date(profile.created_at), { addSuffix: true })}
           </p>
-        </div>
 
-        {/* Trading Analytics */}
-        {hasAlphaData && <ProfileTradingStats stats={tradingStats} />}
+          {/* Trading Analytics - 3 column cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Balance Card */}
+            <div className="border border-border/30 rounded-xl bg-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Balance</span>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Bought</p>
+                  <p className="text-base font-bold font-mono text-foreground">{tradingStats.totalBuySol.toFixed(4)} SOL</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Sold</p>
+                  <p className="text-base font-bold font-mono text-foreground">{tradingStats.totalSellSol.toFixed(4)} SOL</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Unrealized</p>
+                  <p className="text-sm font-mono text-muted-foreground">—</p>
+                </div>
+              </div>
+            </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue={showPositionsTab ? "positions" : "tokens"} className="mt-4">
-          <TabsList className="bg-muted/30 border border-border/30 w-full justify-start">
+            {/* Performance Card */}
+            <div className="border border-border/30 rounded-xl bg-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center", pnlPositive ? "bg-green-500/10" : "bg-red-500/10")}>
+                  {pnlPositive ? <TrendingUp className="w-3.5 h-3.5 text-green-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                </div>
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Performance</span>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total PnL</p>
+                  <p className={cn("text-base font-bold font-mono", pnlPositive ? "text-green-400" : "text-red-400")}>
+                    {pnlPositive ? "+" : ""}{tradingStats.totalPnl.toFixed(4)} SOL
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Realized PnL</p>
+                  <p className={cn("text-base font-bold font-mono", pnlPositive ? "text-green-400" : "text-red-400")}>
+                    {pnlPositive ? "+" : ""}{tradingStats.realizedPnl.toFixed(4)} SOL
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total TXNs</p>
+                  <p className="text-base font-bold font-mono text-foreground">
+                    {totalTxns}{" "}
+                    <span className="text-xs font-normal">
+                      (<span className="text-green-400">{tradingStats.totalBuys} <ArrowUpRight className="w-3 h-3 inline" /></span>
+                      {" / "}
+                      <span className="text-red-400">{tradingStats.totalSells} <ArrowDownRight className="w-3 h-3 inline" /></span>)
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* PnL Distribution Card */}
+            <div className="border border-border/30 rounded-xl bg-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">PnL Distribution</span>
+              </div>
+              <div className="space-y-2.5">
+                {tradingStats.pnlDistribution.map((bucket) => (
+                  <div key={bucket.label} className="flex items-center gap-3">
+                    <span className="text-[10px] font-mono text-muted-foreground w-16 text-right shrink-0 leading-tight">{bucket.label}</span>
+                    <div className="flex-1 h-4 bg-muted/30 rounded overflow-hidden">
+                      <div
+                        className={cn("h-full rounded transition-all duration-500", bucket.color)}
+                        style={{
+                          width: bucket.count > 0 ? `${Math.max((bucket.count / maxDistCount) * 100, 8)}%` : "0%",
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-foreground/70 w-6 text-right tabular-nums">{bucket.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <Tabs defaultValue={showPositionsTab ? "positions" : trades.length > 0 ? "trades" : "tokens"} className="mt-2">
+            <TabsList className="bg-muted/30 border border-border/30 w-full justify-start rounded-xl p-1">
+              {showPositionsTab && (
+                <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider rounded-lg">Positions</TabsTrigger>
+              )}
+              {hasAlphaData && (
+                <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider rounded-lg">Activity</TabsTrigger>
+              )}
+              <TabsTrigger value="tokens" className="font-mono text-xs uppercase tracking-wider rounded-lg">Tokens</TabsTrigger>
+              <TabsTrigger value="trades" className="font-mono text-xs uppercase tracking-wider rounded-lg">Trades</TabsTrigger>
+            </TabsList>
+
             {showPositionsTab && (
-              <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider">Positions</TabsTrigger>
+              <TabsContent value="positions">
+                <div className="border border-border/30 rounded-xl bg-card overflow-hidden">
+                  <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} onChainHoldings={walletHoldings} holdingsLoading={holdingsLoading} />
+                </div>
+              </TabsContent>
             )}
             {hasAlphaData && (
-              <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider">Activity</TabsTrigger>
+              <TabsContent value="activity">
+                <div className="border border-border/30 rounded-xl bg-card overflow-hidden">
+                  <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
+                </div>
+              </TabsContent>
             )}
-            <TabsTrigger value="tokens" className="font-mono text-xs uppercase tracking-wider">Tokens</TabsTrigger>
-            <TabsTrigger value="trades" className="font-mono text-xs uppercase tracking-wider">Trades</TabsTrigger>
-          </TabsList>
 
-          {showPositionsTab && (
-            <TabsContent value="positions">
-              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} onChainHoldings={walletHoldings} holdingsLoading={holdingsLoading} />
+            <TabsContent value="tokens">
+              <div className="border border-border/30 rounded-xl bg-card overflow-hidden">
+                {tokensLoading ? (
+                  <div className="p-8 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                ) : tokens.length === 0 ? (
+                  <p className="p-8 text-center text-muted-foreground text-sm font-mono">No tokens created</p>
+                ) : (
+                  <div className="divide-y divide-border/20">
+                    {tokens.map((t) => (
+                      <Link
+                        key={t.id}
+                        to={t.mint_address ? `/trade/${t.mint_address}` : "#"}
+                        className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/20 transition-colors"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-muted overflow-hidden shrink-0">
+                          {t.image_url ? (
+                            <img src={t.image_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-primary/20 flex items-center justify-center text-[11px] font-bold text-primary">
+                              {t.ticker?.[0]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-foreground truncate block">{t.name}</span>
+                          <span className="text-[11px] text-muted-foreground font-mono">${t.ticker}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs font-mono text-foreground">{formatSol(t.market_cap_sol)} SOL</span>
+                          <span className={cn("block text-[10px] font-mono", t.status === 'active' ? 'text-green-400' : 'text-muted-foreground')}>
+                            {t.status?.toUpperCase() || "—"}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
-          )}
-          {hasAlphaData && (
-            <TabsContent value="activity">
-              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
+
+            <TabsContent value="trades">
+              <div className="border border-border/30 rounded-xl bg-card overflow-hidden">
+                {tradesLoading ? (
+                  <div className="p-8 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                ) : trades.length === 0 ? (
+                  <p className="p-8 text-center text-muted-foreground text-sm font-mono">No trades found</p>
+                ) : (
+                  <div className="divide-y divide-border/20">
+                    {trades.map((t) => (
+                      <div key={t.id} className="flex items-center gap-3 px-5 py-3.5">
+                        <span className={cn(
+                          "text-[10px] font-mono font-bold uppercase px-2 py-1 rounded-md",
+                          t.transaction_type === 'buy' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                        )}>
+                          {t.transaction_type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-mono text-foreground">{formatSol(t.sol_amount)} SOL</span>
+                          {t.token_amount > 0 && (
+                            <span className="text-[11px] text-muted-foreground font-mono ml-2">
+                              ({t.token_amount.toLocaleString()} tokens)
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0 flex items-center gap-2">
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            {formatDistanceToNow(new Date(t.created_at), { addSuffix: true })}
+                          </span>
+                          {t.signature && (
+                            <a
+                              href={`https://solscan.io/tx/${t.signature}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
-          )}
+          </Tabs>
+        </div>
 
-          <TabsContent value="tokens">
-            <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-              {tokensLoading ? (
-                <div className="p-6 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-              ) : tokens.length === 0 ? (
-                <p className="p-6 text-center text-muted-foreground text-sm font-mono">No tokens created</p>
-              ) : (
-                <div className="divide-y divide-border/20">
-                  {tokens.map((t) => (
-                    <Link
-                      key={t.id}
-                      to={t.mint_address ? `/trade/${t.mint_address}` : "#"}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-muted overflow-hidden shrink-0">
-                        {t.image_url ? (
-                          <img src={t.image_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                            {t.ticker?.[0]}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-semibold text-foreground truncate block">{t.name}</span>
-                        <span className="text-[11px] text-muted-foreground font-mono">${t.ticker}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-mono text-foreground">{formatSol(t.market_cap_sol)} SOL</span>
-                        <span className={`block text-[10px] font-mono ${t.status === 'active' ? 'text-green-400' : 'text-muted-foreground'}`}>
-                          {t.status?.toUpperCase() || "—"}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="trades">
-            <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-              {tradesLoading ? (
-                <div className="p-6 flex justify-center"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-              ) : trades.length === 0 ? (
-                <p className="p-6 text-center text-muted-foreground text-sm font-mono">No trades found</p>
-              ) : (
-                <div className="divide-y divide-border/20">
-                  {trades.map((t) => (
-                    <div key={t.id} className="flex items-center gap-3 px-4 py-3">
-                      <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${
-                        t.transaction_type === 'buy' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                      }`}>
-                        {t.transaction_type}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-mono text-foreground">{formatSol(t.sol_amount)} SOL</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {formatDistanceToNow(new Date(t.created_at), { addSuffix: true })}
-                        </span>
-                        {t.signature && (
-                          <a
-                            href={`https://solscan.io/tx/${t.signature}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block"
-                          >
-                            <ExternalLink className="w-3 h-3 text-muted-foreground hover:text-primary inline" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </LaunchpadLayout>
+        <EditProfileModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          profile={profile}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["user-profile", identifier] })}
+        />
+        <VerifyAccountModal open={verifyOpen} onOpenChange={setVerifyOpen} />
+      </main>
+    </div>
   );
 }
 
-function StatBox({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="text-center">
-      <div className="text-sm md:text-base font-bold font-mono text-foreground">{value}</div>
-      <div className="text-[9px] md:text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{label}</div>
+    <div className="border border-border/30 rounded-xl bg-card p-4 text-center">
+      <div className="text-lg md:text-xl font-bold font-mono text-foreground">{value}</div>
+      <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mt-0.5">{label}</div>
     </div>
   );
 }
