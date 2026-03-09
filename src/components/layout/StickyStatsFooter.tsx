@@ -267,12 +267,13 @@ export function StickyStatsFooter() {
 
             {launchpadOpen && (
               <div style={{
-                position: "absolute",
-                bottom: "calc(100% + 8px)",
-                right: 0,
+                position: isMobile ? "fixed" : "absolute",
+                bottom: isMobile ? "48px" : "calc(100% + 8px)",
+                right: isMobile ? "8px" : 0,
+                left: isMobile ? "8px" : undefined,
                 zIndex: 100000,
               }}>
-                <MarketLighthouse onRefresh={handleLpRefresh} refreshing={lpRefreshing} />
+                <MarketLighthouse onRefresh={handleLpRefresh} refreshing={lpRefreshing} compact={isMobile} />
               </div>
             )}
           </div>
