@@ -2,11 +2,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useLaunchpadStats, LaunchpadStat } from "@/hooks/useLaunchpadStats";
+import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import tunaLogo from "@/assets/tuna-logo.png";
+import bonkIcon from "@/assets/bonk-icon.jpg";
+import bagsIcon from "@/assets/bags-icon.ico";
+import moonshotIcon from "@/assets/moonshot-icon.ico";
+import raydiumIcon from "@/assets/raydium-icon.ico";
 
 const REGIONS = [
   { id: "US-W", label: "US-W", basePing: 95, variance: 45 },
@@ -22,12 +26,12 @@ const REGIONS = [
 ];
 
 const LAUNCHPAD_CONFIG: Record<string, { label: string; icon: string; isLocal?: boolean }> = {
-  pumpfun: { label: "Pump.fun", icon: pumpfunPill, isLocal: true },
-  bonk: { label: "Bonk", icon: "https://letsbonk.fun/favicon.ico" },
-  meteora: { label: "Meteora", icon: tunaLogo, isLocal: true },
-  bags: { label: "Bags.fm", icon: "https://bags.fm/favicon.ico" },
-  moonshot: { label: "Moonshot", icon: "https://moonshot.money/favicon.ico" },
-  raydium: { label: "Raydium", icon: "https://raydium.io/favicon.ico" },
+  pumpfun: { label: "pumpfun", icon: pumpfunPill, isLocal: true },
+  bonk: { label: "bonk", icon: bonkIcon, isLocal: true },
+  meteora: { label: "meteora", icon: tunaLogo, isLocal: true },
+  bags: { label: "bags.fm", icon: bagsIcon, isLocal: true },
+  moonshot: { label: "moonshot", icon: moonshotIcon, isLocal: true },
+  raydium: { label: "raydium", icon: raydiumIcon, isLocal: true },
 };
 
 function getPingColor(ping: number): string {
@@ -249,14 +253,14 @@ export function StickyStatsFooter() {
             {launchpadOpen && (
               <div style={{
                 position: "absolute",
-                bottom: "calc(100% + 6px)",
+                bottom: "calc(100% + 8px)",
                 right: 0,
-                width: "240px",
-                background: "hsl(var(--card))",
+                width: "300px",
+                background: "linear-gradient(160deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%)",
                 border: "1px solid hsl(var(--border))",
-                borderRadius: "10px",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                padding: "6px",
+                borderRadius: "16px",
+                boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+                padding: "12px 10px",
                 zIndex: 100000,
               }}>
                 {/* Header */}
@@ -264,15 +268,17 @@ export function StickyStatsFooter() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "6px 8px 8px",
+                  padding: "6px 8px 12px",
                   borderBottom: "1px solid hsl(var(--border))",
-                  marginBottom: "4px",
+                  marginBottom: "6px",
                 }}>
                   <span style={{
                     fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: "12px",
+                    fontSize: "28px",
+                    lineHeight: 1,
                     fontWeight: 600,
                     color: "hsl(var(--foreground))",
+                    letterSpacing: "-0.02em",
                   }}>
                     Launchpads
                   </span>
@@ -285,8 +291,8 @@ export function StickyStatsFooter() {
                     color: "hsl(var(--muted-foreground))",
                   }}>
                     <RefreshCw style={{
-                      width: "13px",
-                      height: "13px",
+                      width: "20px",
+                      height: "20px",
                       transition: "transform 0.6s",
                       transform: lpRefreshing ? "rotate(360deg)" : "none",
                     }} />
@@ -303,26 +309,26 @@ export function StickyStatsFooter() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
+                        gap: "12px",
                         width: "100%",
-                        padding: "7px 8px",
-                        borderRadius: "6px",
+                        padding: "12px 8px",
+                        borderRadius: "8px",
                         fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: "12px",
+                        fontSize: "18px",
                         color: "hsl(var(--foreground))",
                       }}
                     >
                       {icon ? (
                         <img
                           src={icon}
-                          alt=""
-                          style={{ width: "14px", height: "14px", borderRadius: "3px", objectFit: "contain", flexShrink: 0 }}
+                          alt={label}
+                          style={{ width: "24px", height: "24px", borderRadius: "6px", objectFit: "contain", flexShrink: 0, background: "hsl(var(--muted))" }}
                         />
                       ) : (
-                        <Layers style={{ width: "14px", height: "14px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
+                        <Layers style={{ width: "24px", height: "24px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
                       )}
-                      <span style={{ flex: 1, fontWeight: 500 }}>{label}</span>
-                      <span style={{ fontWeight: 600, color: getCountColor(lp.total), fontSize: "11px" }}>
+                      <span style={{ flex: 1, fontWeight: 500, textTransform: "none" }}>{label}</span>
+                      <span style={{ fontWeight: 700, color: getCountColor(lp.total), fontSize: "22px", lineHeight: 1 }}>
                         {lp.total.toLocaleString()}
                       </span>
                     </div>
