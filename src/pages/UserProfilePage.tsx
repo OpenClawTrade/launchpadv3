@@ -159,31 +159,31 @@ export default function UserProfilePage() {
         {hasAlphaData && <ProfileTradingStats stats={tradingStats} />}
 
         {/* Tabs */}
-        <Tabs defaultValue={hasAlphaData ? "positions" : "tokens"} className="mt-4">
+        <Tabs defaultValue={showPositionsTab ? "positions" : "tokens"} className="mt-4">
           <TabsList className="bg-muted/30 border border-border/30 w-full justify-start">
+            {showPositionsTab && (
+              <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider">Positions</TabsTrigger>
+            )}
             {hasAlphaData && (
-              <>
-                <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider">Positions</TabsTrigger>
-                <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider">Activity</TabsTrigger>
-              </>
+              <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider">Activity</TabsTrigger>
             )}
             <TabsTrigger value="tokens" className="font-mono text-xs uppercase tracking-wider">Tokens</TabsTrigger>
             <TabsTrigger value="trades" className="font-mono text-xs uppercase tracking-wider">Trades</TabsTrigger>
           </TabsList>
 
+          {showPositionsTab && (
+            <TabsContent value="positions">
+              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
+                <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} onChainHoldings={walletHoldings} holdingsLoading={holdingsLoading} />
+              </div>
+            </TabsContent>
+          )}
           {hasAlphaData && (
-            <>
-              <TabsContent value="positions">
-                <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                  <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} onChainHoldings={walletHoldings} holdingsLoading={holdingsLoading} />
-                </div>
-              </TabsContent>
-              <TabsContent value="activity">
-                <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                  <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
-                </div>
-              </TabsContent>
-            </>
+            <TabsContent value="activity">
+              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
+                <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
+              </div>
+            </TabsContent>
           )}
 
           <TabsContent value="tokens">
