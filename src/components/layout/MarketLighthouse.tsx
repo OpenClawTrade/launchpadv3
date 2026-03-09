@@ -93,15 +93,25 @@ export function MarketLighthouse({
 
   const f = "'Inter','SF Pro Display',-apple-system,sans-serif";
 
+  const sz = compact ? {
+    w: "280px", pad: "8px", fs: { h: "12px", val: "14px", label: "9px", stat: "10px", icon: "18px", bar: "9px", section: "11px", tab: "9px", change: "9px", card: "10px", cardLabel: "8px" },
+    gap: "6px", imgSz: "18px", barH: "14px", cardPad: "5px 4px", cardRadius: "6px",
+  } : {
+    w: "340px", pad: "12px", fs: { h: "15px", val: "20px", label: "13px", stat: "12px", icon: "24px", bar: "10px", section: "13px", tab: "11px", change: "12px", card: "13px", cardLabel: "9px" },
+    gap: "8px", imgSz: "24px", barH: "18px", cardPad: "8px 6px", cardRadius: "8px",
+  };
+
   return (
     <div style={{
-      width: "340px",
+      width: sz.w,
       background: bg,
-      borderRadius: "14px",
-      padding: "12px",
+      borderRadius: compact ? "10px" : "14px",
+      padding: sz.pad,
       fontFamily: f,
       color: "#fff",
       border: "1px solid #222",
+      maxHeight: compact ? "70vh" : undefined,
+      overflowY: compact ? "auto" : undefined,
     }}>
       {/* Header */}
       <div style={{ ...S.row, justifyContent: "space-between", marginBottom: "10px" }}>
