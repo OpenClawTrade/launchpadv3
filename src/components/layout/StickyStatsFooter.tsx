@@ -240,27 +240,28 @@ export function StickyStatsFooter() {
                 cursor: "pointer",
               }}
             >
-              {/* Show first 3 launchpad icons stacked */}
-              {(launchpadStats || []).slice(0, 3).map((lp, i) => {
-                const icon = getLaunchpadIcon(lp.type);
-                return icon ? (
-                  <img
-                    key={lp.type}
-                    src={icon}
-                    alt=""
-                    style={{
-                      width: "18px",
-                      height: "18px",
-                      borderRadius: "50%",
-                      objectFit: "cover",
-                      border: "2px solid hsl(var(--muted))",
-                      marginLeft: i > 0 ? "-6px" : "0",
-                      position: "relative",
-                      zIndex: 3 - i,
-                    }}
-                  />
-                ) : null;
-              })}
+              {/* Hardcoded 3 icons: pumpfun, bonk, meteora */}
+              {[
+                { icon: pumpfunPill, alt: "pumpfun" },
+                { icon: bonkIcon, alt: "bonk" },
+                { icon: meteoraIcon, alt: "meteora" },
+              ].map((item, i) => (
+                <img
+                  key={item.alt}
+                  src={item.icon}
+                  alt={item.alt}
+                  style={{
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "2px solid hsl(var(--muted))",
+                    marginLeft: i > 0 ? "-6px" : "0",
+                    position: "relative",
+                    zIndex: 3 - i,
+                  }}
+                />
+              ))}
             </button>
 
             {launchpadOpen && (
