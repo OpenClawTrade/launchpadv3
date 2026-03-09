@@ -2,8 +2,11 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLaunchpadStats, LaunchpadStat } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
-import { ChevronDown, Server, RefreshCw } from "lucide-react";
+import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
+import pumpfunPill from "@/assets/pumpfun-pill.webp";
+import tunaLogo from "@/assets/tuna-logo.png";
 
 const REGIONS = [
   { id: "US-W", label: "US-W", basePing: 95, variance: 45 },
@@ -18,9 +21,27 @@ const REGIONS = [
   { id: "GLOBAL", label: "GLOBAL", basePing: 240, variance: 70 },
 ];
 
+const LAUNCHPAD_CONFIG: Record<string, { label: string; icon: string; isLocal?: boolean }> = {
+  pumpfun: { label: "Pump.fun", icon: pumpfunPill, isLocal: true },
+  pump: { label: "Pump.fun", icon: pumpfunPill, isLocal: true },
+  dbc: { label: "Meteora", icon: tunaLogo, isLocal: true },
+  bags: { label: "Bags.fm", icon: "https://bags.fm/favicon.ico" },
+  bonk: { label: "Bonk", icon: "https://www.bonk.fun/favicon.ico" },
+  believe: { label: "Believe", icon: "https://believe.app/images/icons/icon.png" },
+  boop: { label: "Boop", icon: "https://boop.fun/images/brand.png" },
+  moonshot: { label: "Moonshot", icon: "https://moonshot.money/favicon.ico" },
+  phantom: { label: "Phantom", icon: "https://phantom.com/favicon.ico" },
+};
+
 function getPingColor(ping: number): string {
   if (ping < 80) return "hsl(142, 71%, 45%)";
   if (ping < 150) return "hsl(48, 96%, 53%)";
+  return "hsl(0, 84%, 60%)";
+}
+
+function getCountColor(count: number): string {
+  if (count > 500) return "hsl(142, 71%, 45%)";
+  if (count >= 100) return "hsl(48, 96%, 53%)";
   return "hsl(0, 84%, 60%)";
 }
 
@@ -28,16 +49,28 @@ function randomPing(base: number, variance: number) {
   return Math.round(base + (Math.random() - 0.3) * variance);
 }
 
+function getLaunchpadLabel(type: string): string {
+  return LAUNCHPAD_CONFIG[type]?.label || type;
+}
+
+function getLaunchpadIcon(type: string): string | null {
+  return LAUNCHPAD_CONFIG[type]?.icon || null;
+}
+
 export function StickyStatsFooter() {
   const { data: stats } = useClawStats();
+  const { data: launchpadStats, refetch: refetchLaunchpads } = useLaunchpadStats();
   const isMobile = useIsMobile();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { pathname } = useLocation();
   const [selectedRegion, setSelectedRegion] = useState("EU-E");
   const [regionOpen, setRegionOpen] = useState(false);
+  const [launchpadOpen, setLaunchpadOpen] = useState(false);
   const [pings, setPings] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [lpRefreshing, setLpRefreshing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const lpDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -50,7 +83,6 @@ export function StickyStatsFooter() {
     };
   }, []);
 
-  // Generate pings on mount and periodically
   const refreshPings = useCallback(() => {
     const newPings: Record<string, number> = {};
     for (const r of REGIONS) {
@@ -65,17 +97,20 @@ export function StickyStatsFooter() {
     return () => clearInterval(interval);
   }, [refreshPings]);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (!regionOpen) return;
+    if (!regionOpen && !launchpadOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (regionOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setRegionOpen(false);
+      }
+      if (launchpadOpen && lpDropdownRef.current && !lpDropdownRef.current.contains(e.target as Node)) {
+        setLaunchpadOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [regionOpen]);
+  }, [regionOpen, launchpadOpen]);
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -84,7 +119,13 @@ export function StickyStatsFooter() {
     setTimeout(() => setRefreshing(false), 600);
   };
 
-  // Hide footer on punch pages and on punchlaunch.fun domain
+  const handleLpRefresh = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setLpRefreshing(true);
+    refetchLaunchpads();
+    setTimeout(() => setLpRefreshing(false), 600);
+  };
+
   const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
   if (pathname.startsWith("/punch") || pathname.startsWith("/punch-test") || isPunchDomain) return null;
 
@@ -94,6 +135,8 @@ export function StickyStatsFooter() {
   const agentPosts = stats?.totalAgentPosts ?? 0;
   const payouts = (stats?.totalAgentPayouts ?? 0).toFixed(2);
   const currentPing = pings[selectedRegion] ?? 0;
+
+  const totalLpTokens = launchpadStats?.reduce((s, lp) => s + lp.total, 0) ?? 0;
 
   const footer = (
     <div
@@ -124,7 +167,7 @@ export function StickyStatsFooter() {
         boxSizing: "border-box",
         overflow: "visible",
       }}>
-        {/* Stats - horizontal scroll on mobile */}
+        {/* Stats */}
         <div style={{
           display: "flex",
           alignItems: "center",
@@ -147,9 +190,9 @@ export function StickyStatsFooter() {
           <StatItem label="PAYOUTS" value={`${payouts} SOL`} />
         </div>
 
-        {/* Connection status + Region selector */}
+        {/* Connection + Launchpads + Region */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-          {/* Connection indicator */}
+          {/* Connection */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span
               className={isOnline ? "pulse-dot" : ""}
@@ -161,23 +204,144 @@ export function StickyStatsFooter() {
                 backgroundColor: isOnline ? "hsl(var(--primary))" : "hsl(var(--destructive))",
               }}
             />
-            <span
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: "11px",
+              fontWeight: 500,
+              color: isOnline ? "hsl(var(--primary))" : "hsl(var(--destructive))",
+              whiteSpace: "nowrap",
+            }}>
+              {isOnline ? "Connected" : "Offline"}
+            </span>
+          </div>
+
+          {/* Launchpad selector */}
+          <div ref={lpDropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => { setLaunchpadOpen(!launchpadOpen); setRegionOpen(false); }}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "3px 8px",
+                borderRadius: "6px",
+                border: "1px solid hsl(var(--border))",
+                background: "hsl(var(--muted))",
+                cursor: "pointer",
                 fontFamily: "'IBM Plex Mono', monospace",
                 fontSize: "11px",
-                fontWeight: 500,
-                color: isOnline ? "hsl(var(--primary))" : "hsl(var(--destructive))",
+                fontWeight: 600,
+                color: "hsl(var(--foreground))",
                 whiteSpace: "nowrap",
               }}
             >
-              {isOnline ? "Connected" : "Offline"}
-            </span>
+              <Layers style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))" }} />
+              <span>{totalLpTokens.toLocaleString()}</span>
+              <ChevronDown style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))", transform: launchpadOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+            </button>
+
+            {launchpadOpen && (
+              <div style={{
+                position: "absolute",
+                bottom: "calc(100% + 6px)",
+                right: 0,
+                width: "240px",
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "10px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                padding: "6px",
+                zIndex: 100000,
+              }}>
+                {/* Header */}
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "6px 8px 8px",
+                  borderBottom: "1px solid hsl(var(--border))",
+                  marginBottom: "4px",
+                }}>
+                  <span style={{
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "hsl(var(--foreground))",
+                  }}>
+                    Launchpads
+                  </span>
+                  <button onClick={handleLpRefresh} style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px",
+                    display: "flex",
+                    color: "hsl(var(--muted-foreground))",
+                  }}>
+                    <RefreshCw style={{
+                      width: "13px",
+                      height: "13px",
+                      transition: "transform 0.6s",
+                      transform: lpRefreshing ? "rotate(360deg)" : "none",
+                    }} />
+                  </button>
+                </div>
+
+                {/* Launchpad list */}
+                {(launchpadStats || []).map((lp) => {
+                  const icon = getLaunchpadIcon(lp.type);
+                  const label = getLaunchpadLabel(lp.type);
+                  return (
+                    <div
+                      key={lp.type}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        width: "100%",
+                        padding: "7px 8px",
+                        borderRadius: "6px",
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        fontSize: "12px",
+                        color: "hsl(var(--foreground))",
+                      }}
+                    >
+                      {icon ? (
+                        <img
+                          src={icon}
+                          alt=""
+                          style={{ width: "14px", height: "14px", borderRadius: "3px", objectFit: "contain", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <Layers style={{ width: "14px", height: "14px", color: "hsl(var(--muted-foreground))", flexShrink: 0 }} />
+                      )}
+                      <span style={{ flex: 1, fontWeight: 500 }}>{label}</span>
+                      <span style={{ fontWeight: 600, color: getCountColor(lp.total), fontSize: "11px" }}>
+                        {lp.total.toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })}
+
+                {(!launchpadStats || launchpadStats.length === 0) && (
+                  <div style={{
+                    padding: "12px 8px",
+                    textAlign: "center",
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    fontSize: "11px",
+                    color: "hsl(var(--muted-foreground))",
+                  }}>
+                    Loading...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Region selector */}
           <div ref={dropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => setRegionOpen(!regionOpen)}
+              onClick={() => { setRegionOpen(!regionOpen); setLaunchpadOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -201,23 +365,19 @@ export function StickyStatsFooter() {
               <ChevronDown style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))", transform: regionOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
             </button>
 
-            {/* Dropdown */}
             {regionOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "calc(100% + 6px)",
-                  right: 0,
-                  width: "220px",
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "10px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                  padding: "6px",
-                  zIndex: 100000,
-                }}
-              >
-                {/* Header */}
+              <div style={{
+                position: "absolute",
+                bottom: "calc(100% + 6px)",
+                right: 0,
+                width: "220px",
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "10px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                padding: "6px",
+                zIndex: 100000,
+              }}>
                 <div style={{
                   display: "flex",
                   alignItems: "center",
@@ -231,20 +391,15 @@ export function StickyStatsFooter() {
                     fontSize: "12px",
                     fontWeight: 600,
                     color: "hsl(var(--foreground))",
+                  }}>Regions</span>
+                  <button onClick={handleRefresh} style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px",
+                    display: "flex",
+                    color: "hsl(var(--muted-foreground))",
                   }}>
-                    Regions
-                  </span>
-                  <button
-                    onClick={handleRefresh}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "2px",
-                      display: "flex",
-                      color: "hsl(var(--muted-foreground))",
-                    }}
-                  >
                     <RefreshCw style={{
                       width: "13px",
                       height: "13px",
@@ -254,17 +409,13 @@ export function StickyStatsFooter() {
                   </button>
                 </div>
 
-                {/* Region list */}
                 {REGIONS.map((r) => {
                   const ping = pings[r.id] ?? 0;
                   const isSelected = r.id === selectedRegion;
                   return (
                     <button
                       key={r.id}
-                      onClick={() => {
-                        setSelectedRegion(r.id);
-                        setRegionOpen(false);
-                      }}
+                      onClick={() => { setSelectedRegion(r.id); setRegionOpen(false); }}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -282,20 +433,12 @@ export function StickyStatsFooter() {
                         color: "hsl(var(--foreground))",
                         transition: "background 0.1s",
                       }}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) (e.currentTarget.style.background = "hsl(var(--muted) / 0.5)");
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) (e.currentTarget.style.background = "transparent");
-                      }}
+                      onMouseEnter={(e) => { if (!isSelected) (e.currentTarget.style.background = "hsl(var(--muted) / 0.5)"); }}
+                      onMouseLeave={(e) => { if (!isSelected) (e.currentTarget.style.background = "transparent"); }}
                     >
                       <Server style={{ width: "14px", height: "14px", color: isSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))", flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontWeight: isSelected ? 700 : 500 }}>
-                        {r.label}
-                      </span>
-                      <span style={{ fontWeight: 600, color: getPingColor(ping), fontSize: "11px" }}>
-                        {ping}ms
-                      </span>
+                      <span style={{ flex: 1, fontWeight: isSelected ? 700 : 500 }}>{r.label}</span>
+                      <span style={{ fontWeight: 600, color: getPingColor(ping), fontSize: "11px" }}>{ping}ms</span>
                     </button>
                   );
                 })}
