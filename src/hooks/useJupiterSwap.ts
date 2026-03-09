@@ -45,7 +45,11 @@ export function useJupiterSwap() {
         slippageBps: slippageBps.toString(),
       });
 
-      const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`);
+      const headers: Record<string, string> = {};
+      const jupApiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
+      if (jupApiKey) headers['x-api-key'] = jupApiKey;
+
+      const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
       
       if (!response.ok) {
         const error = await response.json();
