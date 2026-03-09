@@ -231,8 +231,8 @@ export default function FunLauncherPage() {
               </span>
             </div>
 
-            {/* P1 P2 P3 Quick Buy Header Bar — global config for all token cards */}
-            <div className="px-4 pt-2">
+            {/* P1 P2 P3 Quick Buy Header Bar */}
+            <div className="px-4 pt-1.5">
               <div className="pulse-axiom-header mb-0" style={{ "--col-accent": "160 84% 39%" } as React.CSSProperties}>
                 <button className="pulse-axiom-qb" onClick={() => setEditingQb(!editingQb)}>
                   <Zap className="h-3 w-3 text-warning" />
