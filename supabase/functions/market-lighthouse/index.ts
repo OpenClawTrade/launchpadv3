@@ -4,17 +4,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-let cachedData: any = null;
-let cachedAt = 0;
 const CACHE_TTL = 3 * 60 * 1000;
+let cachedData: unknown = null;
+let cachedAt = 0;
 
 type ProtocolRow = {
   name: string;
-  vol24h: number;
-  change: number;
+  vol24hUsd: number;
+  change24h: number;
 };
 
-async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+type DexStats = {
+  volume24hUsd: number;
+  buyCount24h: number;
+  sellCount24h: number;
+  buyers24h: number;
+  sellers24h: number;
+};
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 9000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -24,98 +32,109 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs =
   }
 }
 
-async function fetchDefiLlamaDexVolumes() {
+async function fetchSolPriceUsd(): Promise<number> {
+  try {
+    const res = await fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", {}, 7000);
+    if (!res.ok) return 0;
+    const json = await res.json();
+    return Number(json?.solana?.usd || 0);
+  } catch {
+    return 0;
+  }
+}
+
+async function fetchDefiLlamaDexOverview() {
   try {
     const res = await fetchWithTimeout(
       "https://api.llama.fi/overview/dexs/Solana?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true",
     );
     if (!res.ok) return null;
 
-    const data = await res.json();
-    const total24h = Number(data.total24h || 0);
-    const total48hto24h = Number(data.total48hto24h || 0);
-    const change24h = total48hto24h > 0 ? ((total24h - total48hto24h) / total48hto24h) * 100 : 0;
-
-    const protocols: ProtocolRow[] = [];
-    if (Array.isArray(data.protocols)) {
-      for (const p of data.protocols) {
-        const vol24h = Number(p?.total24h || 0);
-        if (vol24h <= 0) continue;
-
-        const prev24h = Number(p?.total48hto24h || 0);
-        const pChange = prev24h > 0 ? ((vol24h - prev24h) / prev24h) * 100 : 0;
-
-        protocols.push({
-          name: p?.name || p?.displayName || "Unknown",
-          vol24h,
-          change: pChange,
-        });
-      }
-    }
-
-    protocols.sort((a, b) => b.vol24h - a.vol24h);
-
-    return { total24h, change24h, protocols };
-  } catch {
-    return null;
-  }
-}
-
-async function fetchGeckoTerminalTrades() {
-  try {
-    const res = await fetchWithTimeout("https://api.geckoterminal.com/api/v2/networks/solana/trending_pools?page=1", {}, 9000);
-    if (!res.ok) return null;
-
     const json = await res.json();
-    const rows = Array.isArray(json?.data) ? json.data : [];
+    const total24h = Number(json?.total24h || 0);
+    const prev24h = Number(json?.total48hto24h || 0);
+    const change24h = prev24h > 0 ? ((total24h - prev24h) / prev24h) * 100 : 0;
 
-    let buys = 0;
-    let sells = 0;
+    const protocols: ProtocolRow[] = (Array.isArray(json?.protocols) ? json.protocols : [])
+      .map((p: any) => {
+        const vol24hUsd = Number(p?.total24h || 0);
+        const prevProtocol24h = Number(p?.total48hto24h || 0);
+        const protocolChange24h = prevProtocol24h > 0
+          ? ((vol24hUsd - prevProtocol24h) / prevProtocol24h) * 100
+          : 0;
 
-    for (const row of rows) {
-      const h24 = row?.attributes?.transactions?.h24 || {};
-      buys += Number(h24?.buys || 0);
-      sells += Number(h24?.sells || 0);
-    }
+        return {
+          name: String(p?.name || p?.displayName || "Unknown"),
+          vol24hUsd,
+          change24h: protocolChange24h,
+        };
+      })
+      .filter((p: ProtocolRow) => p.vol24hUsd > 0)
+      .sort((a: ProtocolRow, b: ProtocolRow) => b.vol24hUsd - a.vol24hUsd);
 
     return {
-      buyCount: buys,
-      sellCount: sells,
-      totalTrades: buys + sells,
+      total24hUsd: total24h,
+      change24h,
+      protocols,
     };
   } catch {
     return null;
   }
 }
 
-async function fetchSolPrice(): Promise<number> {
+async function fetchGeckoDexPoolsStats(dexId: string): Promise<DexStats | null> {
   try {
-    const res = await fetchWithTimeout("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
-    if (!res.ok) return 0;
-    const data = await res.json();
-    return Number(data?.solana?.usd || 0);
+    const res = await fetchWithTimeout(`https://api.geckoterminal.com/api/v2/networks/solana/dexes/${dexId}/pools?page=1`, {}, 9000);
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const pools = Array.isArray(json?.data) ? json.data : [];
+
+    let volume24hUsd = 0;
+    let buyCount24h = 0;
+    let sellCount24h = 0;
+    let buyers24h = 0;
+    let sellers24h = 0;
+
+    for (const pool of pools) {
+      const attributes = pool?.attributes || {};
+      const h24Tx = attributes?.transactions?.h24 || {};
+
+      volume24hUsd += Number(attributes?.volume_usd?.h24 || 0);
+      buyCount24h += Number(h24Tx?.buys || 0);
+      sellCount24h += Number(h24Tx?.sells || 0);
+      buyers24h += Number(h24Tx?.buyers || 0);
+      sellers24h += Number(h24Tx?.sellers || 0);
+    }
+
+    return {
+      volume24hUsd,
+      buyCount24h,
+      sellCount24h,
+      buyers24h,
+      sellers24h,
+    };
   } catch {
-    return 0;
+    return null;
   }
 }
 
-function protocolVolumeByName(protocols: ProtocolRow[], matcher: RegExp): number {
-  return protocols
-    .filter((p) => matcher.test(p.name.toLowerCase()))
-    .reduce((sum, p) => sum + p.vol24h, 0);
-}
-
-function protocolChangeByName(protocols: ProtocolRow[], matcher: RegExp): number {
-  const matched = protocols.filter((p) => matcher.test(p.name.toLowerCase()));
-  if (!matched.length) return 0;
-  const totalVol = matched.reduce((sum, p) => sum + p.vol24h, 0);
-  if (totalVol <= 0) return matched[0].change;
-  return matched.reduce((sum, p) => sum + p.change * (p.vol24h / totalVol), 0);
+function aggregateDexStats(rows: Array<DexStats | null>): DexStats {
+  return rows.reduce(
+    (acc, row) => ({
+      volume24hUsd: acc.volume24hUsd + Number(row?.volume24hUsd || 0),
+      buyCount24h: acc.buyCount24h + Number(row?.buyCount24h || 0),
+      sellCount24h: acc.sellCount24h + Number(row?.sellCount24h || 0),
+      buyers24h: acc.buyers24h + Number(row?.buyers24h || 0),
+      sellers24h: acc.sellers24h + Number(row?.sellers24h || 0),
+    }),
+    { volume24hUsd: 0, buyCount24h: 0, sellCount24h: 0, buyers24h: 0, sellers24h: 0 },
+  );
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -125,81 +144,69 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [dexVolumes, geckoTrades, solPrice] = await Promise.all([
-      fetchDefiLlamaDexVolumes(),
-      fetchGeckoTerminalTrades(),
-      fetchSolPrice(),
+    const [solPriceUsd, dexOverview, pumpStats, bonkStats, moonshotStats] = await Promise.all([
+      fetchSolPriceUsd(),
+      fetchDefiLlamaDexOverview(),
+      aggregateDexStats(await Promise.all([
+        fetchGeckoDexPoolsStats("pump-fun"),
+        fetchGeckoDexPoolsStats("pumpswap"),
+      ])),
+      aggregateDexStats(await Promise.all([
+        fetchGeckoDexPoolsStats("raydium-launchlab"),
+      ])),
+      aggregateDexStats(await Promise.all([
+        fetchGeckoDexPoolsStats("moonit"),
+      ])),
     ]);
 
-    const totalVolUsd = Number(dexVolumes?.total24h || 0);
-    const volChange = Number(dexVolumes?.change24h || 0);
-
-    const buyCount = Number(geckoTrades?.buyCount || 0);
-    const sellCount = Number(geckoTrades?.sellCount || 0);
-    const totalTrades = Number(geckoTrades?.totalTrades || 0);
-
-    const tradeRatioDenom = buyCount + sellCount;
-    const buyRatio = tradeRatioDenom > 0 ? buyCount / tradeRatioDenom : 0.5;
-    const sellRatio = 1 - buyRatio;
-
-    const buyVolUsd = totalVolUsd * buyRatio;
-    const sellVolUsd = totalVolUsd * sellRatio;
-    const buyVolSol = solPrice > 0 ? buyVolUsd / solPrice : 0;
-    const sellVolSol = solPrice > 0 ? sellVolUsd / solPrice : 0;
-
-    const protocols = dexVolumes?.protocols || [];
-
-    const topProtocols = protocols.slice(0, 3).map((p) => ({
+    const topProtocols = (dexOverview?.protocols || []).slice(0, 3).map((p) => ({
       name: p.name,
-      vol24hUsd: p.vol24h,
-      change: p.change,
+      vol24hUsd: p.vol24hUsd,
+      change: p.change24h,
     }));
 
-    // Fixed launchpad set (as requested), all values from external protocol feed (no DB)
-    const launchpadRows = [
-      {
-        type: "pumpfun",
-        matcher: /pump/,
-      },
-      {
-        type: "bonk",
-        matcher: /bonk/,
-      },
-      {
-        type: "moonshot",
-        matcher: /moonshot/,
-      },
-    ];
+    const totalVol24hUsd = Number(dexOverview?.total24hUsd || 0);
+    const volChange24h = Number(dexOverview?.change24h || 0);
 
-    const topLaunchpads = launchpadRows.map((lp) => {
-      const vol24hUsd = protocolVolumeByName(protocols, lp.matcher);
-      const change = protocolChangeByName(protocols, lp.matcher);
-      const vol24hSol = solPrice > 0 ? vol24hUsd / solPrice : 0;
-      return {
-        type: lp.type,
-        vol24hUsd,
-        vol24hSol,
-        change,
-      };
-    });
+    const launchpads = [
+      { type: "pumpfun", stats: pumpStats },
+      { type: "bonk", stats: bonkStats },
+      { type: "moonshot", stats: moonshotStats },
+    ].map((lp) => ({
+      type: lp.type,
+      vol24hUsd: lp.stats.volume24hUsd,
+      vol24hSol: solPriceUsd > 0 ? lp.stats.volume24hUsd / solPriceUsd : 0,
+      change: 0,
+    }));
 
-    const result = {
-      totalVol24hUsd: totalVolUsd,
-      volChange24h: volChange,
-      solPrice,
+    const buyCount = pumpStats.buyCount24h + bonkStats.buyCount24h + moonshotStats.buyCount24h;
+    const sellCount = pumpStats.sellCount24h + bonkStats.sellCount24h + moonshotStats.sellCount24h;
+    const buyVolUsd = pumpStats.volume24hUsd + bonkStats.volume24hUsd + moonshotStats.volume24hUsd;
+
+    const totalLocalVolUsd = buyVolUsd;
+    const totalTrades = buyCount + sellCount;
+
+    const response = {
+      totalVol24hUsd,
+      volChange24h,
+      solPrice: solPriceUsd,
 
       totalTrades,
       tradesChange: 0,
-      uniqueTraders: 0,
+      uniqueTraders: pumpStats.buyers24h + bonkStats.buyers24h + moonshotStats.buyers24h,
       tradersChange: 0,
 
       buyCount,
-      buyVolUsd,
-      buyVolSol,
+      buyVolUsd: totalLocalVolUsd * (buyCount + sellCount > 0 ? buyCount / (buyCount + sellCount) : 0.5),
+      buyVolSol: solPriceUsd > 0
+        ? (totalLocalVolUsd * (buyCount + sellCount > 0 ? buyCount / (buyCount + sellCount) : 0.5)) / solPriceUsd
+        : 0,
       sellCount,
-      sellVolUsd,
-      sellVolSol,
-      ownVolUsd: totalVolUsd,
+      sellVolUsd: totalLocalVolUsd * (buyCount + sellCount > 0 ? sellCount / (buyCount + sellCount) : 0.5),
+      sellVolSol: solPriceUsd > 0
+        ? (totalLocalVolUsd * (buyCount + sellCount > 0 ? sellCount / (buyCount + sellCount) : 0.5)) / solPriceUsd
+        : 0,
+      ownVolUsd: totalLocalVolUsd,
 
       tokensCreated: 0,
       created24h: 0,
@@ -209,19 +216,20 @@ Deno.serve(async (req) => {
       graduatedChange: 0,
 
       topProtocols,
-      topLaunchpads,
+      topLaunchpads: launchpads,
 
       updatedAt: new Date().toISOString(),
     };
 
-    cachedData = result;
+    cachedData = response;
     cachedAt = Date.now();
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
