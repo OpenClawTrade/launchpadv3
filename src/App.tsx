@@ -132,6 +132,7 @@ const App = () => (
                     <Route path="/admin/treasury" element={<Navigate to="/admin?tab=treasury" replace />} />
                     <Route path="/trade" element={<TradePage />} />
                      <Route path="/alpha-tracker" element={<AlphaTrackerPage />} />
+                     <Route path="/x-tracker" element={<XTrackerPage />} />
                      <Route path="/discover" element={<DiscoverPage />} />
                      <Route path="/profile/:identifier" element={<UserProfilePage />} />
                     <Route path="/investigate-token" element={<InvestigateTokenPage />} />
