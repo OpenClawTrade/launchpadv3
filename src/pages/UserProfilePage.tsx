@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import defaultAvatar from "@/assets/default-avatar.png";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
