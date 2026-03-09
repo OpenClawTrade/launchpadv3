@@ -160,14 +160,13 @@ export function TokenCard({ token, solPrice, isPromoted, creatorUsername, creato
       to={tradeUrl}
       className={`lt-card group block overflow-hidden relative ${isPulsing ? 'lt-shake' : ''} ${isNearGrad ? 'lt-card-hot' : ''}`}
     >
-      {/* Sparkline background */}
-      <div className="absolute inset-0 z-0 opacity-40">
-        <SparklineCanvas data={sparklineData && sparklineData.length >= 2 ? sparklineData : [1, 1]} seed={token.mint_address || token.id} />
-      </div>
-
       {/* ── Token Image ── */}
       <div className="relative z-10 w-full" style={{ paddingBottom: "54%" }}>
         <div className="absolute inset-0">
+          {/* Sparkline background - restricted to image area */}
+          <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+            <SparklineCanvas data={sparklineData && sparklineData.length >= 2 ? sparklineData : [1, 1]} seed={token.mint_address || token.id} />
+          </div>
           <OptimizedTokenImage
             src={token.image_url}
             fallbackSrc={token.mint_address ? `https://dd.dexscreener.com/ds-data/tokens/solana/${token.mint_address}.png` : undefined}
