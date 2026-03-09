@@ -12,8 +12,8 @@ const LOGO_SRC = saturnLogo;
 
 const NAV_LINKS = [
   { to: "/", label: "Home", icon: Home, exact: true },
-  { to: "/launchpad", label: "Launchpad", icon: Rocket },
   { to: "/trade", label: "Pulse", icon: Zap },
+  { to: "/launchpad", label: "Launchpad", icon: Rocket },
   { to: "/discover", label: "Discover", icon: TrendingUp },
   { to: "/alpha-tracker", label: "Alpha", icon: Crosshair },
   { to: "/x-tracker", label: "X Tracker", icon: Radar },
