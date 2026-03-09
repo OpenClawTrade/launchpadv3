@@ -14,11 +14,14 @@ import { ProfileTradingStats } from "@/components/profile/ProfileTradingStats";
 import { ProfilePositionsTab, ProfileActivityTab } from "@/components/profile/ProfileTradingTabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatSol, truncateWallet } from "@/lib/tradeUtils";
+import { useWalletHoldings } from "@/hooks/useWalletHoldings";
 
 export default function UserProfilePage() {
   const { identifier } = useParams<{ identifier: string }>();
   const { profile, isLoading, error, tokens, tokensLoading, trades, tradesLoading, alphaTrades, alphaTradesLoading, alphaPositions, tradingStats } = useUserProfile(identifier);
   const { profileId } = useAuth();
+  const wallet = profile?.solana_wallet_address ?? (identifier && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(identifier) ? identifier : null);
+  const { data: walletHoldings = [], isLoading: holdingsLoading } = useWalletHoldings(wallet);
   const [copied, setCopied] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -55,6 +58,8 @@ export default function UserProfilePage() {
   }
 
   const hasAlphaData = alphaTrades.length > 0;
+  const hasHoldings = walletHoldings.length > 0;
+  const showPositionsTab = hasAlphaData || hasHoldings;
 
   return (
     <LaunchpadLayout hideFooter>
@@ -139,7 +144,7 @@ export default function UserProfilePage() {
 
           {/* Stats Row */}
           <div className="grid grid-cols-4 gap-3 border border-border/30 rounded-lg p-3 bg-muted/20">
-            <StatBox label="COINS HELD" value="—" />
+            <StatBox label="COINS HELD" value={holdingsLoading ? "..." : walletHoldings.length.toString()} />
             <StatBox label="COINS CREATED" value={tokens.length.toString()} />
             <StatBox label="FOLLOWERS" value={(profile.followers_count || 0).toString()} />
             <StatBox label="FOLLOWING" value={(profile.following_count || 0).toString()} />
@@ -154,31 +159,31 @@ export default function UserProfilePage() {
         {hasAlphaData && <ProfileTradingStats stats={tradingStats} />}
 
         {/* Tabs */}
-        <Tabs defaultValue={hasAlphaData ? "positions" : "tokens"} className="mt-4">
+        <Tabs defaultValue={showPositionsTab ? "positions" : "tokens"} className="mt-4">
           <TabsList className="bg-muted/30 border border-border/30 w-full justify-start">
+            {showPositionsTab && (
+              <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider">Positions</TabsTrigger>
+            )}
             {hasAlphaData && (
-              <>
-                <TabsTrigger value="positions" className="font-mono text-xs uppercase tracking-wider">Positions</TabsTrigger>
-                <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider">Activity</TabsTrigger>
-              </>
+              <TabsTrigger value="activity" className="font-mono text-xs uppercase tracking-wider">Activity</TabsTrigger>
             )}
             <TabsTrigger value="tokens" className="font-mono text-xs uppercase tracking-wider">Tokens</TabsTrigger>
             <TabsTrigger value="trades" className="font-mono text-xs uppercase tracking-wider">Trades</TabsTrigger>
           </TabsList>
 
+          {showPositionsTab && (
+            <TabsContent value="positions">
+              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
+                <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} onChainHoldings={walletHoldings} holdingsLoading={holdingsLoading} />
+              </div>
+            </TabsContent>
+          )}
           {hasAlphaData && (
-            <>
-              <TabsContent value="positions">
-                <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                  <ProfilePositionsTab alphaTrades={alphaTrades} positions={alphaPositions} loading={alphaTradesLoading} />
-                </div>
-              </TabsContent>
-              <TabsContent value="activity">
-                <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
-                  <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
-                </div>
-              </TabsContent>
-            </>
+            <TabsContent value="activity">
+              <div className="border border-border/30 rounded-lg bg-card overflow-hidden">
+                <ProfileActivityTab alphaTrades={alphaTrades} loading={alphaTradesLoading} />
+              </div>
+            </TabsContent>
           )}
 
           <TabsContent value="tokens">

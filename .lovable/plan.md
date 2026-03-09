@@ -1,55 +1,45 @@
 
 
-# Fix Inaccurate Profile Data: On-Chain Token Holdings
+## Two Issues to Fix
 
-## Problem
-1. **"Coins Held" is hardcoded to "—"** — never fetches real data
-2. **Active Positions only show trades from `alpha_trades` table** — if a wallet holds tokens but those trades weren't tracked in alpha_trades, they won't appear
-3. The wallet `9knrFgvz1Q1QcD8LBLYeLJdhJ6FqE21fEeiiokX5pB7B` has 2 token holdings on Solscan but the profile shows none
+### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
 
-## Solution
-Fetch **actual on-chain token holdings** for any wallet using Helius RPC, replacing the reliance on internal trade records alone.
+The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
 
-### 1. New Edge Function: `fetch-wallet-holdings`
-Create `supabase/functions/fetch-wallet-holdings/index.ts` that:
-- Takes a `walletAddress` parameter
-- Calls Helius `getParsedTokenAccountsByOwner` for both SPL Token and Token-2022 programs
-- Returns all token accounts with non-zero balance: mint address, token amount, decimals
-- Uses the existing `HELIUS_API_KEY` secret (already configured)
+**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
 
-### 2. New Hook: `useWalletHoldings`
-Create `src/hooks/useWalletHoldings.ts`:
-- Invokes the `fetch-wallet-holdings` edge function
-- Returns array of `{ mint: string, balance: number, decimals: number }`
-- Enabled only when a wallet address is available
-- 30s refetch interval for live data
+Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
 
-### 3. Update Profile Page (`UserProfilePage.tsx`)
-- Import and call `useWalletHoldings(wallet)`
-- Replace hardcoded `"—"` for "COINS HELD" with the actual count of tokens held (non-zero balances)
-- Pass holdings data to the Positions tab so it can show real on-chain positions even if alpha_trades has no record
+**Changes:**
+- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
 
-### 4. Update Positions Tab (`ProfileTradingTabs.tsx`)
-- Accept `onChainHoldings` as an additional prop
-- Merge on-chain holdings with alpha_trades positions:
-  - If a position exists in alpha_trades AND on-chain, use alpha data for PnL but on-chain for current balance
-  - If a token exists on-chain but NOT in alpha_trades, show it as a position with status "HOLDING" and balance from chain (no PnL data available)
-- This ensures all tokens the wallet actually holds appear in the positions list
+### 2. Alpha Tracker Shows No Trades from the Platform
 
-### Technical Flow
-```text
-Profile Page
-  ├── useUserProfile (existing: alpha_trades, DB data)
-  ├── useWalletHoldings (NEW: on-chain token accounts)
-  │     └── fetch-wallet-holdings edge function → Helius RPC
-  └── Merge & Display
-        ├── "Coins Held" = walletHoldings.length
-        └── Positions = union(alpha positions, on-chain holdings)
-```
+The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
 
-### Files
-1. `supabase/functions/fetch-wallet-holdings/index.ts` — **new** edge function
-2. `src/hooks/useWalletHoldings.ts` — **new** hook
-3. `src/pages/UserProfilePage.tsx` — wire up holdings count + pass to tabs
-4. `src/components/profile/ProfileTradingTabs.tsx` — merge on-chain holdings into positions display
+**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
+
+**Changes:**
+- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
+
+### Technical Details
+
+**alpha_trades schema** (from types.ts):
+- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+
+**Data available in launchpad-swap:**
+- `userWallet` -> `wallet_address`
+- `token.mint_address` -> `token_mint`  
+- `token.name` -> `token_name`
+- `token.ticker` -> `token_ticker`
+- `isBuy ? "buy" : "sell"` -> `trade_type`
+- `solAmount` -> `amount_sol`
+- `tokenAmount` -> `amount_tokens`
+- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
+- `clientSignature` / generated signature -> `tx_hash`
+- Profile lookup for display name/avatar
+
+**Files to modify:**
+1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
+2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
 
