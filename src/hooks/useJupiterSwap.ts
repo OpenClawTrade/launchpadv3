@@ -84,9 +84,13 @@ export function useJupiterSwap() {
       }
 
       // Step 2: Get swap transaction
+      const swapHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const jupKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
+      if (jupKey) swapHeaders['x-api-key'] = jupKey;
+
       const swapResponse = await fetch(`${JUPITER_QUOTE_API}/swap`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: swapHeaders,
         body: JSON.stringify({
           quoteResponse: quote,
           userPublicKey: userWallet,
