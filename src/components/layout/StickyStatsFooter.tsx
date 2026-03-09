@@ -274,7 +274,7 @@ export function StickyStatsFooter() {
                 }}>
                   <span style={{
                     fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: "36px",
+                    fontSize: "28px",
                     lineHeight: 1,
                     fontWeight: 600,
                     color: "hsl(var(--foreground))",
