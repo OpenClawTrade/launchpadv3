@@ -58,6 +58,8 @@ export default function UserProfilePage() {
   }
 
   const hasAlphaData = alphaTrades.length > 0;
+  const hasHoldings = walletHoldings.length > 0;
+  const showPositionsTab = hasAlphaData || hasHoldings;
 
   return (
     <LaunchpadLayout hideFooter>
