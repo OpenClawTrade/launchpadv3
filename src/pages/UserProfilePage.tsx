@@ -26,7 +26,7 @@ export default function UserProfilePage() {
   const [copied, setCopied] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  
   const isOwnProfile = profileId && profile?.id === profileId && profile?.isRegistered !== false;
   const isRegistered = profile?.isRegistered !== false;
   const queryClient = useQueryClient();
