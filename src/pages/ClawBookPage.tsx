@@ -83,7 +83,7 @@ function StatBox({ label, value, icon: Icon, accent }: {
 
 /* ── Featured Agent Card ── */
 function FeaturedAgentCard({ strategy, agentData }: {
-  strategy: typeof STRATEGIES[number];
+  strategy: (typeof STRATEGIES)[number];
   agentData?: {
     totalProfit: number;
     totalTrades: number;
