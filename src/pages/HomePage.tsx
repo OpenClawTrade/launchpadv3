@@ -6,11 +6,9 @@ import { KolTweetCard } from "@/components/x-tracker/KolTweetCard";
 import { useKolTweets } from "@/hooks/useKolTweets";
 import { useAlphaTrades, type AlphaTrade } from "@/hooks/useAlphaTrades";
 import { useAsterMarkets, type AsterMarket } from "@/hooks/useAsterMarkets";
-import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
-import { useCodexNewPairs, SOLANA_NETWORK_ID } from "@/hooks/useCodexNewPairs";
-import { useSolPrice } from "@/hooks/useSolPrice";
-import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
+import { useCodexNewPairs, SOLANA_NETWORK_ID, type CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { SparklineCanvas } from "@/components/launchpad/SparklineCanvas";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
