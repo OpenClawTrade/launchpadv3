@@ -1005,11 +1005,12 @@
 .pulse-column-scroll-v2 {
   flex: 1;
   overflow-y: auto;
-  max-height: calc(100vh - 110px);
+  max-height: calc(100vh - 160px);
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.5) transparent;
   position: relative;
+  padding-bottom: 12px;
 }
 
 .pulse-column-scroll-v2::-webkit-scrollbar {
