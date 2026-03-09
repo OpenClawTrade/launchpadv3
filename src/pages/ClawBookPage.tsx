@@ -63,7 +63,7 @@ const STRATEGIES = [
     description: "Maximum alpha extraction. Larger positions targeting breakout narratives and momentum plays.",
     highlights: ["High reward potential", "Narrative plays", "Momentum trading"],
   },
-] as const;
+];
 
 /* ── Stat Box ── */
 function StatBox({ label, value, icon: Icon, accent }: {
