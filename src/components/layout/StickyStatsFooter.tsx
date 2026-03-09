@@ -6,7 +6,7 @@ import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
-import tunaLogo from "@/assets/tuna-logo.png";
+import meteoraIcon from "@/assets/meteora-icon.svg";
 import bonkIcon from "@/assets/bonk-icon.jpg";
 import bagsIcon from "@/assets/bags-icon.ico";
 import moonshotIcon from "@/assets/moonshot-icon.ico";
