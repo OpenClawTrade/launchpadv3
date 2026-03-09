@@ -68,14 +68,16 @@ const PunchGamesPage = lazyWithRetry(() => import("./pages/PunchGamesPage"));
 const PunchTokenDetailPage = lazyWithRetry(() => import("./pages/PunchTokenDetailPage"));
 const ReferralRedirectPage = lazyWithRetry(() => import("./pages/ReferralRedirectPage"));
 
-// Domain-aware root: render PunchTestPage on punchlaunch.fun, FunLauncherPage otherwise
-function PunchDomainRoot() {
+const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
+
+// Domain-aware root: render PunchTestPage on punchlaunch.fun, HomePage otherwise
+function DomainRoot() {
   const hostname = window.location.hostname;
   const isPunch = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
   if (isPunch) {
     return <Suspense fallback={<RouteLoader />}><PunchTestPage /></Suspense>;
   }
-  return <FunLauncherPage />;
+  return <Suspense fallback={<RouteLoader />}><HomePage /></Suspense>;
 }
 
 // Minimal loading spinner for route transitions
