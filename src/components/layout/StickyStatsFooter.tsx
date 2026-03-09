@@ -23,14 +23,11 @@ const REGIONS = [
 
 const LAUNCHPAD_CONFIG: Record<string, { label: string; icon: string; isLocal?: boolean }> = {
   pumpfun: { label: "Pump.fun", icon: pumpfunPill, isLocal: true },
-  pump: { label: "Pump.fun", icon: pumpfunPill, isLocal: true },
-  dbc: { label: "Meteora", icon: tunaLogo, isLocal: true },
+  bonk: { label: "Bonk", icon: "https://letsbonk.fun/favicon.ico" },
+  meteora: { label: "Meteora", icon: tunaLogo, isLocal: true },
   bags: { label: "Bags.fm", icon: "https://bags.fm/favicon.ico" },
-  bonk: { label: "Bonk", icon: "https://www.bonk.fun/favicon.ico" },
-  believe: { label: "Believe", icon: "https://believe.app/images/icons/icon.png" },
-  boop: { label: "Boop", icon: "https://boop.fun/images/brand.png" },
   moonshot: { label: "Moonshot", icon: "https://moonshot.money/favicon.ico" },
-  phantom: { label: "Phantom", icon: "https://phantom.com/favicon.ico" },
+  raydium: { label: "Raydium", icon: "https://raydium.io/favicon.ico" },
 };
 
 function getPingColor(ping: number): string {
@@ -197,7 +194,7 @@ export function StickyStatsFooter() {
             display: "flex",
             alignItems: "center",
             gap: "6px",
-            padding: "4px 12px",
+            padding: "2px 8px",
             borderRadius: "999px",
             background: isOnline ? "hsla(152, 60%, 18%, 0.6)" : "hsla(0, 60%, 18%, 0.6)",
             border: `1px solid ${isOnline ? "hsla(152, 50%, 30%, 0.5)" : "hsla(0, 50%, 30%, 0.5)"}`,
@@ -206,8 +203,8 @@ export function StickyStatsFooter() {
               className={isOnline ? "pulse-dot" : ""}
               style={{
                 display: "inline-block",
-                width: "8px",
-                height: "8px",
+                width: "6px",
+                height: "6px",
                 borderRadius: "50%",
                 backgroundColor: isOnline ? "hsl(152, 60%, 45%)" : "hsl(0, 84%, 60%)",
                 flexShrink: 0,
@@ -215,7 +212,7 @@ export function StickyStatsFooter() {
             />
             <span style={{
               fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "11px",
+              fontSize: "9px",
               fontWeight: 500,
               color: isOnline ? "hsl(152, 50%, 55%)" : "hsl(0, 70%, 60%)",
               whiteSpace: "nowrap",
