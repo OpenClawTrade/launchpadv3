@@ -68,21 +68,8 @@ export default function UserProfilePage() {
   const maxDistCount = Math.max(...tradingStats.pnlDistribution.map((d) => d.count), 1);
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-
-      <main className={cn("flex-1 min-h-screen", !isMobile && "ml-[48px]")}>
-        {/* Mobile header */}
-        {isMobile && (
-          <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-background/95 backdrop-blur-md border-b border-border">
-            <button onClick={() => setMobileOpen(true)}>
-              <Menu className="w-5 h-5 text-muted-foreground" />
-            </button>
-            <span className="text-sm font-bold text-foreground">Profile</span>
-          </div>
-        )}
-
-        {/* Cover Banner - Full width */}
+    <LaunchpadLayout noPadding>
+      <div>
         <div className="h-36 md:h-48 bg-gradient-to-r from-primary/20 via-primary/5 to-accent/20 relative overflow-hidden">
           {profile.cover_url && (
             <img src={profile.cover_url} alt="" className="w-full h-full object-cover absolute inset-0" />
