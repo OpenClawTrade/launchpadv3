@@ -20,43 +20,72 @@ import { format } from "date-fns";
 import { timeAgo, formatTokenAmt } from "@/lib/tradeUtils";
 import saturnLogo from "@/assets/saturn-logo.png";
 
-/* ── Compact Alpha Trade Row ── */
-function AlphaTradeRow({ trade }: { trade: AlphaTrade }) {
+/* ── Status Pill ── */
+function StatusPill({ status }: { status: "HOLDING" | "PARTIAL" | "SOLD" }) {
+  const c = {
+    HOLDING: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    PARTIAL: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    SOLD: "bg-red-500/10 text-red-400 border-red-500/20",
+  }[status];
+  return (
+    <span className={`px-1.5 py-px rounded border text-[8px] font-bold tracking-wide ${c}`}>
+      {status}
+    </span>
+  );
+}
+
+/* ── Detailed Alpha Trade Row ── */
+function AlphaTradeRow({ trade, position }: { trade: AlphaTrade; position?: import("@/lib/tradeUtils").PositionSummary }) {
   const isBuy = trade.trade_type === "buy";
   return (
     <Link
       to={`/trade/${trade.token_mint}`}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-card/60 border border-border/50 hover:border-primary/30 transition-all group"
+      className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-card/60 border border-border/50 hover:border-primary/30 transition-all group"
     >
-      <div className={cn(
-        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-        isBuy ? "bg-emerald-500/10" : "bg-red-500/10"
-      )}>
-        {isBuy
-          ? <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-          : <ArrowDownRight className="w-4 h-4 text-red-400" />
-        }
+      {/* Token Logo */}
+      <div className="h-7 w-7 rounded-full bg-muted border border-border/50 overflow-hidden flex items-center justify-center shrink-0">
+        {trade.token_image_url ? (
+          <img src={trade.token_image_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-[7px] font-bold text-muted-foreground">
+            {(trade.token_ticker || "??").slice(0, 2).toUpperCase()}
+          </span>
+        )}
       </div>
+
+      {/* Trader + Token */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-foreground truncate">
-            {trade.token_ticker || trade.token_name || "Unknown"}
+          <span className="text-[11px] font-bold text-foreground truncate">
+            ${trade.token_ticker || trade.token_name || "???"}
           </span>
           <span className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
+            "inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded",
             isBuy ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
           )}>
+            {isBuy ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
             {isBuy ? "BUY" : "SELL"}
           </span>
+          {position && <StatusPill status={position.status} />}
         </div>
-        <span className="text-[10px] text-muted-foreground font-mono">
-          {trade.trader_display_name || `${trade.wallet_address.slice(0, 4)}...${trade.wallet_address.slice(-4)}`}
-        </span>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[9px] text-muted-foreground font-mono truncate">
+            {trade.trader_display_name || `${trade.wallet_address.slice(0, 4)}...${trade.wallet_address.slice(-4)}`}
+          </span>
+          <span className="text-border">·</span>
+          <span className="text-[9px] text-muted-foreground font-mono">
+            {formatTokenAmt(trade.amount_tokens)} tokens
+          </span>
+        </div>
       </div>
+
+      {/* Right: SOL + Time */}
       <div className="text-right shrink-0">
-        <div className="text-xs font-bold text-foreground">{trade.amount_sol.toFixed(2)} SOL</div>
-        <div className="text-[10px] text-muted-foreground">
-          {format(new Date(trade.created_at), "HH:mm")}
+        <div className={cn("text-[11px] font-bold font-mono tabular-nums", isBuy ? "text-emerald-400" : "text-red-400")}>
+          {isBuy ? "+" : "-"}{trade.amount_sol.toFixed(3)} SOL
+        </div>
+        <div className="text-[9px] text-muted-foreground font-mono">
+          {timeAgo(trade.created_at)}
         </div>
       </div>
     </Link>
