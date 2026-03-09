@@ -15,11 +15,25 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: 'esnext',
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2000,
+    sourcemap: false,
+    cssCodeSplit: true,
+    reportCompressedSize: false,
     rollupOptions: {
       onwarn(warning, warn) {
         if (warning?.code === "INVALID_ANNOTATION") return;
         warn(warning);
+      },
+      output: {
+        manualChunks(id) {
+          // Split heavy vendor deps into separate chunks to reduce peak memory
+          if (id.includes('node_modules/@solana')) return 'vendor-solana';
+          if (id.includes('node_modules/viem') || id.includes('node_modules/wagmi') || id.includes('node_modules/@rainbow-me')) return 'vendor-evm';
+          if (id.includes('node_modules/@meteora-ag')) return 'vendor-meteora';
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
+          if (id.includes('node_modules/@radix-ui')) return 'vendor-radix';
+          if (id.includes('node_modules/lightweight-charts')) return 'vendor-lwcharts';
+        },
       },
     },
   },
