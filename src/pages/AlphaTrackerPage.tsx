@@ -132,12 +132,17 @@ export default function AlphaTrackerPage() {
                       </span>
                     </div>
 
-                    {/* Row 3: Price + Timestamp */}
-                    <div className="flex items-center gap-2">
+                    {/* Row 3: Price + MCap + Timestamp */}
+                    <div className="flex items-center gap-2 flex-wrap">
                       {trade.price_sol != null && (
-                        <span className="text-[9px] font-mono text-muted-foreground">
-                          @ {trade.price_sol.toFixed(10)} SOL
-                        </span>
+                        <>
+                          <span className="text-[9px] font-mono text-muted-foreground">
+                            @ {trade.price_sol.toFixed(10)} SOL
+                          </span>
+                          <span className="text-[9px] font-mono text-muted-foreground/70">
+                            MCap {(trade.price_sol * 1_000_000_000).toFixed(1)} SOL
+                          </span>
+                        </>
                       )}
                       <span className="text-[9px] text-muted-foreground/60">
                         {format(new Date(trade.created_at), "MMM d, h:mm a")}
