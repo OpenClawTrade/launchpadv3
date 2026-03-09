@@ -117,8 +117,8 @@ export const SparklineCanvas = memo(function SparklineCanvas({
       ctx.lineTo(last.x, last.y);
     }
 
-    ctx.strokeStyle = `rgba(${lineColor}, 0.7)`;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgba(${lineColor}, 0.45)`;
+    ctx.lineWidth = 1.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.stroke();
@@ -129,8 +129,8 @@ export const SparklineCanvas = memo(function SparklineCanvas({
     ctx.closePath();
 
     const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, `rgba(${lineColor}, 0.35)`);
-    gradient.addColorStop(1, `rgba(${lineColor}, 0.02)`);
+    gradient.addColorStop(0, `rgba(${lineColor}, 0.15)`);
+    gradient.addColorStop(1, `rgba(${lineColor}, 0.01)`);
     ctx.fillStyle = gradient;
     ctx.fill();
   }, [data, seed]);
