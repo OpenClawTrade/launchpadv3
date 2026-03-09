@@ -2,11 +2,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useClawStats } from "@/hooks/useClawStats";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useLaunchpadStats, LaunchpadStat } from "@/hooks/useLaunchpadStats";
+import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import tunaLogo from "@/assets/tuna-logo.png";
+import bonkIcon from "@/assets/bonk-icon.ico";
+import bagsIcon from "@/assets/bags-icon.ico";
+import moonshotIcon from "@/assets/moonshot-icon.ico";
+import raydiumIcon from "@/assets/raydium-icon.ico";
 
 const REGIONS = [
   { id: "US-W", label: "US-W", basePing: 95, variance: 45 },
