@@ -52,10 +52,11 @@ function getOptimizedUrl(src: string, size: number): string {
 export function OptimizedTokenImage({
   src,
   fallbackText,
-  fallbackSrc,
+  fallbackSrc: _fallbackSrc,
   size = 200,
   className,
   alt,
+  onError,
   ...props
 }: OptimizedTokenImageProps) {
   const [hasError, setHasError] = useState(false);
@@ -84,9 +85,10 @@ export function OptimizedTokenImage({
       className={className}
       onError={(event) => {
         setHasError(true);
-        props.onError?.(event);
+        onError?.(event);
       }}
       {...props}
     />
   );
+}
 }
