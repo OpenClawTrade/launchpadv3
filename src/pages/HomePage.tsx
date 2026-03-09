@@ -4,7 +4,7 @@ import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { JustLaunched } from "@/components/launchpad/JustLaunched";
 import { KolTweetCard } from "@/components/x-tracker/KolTweetCard";
 import { useKolTweets } from "@/hooks/useKolTweets";
-import { useAlphaTrades, type AlphaTrade } from "@/hooks/useAlphaTrades";
+import { useAlphaTrades, type AlphaTrade, type PositionSummary } from "@/hooks/useAlphaTrades";
 import { useAsterMarkets, type AsterMarket } from "@/hooks/useAsterMarkets";
 import { useCodexNewPairs, SOLANA_NETWORK_ID, type CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { SparklineCanvas } from "@/components/launchpad/SparklineCanvas";
@@ -35,7 +35,7 @@ function StatusPill({ status }: { status: "HOLDING" | "PARTIAL" | "SOLD" }) {
 }
 
 /* ── Detailed Alpha Trade Row ── */
-function AlphaTradeRow({ trade, position }: { trade: AlphaTrade; position?: import("@/lib/tradeUtils").PositionSummary }) {
+function AlphaTradeRow({ trade, position }: { trade: AlphaTrade; position?: PositionSummary }) {
   const isBuy = trade.trade_type === "buy";
   return (
     <Link
