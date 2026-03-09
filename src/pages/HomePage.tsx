@@ -121,7 +121,7 @@ export default function HomePage() {
   const [quickBuyAmount, setQuickBuyAmount] = useState(0.3);
   const { solPrice } = useSolPrice();
   const { tokens, isLoading: tokensLoading } = useFunTokensPaginated(1, 20);
-  const { codexNewPairs, codexCompleting, codexGraduated, isLoading: codexLoading } = useCodexNewPairs(SOLANA_NETWORK_ID);
+  const { newPairs: codexNewPairs, completing: codexCompleting, graduated: codexGraduated, isLoading: codexLoading } = useCodexNewPairs(SOLANA_NETWORK_ID);
   const { data: kolTweets } = useKolTweets("all");
   const { trades: alphaTrades, loading: alphaLoading } = useAlphaTrades(10);
   const { markets: leverageMarkets, loading: leverageLoading } = useAsterMarkets();
