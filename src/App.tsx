@@ -119,11 +119,12 @@ const App = () => (
                 <Suspense fallback={<RouteLoader />}>
                    <div className="relative z-[1]">
                    <Routes>
-                    <Route path="/" element={<PunchDomainRoot />} />
+                    <Route path="/" element={<DomainRoot />} />
+                    <Route path="/launchpad" element={<FunLauncherPage />} />
                     
-                    {/* Chain-specific launch routes */}
-                    <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
-                    <Route path="/launch/:chain" element={<FunLauncherPage />} />
+                     {/* Chain-specific launch routes */}
+                     <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
+                     <Route path="/launch/:chain" element={<FunLauncherPage />} />
                     <Route path="/trade/:mintAddress" element={<FunTokenDetailPage />} />
                     <Route path="/launchpad/:mintAddress" element={<LaunchpadRedirect />} />
                     <Route path="/trending" element={<TrendingPage />} />

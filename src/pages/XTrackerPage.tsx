@@ -80,7 +80,7 @@ export default function XTrackerPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </LaunchpadLayout>
   );
 }
