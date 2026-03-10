@@ -34,7 +34,6 @@ export default defineConfig(({ mode }) => ({
           // and MUST stay in the main chunk to avoid "createContext is undefined" errors.
           if (id.includes('node_modules/@solana')) return 'vendor-solana';
           if (id.includes('node_modules/viem')) return 'vendor-viem';
-          if (id.includes('node_modules/@meteora-ag')) return 'vendor-meteora';
           if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
           if (id.includes('node_modules/lightweight-charts')) return 'vendor-lwcharts';
           if (id.includes('node_modules/bn.js') || id.includes('node_modules/buffer') || id.includes('node_modules/bs58')) return 'vendor-crypto-utils';
