@@ -218,6 +218,12 @@ Deno.serve(async (req) => {
         updates.solana_wallet_address = solanaWalletAddress;
       }
       if (avatarUrl) updates.avatar_url = avatarUrl;
+      if (privyWalletId && existingProfile.privy_wallet_id !== privyWalletId) {
+        updates.privy_wallet_id = privyWalletId;
+      }
+      if (!existingProfile.privy_did) {
+        updates.privy_did = privyUserId;
+      }
 
       if (Object.keys(updates).length > 0) {
         const { error: updateError } = await supabase
