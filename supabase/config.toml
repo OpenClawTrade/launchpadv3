@@ -426,3 +426,9 @@ verify_jwt = false
 
 [functions.fetch-wallet-transactions]
 verify_jwt = false
+
+[functions.server-send]
+verify_jwt = false
+
+[functions.server-trade]
+verify_jwt = false
