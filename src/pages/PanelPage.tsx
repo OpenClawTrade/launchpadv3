@@ -153,6 +153,7 @@ export default function PanelPage() {
                 <PanelTab value="wallets" icon={<Wallet className="h-3.5 w-3.5" />} label="Wallet" active={activeTab === "wallets"} />
                 <PanelTab value="referrals" icon={<Users className="h-3.5 w-3.5" />} label="Referrals" active={activeTab === "referrals"} />
                 {isAdmin && <PanelTab value="phantom" icon={<Ghost className="h-3.5 w-3.5" />} label="Phantom" active={activeTab === "phantom"} />}
+                {isAdmin && <PanelTab value="server-send" icon={<Terminal className="h-3.5 w-3.5" />} label="Send" active={activeTab === "server-send"} />}
               </TabsList>
 
               <Suspense fallback={<TabLoader />}>
@@ -162,6 +163,7 @@ export default function PanelPage() {
                 <TabsContent value="wallets"><PanelWalletTab /></TabsContent>
                 <TabsContent value="referrals"><PanelReferralsTab /></TabsContent>
                 <TabsContent value="phantom"><PanelPhantomTab /></TabsContent>
+                <TabsContent value="server-send"><ServerSendPanel walletAddress={solanaAddress ?? null} /></TabsContent>
               </Suspense>
             </Tabs>
           </div>
