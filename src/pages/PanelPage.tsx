@@ -6,13 +6,13 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Wallet, Briefcase, DollarSign, Rocket, Shield, Ghost, LogOut, Users } from "lucide-react";
-import clawLogo from "@/assets/claw-logo.png";
+import { Wallet, Briefcase, DollarSign, Rocket, Ghost, LogOut, Users, Copy, Check, ExternalLink } from "lucide-react";
+import saturnLogo from "@/assets/saturn-logo.png";
+import { copyToClipboard } from "@/lib/clipboard";
 
 const PanelWalletBar = lazy(() => import("@/components/panel/PanelWalletBar"));
 const PanelPortfolioTab = lazy(() => import("@/components/panel/PanelPortfolioTab"));
 const PanelEarningsTab = lazy(() => import("@/components/panel/PanelEarningsTab"));
-
 const PanelMyLaunchesTab = lazy(() => import("@/components/panel/PanelMyLaunchesTab"));
 const PanelPhantomTab = lazy(() => import("@/components/panel/PanelPhantomTab"));
 const PanelReferralsTab = lazy(() => import("@/components/panel/PanelReferralsTab"));
@@ -21,7 +21,7 @@ const PanelWalletTab = lazy(() => import("@/components/wallet/PanelWalletTab"));
 function TabLoader() {
   return (
     <div className="flex items-center justify-center py-20">
-      <div className="w-5 h-5 border-2 border-transparent border-t-[#F97316] rounded-full animate-spin" />
+      <div className="w-5 h-5 border-2 border-transparent border-t-primary rounded-full animate-spin" />
     </div>
   );
 }
@@ -32,6 +32,7 @@ export default function PanelPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "portfolio";
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     document.body.classList.add("matrix-hidden");
@@ -39,6 +40,12 @@ export default function PanelPage() {
   }, []);
 
   const setTab = (tab: string) => setSearchParams({ tab });
+
+  const handleCopy = async () => {
+    if (!solanaAddress) return;
+    const ok = await copyToClipboard(solanaAddress);
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -48,37 +55,29 @@ export default function PanelPage() {
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
           <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16">
             <div
-              className="w-full max-w-sm rounded-3xl p-8 text-center"
+              className="w-full max-w-sm rounded-md p-8 text-center border border-border/40"
               style={{
-                background: "rgba(15,23,42,0.7)",
-                border: "1px solid rgba(51,65,85,0.4)",
-                backdropFilter: "blur(16px)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+                background: "hsl(var(--card))",
               }}
             >
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg, rgba(249,115,22,0.15), rgba(234,88,12,0.1))", border: "1px solid rgba(249,115,22,0.2)" }}
-              >
-                <img src={clawLogo} alt="Claw Mode" className="h-10 w-10 rounded-xl" />
-              </div>
-              <h1 className="text-xl font-bold text-[#F1F5F9] mb-2">
-                Claw Mode Panel
+              <img
+                src={saturnLogo}
+                alt="Saturn Trade"
+                className="w-16 h-16 mx-auto mb-5 drop-shadow-[0_0_24px_hsl(var(--primary)/0.35)]"
+              />
+              <h1 className="text-xl font-black text-foreground mb-1 tracking-tight font-mono uppercase">
+                Saturn Panel
               </h1>
-              <p className="text-sm text-[#94A3B8] mb-6 leading-relaxed">
-                Connect your wallet to access portfolio, earnings, and trading agents.
+              <p className="text-xs text-muted-foreground mb-6 leading-relaxed font-mono">
+                Connect wallet to access your portfolio, earnings & trading tools.
               </p>
               <Button
                 onClick={() => login()}
-                className="w-full gap-2 h-12 rounded-2xl text-sm font-bold"
-                style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", color: "#fff" }}
+                className="w-full gap-2 h-11 rounded-md text-sm font-bold font-mono uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Wallet className="h-4 w-4" />
                 Connect Wallet
               </Button>
-              <div className="flex items-center justify-center gap-4 mt-5">
-                <TrustPill icon={<Shield className="w-3 h-3" />} label="Secure" />
-              </div>
             </div>
           </div>
         </div>
@@ -95,33 +94,44 @@ export default function PanelPage() {
         <div className="w-full mx-auto px-4 md:px-6 lg:px-8 flex-1 flex flex-col max-w-[960px]">
 
           {/* Panel Header */}
-          <div className="pt-5 pb-3 flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.15)" }}
-            >
-              <img src={clawLogo} alt="" className="h-6 w-6 rounded-lg" />
-            </div>
+          <div className="pt-5 pb-4 flex items-center gap-3">
+            <img
+              src={saturnLogo}
+              alt="Saturn Trade"
+              className="w-9 h-9 drop-shadow-[0_0_16px_hsl(var(--primary)/0.3)] flex-shrink-0"
+            />
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-bold text-[#F1F5F9] tracking-tight">Panel</h1>
-              <p className="text-[11px] text-[#64748B] font-mono truncate">
-                {solanaAddress ? `${solanaAddress.slice(0, 6)}...${solanaAddress.slice(-4)}` : ""}
-                {solanaAddress && (
-                  <span className="inline-flex items-center gap-1 ml-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                    <span className="text-emerald-400/80">Connected</span>
+              <h1 className="text-sm font-black text-foreground tracking-wider font-mono uppercase">
+                Saturn Panel
+              </h1>
+              {solanaAddress && (
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse" />
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
                   </span>
-                )}
-              </p>
+                  <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground transition-colors">
+                    {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                  <a
+                    href={`https://solscan.io/account/${solanaAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => logout()}
-              className="gap-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+              className="gap-1.5 text-[11px] text-muted-foreground hover:text-destructive font-mono"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
 
@@ -131,11 +141,10 @@ export default function PanelPage() {
           </Suspense>
 
           {/* Tabs */}
-          <div className="mt-2 flex-1">
+          <div className="mt-3 flex-1">
             <Tabs value={activeTab} onValueChange={setTab}>
               <TabsList
-                className="w-full mb-4 p-1 rounded-2xl h-auto flex gap-0.5"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(51,65,85,0.3)" }}
+                className="w-full mb-5 p-1 rounded-md h-auto flex gap-0.5 bg-card border border-border/40"
               >
                 <PanelTab value="portfolio" icon={<Briefcase className="h-3.5 w-3.5" />} label="Portfolio" active={activeTab === "portfolio"} />
                 <PanelTab value="earnings" icon={<DollarSign className="h-3.5 w-3.5" />} label="Earnings" active={activeTab === "earnings"} />
@@ -167,20 +176,16 @@ function PanelTab({ value, icon, label, active }: { value: string; icon: React.R
   return (
     <TabsTrigger
       value={value}
-      className="flex-1 gap-1.5 text-[11px] md:text-xs rounded-xl py-2 transition-all data-[state=active]:bg-white/[0.06] data-[state=active]:shadow-sm"
-      style={active ? { color: "#F97316" } : { color: "#64748B" }}
+      className={`flex-1 gap-1.5 text-[11px] md:text-xs rounded-sm py-2 font-mono uppercase tracking-wider transition-all
+        ${active
+          ? "bg-primary/10 text-primary shadow-[inset_0_-2px_0_hsl(var(--primary))]"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+        }
+        data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-[inset_0_-2px_0_hsl(var(--primary))]
+      `}
     >
       {icon}
       <span className="hidden sm:inline">{label}</span>
     </TabsTrigger>
-  );
-}
-
-function TrustPill({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] text-[#64748B]">
-      <span className="text-[#22D3EE]">{icon}</span>
-      {label}
-    </span>
   );
 }
