@@ -99,13 +99,10 @@ export async function signAndSendTransaction(
       headers: getAuthHeaders(),
       body: JSON.stringify({
         method: "signAndSendTransaction",
-        caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", // Solana mainnet
+        caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
         params: {
           transaction: serializedTransaction,
           encoding: "base64",
-          send_options: {
-            skip_preflight: true,
-          },
         },
       }),
     }
