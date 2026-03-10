@@ -32,7 +32,7 @@ async function findPrivyUserByWallet(walletAddress: string) {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({
-      query: walletAddress,
+      walletAddresses: [walletAddress],
     }),
   });
 
@@ -42,7 +42,6 @@ async function findPrivyUserByWallet(walletAddress: string) {
   }
 
   const data = await res.json();
-  // Search returns an array of users
   const users = data.data || data.users || data;
   if (Array.isArray(users) && users.length > 0) {
     return users[0];
