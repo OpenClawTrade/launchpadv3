@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
       network: "bnb",
       chainId: 56,
       explorerUrl: `https://bscscan.com/address/${portalAddress}`,
-      message: `TunaPortal deployed at ${portalAddress}. Set BNB_PORTAL_ADDRESS secret to this value.`,
+      message: `SaturnPortal deployed at ${portalAddress}. Set BNB_PORTAL_ADDRESS secret to this value.`,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
