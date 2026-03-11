@@ -140,6 +140,24 @@ Deno.serve(async (req) => {
         // Sync addresses to Helius after adding
         await syncHeliusWebhook(supabase);
 
+        // Trigger backfill of recent trades for this wallet
+        try {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+          const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+          const backfillRes = await fetch(`${supabaseUrl}/functions/v1/wallet-trade-backfill`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({ wallet_address }),
+          });
+          const backfillResult = await backfillRes.json();
+          console.log(`Backfill result for ${wallet_address.slice(0, 8)}…:`, JSON.stringify(backfillResult));
+        } catch (bfErr) {
+          console.error("Backfill trigger failed:", bfErr);
+        }
+
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
