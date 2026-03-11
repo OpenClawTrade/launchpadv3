@@ -2022,3 +2022,162 @@
     0 0 4px hsl(var(--primary) / 0.12),
     inset 0 1px 0 hsl(0 0% 100% / 0.03);
 }
+
+/* ═══════════════════════════════════════════════
+   NEURAL FORGE — AI Generation Loading
+   ═══════════════════════════════════════════════ */
+
+.neural-forge-bg {
+  background: radial-gradient(ellipse at center, #000a1a 0%, #00030f 100%);
+}
+
+/* Core ring */
+.neural-core-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 220, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(0, 220, 255, 0.1), inset 0 0 12px rgba(0, 220, 255, 0.05);
+}
+.neural-core-inner {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.neural-core-pulse {
+  animation: neuralCorePulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 8px #00dcff, 0 0 20px rgba(0, 220, 255, 0.3);
+}
+@keyframes neuralCorePulse {
+  0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 8px #00dcff, 0 0 20px rgba(0, 220, 255, 0.3); }
+  50% { transform: scale(1.6); opacity: 0.5; box-shadow: 0 0 16px #00dcff, 0 0 40px rgba(0, 220, 255, 0.4); }
+}
+.neural-core-glow {
+  background: radial-gradient(circle, rgba(0, 220, 255, 0.08) 0%, transparent 70%);
+}
+.neural-core-glow-active {
+  background: radial-gradient(circle, rgba(0, 220, 255, 0.15) 0%, transparent 70%);
+}
+
+.neural-spin-slow {
+  animation: neuralSpin 8s linear infinite;
+}
+@keyframes neuralSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Scanlines */
+.neural-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 220, 255, 0.015) 2px,
+    rgba(0, 220, 255, 0.015) 4px
+  );
+  animation: neuralScanDrift 4s linear infinite;
+}
+@keyframes neuralScanDrift {
+  from { background-position: 0 0; }
+  to { background-position: 0 40px; }
+}
+
+/* Neural tube progress bar */
+.neural-tube {
+  position: relative;
+  height: 22px;
+  border-radius: 11px;
+  background: rgba(0, 220, 255, 0.04);
+  border: 1px solid rgba(0, 220, 255, 0.12);
+  overflow: hidden;
+  box-shadow: inset 0 0 8px rgba(0, 220, 255, 0.05);
+}
+.neural-tube-fill {
+  position: absolute;
+  inset: 1px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(0, 220, 255, 0.15) 0%, rgba(0, 220, 255, 0.3) 60%, rgba(224, 64, 251, 0.2) 100%);
+  transition: width 0.4s ease-out;
+  box-shadow: 0 0 12px rgba(0, 220, 255, 0.2);
+}
+.neural-tube-spark {
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 100%;
+  background: #00dcff;
+  border-radius: 2px;
+  box-shadow: 0 0 8px #00dcff, 0 0 16px rgba(0, 220, 255, 0.5);
+  animation: neuralSpark 0.8s ease-in-out infinite;
+}
+@keyframes neuralSpark {
+  0%, 100% { opacity: 1; height: 60%; }
+  50% { opacity: 0.5; height: 100%; }
+}
+.neural-tube-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-family: monospace;
+  letter-spacing: 0.12em;
+  color: #00dcff;
+  text-shadow: 0 0 6px rgba(0, 220, 255, 0.4);
+  z-index: 2;
+}
+
+/* Cursor blink */
+.neural-cursor {
+  animation: neuralBlink 0.7s step-end infinite;
+  color: #00dcff;
+  opacity: 0.8;
+}
+@keyframes neuralBlink {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0; }
+}
+
+/* Glitch text */
+.neural-glitch-text {
+  animation: neuralGlitch 80ms steps(2) 1;
+}
+@keyframes neuralGlitch {
+  0% { transform: translate(-1px, 1px); filter: hue-rotate(40deg); }
+  50% { transform: translate(1px, -1px); filter: hue-rotate(-40deg); }
+  100% { transform: translate(0); filter: none; }
+}
+
+/* Terminal output line */
+.neural-terminal-line {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(0, 255, 100, 0.03);
+  border-left: 2px solid rgba(0, 255, 100, 0.2);
+  color: rgba(0, 255, 100, 0.7);
+  min-height: 18px;
+}
+
+/* HUD badge */
+.neural-hud-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  line-height: 1.2;
+}
