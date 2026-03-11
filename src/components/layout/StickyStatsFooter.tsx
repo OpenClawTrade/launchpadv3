@@ -4,7 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, Server, RefreshCw, Layers, Wallet, Rocket } from "lucide-react";
+import { ChevronDown, Server, RefreshCw, Layers, Wallet, Rocket, Users } from "lucide-react";
 import { MarketLighthouse } from "./MarketLighthouse";
 import { WalletTrackerPanel } from "./WalletTrackerPanel";
 import { NewPairsPanel } from "./NewPairsPanel";
@@ -155,9 +155,10 @@ export function StickyStatsFooter() {
   };
 
   useEffect(() => {
-    supabase.functions.invoke("privy-user-count").then(({ data }) => {
+    supabase.functions.invoke("privy-user-count").then(({ data, error }) => {
+      console.log("[StickyFooter] privy-user-count response:", data, error);
       if (data?.count) setPlatformUsers(data.count);
-    });
+    }).catch(err => console.error("[StickyFooter] privy-user-count failed:", err));
   }, []);
 
   const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
@@ -316,7 +317,10 @@ export function StickyStatsFooter() {
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}>
-          {platformUsers !== null && <StatItem label="Users" value={platformUsers.toLocaleString()} />}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+            <Users style={{ width: "11px", height: "11px", color: "rgba(255,255,255,0.4)" }} />
+            <StatItem label="Users" value={platformUsers !== null ? platformUsers.toLocaleString() : "—"} />
+          </div>
         </div>
 
         {/* RIGHT: Launchpads + Region */}
