@@ -259,8 +259,8 @@ async function compileSaturnPortal(): Promise<{ abi: any[]; bytecode: `0x${strin
     }
   }
 
-  const contract = output.contracts?.["TunaPortal.sol"]?.["TunaPortal"];
-  if (!contract) throw new Error("TunaPortal not found in output");
+  const contract = output.contracts?.["SaturnPortal.sol"]?.["SaturnPortal"];
+  if (!contract) throw new Error("SaturnPortal not found in output");
 
   const bytecodeHex = contract.evm?.bytecode?.object;
   if (!bytecodeHex || bytecodeHex.length < 100) throw new Error("Invalid bytecode");
