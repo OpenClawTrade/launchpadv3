@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { XIcon } from "@/components/icons/XIcon";
 
 export function Footer() {
-  // Hide Claw footer entirely on punchlaunch.fun domain
   const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
   if (isPunchDomain) return null;
 
@@ -26,16 +25,16 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-4 text-foreground tracking-tight-heading">Product</h4>
             <ul className="space-y-2.5 text-sm text-muted-foreground">
               <li>
-                <Link to="/" className="hover:text-success transition-colors duration-200">Launch Token</Link>
-              </li>
-              <li>
-                <Link to="/agents" className="hover:text-success transition-colors duration-200">Agents</Link>
-              </li>
-              <li>
-                <Link to="/sdk" className="hover:text-success transition-colors duration-200">SDK</Link>
+                <Link to="/launchpad" className="hover:text-success transition-colors duration-200">Launchpad</Link>
               </li>
               <li>
                 <Link to="/trade" className="hover:text-success transition-colors duration-200">Trade</Link>
+              </li>
+              <li>
+                <Link to="/discover" className="hover:text-success transition-colors duration-200">Discover</Link>
+              </li>
+              <li>
+                <Link to="/alpha-tracker" className="hover:text-success transition-colors duration-200">Alpha Tracker</Link>
               </li>
             </ul>
           </div>
@@ -45,16 +44,13 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-4 text-foreground tracking-tight-heading">Resources</h4>
             <ul className="space-y-2.5 text-sm text-muted-foreground">
               <li>
-                <Link to="/whitepaper" className="hover:text-success transition-colors duration-200">Whitepaper</Link>
-              </li>
-              <li>
-                <Link to="/agents/docs" className="hover:text-success transition-colors duration-200">Agent Docs</Link>
-              </li>
-              <li>
-                <Link to="/api/docs" className="hover:text-success transition-colors duration-200">API Docs</Link>
+                <Link to="/whitepaper" className="hover:text-success transition-colors duration-200">Documentation</Link>
               </li>
               <li>
                 <Link to="/trending" className="hover:text-success transition-colors duration-200">Trending</Link>
+              </li>
+              <li>
+                <Link to="/agents" className="hover:text-success transition-colors duration-200">Agents</Link>
               </li>
             </ul>
           </div>
