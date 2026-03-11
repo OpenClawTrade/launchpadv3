@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Image as ImageIcon, Globe, Twitter, AlertCircle, Loader2, Coins, Shield, Droplets } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, AlertCircle, Loader2, Coins, Shield, TrendingUp, Zap } from 'lucide-react';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { toast } from 'sonner';
@@ -19,7 +19,9 @@ interface BnbLaunchFormData {
   imageUrl: string;
   websiteUrl: string;
   twitterUrl: string;
-  seedLiquidity: string;
+  telegramUrl: string;
+  initialBuyBnb: string;
+  creatorFeePct: number;
 }
 
 export function BnbLauncher() {
@@ -32,10 +34,12 @@ export function BnbLauncher() {
     imageUrl: '',
     websiteUrl: '',
     twitterUrl: '',
-    seedLiquidity: '0.1',
+    telegramUrl: '',
+    initialBuyBnb: '0',
+    creatorFeePct: 50,
   });
 
-  const handleInputChange = (field: keyof BnbLaunchFormData, value: string) => {
+  const handleInputChange = (field: keyof BnbLaunchFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -45,8 +49,8 @@ export function BnbLauncher() {
     if (!canLaunch || !address) return;
 
     setIsLaunching(true);
-    toast.info('🚀 Deploying token on BNB Chain...', {
-      description: 'Compiling contract, deploying, and adding PancakeSwap liquidity. This may take 30-90 seconds.',
+    toast.info('🚀 Creating token on BNB Chain...', {
+      description: 'Deploying via TunaPortal bonding curve. This may take 30-60 seconds.',
     });
 
     try {
@@ -55,32 +59,35 @@ export function BnbLauncher() {
           name: formData.name,
           ticker: formData.ticker.toUpperCase(),
           creatorWallet: address,
-          seedLiquidityBnb: formData.seedLiquidity,
+          initialBuyBnb: formData.initialBuyBnb !== '0' ? formData.initialBuyBnb : undefined,
+          creatorFeeBps: Math.round(formData.creatorFeePct * 100),
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
           websiteUrl: formData.websiteUrl || null,
           twitterUrl: formData.twitterUrl || null,
+          telegramUrl: formData.telegramUrl || null,
         },
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Failed to deploy token');
+      if (!data?.success) throw new Error(data?.error || 'Failed to create token');
 
-      toast.success('🎉 Token deployed on BNB Chain!', {
-        description: `${formData.name} ($${formData.ticker}) is live on PancakeSwap!`,
-        action: data.pancakeswapUrl ? {
-          label: 'Trade on PancakeSwap',
-          onClick: () => window.open(data.pancakeswapUrl, '_blank'),
+      toast.success('🎉 Token launched on BNB Chain!', {
+        description: `${formData.name} ($${formData.ticker}) is live on the bonding curve!`,
+        action: data.tokenUrl ? {
+          label: 'View on BscScan',
+          onClick: () => window.open(data.tokenUrl, '_blank'),
         } : undefined,
       });
 
       setFormData({
         name: '', ticker: '', description: '', imageUrl: '',
-        websiteUrl: '', twitterUrl: '', seedLiquidity: '0.1',
+        websiteUrl: '', twitterUrl: '', telegramUrl: '',
+        initialBuyBnb: '0', creatorFeePct: 50,
       });
     } catch (error) {
       console.error('BNB launch error:', error);
-      toast.error('Deployment failed', {
+      toast.error('Launch failed', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
     } finally {
@@ -101,7 +108,7 @@ export function BnbLauncher() {
                   Launch on BNB Chain
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Deploy a token with instant PancakeSwap liquidity. Tradable immediately on any DEX.
+                  Deploy a token with a bonding curve. Tradable instantly on any DEX aggregator.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
@@ -110,20 +117,27 @@ export function BnbLauncher() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Info Banner */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Info Banners */}
+            <div className="grid grid-cols-3 gap-3">
               <div className="flex items-center gap-2 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
-                <Droplets className="h-4 w-4 text-yellow-400" />
+                <TrendingUp className="h-4 w-4 text-yellow-400 shrink-0" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Instant Liquidity</p>
-                  <p className="text-sm font-semibold text-yellow-400">PancakeSwap V2</p>
+                  <p className="text-xs text-muted-foreground">Curve</p>
+                  <p className="text-sm font-semibold text-yellow-400">Bonding AMM</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 p-3 bg-secondary/30 rounded-lg">
-                <Coins className="h-4 w-4 text-green-500" />
+                <Coins className="h-4 w-4 text-green-500 shrink-0" />
                 <div>
                   <p className="text-xs text-muted-foreground">Supply</p>
-                  <p className="text-sm font-semibold">100% to LP</p>
+                  <p className="text-sm font-semibold">1B Tokens</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-secondary/30 rounded-lg">
+                <Zap className="h-4 w-4 text-blue-400 shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Graduates</p>
+                  <p className="text-sm font-semibold">PCS V3</p>
                 </div>
               </div>
             </div>
@@ -194,7 +208,7 @@ export function BnbLauncher() {
             </div>
 
             {/* Social Links */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="bnb-websiteUrl" className="flex items-center gap-2">
                   <Globe className="h-4 w-4" />
@@ -221,34 +235,61 @@ export function BnbLauncher() {
                   className="bg-background/50"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="bnb-telegramUrl">Telegram</Label>
+                <Input
+                  id="bnb-telegramUrl"
+                  placeholder="https://t.me/..."
+                  value={formData.telegramUrl}
+                  onChange={(e) => handleInputChange('telegramUrl', e.target.value)}
+                  className="bg-background/50"
+                />
+              </div>
             </div>
 
-            {/* Seed Liquidity */}
+            {/* Creator Fee */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Creator Fee Share</Label>
+                <span className="text-sm font-semibold text-primary">{formData.creatorFeePct}%</span>
+              </div>
+              <Slider
+                value={[formData.creatorFeePct]}
+                onValueChange={([v]) => handleInputChange('creatorFeePct', v)}
+                min={0}
+                max={100}
+                step={5}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your share of the 1% trading fee. Remaining {100 - formData.creatorFeePct}% goes to the platform.
+              </p>
+            </div>
+
+            {/* Initial Buy */}
             <div className="space-y-2">
-              <Label>Initial BNB Liquidity</Label>
-              <Select
-                value={formData.seedLiquidity}
-                onValueChange={(v) => handleInputChange('seedLiquidity', v)}
-              >
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.05">0.05 BNB (~$30)</SelectItem>
-                  <SelectItem value="0.1">0.1 BNB (~$60)</SelectItem>
-                  <SelectItem value="0.25">0.25 BNB (~$150)</SelectItem>
-                  <SelectItem value="0.5">0.5 BNB (~$300)</SelectItem>
-                  <SelectItem value="1">1 BNB (~$600)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="bnb-initialBuy">Initial Buy (optional)</Label>
+              <Input
+                id="bnb-initialBuy"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0"
+                value={formData.initialBuyBnb === '0' ? '' : formData.initialBuyBnb}
+                onChange={(e) => handleInputChange('initialBuyBnb', e.target.value || '0')}
+                className="bg-background/50"
+              />
+              <p className="text-xs text-muted-foreground">
+                BNB amount for your initial purchase on the bonding curve. Leave empty for no initial buy.
+              </p>
             </div>
 
-            {/* Gas Notice */}
+            {/* Info Notice */}
             <div className="flex items-start gap-2 p-3 bg-secondary/30 rounded-lg">
               <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                Launching requires seed BNB for liquidity + ~0.005 BNB for gas.
-                <strong className="text-foreground"> Token is immediately tradable on PancakeSwap and all BSC DEX aggregators.</strong>
+                Token launches on a bonding curve — price increases as people buy.
+                <strong className="text-foreground"> At ~16 BNB in reserves, it graduates to PancakeSwap V3 with full liquidity.</strong>
               </p>
             </div>
 
@@ -299,15 +340,15 @@ export function BnbLauncher() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">1.</span>
-              <p>ERC20 token deploys on BNB Chain (1B supply)</p>
+              <p>Token deploys on BNB Chain with a <strong className="text-foreground">bonding curve</strong> (1B supply, 18 decimals)</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">2.</span>
-              <p>100% of supply + your seed BNB added to PancakeSwap V2 liquidity</p>
+              <p>Users buy & sell against the curve — price goes up as more BNB flows in. <strong className="text-foreground">1% fee</strong> per trade, split between you and the platform.</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">3.</span>
-              <p>Token is instantly tradable on PancakeSwap and all BSC DEX aggregators</p>
+              <p>At <strong className="text-foreground">~16 BNB</strong> in reserves, token <strong className="text-foreground">graduates to PancakeSwap V3</strong> with full liquidity. Tradable on any DEX aggregator forever.</p>
             </div>
           </CardContent>
         </Card>
