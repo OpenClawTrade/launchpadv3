@@ -19,24 +19,24 @@ export function ClawBookLayout({ leftSidebar, rightSidebar, children, className 
   return (
     <div className={cn("min-h-screen", className)}>
       {/* Mobile toolbar */}
-      <div className="lg:hidden sticky top-0 z-40 bg-[hsl(222,20%,8%/0.95)] backdrop-blur-xl border-b border-[hsl(var(--clawbook-border))] px-4 py-3">
+      <div className="lg:hidden sticky top-0 z-40 bg-[hsl(222,20%,8%/0.95)] backdrop-blur-xl border-b border-[hsl(var(--forum-border))] px-4 py-3">
         <div className="flex items-center justify-between">
           {leftSidebar && (
             <Sheet open={leftOpen} onOpenChange={setLeftOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-[hsl(var(--clawbook-text-secondary))] hover:text-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-bg-hover))]">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-[hsl(var(--forum-text-secondary))] hover:text-[hsl(var(--forum-primary))] hover:bg-[hsl(var(--forum-bg-hover))]">
                   <List size={20} weight="bold" />
                 </Button>
               </SheetTrigger>
               <SheetPortal>
                 <SheetOverlay className="bg-black/70 backdrop-blur-sm" />
-                <SheetPrimitive.Content className="clawbook-theme fixed inset-y-0 left-0 z-50 h-full w-72 border-r border-[hsl(var(--clawbook-border))] bg-[hsl(222,20%,8%)] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left">
-                  <div className="p-4 border-b border-[hsl(var(--clawbook-border))] flex items-center justify-between">
-                    <h2 className="text-base font-bold text-[hsl(var(--clawbook-text-primary))] flex items-center gap-2">
+                <SheetPrimitive.Content className="forum-theme fixed inset-y-0 left-0 z-50 h-full w-72 border-r border-[hsl(var(--forum-border))] bg-[hsl(222,20%,8%)] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left">
+                  <div className="p-4 border-b border-[hsl(var(--forum-border))] flex items-center justify-between">
+                    <h2 className="text-base font-bold text-[hsl(var(--forum-text-primary))] flex items-center gap-2">
                       <span className="text-lg">🦞</span> ClawBook
                     </h2>
                     <SheetClose asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-primary))] hover:bg-[hsl(var(--clawbook-bg-hover))]">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-text-primary))] hover:bg-[hsl(var(--forum-bg-hover))]">
                         <X size={16} />
                       </Button>
                     </SheetClose>
@@ -46,23 +46,23 @@ export function ClawBookLayout({ leftSidebar, rightSidebar, children, className 
               </SheetPortal>
             </Sheet>
           )}
-          <span className="text-base font-bold text-[hsl(var(--clawbook-text-primary))] flex items-center gap-2">
+          <span className="text-base font-bold text-[hsl(var(--forum-text-primary))] flex items-center gap-2">
             <span className="text-lg">🦞</span> ClawBook
           </span>
           {rightSidebar && (
             <Sheet open={rightOpen} onOpenChange={setRightOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-[hsl(var(--clawbook-text-secondary))] hover:text-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-bg-hover))]">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-[hsl(var(--forum-text-secondary))] hover:text-[hsl(var(--forum-primary))] hover:bg-[hsl(var(--forum-bg-hover))]">
                   <ChartBar size={20} weight="bold" />
                 </Button>
               </SheetTrigger>
               <SheetPortal>
                 <SheetOverlay className="bg-black/70 backdrop-blur-sm" />
-                <SheetPrimitive.Content className="clawbook-theme fixed inset-y-0 right-0 z-50 h-full w-80 border-l border-[hsl(var(--clawbook-border))] bg-[hsl(222,20%,8%)] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
-                  <div className="p-4 border-b border-[hsl(var(--clawbook-border))] flex items-center justify-between">
-                    <h2 className="text-base font-bold text-[hsl(var(--clawbook-text-primary))]">Leaderboard</h2>
+                <SheetPrimitive.Content className="forum-theme fixed inset-y-0 right-0 z-50 h-full w-80 border-l border-[hsl(var(--forum-border))] bg-[hsl(222,20%,8%)] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
+                  <div className="p-4 border-b border-[hsl(var(--forum-border))] flex items-center justify-between">
+                    <h2 className="text-base font-bold text-[hsl(var(--forum-text-primary))]">Leaderboard</h2>
                     <SheetClose asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-primary))] hover:bg-[hsl(var(--clawbook-bg-hover))]">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-text-primary))] hover:bg-[hsl(var(--forum-bg-hover))]">
                         <X size={16} />
                       </Button>
                     </SheetClose>

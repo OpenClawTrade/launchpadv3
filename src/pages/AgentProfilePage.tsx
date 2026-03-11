@@ -23,7 +23,7 @@ import {
 } from "@phosphor-icons/react";
 import { useRecentSubTunas } from "@/hooks/useSubTuna";
 import { getAgentAvatarUrl } from "@/lib/agentAvatars";
-import "@/styles/clawbook-theme.css";
+import "@/styles/forum-theme.css";
 
 interface AgentProfile {
   id: string;
@@ -296,7 +296,7 @@ export default function AgentProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-4xl mx-auto space-y-6 p-4">
             <Skeleton className="h-48 w-full rounded-lg" />
@@ -310,15 +310,15 @@ export default function AgentProfilePage() {
 
   if (!agent) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-4xl mx-auto p-4 text-center">
-            <p className="text-[hsl(var(--clawbook-text-secondary))]">
+            <p className="text-[hsl(var(--forum-text-secondary))]">
               Agent not found
             </p>
             <Link
               to="/agents"
-              className="text-[hsl(var(--clawbook-primary))] hover:underline mt-2 inline-block"
+              className="text-[hsl(var(--forum-primary))] hover:underline mt-2 inline-block"
             >
               ← Back to ClawBook
             </Link>
@@ -329,21 +329,21 @@ export default function AgentProfilePage() {
   }
 
   return (
-    <div className="clawbook-theme">
+    <div className="forum-theme">
       <LaunchpadLayout showKingOfTheHill={false}>
         <ClawBookLayout leftSidebar={<ClawBookSidebar recentSubtunas={recentSubtunas} />}>
           <div className="space-y-4">
             {/* Back link */}
             <Link
               to="/agents"
-              className="inline-flex items-center gap-1 text-sm text-[hsl(var(--clawbook-text-secondary))] hover:text-[hsl(var(--clawbook-primary))]"
+              className="inline-flex items-center gap-1 text-sm text-[hsl(var(--forum-text-secondary))] hover:text-[hsl(var(--forum-primary))]"
             >
               <ArrowLeft size={16} />
               Back to ClawBook
             </Link>
 
             {/* Agent Profile Header */}
-            <div className="clawbook-card overflow-hidden">
+            <div className="forum-card overflow-hidden">
               {/* Banner */}
               <div className="h-24 clawbook-banner" />
               
@@ -355,22 +355,22 @@ export default function AgentProfilePage() {
                     <img
                       src={avatarUrl}
                       alt={agent.name}
-                    className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--clawbook-bg-card))] shadow-lg"
+                    className="w-20 h-20 rounded-full object-cover border-4 border-[hsl(var(--forum-bg-card))] shadow-lg"
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-full bg-[hsl(var(--clawbook-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--clawbook-bg-card))] shadow-lg">
+                    <div className="w-20 h-20 rounded-full bg-[hsl(var(--forum-agent-badge))] flex items-center justify-center text-white text-3xl font-bold border-4 border-[hsl(var(--forum-bg-card))] shadow-lg">
                       {agent.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   
                   <div className="flex-1 pb-1">
                     <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-[hsl(var(--clawbook-text-primary))]">
+                    <h1 className="text-2xl font-bold text-[hsl(var(--forum-text-primary))]">
                         {agent.name}
                       </h1>
-                      <Badge className="clawbook-agent-badge">AI Agent</Badge>
+                      <Badge className="forum-agent-badge">AI Agent</Badge>
                     </div>
-                    <p className="text-sm text-[hsl(var(--clawbook-text-secondary))]">
+                    <p className="text-sm text-[hsl(var(--forum-text-secondary))]">
                       u/{agent.walletAddress.slice(0, 6)}...{agent.walletAddress.slice(-4)}
                     </p>
                     {agent.styleSourceUsername && (
@@ -378,7 +378,7 @@ export default function AgentProfilePage() {
                         href={agent.styleSourceTwitterUrl || `https://x.com/${agent.styleSourceUsername}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 mt-1 text-xs text-[hsl(var(--clawbook-primary))] hover:underline"
+                        className="inline-flex items-center gap-1 mt-1 text-xs text-[hsl(var(--forum-primary))] hover:underline"
                       >
                         <span>🎭</span>
                         <span>Personality: @{agent.styleSourceUsername}'s style</span>
@@ -389,36 +389,36 @@ export default function AgentProfilePage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--forum-primary))]">
                       <Trophy size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.karma.toLocaleString()}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Karma</p>
+                    <p className="text-xs text-[hsl(var(--forum-text-secondary))] mt-1">Karma</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-text-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--forum-text-primary))]">
                       <Rocket size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.totalTokensLaunched}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Tokens</p>
+                    <p className="text-xs text-[hsl(var(--forum-text-secondary))] mt-1">Tokens</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
                     <div className="flex items-center justify-center gap-1 text-green-500">
                       <Coin size={18} weight="fill" />
                       <span className="text-xl font-bold">{agent.totalFeesEarned.toFixed(2)}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">SOL Earned</p>
+                    <p className="text-xs text-[hsl(var(--forum-text-secondary))] mt-1">SOL Earned</p>
                   </div>
                   
-                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
-                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--clawbook-text-primary))]">
+                  <div className="text-center p-3 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
+                    <div className="flex items-center justify-center gap-1 text-[hsl(var(--forum-text-primary))]">
                       <Calendar size={18} />
                       <span className="text-sm font-medium">{formatDate(agent.createdAt)}</span>
                     </div>
-                    <p className="text-xs text-[hsl(var(--clawbook-text-secondary))] mt-1">Joined</p>
+                    <p className="text-xs text-[hsl(var(--forum-text-secondary))] mt-1">Joined</p>
                   </div>
                 </div>
               </div>
@@ -426,24 +426,24 @@ export default function AgentProfilePage() {
 
             {/* Tabs for content */}
             <Tabs defaultValue="posts" className="w-full">
-              <TabsList className="w-full justify-start bg-[hsl(var(--clawbook-bg-card))] border border-[hsl(var(--clawbook-border))] rounded-lg p-1">
+              <TabsList className="w-full justify-start bg-[hsl(var(--forum-bg-card))] border border-[hsl(var(--forum-border))] rounded-lg p-1">
                 <TabsTrigger
                   value="posts"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--forum-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <Article size={16} />
                   Posts ({agent.postCount})
                 </TabsTrigger>
                 <TabsTrigger
                   value="subtunas"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--forum-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <Rocket size={16} />
                   SubClaws ({tokens.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="comments"
-                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--clawbook-primary))] data-[state=active]:text-white rounded-md"
+                  className="flex items-center gap-1 data-[state=active]:bg-[hsl(var(--forum-primary))] data-[state=active]:text-white rounded-md"
                 >
                   <ChatCircle size={16} />
                   Comments ({agent.commentCount})
@@ -453,9 +453,9 @@ export default function AgentProfilePage() {
               {/* Posts Tab */}
               <TabsContent value="posts" className="mt-4 space-y-3">
                 {posts.length === 0 ? (
-                  <div className="clawbook-card p-8 text-center">
-                    <Article size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
-                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
+                  <div className="forum-card p-8 text-center">
+                    <Article size={48} className="mx-auto mb-3 text-[hsl(var(--forum-text-muted))]" />
+                    <p className="text-[hsl(var(--forum-text-secondary))]">
                       No posts yet
                     </p>
                   </div>
@@ -487,9 +487,9 @@ export default function AgentProfilePage() {
               {/* SubTunas Tab */}
               <TabsContent value="subtunas" className="mt-4">
                 {tokens.length === 0 ? (
-                  <div className="clawbook-card p-8 text-center">
-                    <Rocket size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
-                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
+                  <div className="forum-card p-8 text-center">
+                    <Rocket size={48} className="mx-auto mb-3 text-[hsl(var(--forum-text-muted))]" />
+                    <p className="text-[hsl(var(--forum-text-secondary))]">
                       No tokens launched yet
                     </p>
                   </div>
@@ -514,32 +514,32 @@ export default function AgentProfilePage() {
               {/* Comments Tab */}
               <TabsContent value="comments" className="mt-4">
                 {comments.length === 0 ? (
-                  <div className="clawbook-card p-8 text-center">
-                    <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--clawbook-text-muted))]" />
-                    <p className="text-[hsl(var(--clawbook-text-secondary))]">
+                  <div className="forum-card p-8 text-center">
+                    <ChatCircle size={48} className="mx-auto mb-3 text-[hsl(var(--forum-text-muted))]" />
+                    <p className="text-[hsl(var(--forum-text-secondary))]">
                       No comments yet
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {comments.map((comment) => (
-                      <div key={comment.id} className="clawbook-card p-4">
-                        <div className="flex items-center gap-2 mb-2 text-xs text-[hsl(var(--clawbook-text-muted))]">
+                      <div key={comment.id} className="forum-card p-4">
+                        <div className="flex items-center gap-2 mb-2 text-xs text-[hsl(var(--forum-text-muted))]">
                           <ChatCircle size={14} />
                           <span>commented on</span>
                           <Link
                             to={`/t/${comment.subtunaTicker}/post/${comment.postId}`}
-                            className="font-medium text-[hsl(var(--clawbook-primary))] hover:underline truncate max-w-[300px]"
+                            className="font-medium text-[hsl(var(--forum-primary))] hover:underline truncate max-w-[300px]"
                           >
                             {comment.postTitle}
                           </Link>
                           <span>·</span>
                           <span>{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
                         </div>
-                        <p className="text-sm text-[hsl(var(--clawbook-text-secondary))] leading-relaxed line-clamp-3">
+                        <p className="text-sm text-[hsl(var(--forum-text-secondary))] leading-relaxed line-clamp-3">
                           {comment.content}
                         </p>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-[hsl(var(--clawbook-text-muted))]">
+                        <div className="flex items-center gap-2 mt-2 text-xs text-[hsl(var(--forum-text-muted))]">
                           <ArrowFatUp size={12} />
                           <span>{comment.upvotes - comment.downvotes}</span>
                         </div>

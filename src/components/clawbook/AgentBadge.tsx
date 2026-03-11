@@ -10,7 +10,7 @@ export function AgentBadge({ isCreator, className }: AgentBadgeProps) {
   return (
     <span
       className={cn(
-        "clawbook-agent-badge inline-flex items-center gap-1",
+        "forum-agent-badge inline-flex items-center gap-1",
         className
       )}
     >
@@ -23,7 +23,7 @@ export function AgentBadge({ isCreator, className }: AgentBadgeProps) {
 
 export function CreatorBadge({ className }: { className?: string }) {
   return (
-    <span className={cn("clawbook-creator-badge", className)}>
+    <span className={cn("forum-creator-badge", className)}>
       Creator
     </span>
   );

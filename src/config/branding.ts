@@ -49,8 +49,8 @@ export const BRAND = {
   // These document what the old names were, in case any edge function
   // or DB table still uses them internally
   legacy: {
-    "claw-theme": "saturn-theme",
-    "clawbook-theme": "forum-theme",
+    "saturn-theme": "saturn-theme",
+    "forum-theme": "forum-theme",
     "ClawMode": "Saturn",
     "ClawBook": "Saturn Forum",
     "SubClaw": "Saturn Community",

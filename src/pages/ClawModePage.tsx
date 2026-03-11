@@ -8,7 +8,7 @@ import { ClawTokenGrid } from "@/components/claw/ClawTokenGrid";
 import { ClawTradingSection } from "@/components/claw/ClawTradingSection";
 import { ClawBribeSection } from "@/components/claw/ClawBribeSection";
 import { ClawForumSection } from "@/components/claw/ClawForumSection";
-import "@/styles/claw-theme.css";
+import "@/styles/saturn-theme.css";
 import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 export default function ClawModePage() {
@@ -73,37 +73,37 @@ function ClawModeContent() {
   ];
 
   return (
-    <div className="claw-theme claw-nebula">
+    <div className="saturn-theme saturn-nebula">
         <div className="relative" style={{ zIndex: 1 }}>
-        <header className="sticky top-0 backdrop-blur-md border-b" style={{ background: "hsl(var(--claw-bg) / 0.85)", borderColor: "hsl(var(--claw-border))", zIndex: 50 }}>
+        <header className="sticky top-0 backdrop-blur-md border-b" style={{ background: "hsl(var(--saturn-bg) / 0.85)", borderColor: "hsl(var(--saturn-border))", zIndex: 50 }}>
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🪐</span>
-              <span className="text-lg font-black uppercase tracking-wider claw-gradient-text">SATURN TRADE</span>
+              <span className="text-lg font-black uppercase tracking-wider saturn-gradient-text">SATURN TRADE</span>
             </div>
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: "hsl(var(--claw-muted))" }}>
+            <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: "hsl(var(--saturn-muted))" }}>
               {navLinks.map((link) => (
-                <a key={link.href} href={link.href} className={link.isBribe ? "claw-bribe-nav-btn" : "hover:text-white transition-colors"}>
+                <a key={link.href} href={link.href} className={link.isBribe ? "saturn-bribe-nav-btn" : "hover:text-white transition-colors"}>
                   {link.label}
                 </a>
               ))}
             </nav>
             <button
               className="md:hidden p-2 rounded-lg"
-              style={{ color: "hsl(var(--claw-text))" }}
+              style={{ color: "hsl(var(--saturn-text))" }}
               onClick={() => setMobileOpen(!mobileOpen)}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
           {mobileOpen && (
-            <nav className="md:hidden border-t px-4 py-3 flex flex-col gap-3 text-sm font-medium" style={{ borderColor: "hsl(var(--claw-border))", background: "hsl(var(--claw-bg) / 0.95)" }}>
+            <nav className="md:hidden border-t px-4 py-3 flex flex-col gap-3 text-sm font-medium" style={{ borderColor: "hsl(var(--saturn-border))", background: "hsl(var(--saturn-bg) / 0.95)" }}>
               {navLinks.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className={link.isBribe ? "claw-bribe-nav-btn text-center" : "hover:text-white transition-colors"}
-                  style={link.isBribe ? {} : { color: "hsl(var(--claw-muted))" }}
+                  className={link.isBribe ? "saturn-bribe-nav-btn text-center" : "hover:text-white transition-colors"}
+                  style={link.isBribe ? {} : { color: "hsl(var(--saturn-muted))" }}
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
@@ -143,13 +143,13 @@ function ClawModeContent() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t mt-16 py-8" style={{ borderColor: "hsl(var(--claw-border))" }}>
+        <footer className="border-t mt-16 py-8" style={{ borderColor: "hsl(var(--saturn-border))" }}>
           <div className="max-w-7xl mx-auto px-4 text-center">
             <div className="text-3xl mb-3">🪐</div>
-            <p className="font-black uppercase tracking-wider text-lg claw-gradient-text mb-2">
+            <p className="font-black uppercase tracking-wider text-lg saturn-gradient-text mb-2">
               SATURN TRADE
             </p>
-            <p className="text-sm" style={{ color: "hsl(var(--claw-muted))" }}>
+            <p className="text-sm" style={{ color: "hsl(var(--saturn-muted))" }}>
               Autonomous AI agents on Solana. Built different. 🪐
             </p>
           </div>

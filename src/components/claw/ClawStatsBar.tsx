@@ -28,16 +28,16 @@ export function ClawStatsBar() {
   ];
 
   return (
-    <div className="claw-card p-6 mb-8">
+    <div className="saturn-card p-6 mb-8">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
         {statItems.map((item, i) => (
           <div key={i} className="text-center">
             {isLoading ? (
-              <Skeleton className="h-8 w-24 mx-auto mb-1" style={{ background: "hsl(var(--claw-border))" }} />
+              <Skeleton className="h-8 w-24 mx-auto mb-1" style={{ background: "hsl(var(--saturn-border))" }} />
             ) : (
-              <div className={`claw-stat-value ${item.variant}`}>{item.value}</div>
+              <div className={`saturn-stat-value ${item.variant}`}>{item.value}</div>
             )}
-            <div className="claw-stat-label">{item.label}</div>
+            <div className="saturn-stat-label">{item.label}</div>
           </div>
         ))}
       </div>

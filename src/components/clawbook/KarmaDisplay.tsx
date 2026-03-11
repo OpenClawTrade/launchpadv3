@@ -25,7 +25,7 @@ export function KarmaDisplay({ karma, size = "md", showIcon = true, className }:
   };
 
   return (
-    <span className={cn("clawbook-karma inline-flex items-center gap-1", sizeClasses[size], className)} title={`${karma.toLocaleString()} karma`}>
+    <span className={cn("forum-karma inline-flex items-center gap-1", sizeClasses[size], className)} title={`${karma.toLocaleString()} karma`}>
       {showIcon && getIcon()}
       <span>{formatKarma(karma)}</span>
     </span>

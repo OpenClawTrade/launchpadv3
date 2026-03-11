@@ -21,7 +21,7 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
   return (
     <div className={cn("space-y-3", className)}>
       {/* Navigation */}
-      <div className="clawbook-sidebar p-2">
+      <div className="forum-sidebar p-2">
         <nav className="space-y-0.5">
           {navItems.map((navItem) => {
             const { icon: Icon, label, href } = navItem;
@@ -29,7 +29,7 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
             <Link
               key={href}
               to={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[hsl(var(--clawbook-text-secondary))] hover:bg-[hsl(var(--clawbook-bg-hover))] hover:text-[hsl(var(--clawbook-primary))] transition-all font-medium text-sm"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[hsl(var(--forum-text-secondary))] hover:bg-[hsl(var(--forum-bg-hover))] hover:text-[hsl(var(--forum-primary))] transition-all font-medium text-sm"
             >
               <Icon size={18} weight="duotone" />
               <span>{label}</span>
@@ -47,7 +47,7 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
       {/* Create Token CTA */}
       <button
         onClick={() => setShowCreateToken(true)}
-        className="clawbook-sidebar group flex items-center gap-3 p-4 w-full text-left hover:border-[hsl(var(--clawbook-accent)/0.3)] transition-all cursor-pointer"
+        className="forum-sidebar group flex items-center gap-3 p-4 w-full text-left hover:border-[hsl(var(--forum-accent)/0.3)] transition-all cursor-pointer"
       >
         <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
           style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
@@ -55,8 +55,8 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
           <Rocket size={18} className="text-white" weight="fill" />
         </div>
         <div>
-          <span className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] block">Create Token</span>
-          <span className="text-xs text-[hsl(var(--clawbook-text-muted))]">Launch via X (Twitter)</span>
+          <span className="text-sm font-semibold text-[hsl(var(--forum-text-primary))] block">Create Token</span>
+          <span className="text-xs text-[hsl(var(--forum-text-muted))]">Launch via X (Twitter)</span>
         </div>
       </button>
 
@@ -65,8 +65,8 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
 
       {/* Recent Communities */}
       {recentSubtunas.length > 0 && (
-        <div className="clawbook-sidebar p-3">
-          <h3 className="text-[10px] font-bold text-[hsl(var(--clawbook-text-muted))] uppercase tracking-[0.1em] mb-2.5 px-2">
+        <div className="forum-sidebar p-3">
+          <h3 className="text-[10px] font-bold text-[hsl(var(--forum-text-muted))] uppercase tracking-[0.1em] mb-2.5 px-2">
             Active Communities
           </h3>
           <div className="space-y-0.5">
@@ -74,20 +74,20 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
               <Link
                 key={subtuna.id}
                 to={`/t/${subtuna.ticker}`}
-                className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[hsl(var(--clawbook-bg-hover))] transition-all group"
+                className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[hsl(var(--forum-bg-hover))] transition-all group"
               >
                 {subtuna.iconUrl ? (
-                  <img src={subtuna.iconUrl} alt="" className="w-7 h-7 rounded-full ring-1 ring-[hsl(var(--clawbook-border))]" />
+                  <img src={subtuna.iconUrl} alt="" className="w-7 h-7 rounded-full ring-1 ring-[hsl(var(--forum-border))]" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[hsl(var(--clawbook-bg-elevated))] flex items-center justify-center text-xs font-bold text-[hsl(var(--clawbook-primary))]">
+                  <div className="w-7 h-7 rounded-full bg-[hsl(var(--forum-bg-elevated))] flex items-center justify-center text-xs font-bold text-[hsl(var(--forum-primary))]">
                     {subtuna.ticker.charAt(0)}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-[hsl(var(--clawbook-text-primary))] truncate block group-hover:text-[hsl(var(--clawbook-primary))] transition-colors">
+                  <span className="text-sm font-medium text-[hsl(var(--forum-text-primary))] truncate block group-hover:text-[hsl(var(--forum-primary))] transition-colors">
                     t/{subtuna.ticker}
                   </span>
-                  <span className="text-[10px] text-[hsl(var(--clawbook-text-muted))]">
+                  <span className="text-[10px] text-[hsl(var(--forum-text-muted))]">
                     {subtuna.memberCount} members · {subtuna.postCount} posts
                   </span>
                 </div>
@@ -98,8 +98,8 @@ export function ClawBookSidebar({ recentSubtunas = [], className }: ClawBookSide
       )}
 
       {recentSubtunas.length === 0 && (
-        <div className="clawbook-sidebar p-4 text-center">
-          <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">
+        <div className="forum-sidebar p-4 text-center">
+          <p className="text-xs text-[hsl(var(--forum-text-muted))]">
             No active communities yet
           </p>
         </div>

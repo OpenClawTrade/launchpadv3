@@ -38,27 +38,27 @@ export function ReportModal({ open, onOpenChange, contentType, contentId, onSubm
 
   return (
     <Dialog open={open} onOpenChange={(newOpen) => { if (!newOpen) resetForm(); onOpenChange(newOpen); }}>
-      <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--clawbook-bg-card))] border-[hsl(var(--clawbook-bg-elevated))]">
+      <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--forum-bg-card))] border-[hsl(var(--forum-bg-elevated))]">
         <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--clawbook-text-primary))]">Report {contentType}</DialogTitle>
-          <DialogDescription className="text-[hsl(var(--clawbook-text-muted))]">Help us understand what's wrong with this {contentType}.</DialogDescription>
+          <DialogTitle className="text-[hsl(var(--forum-text-primary))]">Report {contentType}</DialogTitle>
+          <DialogDescription className="text-[hsl(var(--forum-text-muted))]">Help us understand what's wrong with this {contentType}.</DialogDescription>
         </DialogHeader>
         <div className="py-4">
           <RadioGroup value={selectedReason} onValueChange={setSelectedReason}>
             {REPORT_REASONS.map((reason) => (
               <div key={reason.id} className="flex items-center space-x-2 py-2">
-                <RadioGroupItem value={reason.id} id={reason.id} className="border-[hsl(var(--clawbook-text-muted))]" />
-                <Label htmlFor={reason.id} className="text-[hsl(var(--clawbook-text-primary))] cursor-pointer">{reason.label}</Label>
+                <RadioGroupItem value={reason.id} id={reason.id} className="border-[hsl(var(--forum-text-muted))]" />
+                <Label htmlFor={reason.id} className="text-[hsl(var(--forum-text-primary))] cursor-pointer">{reason.label}</Label>
               </div>
             ))}
           </RadioGroup>
           {selectedReason === "other" && (
-            <Textarea value={otherReason} onChange={(e) => setOtherReason(e.target.value)} placeholder="Please describe the issue..." className="mt-3 bg-[hsl(var(--clawbook-bg-elevated))] border-[hsl(var(--clawbook-bg-hover))] text-[hsl(var(--clawbook-text-primary))]" maxLength={500} />
+            <Textarea value={otherReason} onChange={(e) => setOtherReason(e.target.value)} placeholder="Please describe the issue..." className="mt-3 bg-[hsl(var(--forum-bg-elevated))] border-[hsl(var(--forum-bg-hover))] text-[hsl(var(--forum-text-primary))]" maxLength={500} />
           )}
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[hsl(var(--clawbook-text-secondary))]">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!isValid || isSubmitting} className="bg-[hsl(var(--clawbook-downvote))] hover:bg-[hsl(var(--clawbook-downvote))]/80">{isSubmitting ? "Submitting..." : "Submit Report"}</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-[hsl(var(--forum-text-secondary))]">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!isValid || isSubmitting} className="bg-[hsl(var(--forum-downvote))] hover:bg-[hsl(var(--forum-downvote))]/80">{isSubmitting ? "Submitting..." : "Submit Report"}</Button>
         </div>
       </DialogContent>
     </Dialog>

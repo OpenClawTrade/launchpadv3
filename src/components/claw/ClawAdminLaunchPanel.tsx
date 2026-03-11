@@ -82,11 +82,11 @@ export function ClawAdminLaunchPanel() {
   ];
 
   return (
-    <Card className="border-2" style={{ borderColor: "hsl(var(--claw-primary) / 0.5)", background: "hsl(var(--claw-surface))" }}>
+    <Card className="border-2" style={{ borderColor: "hsl(var(--saturn-primary) / 0.5)", background: "hsl(var(--saturn-surface))" }}>
       <CardContent className="p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Rocket className="h-5 w-5" style={{ color: "hsl(var(--claw-primary))" }} />
-          <h3 className="font-black text-sm uppercase tracking-wider" style={{ color: "hsl(var(--claw-text))" }}>
+          <Rocket className="h-5 w-5" style={{ color: "hsl(var(--saturn-primary))" }} />
+          <h3 className="font-black text-sm uppercase tracking-wider" style={{ color: "hsl(var(--saturn-text))" }}>
             🪐 Admin Launch Panel
           </h3>
         </div>
@@ -101,9 +101,9 @@ export function ClawAdminLaunchPanel() {
                 onClick={() => { setMode(m.id); reset(); }}
                 className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all`}
                 style={{
-                  background: mode === m.id ? "hsl(var(--claw-primary) / 0.15)" : "hsl(var(--claw-bg))",
-                  color: mode === m.id ? "hsl(var(--claw-primary))" : "hsl(var(--claw-muted))",
-                  border: `1px solid ${mode === m.id ? "hsl(var(--claw-primary))" : "hsl(var(--claw-border))"}`,
+                  background: mode === m.id ? "hsl(var(--saturn-primary) / 0.15)" : "hsl(var(--saturn-bg))",
+                  color: mode === m.id ? "hsl(var(--saturn-primary))" : "hsl(var(--saturn-muted))",
+                  border: `1px solid ${mode === m.id ? "hsl(var(--saturn-primary))" : "hsl(var(--saturn-border))"}`,
                 }}
               >
                 <Icon className="h-3 w-3 inline mr-1" />
@@ -115,7 +115,7 @@ export function ClawAdminLaunchPanel() {
 
         {/* Strategy selector */}
         <div className="mb-4">
-          <label className="text-xs font-medium mb-1 block" style={{ color: "hsl(var(--claw-muted))" }}>Strategy</label>
+          <label className="text-xs font-medium mb-1 block" style={{ color: "hsl(var(--saturn-muted))" }}>Strategy</label>
           <div className="flex gap-2">
             {["conservative", "balanced", "aggressive"].map((s) => (
               <button
@@ -123,9 +123,9 @@ export function ClawAdminLaunchPanel() {
                 onClick={() => setStrategy(s)}
                 className="flex-1 py-1.5 px-2 rounded text-xs font-medium capitalize transition-all"
                 style={{
-                  background: strategy === s ? "hsl(var(--claw-primary) / 0.15)" : "transparent",
-                  color: strategy === s ? "hsl(var(--claw-primary))" : "hsl(var(--claw-muted))",
-                  border: `1px solid ${strategy === s ? "hsl(var(--claw-primary) / 0.3)" : "hsl(var(--claw-border))"}`,
+                  background: strategy === s ? "hsl(var(--saturn-primary) / 0.15)" : "transparent",
+                  color: strategy === s ? "hsl(var(--saturn-primary))" : "hsl(var(--saturn-muted))",
+                  border: `1px solid ${strategy === s ? "hsl(var(--saturn-primary) / 0.3)" : "hsl(var(--saturn-border))"}`,
                 }}
               >
                 {s}
@@ -141,21 +141,21 @@ export function ClawAdminLaunchPanel() {
               onClick={handleAIGenerate}
               disabled={isGenerating}
               className="w-full py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
+              style={{ background: "linear-gradient(135deg, hsl(var(--saturn-primary)), hsl(var(--saturn-accent)))", color: "hsl(var(--saturn-bg))" }}
             >
               {isGenerating ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4 inline mr-2" />Generate Agent Idea 🪐</>}
             </button>
 
             {idea && (
-              <div className="p-3 rounded-lg space-y-2" style={{ background: "hsl(var(--claw-bg))", border: "1px solid hsl(var(--claw-primary) / 0.3)" }}>
+              <div className="p-3 rounded-lg space-y-2" style={{ background: "hsl(var(--saturn-bg))", border: "1px solid hsl(var(--saturn-primary) / 0.3)" }}>
                 <div className="flex items-center gap-3">
                   {idea.imageUrl && <img src={idea.imageUrl} alt={idea.name} className="w-12 h-12 rounded-lg" />}
                   <div>
-                    <div className="font-bold text-sm" style={{ color: "hsl(var(--claw-text))" }}>{idea.name}</div>
-                    <div className="text-xs" style={{ color: "hsl(var(--claw-primary))" }}>${idea.ticker}</div>
+                    <div className="font-bold text-sm" style={{ color: "hsl(var(--saturn-text))" }}>{idea.name}</div>
+                    <div className="text-xs" style={{ color: "hsl(var(--saturn-primary))" }}>${idea.ticker}</div>
                   </div>
                 </div>
-                <p className="text-xs" style={{ color: "hsl(var(--claw-muted))" }}>{idea.description}</p>
+                <p className="text-xs" style={{ color: "hsl(var(--saturn-muted))" }}>{idea.description}</p>
               </div>
             )}
           </div>
@@ -164,18 +164,18 @@ export function ClawAdminLaunchPanel() {
         {/* Custom mode */}
         {mode === "custom" && (
           <div className="space-y-3">
-            <Input placeholder="Token name" value={customName} onChange={(e) => setCustomName(e.target.value)} className="h-8 text-sm" style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }} />
-            <Input placeholder="Ticker (e.g. CLAW)" value={customTicker} onChange={(e) => setCustomTicker(e.target.value.toUpperCase())} className="h-8 text-sm" style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }} />
-            <Textarea placeholder="Description" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} className="text-sm min-h-[60px]" style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }} />
-            <Input placeholder="Image URL (optional)" value={customImageUrl} onChange={(e) => setCustomImageUrl(e.target.value)} className="h-8 text-sm" style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }} />
+            <Input placeholder="Token name" value={customName} onChange={(e) => setCustomName(e.target.value)} className="h-8 text-sm" style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }} />
+            <Input placeholder="Ticker (e.g. CLAW)" value={customTicker} onChange={(e) => setCustomTicker(e.target.value.toUpperCase())} className="h-8 text-sm" style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }} />
+            <Textarea placeholder="Description" value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} className="text-sm min-h-[60px]" style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }} />
+            <Input placeholder="Image URL (optional)" value={customImageUrl} onChange={(e) => setCustomImageUrl(e.target.value)} className="h-8 text-sm" style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }} />
           </div>
         )}
 
         {/* AI Trading mode */}
         {mode === "ai-trading" && (
-          <div className="p-3 rounded-lg text-center" style={{ background: "hsl(var(--claw-bg))", border: "1px solid hsl(var(--claw-border))" }}>
-            <Bot className="h-8 w-8 mx-auto mb-2" style={{ color: "hsl(var(--claw-primary))" }} />
-            <p className="text-xs" style={{ color: "hsl(var(--claw-muted))" }}>
+          <div className="p-3 rounded-lg text-center" style={{ background: "hsl(var(--saturn-bg))", border: "1px solid hsl(var(--saturn-border))" }}>
+            <Bot className="h-8 w-8 mx-auto mb-2" style={{ color: "hsl(var(--saturn-primary))" }} />
+            <p className="text-xs" style={{ color: "hsl(var(--saturn-muted))" }}>
               AI will generate a complete trading agent identity with name, ticker, personality, and avatar. 🪐
             </p>
           </div>
@@ -186,12 +186,12 @@ export function ClawAdminLaunchPanel() {
           onClick={handleLaunch}
           disabled={isLaunching || (mode === "ai-generate" && !idea) || (mode === "custom" && (!customName || !customTicker))}
           className="w-full mt-4 py-2.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all disabled:opacity-40"
-          style={{ background: "linear-gradient(135deg, hsl(var(--claw-primary)), hsl(var(--claw-accent)))", color: "hsl(var(--claw-bg))" }}
+          style={{ background: "linear-gradient(135deg, hsl(var(--saturn-primary)), hsl(var(--saturn-accent)))", color: "hsl(var(--saturn-bg))" }}
         >
           {isLaunching ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Launching...</> : <><Rocket className="h-4 w-4 inline mr-2" />Launch Agent 🪐</>}
         </button>
 
-        <p className="text-[10px] text-center mt-2" style={{ color: "hsl(var(--claw-muted))" }}>
+        <p className="text-[10px] text-center mt-2" style={{ color: "hsl(var(--saturn-muted))" }}>
           6-hour bidding window starts immediately after launch
         </p>
       </CardContent>

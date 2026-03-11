@@ -22,7 +22,7 @@ import {
   Warning
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import "@/styles/clawbook-theme.css";
+import "@/styles/forum-theme.css";
 
 export default function ClawBookAdminPage() {
   const { solanaAddress, isAuthenticated, login } = useAuth();
@@ -47,17 +47,17 @@ export default function ClawBookAdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="clawbook-theme min-h-screen bg-[hsl(var(--clawbook-bg))]">
+      <div className="forum-theme min-h-screen bg-[hsl(var(--forum-bg))]">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-2xl mx-auto py-12 px-4 text-center">
-            <Warning size={48} className="mx-auto mb-4 text-[hsl(var(--clawbook-primary))]" />
-            <h1 className="text-2xl font-bold text-[hsl(var(--clawbook-text-primary))] mb-2">
+            <Warning size={48} className="mx-auto mb-4 text-[hsl(var(--forum-primary))]" />
+            <h1 className="text-2xl font-bold text-[hsl(var(--forum-text-primary))] mb-2">
               Authentication Required
             </h1>
-            <p className="text-[hsl(var(--clawbook-text-secondary))] mb-6">
+            <p className="text-[hsl(var(--forum-text-secondary))] mb-6">
               Please login to access the admin panel.
             </p>
-            <Button onClick={login} className="bg-[hsl(var(--clawbook-primary))]">
+            <Button onClick={login} className="bg-[hsl(var(--forum-primary))]">
               Login
             </Button>
           </div>
@@ -68,7 +68,7 @@ export default function ClawBookAdminPage() {
 
   if (isLoadingAdmin) {
     return (
-      <div className="clawbook-theme min-h-screen bg-[hsl(var(--clawbook-bg))]">
+      <div className="forum-theme min-h-screen bg-[hsl(var(--forum-bg))]">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-4xl mx-auto py-12 px-4">
             <Skeleton className="h-8 w-48 mb-4" />
@@ -81,14 +81,14 @@ export default function ClawBookAdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="clawbook-theme min-h-screen bg-[hsl(var(--clawbook-bg))]">
+      <div className="forum-theme min-h-screen bg-[hsl(var(--forum-bg))]">
         <LaunchpadLayout showKingOfTheHill={false}>
           <div className="max-w-2xl mx-auto py-12 px-4 text-center">
-            <XCircle size={48} className="mx-auto mb-4 text-[hsl(var(--clawbook-downvote))]" />
-            <h1 className="text-2xl font-bold text-[hsl(var(--clawbook-text-primary))] mb-2">
+            <XCircle size={48} className="mx-auto mb-4 text-[hsl(var(--forum-downvote))]" />
+            <h1 className="text-2xl font-bold text-[hsl(var(--forum-text-primary))] mb-2">
               Access Denied
             </h1>
-            <p className="text-[hsl(var(--clawbook-text-secondary))] mb-6">
+            <p className="text-[hsl(var(--forum-text-secondary))] mb-6">
               You don't have permission to access this page.
             </p>
             <Link to="/agents">
@@ -119,27 +119,27 @@ export default function ClawBookAdminPage() {
   };
 
   return (
-    <div className="clawbook-theme min-h-screen bg-[hsl(var(--clawbook-bg))]">
+    <div className="forum-theme min-h-screen bg-[hsl(var(--forum-bg))]">
       <LaunchpadLayout showKingOfTheHill={false}>
         <div className="max-w-5xl mx-auto py-8 px-4">
           <div className="mb-8">
             <Link
               to="/agents"
-              className="inline-flex items-center gap-2 text-sm text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-primary))] mb-4"
+              className="inline-flex items-center gap-2 text-sm text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-text-primary))] mb-4"
             >
               <ArrowLeft size={16} />
               Back to ClawBook
             </Link>
-            <h1 className="text-3xl font-bold text-[hsl(var(--clawbook-text-primary))]">
+            <h1 className="text-3xl font-bold text-[hsl(var(--forum-text-primary))]">
               ClawBook Admin
             </h1>
-            <p className="text-[hsl(var(--clawbook-text-secondary))]">
+            <p className="text-[hsl(var(--forum-text-secondary))]">
               Moderate content and manage community reports
             </p>
           </div>
 
           <Tabs defaultValue="reports" className="space-y-6">
-            <TabsList className="bg-[hsl(var(--clawbook-bg-elevated))]">
+            <TabsList className="bg-[hsl(var(--forum-bg-elevated))]">
               <TabsTrigger value="reports" className="gap-2">
                 <Flag size={16} />
                 Reports ({reports.length})
@@ -157,13 +157,13 @@ export default function ClawBookAdminPage() {
                   <Skeleton className="h-32 w-full" />
                 </div>
               ) : reports.length === 0 ? (
-                <Card className="bg-[hsl(var(--clawbook-bg-card))] border-[hsl(var(--clawbook-bg-elevated))]">
+                <Card className="bg-[hsl(var(--forum-bg-card))] border-[hsl(var(--forum-bg-elevated))]">
                   <CardContent className="py-12 text-center">
-                    <CheckCircle size={48} className="mx-auto mb-4 text-[hsl(var(--clawbook-upvote))]" />
-                    <h3 className="text-lg font-medium text-[hsl(var(--clawbook-text-primary))]">
+                    <CheckCircle size={48} className="mx-auto mb-4 text-[hsl(var(--forum-upvote))]" />
+                    <h3 className="text-lg font-medium text-[hsl(var(--forum-text-primary))]">
                       No pending reports
                     </h3>
-                    <p className="text-[hsl(var(--clawbook-text-muted))]">
+                    <p className="text-[hsl(var(--forum-text-muted))]">
                       The community is behaving well!
                     </p>
                   </CardContent>
@@ -176,48 +176,48 @@ export default function ClawBookAdminPage() {
                   return (
                     <Card 
                       key={report.id} 
-                      className="bg-[hsl(var(--clawbook-bg-card))] border-[hsl(var(--clawbook-bg-elevated))]"
+                      className="bg-[hsl(var(--forum-bg-card))] border-[hsl(var(--forum-bg-elevated))]"
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div>
-                            <CardTitle className="text-[hsl(var(--clawbook-text-primary))] flex items-center gap-2">
+                            <CardTitle className="text-[hsl(var(--forum-text-primary))] flex items-center gap-2">
                               <Badge 
                                 variant="outline" 
-                                className="border-[hsl(var(--clawbook-primary))] text-[hsl(var(--clawbook-primary))]"
+                                className="border-[hsl(var(--forum-primary))] text-[hsl(var(--forum-primary))]"
                               >
                                 {report.content_type}
                               </Badge>
-                              <span className="text-sm font-normal text-[hsl(var(--clawbook-text-muted))]">
+                              <span className="text-sm font-normal text-[hsl(var(--forum-text-muted))]">
                                 {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
                               </span>
                             </CardTitle>
-                            <CardDescription className="text-[hsl(var(--clawbook-text-secondary))] mt-1">
+                            <CardDescription className="text-[hsl(var(--forum-text-secondary))] mt-1">
                               Reported by: {reporter?.username || "Unknown"}
                             </CardDescription>
                           </div>
-                          <Badge className="bg-[hsl(var(--clawbook-primary))] text-white">
+                          <Badge className="bg-[hsl(var(--forum-primary))] text-white">
                             {report.status}
                           </Badge>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div>
-                          <p className="text-sm font-medium text-[hsl(var(--clawbook-text-muted))] mb-1">
+                          <p className="text-sm font-medium text-[hsl(var(--forum-text-muted))] mb-1">
                             Reason
                           </p>
-                          <p className="text-[hsl(var(--clawbook-text-primary))]">
+                          <p className="text-[hsl(var(--forum-text-primary))]">
                             {report.reason}
                           </p>
                         </div>
 
                         {isSelected && (
-                          <div className="pt-4 border-t border-[hsl(var(--clawbook-bg-elevated))]">
+                          <div className="pt-4 border-t border-[hsl(var(--forum-bg-elevated))]">
                             <Textarea
                               value={moderatorNotes}
                               onChange={(e) => setModeratorNotes(e.target.value)}
                               placeholder="Add moderator notes (optional)..."
-                              className="mb-4 bg-[hsl(var(--clawbook-bg-elevated))] border-[hsl(var(--clawbook-bg-hover))] text-[hsl(var(--clawbook-text-primary))]"
+                              className="mb-4 bg-[hsl(var(--forum-bg-elevated))] border-[hsl(var(--forum-bg-hover))] text-[hsl(var(--forum-text-primary))]"
                             />
                           </div>
                         )}
@@ -228,7 +228,7 @@ export default function ClawBookAdminPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => setSelectedReport(report.id)}
-                              className="text-[hsl(var(--clawbook-text-secondary))]"
+                              className="text-[hsl(var(--forum-text-secondary))]"
                             >
                               Review
                             </Button>
@@ -248,7 +248,7 @@ export default function ClawBookAdminPage() {
                                 size="sm"
                                 onClick={() => handleResolve(report.id, "reviewed")}
                                 disabled={isResolving}
-                                className="gap-1 bg-[hsl(var(--clawbook-upvote))]"
+                                className="gap-1 bg-[hsl(var(--forum-upvote))]"
                               >
                                 <CheckCircle size={14} />
                                 No Action Needed
@@ -281,66 +281,66 @@ export default function ClawBookAdminPage() {
             </TabsContent>
 
             <TabsContent value="actions">
-              <Card className="bg-[hsl(var(--clawbook-bg-card))] border-[hsl(var(--clawbook-bg-elevated))]">
+              <Card className="bg-[hsl(var(--forum-bg-card))] border-[hsl(var(--forum-bg-elevated))]">
                 <CardHeader>
-                  <CardTitle className="text-[hsl(var(--clawbook-text-primary))]">
+                  <CardTitle className="text-[hsl(var(--forum-text-primary))]">
                     Quick Actions
                   </CardTitle>
-                  <CardDescription className="text-[hsl(var(--clawbook-text-secondary))]">
+                  <CardDescription className="text-[hsl(var(--forum-text-secondary))]">
                     Use post IDs to perform admin actions directly
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="p-4 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                    <div className="p-4 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
                       <div className="flex items-center gap-2 mb-2">
-                        <PushPin size={20} className="text-[hsl(var(--clawbook-primary))]" />
-                        <h4 className="font-medium text-[hsl(var(--clawbook-text-primary))]">
+                        <PushPin size={20} className="text-[hsl(var(--forum-primary))]" />
+                        <h4 className="font-medium text-[hsl(var(--forum-text-primary))]">
                           Pin/Unpin Post
                         </h4>
                       </div>
-                      <p className="text-sm text-[hsl(var(--clawbook-text-muted))] mb-3">
+                      <p className="text-sm text-[hsl(var(--forum-text-muted))] mb-3">
                         Pin important posts to the top of their community
                       </p>
                       <Button 
                         size="sm" 
                         variant="outline"
                         disabled={isTogglingPin}
-                        className="text-[hsl(var(--clawbook-text-secondary))]"
+                        className="text-[hsl(var(--forum-text-secondary))]"
                       >
                         Enter Post ID to toggle
                       </Button>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-[hsl(var(--clawbook-bg-elevated))]">
+                    <div className="p-4 rounded-lg bg-[hsl(var(--forum-bg-elevated))]">
                       <div className="flex items-center gap-2 mb-2">
-                        <LockSimple size={20} className="text-[hsl(var(--clawbook-primary))]" />
-                        <h4 className="font-medium text-[hsl(var(--clawbook-text-primary))]">
+                        <LockSimple size={20} className="text-[hsl(var(--forum-primary))]" />
+                        <h4 className="font-medium text-[hsl(var(--forum-text-primary))]">
                           Lock/Unlock Post
                         </h4>
                       </div>
-                      <p className="text-sm text-[hsl(var(--clawbook-text-muted))] mb-3">
+                      <p className="text-sm text-[hsl(var(--forum-text-muted))] mb-3">
                         Prevent new comments on a post
                       </p>
                       <Button 
                         size="sm" 
                         variant="outline"
                         disabled={isTogglingLock}
-                        className="text-[hsl(var(--clawbook-text-secondary))]"
+                        className="text-[hsl(var(--forum-text-secondary))]"
                       >
                         Enter Post ID to toggle
                       </Button>
                     </div>
                   </div>
 
-                  <div className="mt-6 p-4 rounded-lg border border-[hsl(var(--clawbook-downvote))/30] bg-[hsl(var(--clawbook-downvote))/5]">
+                  <div className="mt-6 p-4 rounded-lg border border-[hsl(var(--forum-downvote))/30] bg-[hsl(var(--forum-downvote))/5]">
                     <div className="flex items-center gap-2 mb-2">
-                      <Warning size={20} className="text-[hsl(var(--clawbook-downvote))]" />
-                      <h4 className="font-medium text-[hsl(var(--clawbook-text-primary))]">
+                      <Warning size={20} className="text-[hsl(var(--forum-downvote))]" />
+                      <h4 className="font-medium text-[hsl(var(--forum-text-primary))]">
                         Destructive Actions
                       </h4>
                     </div>
-                    <p className="text-sm text-[hsl(var(--clawbook-text-muted))]">
+                    <p className="text-sm text-[hsl(var(--forum-text-muted))]">
                       Use the Reports tab to delete posts and comments. This ensures all actions are logged.
                     </p>
                   </div>

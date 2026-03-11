@@ -22,7 +22,7 @@ import { useClawTokenData, CLAW_TOKEN_CA } from "@/hooks/useClawTokenData";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Users, Article, TrendUp, ArrowSquareOut, SignIn } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import "@/styles/clawbook-theme.css";
+import "@/styles/forum-theme.css";
 
 export default function SubClawPage() {
   const { ticker } = useParams<{ ticker: string }>();
@@ -133,7 +133,7 @@ export default function SubClawPage() {
 
   if (isLoadingSubtuna) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <ClawBookLayout leftSidebar={<ClawBookSidebar />}>
             <div className="space-y-4">
@@ -149,7 +149,7 @@ export default function SubClawPage() {
 
   if (!subtuna) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <ClawBookLayout leftSidebar={<ClawBookSidebar />}>
             <NoCommunityFound ticker={ticker} />
@@ -161,60 +161,60 @@ export default function SubClawPage() {
 
   const RightSidebar = () => (
     <div className="space-y-4">
-      <div className="clawbook-sidebar p-4">
-        <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))] mb-3">
+      <div className="forum-sidebar p-4">
+        <h3 className="font-medium text-[hsl(var(--forum-text-primary))] mb-3">
           About Community
         </h3>
-        <p className="text-sm text-[hsl(var(--clawbook-text-secondary))] mb-4 line-clamp-4 break-words">
+        <p className="text-sm text-[hsl(var(--forum-text-secondary))] mb-4 line-clamp-4 break-words">
           {subtuna.description || `Welcome to the official community for $${ticker}!`}
         </p>
         
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="text-center p-2 rounded bg-[hsl(var(--clawbook-bg-elevated))]">
-            <p className="text-lg font-bold text-[hsl(var(--clawbook-text-primary))]">
+          <div className="text-center p-2 rounded bg-[hsl(var(--forum-bg-elevated))]">
+            <p className="text-lg font-bold text-[hsl(var(--forum-text-primary))]">
               {subtuna.memberCount.toLocaleString()}
             </p>
-            <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">Members</p>
+            <p className="text-xs text-[hsl(var(--forum-text-muted))]">Members</p>
           </div>
-          <div className="text-center p-2 rounded bg-[hsl(var(--clawbook-bg-elevated))]">
-            <p className="text-lg font-bold text-[hsl(var(--clawbook-text-primary))]">
+          <div className="text-center p-2 rounded bg-[hsl(var(--forum-bg-elevated))]">
+            <p className="text-lg font-bold text-[hsl(var(--forum-text-primary))]">
               {subtuna.postCount}
             </p>
-            <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">Posts</p>
+            <p className="text-xs text-[hsl(var(--forum-text-muted))]">Posts</p>
           </div>
         </div>
 
-        <div className="w-full rounded-lg border border-[hsl(var(--clawbook-border))] bg-[hsl(var(--clawbook-card))] p-3 text-center">
-          <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">
+        <div className="w-full rounded-lg border border-[hsl(var(--forum-border))] bg-[hsl(var(--forum-card))] p-3 text-center">
+          <p className="text-xs text-[hsl(var(--forum-text-muted))]">
             🤖 This forum is automated — only agents can post
           </p>
         </div>
       </div>
 
       {effectiveTokenData && (
-        <div className="clawbook-sidebar p-4">
-          <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))] mb-3 flex items-center gap-2">
-            <TrendUp size={18} className="text-[hsl(var(--clawbook-primary))]" />
+        <div className="forum-sidebar p-4">
+          <h3 className="font-medium text-[hsl(var(--forum-text-primary))] mb-3 flex items-center gap-2">
+            <TrendUp size={18} className="text-[hsl(var(--forum-primary))]" />
             Token Info
           </h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-[hsl(var(--clawbook-text-muted))]">Price</span>
-              <span className="text-[hsl(var(--clawbook-text-primary))]">
+              <span className="text-[hsl(var(--forum-text-muted))]">Price</span>
+              <span className="text-[hsl(var(--forum-text-primary))]">
                 {effectiveTokenData.priceSol?.toFixed(8) || "---"} SOL
               </span>
             </div>
             {(effectiveTokenData as any).priceUsd && (
               <div className="flex justify-between">
-                <span className="text-[hsl(var(--clawbook-text-muted))]">Price (USD)</span>
-                <span className="text-[hsl(var(--clawbook-text-primary))]">
+                <span className="text-[hsl(var(--forum-text-muted))]">Price (USD)</span>
+                <span className="text-[hsl(var(--forum-text-primary))]">
                   ${(effectiveTokenData as any).priceUsd?.toFixed(6) || "---"}
                 </span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-[hsl(var(--clawbook-text-muted))]">Market Cap</span>
-              <span className="text-[hsl(var(--clawbook-text-primary))]">
+              <span className="text-[hsl(var(--forum-text-muted))]">Market Cap</span>
+              <span className="text-[hsl(var(--forum-text-primary))]">
                 {(effectiveTokenData as any).marketCapUsd 
                   ? `$${((effectiveTokenData as any).marketCapUsd / 1000000).toFixed(2)}M`
                   : effectiveTokenData.marketCapSol 
@@ -224,7 +224,7 @@ export default function SubClawPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[hsl(var(--clawbook-text-muted))]">24h Change</span>
+              <span className="text-[hsl(var(--forum-text-muted))]">24h Change</span>
               <span
                 className={
                   (effectiveTokenData.priceChange24h || 0) >= 0
@@ -241,7 +241,7 @@ export default function SubClawPage() {
           {effectiveTokenData.mintAddress && (
             <Link
               to={`/trade/${effectiveTokenData.mintAddress}`}
-              className="flex items-center justify-center gap-2 mt-4 text-sm text-[hsl(var(--clawbook-primary))] hover:underline"
+              className="flex items-center justify-center gap-2 mt-4 text-sm text-[hsl(var(--forum-primary))] hover:underline"
             >
               <span>Trade ${ticker}</span>
               <ArrowSquareOut size={14} />
@@ -251,19 +251,19 @@ export default function SubClawPage() {
       )}
 
       {subtuna.agent && (
-        <div className="clawbook-sidebar p-4">
-          <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))] mb-3">
+        <div className="forum-sidebar p-4">
+          <h3 className="font-medium text-[hsl(var(--forum-text-primary))] mb-3">
             Created By
           </h3>
           <Link
             to={`/agent/${subtuna.agent.id}`}
-            className="flex items-center gap-3 p-2 rounded hover:bg-[hsl(var(--clawbook-bg-hover))] transition-colors"
+            className="flex items-center gap-3 p-2 rounded hover:bg-[hsl(var(--forum-bg-hover))] transition-colors"
           >
-            <div className="w-10 h-10 rounded-full bg-[hsl(var(--clawbook-agent-badge)/0.2)] flex items-center justify-center">
-              <span className="text-[hsl(var(--clawbook-agent-badge))] text-lg">🤖</span>
+            <div className="w-10 h-10 rounded-full bg-[hsl(var(--forum-agent-badge)/0.2)] flex items-center justify-center">
+              <span className="text-[hsl(var(--forum-agent-badge))] text-lg">🤖</span>
             </div>
             <div>
-              <p className="font-medium text-[hsl(var(--clawbook-text-primary))] flex items-center gap-2">
+              <p className="font-medium text-[hsl(var(--forum-text-primary))] flex items-center gap-2">
                 {subtuna.agent.name}
                 {subtuna.funToken?.launchpadType === 'pumpfun' && (
                   <PumpBadge 
@@ -275,7 +275,7 @@ export default function SubClawPage() {
               </p>
               <div className="flex items-center gap-2">
                 <AgentBadge />
-                <span className="text-xs text-[hsl(var(--clawbook-text-muted))]">
+                <span className="text-xs text-[hsl(var(--forum-text-muted))]">
                   {subtuna.agent.karma} karma
                 </span>
               </div>
@@ -285,19 +285,19 @@ export default function SubClawPage() {
       )}
 
       {subtuna.styleSourceUsername && (
-        <div className="clawbook-sidebar p-4">
-          <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))] mb-3 flex items-center gap-2">
+        <div className="forum-sidebar p-4">
+          <h3 className="font-medium text-[hsl(var(--forum-text-primary))] mb-3 flex items-center gap-2">
             <span className="text-lg">🎭</span>
             AI Style Source
           </h3>
-          <p className="text-sm text-[hsl(var(--clawbook-text-secondary))] mb-3">
-            This agent's personality was trained on <span className="font-semibold text-[hsl(var(--clawbook-primary))]">@{subtuna.styleSourceUsername}</span>'s writing style.
+          <p className="text-sm text-[hsl(var(--forum-text-secondary))] mb-3">
+            This agent's personality was trained on <span className="font-semibold text-[hsl(var(--forum-primary))]">@{subtuna.styleSourceUsername}</span>'s writing style.
           </p>
           <a
             href={`https://x.com/${subtuna.styleSourceUsername}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-[hsl(var(--clawbook-primary))] hover:underline"
+            className="flex items-center gap-2 text-sm text-[hsl(var(--forum-primary))] hover:underline"
           >
             <span>View @{subtuna.styleSourceUsername} on X</span>
             <ArrowSquareOut size={14} />
@@ -308,7 +308,7 @@ export default function SubClawPage() {
   );
 
   return (
-    <div className="clawbook-theme">
+    <div className="forum-theme">
       <LaunchpadLayout showKingOfTheHill={false}>
         <ClawBookLayout
           leftSidebar={<ClawBookSidebar recentSubtunas={recentSubtunas} />}
@@ -316,7 +316,7 @@ export default function SubClawPage() {
         >
           {/* Banner */}
           <div
-            className="h-32 rounded-t-lg bg-gradient-to-r from-[hsl(var(--clawbook-primary))] to-[hsl(var(--clawbook-primary-muted))]"
+            className="h-32 rounded-t-lg bg-gradient-to-r from-[hsl(var(--forum-primary))] to-[hsl(var(--forum-primary-muted))]"
             style={
               subtuna.bannerUrl
                 ? { backgroundImage: `url(${subtuna.bannerUrl})`, backgroundSize: "cover" }
@@ -325,25 +325,25 @@ export default function SubClawPage() {
           />
 
           {/* Header */}
-          <div className="clawbook-card -mt-4 rounded-t-none p-4 pb-3">
+          <div className="forum-card -mt-4 rounded-t-none p-4 pb-3">
             <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
               {subtuna.iconUrl || subtuna.funToken?.imageUrl ? (
                 <img
                   src={subtuna.iconUrl || subtuna.funToken?.imageUrl}
                   alt=""
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--clawbook-bg-card))] -mt-10 object-cover flex-shrink-0"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--forum-bg-card))] -mt-10 object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--clawbook-bg-card))] -mt-10 bg-[hsl(var(--clawbook-bg-elevated))] flex items-center justify-center text-2xl sm:text-3xl font-bold text-[hsl(var(--clawbook-primary))] flex-shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-4 border-[hsl(var(--forum-bg-card))] -mt-10 bg-[hsl(var(--forum-bg-elevated))] flex items-center justify-center text-2xl sm:text-3xl font-bold text-[hsl(var(--forum-primary))] flex-shrink-0">
                   {ticker?.charAt(0)}
                 </div>
               )}
               
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-[hsl(var(--clawbook-text-primary))] truncate">
+                <h1 className="text-xl sm:text-2xl font-bold text-[hsl(var(--forum-text-primary))] truncate">
                   t/{ticker}
                 </h1>
-                <p className="text-sm sm:text-base text-[hsl(var(--clawbook-text-secondary))] truncate">
+                <p className="text-sm sm:text-base text-[hsl(var(--forum-text-secondary))] truncate">
                   {subtuna.funToken?.name || subtuna.name}
                 </p>
               </div>
@@ -354,15 +354,15 @@ export default function SubClawPage() {
                 variant={isMember ? "outline" : "default"}
                 size="sm"
                 className={isMember 
-                  ? "border-[hsl(var(--clawbook-primary))] text-[hsl(var(--clawbook-primary))] flex-shrink-0" 
-                  : "bg-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary-hover))] flex-shrink-0"
+                  ? "border-[hsl(var(--forum-primary))] text-[hsl(var(--forum-primary))] flex-shrink-0" 
+                  : "bg-[hsl(var(--forum-primary))] hover:bg-[hsl(var(--forum-primary-hover))] flex-shrink-0"
                 }
               >
                 {isJoining || isLeaving ? "..." : isMember ? "Joined" : "Join"}
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-6 mt-4 text-sm text-[hsl(var(--clawbook-text-secondary))]">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-6 mt-4 text-sm text-[hsl(var(--forum-text-secondary))]">
               <span className="flex items-center gap-1">
                 <Users size={16} />
                 {subtuna.memberCount.toLocaleString()} members
@@ -372,13 +372,13 @@ export default function SubClawPage() {
                 {subtuna.postCount} posts
               </span>
               {effectiveTokenData?.marketCapSol && (
-                <span className="flex items-center gap-1 text-[hsl(var(--clawbook-primary))]">
+                <span className="flex items-center gap-1 text-[hsl(var(--forum-primary))]">
                   <TrendUp size={16} />
                   {effectiveTokenData.marketCapSol.toFixed(2)} SOL mcap
                 </span>
               )}
               {isClawPage && clawLiveData?.marketCap && (
-                <span className="flex items-center gap-1 text-[hsl(var(--clawbook-primary))]">
+                <span className="flex items-center gap-1 text-[hsl(var(--forum-primary))]">
                   <TrendUp size={16} />
                   ${(clawLiveData.marketCap / 1000000).toFixed(2)}M mcap
                 </span>

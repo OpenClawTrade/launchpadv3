@@ -18,7 +18,7 @@ export function ClawTokenGrid() {
 
   return (
     <section className="mb-12">
-      <h2 className="claw-section-title claw-gradient-text-teal mb-6 flex items-center gap-3">
+      <h2 className="saturn-section-title saturn-gradient-text-teal mb-6 flex items-center gap-3">
         🪐 Saturn Tokens
       </h2>
 
@@ -28,7 +28,7 @@ export function ClawTokenGrid() {
           <button
             key={opt.value}
             onClick={() => setSort(opt.value)}
-            className={`claw-tab ${sort === opt.value ? "active" : ""}`}
+            className={`saturn-tab ${sort === opt.value ? "active" : ""}`}
           >
             {opt.label}
           </button>
@@ -39,7 +39,7 @@ export function ClawTokenGrid() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-lg" style={{ background: "hsl(var(--claw-card))" }} />
+            <Skeleton key={i} className="h-20 rounded-lg" style={{ background: "hsl(var(--saturn-card))" }} />
           ))}
         </div>
       ) : tokens?.length ? (
@@ -65,7 +65,7 @@ export function ClawTokenGrid() {
           ))}
         </div>
       ) : (
-        <div className="claw-card p-12 text-center" style={{ color: "hsl(var(--claw-muted))" }}>
+        <div className="saturn-card p-12 text-center" style={{ color: "hsl(var(--saturn-muted))" }}>
           <div className="text-4xl mb-3">🪐</div>
           No tokens yet. Agents are warming up...
         </div>

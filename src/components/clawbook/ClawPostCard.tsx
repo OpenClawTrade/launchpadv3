@@ -44,22 +44,22 @@ export function ClawPostCard({
   const score = upvotes - downvotes;
 
   return (
-    <article className={cn("clawbook-card p-4 sm:p-5", isPinned && "clawbook-pinned")}>
+    <article className={cn("forum-card p-4 sm:p-5", isPinned && "forum-pinned")}>
       {/* Header row: avatar + meta */}
       <div className="flex items-center gap-3 mb-3">
         {/* Agent/Author avatar */}
         {isAgentPost && agent ? (
           <Link to={`/agent/${agent.id}`} className="flex-shrink-0">
             {agent.avatarUrl ? (
-              <img src={agent.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-[hsl(var(--clawbook-primary)/0.3)]" />
+              <img src={agent.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-[hsl(var(--forum-primary)/0.3)]" />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[hsl(var(--clawbook-primary)/0.15)] flex items-center justify-center text-sm font-bold text-[hsl(var(--clawbook-primary))]">
+              <div className="w-9 h-9 rounded-full bg-[hsl(var(--forum-primary)/0.15)] flex items-center justify-center text-sm font-bold text-[hsl(var(--forum-primary))]">
                 {agent.name.charAt(0)}
               </div>
             )}
           </Link>
         ) : (
-          <div className="w-9 h-9 rounded-full bg-[hsl(var(--clawbook-bg-elevated))] flex items-center justify-center text-sm font-bold text-[hsl(var(--clawbook-text-muted))] flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-[hsl(var(--forum-bg-elevated))] flex items-center justify-center text-sm font-bold text-[hsl(var(--forum-text-muted))] flex-shrink-0">
             {author?.username?.charAt(0)?.toUpperCase() || "?"}
           </div>
         )}
@@ -67,29 +67,29 @@ export function ClawPostCard({
         <div className="flex flex-col gap-0.5 min-w-0">
           <div className="flex items-center gap-1.5 text-xs flex-wrap">
             {isAgentPost && agent ? (
-              <Link to={`/agent/${agent.id}`} className="font-semibold text-[hsl(var(--clawbook-text-primary))] hover:text-[hsl(var(--clawbook-primary))] transition-colors truncate">
+              <Link to={`/agent/${agent.id}`} className="font-semibold text-[hsl(var(--forum-text-primary))] hover:text-[hsl(var(--forum-primary))] transition-colors truncate">
                 {agent.name}
               </Link>
             ) : author ? (
-              <span className="font-semibold text-[hsl(var(--clawbook-text-primary))] truncate">{author.username}</span>
+              <span className="font-semibold text-[hsl(var(--forum-text-primary))] truncate">{author.username}</span>
             ) : (
-              <span className="text-[hsl(var(--clawbook-text-muted))]">[deleted]</span>
+              <span className="text-[hsl(var(--forum-text-muted))]">[deleted]</span>
             )}
             
             {isAgentPost && <AgentBadge />}
             
             {showSubtuna && (
               <>
-                <span className="text-[hsl(var(--clawbook-text-muted))]">in</span>
-                <Link to={`/t/${subtuna.ticker}`} className="clawbook-community-link text-xs">
+                <span className="text-[hsl(var(--forum-text-muted))]">in</span>
+                <Link to={`/t/${subtuna.ticker}`} className="forum-community-link text-xs">
                   t/{subtuna.ticker}
                 </Link>
               </>
             )}
             
-            <span className="text-[hsl(var(--clawbook-text-muted))]">·</span>
-            <span className="text-[hsl(var(--clawbook-text-muted))]">{timeAgo}</span>
-            {isPinned && <span className="text-[hsl(var(--clawbook-primary))] font-medium ml-1">📌</span>}
+            <span className="text-[hsl(var(--forum-text-muted))]">·</span>
+            <span className="text-[hsl(var(--forum-text-muted))]">{timeAgo}</span>
+            {isPinned && <span className="text-[hsl(var(--forum-primary))] font-medium ml-1">📌</span>}
           </div>
 
           {/* Launched by @username with verified badge */}
@@ -98,11 +98,11 @@ export function ClawPostCard({
               href={`https://x.com/${launcherTwitter.handle}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-secondary))] transition-colors w-fit"
+              className="flex items-center gap-1 text-[11px] text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-text-secondary))] transition-colors w-fit"
             >
               <XLogo size={10} weight="bold" />
               <span>Launched by</span>
-              <span className="font-medium text-[hsl(var(--clawbook-text-secondary))]">@{launcherTwitter.handle}</span>
+              <span className="font-medium text-[hsl(var(--forum-text-secondary))]">@{launcherTwitter.handle}</span>
               {launcherTwitter.verified && (
                 <VerifiedBadge
                   type={launcherTwitter.verifiedType === "Business" ? "gold" : "blue"}
@@ -116,14 +116,14 @@ export function ClawPostCard({
 
       {/* Title */}
       <Link to={`/t/${subtuna.ticker}/post/${postIdentifier}`}>
-        <h3 className="text-[15px] sm:text-base font-bold text-[hsl(var(--clawbook-text-primary))] hover:text-[hsl(var(--clawbook-primary))] transition-colors mb-2 leading-snug break-words">
+        <h3 className="text-[15px] sm:text-base font-bold text-[hsl(var(--forum-text-primary))] hover:text-[hsl(var(--forum-primary))] transition-colors mb-2 leading-snug break-words">
           {title}
         </h3>
       </Link>
 
       {/* Content preview */}
       {content && (
-        <FormattedContent content={content} truncate className="text-sm text-[hsl(var(--clawbook-text-secondary))] line-clamp-2 mb-3 leading-relaxed" />
+        <FormattedContent content={content} truncate className="text-sm text-[hsl(var(--forum-text-secondary))] line-clamp-2 mb-3 leading-relaxed" />
       )}
 
       {/* Image */}
@@ -134,23 +134,23 @@ export function ClawPostCard({
       )}
 
       {/* Footer: engagement */}
-      <div className="flex items-center gap-1 pt-1 border-t border-[hsl(var(--clawbook-border)/0.5)]">
+      <div className="flex items-center gap-1 pt-1 border-t border-[hsl(var(--forum-border)/0.5)]">
         <div className="flex items-center gap-0.5 mr-2">
-          <button onClick={() => onVote(id, 1)} className={cn("clawbook-vote-btn p-1.5", userVote === 1 && "upvoted")} aria-label="Upvote">
+          <button onClick={() => onVote(id, 1)} className={cn("forum-vote-btn p-1.5", userVote === 1 && "upvoted")} aria-label="Upvote">
             <ArrowFatUp size={16} weight={userVote === 1 ? "fill" : "regular"} />
           </button>
-          <span className={cn("clawbook-vote-score text-xs tabular-nums", userVote === 1 && "text-[hsl(var(--clawbook-upvote))]", userVote === -1 && "text-[hsl(var(--clawbook-downvote))]")}>{score}</span>
-          <button onClick={() => onVote(id, -1)} className={cn("clawbook-vote-btn p-1.5", userVote === -1 && "downvoted")} aria-label="Downvote">
+          <span className={cn("forum-vote-score text-xs tabular-nums", userVote === 1 && "text-[hsl(var(--forum-upvote))]", userVote === -1 && "text-[hsl(var(--forum-downvote))]")}>{score}</span>
+          <button onClick={() => onVote(id, -1)} className={cn("forum-vote-btn p-1.5", userVote === -1 && "downvoted")} aria-label="Downvote">
             <ArrowFatDown size={16} weight={userVote === -1 ? "fill" : "regular"} />
           </button>
         </div>
 
-        <Link to={`/t/${subtuna.ticker}/post/${postIdentifier}`} className="flex items-center gap-1.5 text-xs text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-primary))] px-2.5 py-1.5 rounded-md transition-colors font-medium">
+        <Link to={`/t/${subtuna.ticker}/post/${postIdentifier}`} className="flex items-center gap-1.5 text-xs text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-primary))] px-2.5 py-1.5 rounded-md transition-colors font-medium">
           <ChatCircle size={14} />
           <span>{commentCount} {commentCount === 1 ? "Reply" : "Replies"}</span>
         </Link>
         
-        <button onClick={handleShare} className="flex items-center gap-1.5 text-xs text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-primary))] px-2.5 py-1.5 rounded-md transition-colors font-medium">
+        <button onClick={handleShare} className="flex items-center gap-1.5 text-xs text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-primary))] px-2.5 py-1.5 rounded-md transition-colors font-medium">
           <Share size={14} />
           <span className="hidden sm:inline">Share</span>
         </button>

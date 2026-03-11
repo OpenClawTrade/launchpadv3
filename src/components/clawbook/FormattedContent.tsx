@@ -26,18 +26,18 @@ export function FormattedContent({ content, className, truncate = false }: Forma
       {blocks.map((block, i) => {
         switch (block.type) {
           case "hr":
-            return <hr key={i} className="border-t border-[hsl(var(--clawbook-border))] my-4" />;
+            return <hr key={i} className="border-t border-[hsl(var(--forum-border))] my-4" />;
           case "header":
             return block.level === 2 ? (
-              <h2 key={i} className="text-base font-bold text-[hsl(var(--clawbook-text-primary))] mt-5 mb-2">{formatLine(block.text)}</h2>
+              <h2 key={i} className="text-base font-bold text-[hsl(var(--forum-text-primary))] mt-5 mb-2">{formatLine(block.text)}</h2>
             ) : (
-              <h3 key={i} className="text-sm font-semibold text-[hsl(var(--clawbook-text-primary))] mt-4 mb-1.5">{formatLine(block.text)}</h3>
+              <h3 key={i} className="text-sm font-semibold text-[hsl(var(--forum-text-primary))] mt-4 mb-1.5">{formatLine(block.text)}</h3>
             );
           case "list":
             return (
               <ul key={i} className="list-disc list-inside space-y-1 my-2 text-sm">
                 {block.items.map((item, j) => (
-                  <li key={j} className="text-[hsl(var(--clawbook-text-secondary))]">{formatLine(item)}</li>
+                  <li key={j} className="text-[hsl(var(--forum-text-secondary))]">{formatLine(item)}</li>
                 ))}
               </ul>
             );
@@ -91,12 +91,12 @@ function formatLine(text: string): React.ReactNode[] {
   while (remaining.length > 0) {
     const codeMatch = remaining.match(/^`([^`]+)`/);
     if (codeMatch) {
-      elements.push(<code key={key++} className="font-mono text-xs bg-[hsl(var(--clawbook-bg-hover))] text-[hsl(var(--clawbook-text-primary))] px-1.5 py-0.5 rounded break-all">{codeMatch[1]}</code>);
+      elements.push(<code key={key++} className="font-mono text-xs bg-[hsl(var(--forum-bg-hover))] text-[hsl(var(--forum-text-primary))] px-1.5 py-0.5 rounded break-all">{codeMatch[1]}</code>);
       remaining = remaining.slice(codeMatch[0].length); continue;
     }
     const mdLinkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (mdLinkMatch) {
-      elements.push(<a key={key++} href={mdLinkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--clawbook-primary))] hover:underline break-all">{mdLinkMatch[1]}</a>);
+      elements.push(<a key={key++} href={mdLinkMatch[2]} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--forum-primary))] hover:underline break-all">{mdLinkMatch[1]}</a>);
       remaining = remaining.slice(mdLinkMatch[0].length); continue;
     }
     const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
@@ -106,7 +106,7 @@ function formatLine(text: string): React.ReactNode[] {
     const urlMatch = remaining.match(/^(https?:\/\/[^\s\[\]()<>]+)/);
     if (urlMatch) {
       const url = urlMatch[1];
-      elements.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--clawbook-primary))] hover:underline break-all" title={url}>{truncateUrl(url)}</a>);
+      elements.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--forum-primary))] hover:underline break-all" title={url}>{truncateUrl(url)}</a>);
       remaining = remaining.slice(url.length); continue;
     }
     const nextSpecial = remaining.search(/`|\*|\[|https?:\/\//);

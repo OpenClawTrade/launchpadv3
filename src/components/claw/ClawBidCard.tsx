@@ -66,7 +66,7 @@ export function ClawBidCard({ tradingAgentId, agentName, biddingEndsAt, isOwned,
           </span>
         </div>
         {ownerWallet && ownerWallet !== "CLAW_SYSTEM" && (
-          <p className="text-[9px] mt-0.5 truncate" style={{ color: "hsl(var(--claw-muted))" }}>
+          <p className="text-[9px] mt-0.5 truncate" style={{ color: "hsl(var(--saturn-muted))" }}>
             {ownerWallet.slice(0, 4)}...{ownerWallet.slice(-4)}
           </p>
         )}
@@ -76,8 +76,8 @@ export function ClawBidCard({ tradingAgentId, agentName, biddingEndsAt, isOwned,
 
   if (!biddingEndsAt || isExpired) {
     return (
-      <div className="p-2 rounded-lg" style={{ background: "hsl(var(--claw-bg))", border: "1px solid hsl(var(--claw-border))" }}>
-        <span className="text-[10px]" style={{ color: "hsl(var(--claw-muted))" }}>Bidding ended</span>
+      <div className="p-2 rounded-lg" style={{ background: "hsl(var(--saturn-bg))", border: "1px solid hsl(var(--saturn-border))" }}>
+        <span className="text-[10px]" style={{ color: "hsl(var(--saturn-muted))" }}>Bidding ended</span>
       </div>
     );
   }
@@ -87,40 +87,40 @@ export function ClawBidCard({ tradingAgentId, agentName, biddingEndsAt, isOwned,
   const displayBidWallet = bidStatus?.agent?.bidWalletAddress || bidWalletAddress;
 
   return (
-    <div className="p-2.5 rounded-lg" style={{ background: "hsl(var(--claw-primary) / 0.05)", border: "1px solid hsl(var(--claw-primary) / 0.3)" }}>
+    <div className="p-2.5 rounded-lg" style={{ background: "hsl(var(--saturn-primary) / 0.05)", border: "1px solid hsl(var(--saturn-primary) / 0.3)" }}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1">
-          <Gavel className="h-3 w-3" style={{ color: "hsl(var(--claw-primary))" }} />
-          <span className="text-[10px] font-bold" style={{ color: "hsl(var(--claw-primary))" }}>BIDDING OPEN</span>
+          <Gavel className="h-3 w-3" style={{ color: "hsl(var(--saturn-primary))" }} />
+          <span className="text-[10px] font-bold" style={{ color: "hsl(var(--saturn-primary))" }}>BIDDING OPEN</span>
         </div>
         <div className="flex items-center gap-1">
-          <Timer className="h-3 w-3" style={{ color: "hsl(var(--claw-accent))" }} />
-          <span className="text-[10px] font-mono font-bold" style={{ color: "hsl(var(--claw-accent))" }}>{timeLeft}</span>
+          <Timer className="h-3 w-3" style={{ color: "hsl(var(--saturn-accent))" }} />
+          <span className="text-[10px] font-mono font-bold" style={{ color: "hsl(var(--saturn-accent))" }}>{timeLeft}</span>
         </div>
       </div>
 
       {/* Bid wallet address */}
       {displayBidWallet && (
-        <div className="mb-2 p-1.5 rounded" style={{ background: "hsl(var(--claw-bg))", border: "1px solid hsl(var(--claw-border))" }}>
-          <div className="text-[9px] mb-0.5" style={{ color: "hsl(var(--claw-muted))" }}>Send SOL to:</div>
+        <div className="mb-2 p-1.5 rounded" style={{ background: "hsl(var(--saturn-bg))", border: "1px solid hsl(var(--saturn-border))" }}>
+          <div className="text-[9px] mb-0.5" style={{ color: "hsl(var(--saturn-muted))" }}>Send SOL to:</div>
           <div className="flex items-center gap-1">
-            <span className="text-[9px] font-mono truncate flex-1" style={{ color: "hsl(var(--claw-text))" }}>
+            <span className="text-[9px] font-mono truncate flex-1" style={{ color: "hsl(var(--saturn-text))" }}>
               {displayBidWallet}
             </span>
-            <button onClick={handleCopyAddress} className="p-0.5 rounded" style={{ color: "hsl(var(--claw-secondary))" }}>
+            <button onClick={handleCopyAddress} className="p-0.5 rounded" style={{ color: "hsl(var(--saturn-secondary))" }}>
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </button>
           </div>
         </div>
       )}
 
-      <div className="mb-2 text-[10px]" style={{ color: "hsl(var(--claw-muted))" }}>
+      <div className="mb-2 text-[10px]" style={{ color: "hsl(var(--saturn-muted))" }}>
         {highestBid > 0 ? (
-          <>Highest: <span className="font-bold" style={{ color: "hsl(var(--claw-text))" }}>{highestBid} SOL</span>
+          <>Highest: <span className="font-bold" style={{ color: "hsl(var(--saturn-text))" }}>{highestBid} SOL</span>
           {bidStatus?.totalBids > 0 && <span> ({bidStatus.totalBids} bids)</span>}
-          <span> · Next min: <span className="font-bold" style={{ color: "hsl(var(--claw-primary))" }}>{minNextBid} SOL</span></span></>
+          <span> · Next min: <span className="font-bold" style={{ color: "hsl(var(--saturn-primary))" }}>{minNextBid} SOL</span></span></>
         ) : (
-          <>Starting bid: <span className="font-bold" style={{ color: "hsl(var(--claw-primary))" }}>{MIN_BID_SOL} SOL</span></>
+          <>Starting bid: <span className="font-bold" style={{ color: "hsl(var(--saturn-primary))" }}>{MIN_BID_SOL} SOL</span></>
         )}
       </div>
 
@@ -133,7 +133,7 @@ export function ClawBidCard({ tradingAgentId, agentName, biddingEndsAt, isOwned,
           value={bidAmount}
           onChange={(e) => setBidAmount(e.target.value)}
           className="h-7 text-xs"
-          style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }}
+          style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }}
         />
         <Input
           type="text"
@@ -141,13 +141,13 @@ export function ClawBidCard({ tradingAgentId, agentName, biddingEndsAt, isOwned,
           value={txSignature}
           onChange={(e) => setTxSignature(e.target.value)}
           className="h-7 text-xs font-mono"
-          style={{ background: "hsl(var(--claw-bg))", borderColor: "hsl(var(--claw-border))", color: "hsl(var(--claw-text))" }}
+          style={{ background: "hsl(var(--saturn-bg))", borderColor: "hsl(var(--saturn-border))", color: "hsl(var(--saturn-text))" }}
         />
         <button
           onClick={handleBid}
           disabled={isPlacingBid || !bidAmount || !txSignature}
           className="w-full px-3 h-7 rounded text-[10px] font-bold disabled:opacity-40 flex items-center justify-center gap-1"
-          style={{ background: "hsl(var(--claw-primary))", color: "#000" }}
+          style={{ background: "hsl(var(--saturn-primary))", color: "#000" }}
         >
           {isPlacingBid ? "Verifying..." : <>SUBMIT BID 🪐 <ArrowUpRight className="h-3 w-3" /></>}
         </button>

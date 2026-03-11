@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ChatCircle, Share, Bookmark, Flag, Lock } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import "@/styles/clawbook-theme.css";
+import "@/styles/forum-theme.css";
 
 export default function ClawPostPage() {
   const { ticker, postId } = useParams<{ ticker: string; postId: string }>();
@@ -178,7 +178,7 @@ export default function ClawPostPage() {
 
   if (isLoadingPost) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <ClawBookLayout leftSidebar={<ClawBookSidebar />}>
             <div className="space-y-4">
@@ -194,14 +194,14 @@ export default function ClawPostPage() {
 
   if (!post) {
     return (
-      <div className="clawbook-theme">
+      <div className="forum-theme">
         <LaunchpadLayout showKingOfTheHill={false}>
           <ClawBookLayout leftSidebar={<ClawBookSidebar />}>
-            <div className="clawbook-card p-8 text-center">
-              <h2 className="text-xl font-bold text-[hsl(var(--clawbook-text-primary))] mb-2">
+            <div className="forum-card p-8 text-center">
+              <h2 className="text-xl font-bold text-[hsl(var(--forum-text-primary))] mb-2">
                 Post Not Found
               </h2>
-              <p className="text-[hsl(var(--clawbook-text-secondary))] mb-4">
+              <p className="text-[hsl(var(--forum-text-secondary))] mb-4">
                 This post doesn't exist or has been removed.
               </p>
               <Link to="/agents">
@@ -228,7 +228,7 @@ export default function ClawPostPage() {
 
   const RightSidebar = () => (
     <div className="space-y-4">
-      <div className="clawbook-sidebar p-4">
+      <div className="forum-sidebar p-4">
         <Link
           to={`/t/${actualTicker}`}
           className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity"
@@ -236,41 +236,41 @@ export default function ClawPostPage() {
           {subtunaIcon ? (
             <img src={subtunaIcon} alt="" className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-[hsl(var(--clawbook-primary))] flex items-center justify-center text-white font-bold">
+            <div className="w-10 h-10 rounded-full bg-[hsl(var(--forum-primary))] flex items-center justify-center text-white font-bold">
               {actualTicker?.charAt(0)}
             </div>
           )}
           <div>
-            <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))]">{subtunaName}</h3>
-            <p className="text-xs text-[hsl(var(--clawbook-text-muted))]">View community</p>
+            <h3 className="font-medium text-[hsl(var(--forum-text-primary))]">{subtunaName}</h3>
+            <p className="text-xs text-[hsl(var(--forum-text-muted))]">View community</p>
           </div>
         </Link>
 
         {funTokenData?.mint_address && (
           <Link to={`/launchpad/${funTokenData.mint_address}`}>
-            <Button className="w-full bg-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary-hover))]">
+            <Button className="w-full bg-[hsl(var(--forum-primary))] hover:bg-[hsl(var(--forum-primary-hover))]">
               Trade ${actualTicker}
             </Button>
           </Link>
         )}
       </div>
 
-      <div className="clawbook-sidebar p-4">
-        <h4 className="text-sm font-medium text-[hsl(var(--clawbook-text-primary))] mb-3">
+      <div className="forum-sidebar p-4">
+        <h4 className="text-sm font-medium text-[hsl(var(--forum-text-primary))] mb-3">
           Post Stats
         </h4>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-[hsl(var(--clawbook-text-muted))]">Score</span>
-            <span className="text-[hsl(var(--clawbook-text-primary))]">{score}</span>
+            <span className="text-[hsl(var(--forum-text-muted))]">Score</span>
+            <span className="text-[hsl(var(--forum-text-primary))]">{score}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[hsl(var(--clawbook-text-muted))]">Comments</span>
-            <span className="text-[hsl(var(--clawbook-text-primary))]">{post.comment_count || 0}</span>
+            <span className="text-[hsl(var(--forum-text-muted))]">Comments</span>
+            <span className="text-[hsl(var(--forum-text-primary))]">{post.comment_count || 0}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[hsl(var(--clawbook-text-muted))]">Posted</span>
-            <span className="text-[hsl(var(--clawbook-text-primary))]">{timeAgo}</span>
+            <span className="text-[hsl(var(--forum-text-muted))]">Posted</span>
+            <span className="text-[hsl(var(--forum-text-primary))]">{timeAgo}</span>
           </div>
         </div>
       </div>
@@ -278,7 +278,7 @@ export default function ClawPostPage() {
   );
 
   return (
-    <div className="clawbook-theme">
+    <div className="forum-theme">
       <LaunchpadLayout showKingOfTheHill={false}>
         <ClawBookLayout
           leftSidebar={<ClawBookSidebar recentSubtunas={recentSubtunas} />}
@@ -286,13 +286,13 @@ export default function ClawPostPage() {
         >
           <Link
             to={`/t/${actualTicker}`}
-            className="inline-flex items-center gap-2 text-sm text-[hsl(var(--clawbook-text-muted))] hover:text-[hsl(var(--clawbook-text-primary))] mb-4 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-[hsl(var(--forum-text-muted))] hover:text-[hsl(var(--forum-text-primary))] mb-4 transition-colors"
           >
             <ArrowLeft size={16} />
             Back to {subtunaName}
           </Link>
 
-          <div className="clawbook-card">
+          <div className="forum-card">
             <div className="flex">
               <div className="p-3 flex flex-col items-center">
                 <ClawVoteButtons
@@ -304,10 +304,10 @@ export default function ClawPostPage() {
               </div>
 
               <div className="flex-1 py-3 pr-4 min-w-0">
-                <div className="flex items-center gap-2 text-xs text-[hsl(var(--clawbook-text-muted))] mb-2 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-[hsl(var(--forum-text-muted))] mb-2 flex-wrap">
                   <Link
                     to={`/t/${actualTicker}`}
-                    className="flex items-center gap-1 hover:text-[hsl(var(--clawbook-text-primary))]"
+                    className="flex items-center gap-1 hover:text-[hsl(var(--forum-text-primary))]"
                   >
                     {subtunaIcon && (
                       <img src={subtunaIcon} alt="" className="w-4 h-4 rounded-full flex-shrink-0" />
@@ -331,27 +331,27 @@ export default function ClawPostPage() {
                   {post.is_pinned && (
                     <>
                       <span className="hidden sm:inline">•</span>
-                      <span className="text-[hsl(var(--clawbook-primary))] font-medium hidden sm:inline">📌 Pinned</span>
+                      <span className="text-[hsl(var(--forum-primary))] font-medium hidden sm:inline">📌 Pinned</span>
                     </>
                   )}
                   {post.is_locked && (
                     <>
                       <span className="hidden sm:inline">•</span>
-                      <span className="text-[hsl(var(--clawbook-text-muted))] font-medium hidden sm:flex items-center gap-1">
+                      <span className="text-[hsl(var(--forum-text-muted))] font-medium hidden sm:flex items-center gap-1">
                         <Lock size={12} /> Locked
                       </span>
                     </>
                   )}
                 </div>
 
-                <h1 className="text-lg sm:text-xl font-semibold text-[hsl(var(--clawbook-text-primary))] mb-3 break-words">
+                <h1 className="text-lg sm:text-xl font-semibold text-[hsl(var(--forum-text-primary))] mb-3 break-words">
                   {post.title}
                 </h1>
 
                 {post.content && (
                   <FormattedContent 
                     content={post.content} 
-                    className="text-[hsl(var(--clawbook-text-primary))] mb-4"
+                    className="text-[hsl(var(--forum-text-primary))] mb-4"
                   />
                 )}
 
@@ -365,7 +365,7 @@ export default function ClawPostPage() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 sm:gap-4 text-[hsl(var(--clawbook-text-muted))] flex-wrap">
+                <div className="flex items-center gap-2 sm:gap-4 text-[hsl(var(--forum-text-muted))] flex-wrap">
                   <span className="flex items-center gap-1 text-xs sm:text-sm">
                     <ChatCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">{post.comment_count || 0} Comments</span>
@@ -383,12 +383,12 @@ export default function ClawPostPage() {
                         toast.error("Failed to copy link");
                       }
                     }}
-                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--clawbook-text-primary))] transition-colors"
+                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--forum-text-primary))] transition-colors"
                   >
                     <Share size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">Share</span>
                   </button>
-                  <button className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--clawbook-text-primary))] transition-colors">
+                  <button className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--forum-text-primary))] transition-colors">
                     <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">Save</span>
                   </button>
@@ -402,7 +402,7 @@ export default function ClawPostPage() {
                       }
                       setIsReportOpen(true);
                     }}
-                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--clawbook-downvote))] transition-colors"
+                    className="flex items-center gap-1 text-xs sm:text-sm hover:text-[hsl(var(--forum-downvote))] transition-colors"
                   >
                     <Flag size={16} className="sm:w-[18px] sm:h-[18px]" />
                     <span className="hidden sm:inline">Report</span>
@@ -413,22 +413,22 @@ export default function ClawPostPage() {
           </div>
 
           {/* Comment input */}
-          <div className="clawbook-card p-4 mt-4">
+          <div className="forum-card p-4 mt-4">
             {post.is_locked ? (
-              <div className="flex items-center gap-2 text-[hsl(var(--clawbook-text-muted))] text-sm">
+              <div className="flex items-center gap-2 text-[hsl(var(--forum-text-muted))] text-sm">
                 <Lock size={16} />
                 <span>This thread is locked. New comments cannot be posted.</span>
               </div>
             ) : (
               <>
-                <p className="text-sm text-[hsl(var(--clawbook-text-muted))] mb-2">
+                <p className="text-sm text-[hsl(var(--forum-text-muted))] mb-2">
                   Comment as{" "}
                   {isAuthenticated ? (
-                    <span className="text-[hsl(var(--clawbook-primary))]">
+                    <span className="text-[hsl(var(--forum-primary))]">
                       {user?.displayName || "User"}
                     </span>
                   ) : (
-                    <button onClick={login} className="text-[hsl(var(--clawbook-primary))] hover:underline">
+                    <button onClick={login} className="text-[hsl(var(--forum-primary))] hover:underline">
                       Login to comment
                     </button>
                   )}
@@ -438,13 +438,13 @@ export default function ClawPostPage() {
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="What are your thoughts?"
                   disabled={!isAuthenticated}
-                  className="min-h-[100px] bg-[hsl(var(--clawbook-bg-elevated))] border-[hsl(var(--clawbook-bg-hover))] text-[hsl(var(--clawbook-text-primary))] mb-2 disabled:opacity-50"
+                  className="min-h-[100px] bg-[hsl(var(--forum-bg-elevated))] border-[hsl(var(--forum-bg-hover))] text-[hsl(var(--forum-text-primary))] mb-2 disabled:opacity-50"
                 />
                 <div className="flex justify-end">
                   <Button
                     onClick={handleSubmitComment}
                     disabled={!newComment.trim() || !isAuthenticated}
-                    className="bg-[hsl(var(--clawbook-primary))] hover:bg-[hsl(var(--clawbook-primary-hover))]"
+                    className="bg-[hsl(var(--forum-primary))] hover:bg-[hsl(var(--forum-primary-hover))]"
                   >
                     Comment
                   </Button>
@@ -454,8 +454,8 @@ export default function ClawPostPage() {
           </div>
 
           {/* Comments */}
-          <div className="clawbook-card p-4 mt-4">
-            <h3 className="font-medium text-[hsl(var(--clawbook-text-primary))] mb-4">
+          <div className="forum-card p-4 mt-4">
+            <h3 className="font-medium text-[hsl(var(--forum-text-primary))] mb-4">
               Comments ({post.comment_count || 0})
             </h3>
             
