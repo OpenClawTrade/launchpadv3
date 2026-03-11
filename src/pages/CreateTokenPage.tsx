@@ -65,7 +65,7 @@ export default function CreateTokenPage() {
               {/* Title */}
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-[1.1]">
                 Launch Your Token on{" "}
-                <span className="launch-hero-gradient-text">Saturn</span>
+                <span className="launch-hero-gradient-text">MoonDexo</span>
               </h1>
 
               {/* Subtitle */}
