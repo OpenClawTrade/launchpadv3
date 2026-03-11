@@ -1,0 +1,213 @@
+/* Saturn Theme - Saturn inspired */
+.saturn-theme {
+  --saturn-bg: 240 20% 4%;
+  --saturn-card: 240 15% 7%;
+  --saturn-card-hover: 240 15% 10%;
+  --saturn-border: 240 15% 14%;
+  --saturn-primary: 72 100% 50%;
+  --saturn-primary-glow: 72 100% 50%;
+  --saturn-secondary: 187 80% 53%;
+  --saturn-accent: 0 100% 71%;
+  --saturn-matrix: 120 100% 50%;
+  --saturn-text: 214 32% 91%;
+  --saturn-muted: 215 16% 47%;
+
+  background: hsl(var(--saturn-bg));
+  color: hsl(var(--saturn-text));
+  min-height: 100vh;
+}
+
+/* Glowing card borders */
+.saturn-card {
+  background: hsl(var(--saturn-card));
+  border: 1px solid hsl(var(--saturn-border));
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+.saturn-card:hover {
+  border-color: hsl(var(--saturn-primary) / 0.4);
+  box-shadow: 0 0 20px hsl(var(--saturn-primary) / 0.1);
+}
+
+.saturn-card-teal:hover {
+  border-color: hsl(var(--saturn-secondary) / 0.4);
+  box-shadow: 0 0 20px hsl(var(--saturn-secondary) / 0.1);
+}
+
+/* Gradient text */
+.saturn-gradient-text {
+  background: linear-gradient(135deg, hsl(var(--saturn-primary)), hsl(var(--saturn-accent)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.saturn-gradient-text-teal {
+  background: linear-gradient(135deg, hsl(var(--saturn-secondary)), hsl(187 80% 70%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Section headers */
+.saturn-section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Stat values */
+.saturn-stat-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.saturn-stat-value.red {
+  color: hsl(var(--saturn-primary));
+  text-shadow: 0 0 20px hsl(var(--saturn-primary) / 0.3);
+}
+
+.saturn-stat-value.teal {
+  color: hsl(var(--saturn-secondary));
+  text-shadow: 0 0 20px hsl(var(--saturn-secondary) / 0.3);
+}
+
+.saturn-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: hsl(var(--saturn-muted));
+  margin-top: 0.25rem;
+}
+
+/* Glowing badge */
+.saturn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid hsl(var(--saturn-border));
+  background: hsl(var(--saturn-card));
+}
+
+/* Tabs styling */
+.saturn-tab {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+  color: hsl(var(--saturn-muted));
+  border: 1px solid transparent;
+}
+
+.saturn-tab:hover {
+  color: hsl(var(--saturn-text));
+  background: hsl(var(--saturn-card));
+}
+
+.saturn-tab.active {
+  background: hsl(var(--saturn-primary) / 0.15);
+  color: hsl(var(--saturn-primary));
+  border-color: hsl(var(--saturn-primary) / 0.3);
+}
+
+/* Lobster pulse animation */
+@keyframes saturn-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px hsl(var(--saturn-primary) / 0.5)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 25px hsl(var(--saturn-primary) / 0.8)); }
+}
+
+.saturn-lobster-pulse {
+  animation: saturn-pulse 3s ease-in-out infinite;
+}
+
+/* Nebula background overlay */
+.saturn-nebula {
+  background: 
+    radial-gradient(ellipse at 20% 50%, hsl(var(--saturn-primary) / 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, hsl(var(--saturn-secondary) / 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, hsl(270 50% 50% / 0.03) 0%, transparent 50%);
+}
+
+/* Strategy card colors */
+.saturn-strategy-conservative {
+  --strategy-color: 142 71% 45%;
+}
+
+.saturn-strategy-balanced {
+  --strategy-color: 38 92% 50%;
+}
+
+.saturn-strategy-aggressive {
+  --strategy-color: 0 84% 60%;
+}
+
+/* Scrollbar */
+.saturn-theme::-webkit-scrollbar {
+  width: 6px;
+}
+
+.saturn-theme::-webkit-scrollbar-track {
+  background: hsl(var(--saturn-bg));
+}
+
+.saturn-theme::-webkit-scrollbar-thumb {
+  background: hsl(var(--saturn-border));
+  border-radius: 3px;
+}
+
+.saturn-theme::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--saturn-primary) / 0.5);
+}
+
+/* Bribe button glow */
+.saturn-bribe-nav-btn {
+  background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%));
+  color: hsl(0 0% 0%);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.375rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px hsl(45 93% 47% / 0.4), 0 0 30px hsl(45 93% 47% / 0.2);
+  animation: bribe-glow 2s ease-in-out infinite;
+}
+
+.saturn-bribe-nav-btn:hover {
+  box-shadow: 0 0 25px hsl(45 93% 47% / 0.6), 0 0 50px hsl(45 93% 47% / 0.3);
+  transform: scale(1.05);
+}
+
+@keyframes bribe-glow {
+  0%, 100% { box-shadow: 0 0 15px hsl(45 93% 47% / 0.4), 0 0 30px hsl(45 93% 47% / 0.2); }
+  50% { box-shadow: 0 0 25px hsl(45 93% 47% / 0.6), 0 0 45px hsl(45 93% 47% / 0.3); }
+}
+
+.saturn-bribe-btn {
+  background: linear-gradient(135deg, hsl(45 93% 47%), hsl(38 92% 50%));
+  color: hsl(0 0% 0%);
+  box-shadow: 0 0 15px hsl(45 93% 47% / 0.3);
+}
+
+.saturn-bribe-btn:hover:not(:disabled) {
+  box-shadow: 0 0 25px hsl(45 93% 47% / 0.5);
+}
+
+.saturn-gradient-text-bribe {
+  background: linear-gradient(135deg, hsl(45 93% 58%), hsl(38 92% 50%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

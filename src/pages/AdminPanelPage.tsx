@@ -21,8 +21,8 @@ const FollowerScanPage = lazy(() => import("./FollowerScanPage"));
 const InfluencerRepliesAdminPage = lazy(() => import("./InfluencerRepliesAdminPage"));
 const PromoMentionsAdminPage = lazy(() => import("./PromoMentionsAdminPage"));
 const DeployerDustAdminPage = lazy(() => import("./DeployerDustAdminPage"));
-const ClawBookAdminPage = lazy(() => import("./ClawBookAdminPage"));
-const ClawAdminLaunchPage = lazy(() => import("./ClawAdminLaunchPage"));
+const SaturnForumAdminPage = lazy(() => import("./SaturnForumAdminPage"));
+const SaturnAdminLaunchPage = lazy(() => import("./SaturnAdminLaunchPage"));
 const PartnerFeesPage = lazy(() => import("./PartnerFeesPage"));
 
 import { AnnouncementManager } from "@/components/admin/AnnouncementManager";
@@ -44,8 +44,8 @@ const TAB_CONFIG = [
   
   { value: "follower-scan", label: "Followers", icon: Users },
   { value: "promo", label: "Promo/Influencer", icon: Shield },
-  { value: "clawbook", label: "ClawBook", icon: Shield },
-  { value: "claw-launch", label: "Claw Launch", icon: Rocket },
+  { value: "forum", label: "Saturn Forum", icon: Shield },
+  { value: "saturn-launch", label: "Saturn Launch", icon: Rocket },
   { value: "partner-fees", label: "Partner Fees", icon: Wallet },
 ] as const;
 
@@ -178,15 +178,15 @@ export default function AdminPanelPage() {
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="clawbook" className="mt-6">
+          <TabsContent value="forum" className="mt-6">
             <Suspense fallback={<TabLoader />}>
-              <ClawBookAdminPage />
+              <SaturnForumAdminPage />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="claw-launch" className="mt-6">
+          <TabsContent value="saturn-launch" className="mt-6">
             <Suspense fallback={<TabLoader />}>
-              <ClawAdminLaunchPage />
+              <SaturnAdminLaunchPage />
             </Suspense>
           </TabsContent>
 

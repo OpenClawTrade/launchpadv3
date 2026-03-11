@@ -1,98 +1,45 @@
 
 
-# Plan: Rebrand All Legacy Names to Saturn + Create Branding Config
+## Two Issues to Fix
 
-## Scope
+### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
 
-Rename all user-facing legacy brand names (`claw`, `tuna`, `opentuna`, `openclaw`, `clawmode`, `clawbook`, `clawsai`) to Saturn equivalents across the entire codebase, and create a centralized branding config file.
+The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
 
-**Important constraint**: Database table names (`claw_agents`, `subtuna`, etc.) and edge function directory names CANNOT be renamed without breaking deployed infrastructure. Only the code that *references* them (variable names, display text, file names) will be updated. The DB queries will still reference the same table names.
+**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
 
-## What changes
+Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
 
-### 1. Create branding config: `src/config/branding.ts`
-Single source of truth for all display-facing brand strings:
-- `brandName`: "Saturn Trade"
-- `brandShortName`: "Saturn"
-- `tagline`, `domain`, `twitterHandle`, `logoPath`, social links
-- `forumName`: "Saturn Forum" (was ClawBook)
-- `communityName`: "Saturn Community" (was SubClaw/SubTuna)
-- Legacy CSS class prefix mappings for reference
+**Changes:**
+- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
 
-### 2. Rename source files (~45 files)
+### 2. Alpha Tracker Shows No Trades from the Platform
 
-**Components** — rename files + exports + imports:
-- `src/components/claw/` → `src/components/saturn/` (10 files: ClawHero→SaturnHero, ClawStatsBar→SaturnStatsBar, etc.)
-- `src/components/clawbook/` → `src/components/forum/` (19 files: ClawBookLayout→ForumLayout, ClawPostCard→ForumPostCard, ClawVoteButtons→ForumVoteButtons, etc.)
+The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
 
-**Hooks** — rename files + exports + imports:
-- `useClawAdminLaunch` → `useSaturnAdminLaunch`
-- `useClawAgentBid` → `useSaturnAgentBid`
-- `useClawBidCountdown` → `useSaturnBidCountdown`
-- `useClawBribe` → `useSaturnBribe`
-- `useClawCommunities` → `useSaturnCommunities`
-- `useClawIdeaGenerate` → `useSaturnIdeaGenerate`
-- `useClawSDK` → `useSaturnSDK`
-- `useClawStats` → `useSaturnStats`
-- `useClawTokenData` → `useSaturnTokenData`
-- `useClawTokens` → `useSaturnTokens`
-- `useClawTradingAgents` → `useSaturnTradingAgents`
-- `useSubTuna` → `useSaturnForum`
-- `useSubTunaComments` → `useSaturnComments`
-- `useSubTunaMembership` → `useSaturnMembership`
-- `useSubTunaPosts` → `useSaturnPosts`
-- `useSubTunaRealtime` → `useSaturnRealtime`
-- `useSubTunaReports` → `useSaturnReports`
+**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
 
-**Pages** — rename files + exports + routes:
-- `ClawModePage` → `SaturnModePage`
-- `ClawBookPage` → `SaturnForumPage`
-- `ClawBookAdminPage` → `SaturnForumAdminPage`
-- `ClawPostPage` → `SaturnPostPage`
-- `ClawAdminLaunchPage` → `SaturnAdminLaunchPage`
-- `SubClawPage` → `SaturnCommunityPage`
+**Changes:**
+- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
 
-**Config**: `src/config/claw-character.ts` → `src/config/saturn-character.ts`
+### Technical Details
 
-**Styles**: 
-- `src/styles/claw-theme.css` → `src/styles/saturn-theme.css` (rename CSS class prefix `.claw-` → `.saturn-`, CSS vars `--claw-` → `--saturn-`)
-- `src/styles/clawbook-theme.css` → `src/styles/forum-theme.css` (rename `.clawbook-` → `.forum-`, `--clawbook-` → `--forum-`)
+**alpha_trades schema** (from types.ts):
+- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
 
-### 3. Update all imports and references (~40+ consuming files)
-- `App.tsx` — update lazy imports and route paths
-- `AdminPanelPage.tsx` — update lazy imports for admin tabs
-- All pages/components that import from renamed files
-- All CSS class name references in TSX files (e.g., `clawbook-theme` → `forum-theme`, `claw-theme` → `saturn-theme`)
+**Data available in launchpad-swap:**
+- `userWallet` -> `wallet_address`
+- `token.mint_address` -> `token_mint`  
+- `token.name` -> `token_name`
+- `token.ticker` -> `token_ticker`
+- `isBuy ? "buy" : "sell"` -> `trade_type`
+- `solAmount` -> `amount_sol`
+- `tokenAmount` -> `amount_tokens`
+- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
+- `clientSignature` / generated signature -> `tx_hash`
+- Profile lookup for display name/avatar
 
-### 4. Update edge function display text (not directory names)
-- Inside edge function code: rename user-facing strings like "Claw Mode" → "Saturn", log prefixes, error messages
-- `CLAW_CONCEPTS` array in `agent-idea-generate` → `SATURN_CONCEPTS`
-- CLI config (`cli/src/config.ts`): `.claw` dir → `.saturn`, `ClawConfig` → `SaturnConfig`
-- CLI bin (`cli/src/bin/opentuna.ts`): command name `claw` → `saturn`, banner text
-
-### 5. SDK/Public files
-- `public/sdk/package.json`: `@openclaw/sdk` → `@saturntrade/sdk`
-- SDK source files in `sdk/src/` (if they exist beyond package.json)
-
-### 6. Fix existing build errors
-- Address the 3 build failures (likely transient or from missing assets from prior edits)
-
-## What stays the same (no breakage risk)
-- Database table names: `claw_agents`, `claw_tokens`, `subtuna`, `subtuna_posts`, etc. — queries reference these unchanged
-- Edge function directory names: `claw-tokens/`, `opentuna-agent-hatch/`, etc. — these are deployed endpoints
-- `supabase/config.toml` — never edited
-
-## Execution order
-1. Create `src/config/branding.ts`
-2. Rename CSS files + update class/var prefixes
-3. Rename hook files + update exports/imports
-4. Rename component files + update exports/imports  
-5. Rename page files + update exports/imports
-6. Update `App.tsx` routes and lazy imports
-7. Update `AdminPanelPage.tsx` admin tab imports
-8. Update CLI and SDK references
-9. Update edge function display strings
-10. Fix any build errors
-
-This is a ~100+ file change across the entire codebase. All database queries will continue to work since table names are unchanged — only TypeScript/CSS file names, class names, variable names, and display text are renamed.
+**Files to modify:**
+1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
+2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
 
