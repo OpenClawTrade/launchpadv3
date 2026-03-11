@@ -3,33 +3,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
-
-interface HeliusTokenTransfer {
-  fromUserAccount: string;
-  toUserAccount: string;
-  mint: string;
-  tokenAmount: number;
-  tokenStandard?: string;
-}
-
-interface HeliusNativeTransfer {
-  fromUserAccount: string;
-  toUserAccount: string;
-  amount: number; // in lamports
-}
+const LAMPORTS = 1e9;
 
 interface HeliusEnrichedTx {
   signature: string;
   slot?: number;
   type?: string;
+  source?: string;
   description?: string;
   feePayer?: string;
-  nativeTransfers?: HeliusNativeTransfer[];
-  tokenTransfers?: HeliusTokenTransfer[];
+  nativeTransfers?: { fromUserAccount: string; toUserAccount: string; amount: number }[];
+  tokenTransfers?: { fromUserAccount: string; toUserAccount: string; mint: string; tokenAmount: number }[];
   events?: {
     swap?: {
       nativeInput?: { account: string; amount: string };
@@ -42,79 +30,187 @@ interface HeliusEnrichedTx {
 }
 
 /**
- * Parse a Helius enriched transaction into trade data.
- * Returns null if we can't extract meaningful swap info.
+ * Find which tracked wallet is involved in this tx.
  */
-function parseTrade(tx: HeliusEnrichedTx, trackedAddresses: Set<string>) {
+function findTrackedWallet(tx: HeliusEnrichedTx, tracked: Set<string>): string | null {
+  // Check feePayer first (most common signer)
+  if (tx.feePayer && tracked.has(tx.feePayer)) return tx.feePayer;
+
+  // Check native transfers
+  for (const nt of tx.nativeTransfers || []) {
+    if (tracked.has(nt.fromUserAccount)) return nt.fromUserAccount;
+    if (tracked.has(nt.toUserAccount)) return nt.toUserAccount;
+  }
+
+  // Check token transfers
+  for (const tt of tx.tokenTransfers || []) {
+    if (tracked.has(tt.fromUserAccount)) return tt.fromUserAccount;
+    if (tracked.has(tt.toUserAccount)) return tt.toUserAccount;
+  }
+
+  // Check swap event accounts
+  const swap = tx.events?.swap;
+  if (swap) {
+    if (swap.nativeInput?.account && tracked.has(swap.nativeInput.account)) return swap.nativeInput.account;
+    if (swap.nativeOutput?.account && tracked.has(swap.nativeOutput.account)) return swap.nativeOutput.account;
+    for (const t of swap.tokenInputs || []) { if (tracked.has(t.userAccount)) return t.userAccount; }
+    for (const t of swap.tokenOutputs || []) { if (tracked.has(t.userAccount)) return t.userAccount; }
+  }
+
+  return null;
+}
+
+/**
+ * Parse trade from swap event (best data quality).
+ */
+function parseFromSwapEvent(
+  tx: HeliusEnrichedTx,
+  walletAddress: string,
+) {
   const swap = tx.events?.swap;
   if (!swap) return null;
 
-  // Determine the wallet that is tracked
-  const allAccounts = new Set<string>();
-  if (swap.nativeInput?.account) allAccounts.add(swap.nativeInput.account);
-  if (swap.nativeOutput?.account) allAccounts.add(swap.nativeOutput.account);
-  swap.tokenInputs?.forEach((t) => allAccounts.add(t.userAccount));
-  swap.tokenOutputs?.forEach((t) => allAccounts.add(t.userAccount));
-
-  let walletAddress: string | null = null;
-  for (const addr of allAccounts) {
-    if (trackedAddresses.has(addr)) {
-      walletAddress = addr;
-      break;
-    }
-  }
-  // Fallback: check feePayer
-  if (!walletAddress && tx.feePayer && trackedAddresses.has(tx.feePayer)) {
-    walletAddress = tx.feePayer;
-  }
-  if (!walletAddress) return null;
-
-  // Determine trade type + amounts
-  let solAmount = 0;
-  let tokenAmount = 0;
-  let tokenMint = "";
-  let tradeType: "buy" | "sell" = "buy";
-
-  const nativeIn = swap.nativeInput ? Number(swap.nativeInput.amount) / 1e9 : 0;
-  const nativeOut = swap.nativeOutput ? Number(swap.nativeOutput.amount) / 1e9 : 0;
-
+  const nativeIn = swap.nativeInput ? Number(swap.nativeInput.amount) / LAMPORTS : 0;
+  const nativeOut = swap.nativeOutput ? Number(swap.nativeOutput.amount) / LAMPORTS : 0;
   const tokenInputs = (swap.tokenInputs || []).filter((t) => t.mint !== WSOL_MINT);
   const tokenOutputs = (swap.tokenOutputs || []).filter((t) => t.mint !== WSOL_MINT);
 
+  let solAmount = 0, tokenAmount = 0, tokenMint = "", tradeType: "buy" | "sell" = "buy";
+
   if (nativeIn > 0 && tokenOutputs.length > 0) {
-    // SOL in, token out → BUY
     tradeType = "buy";
     solAmount = nativeIn;
     tokenAmount = tokenOutputs[0].tokenAmount;
     tokenMint = tokenOutputs[0].mint;
   } else if (nativeOut > 0 && tokenInputs.length > 0) {
-    // Token in, SOL out → SELL
     tradeType = "sell";
     solAmount = nativeOut;
     tokenAmount = tokenInputs[0].tokenAmount;
     tokenMint = tokenInputs[0].mint;
   } else if (tokenInputs.length > 0 && tokenOutputs.length > 0) {
-    // Token-to-token swap — pick the output as the "bought" token
     tradeType = "buy";
     tokenMint = tokenOutputs[0].mint;
     tokenAmount = tokenOutputs[0].tokenAmount;
-    solAmount = 0;
   } else {
     return null;
   }
 
   if (!tokenMint) return null;
+  return { solAmount, tokenAmount, tokenMint, tradeType };
+}
 
-  const pricePerToken = tokenAmount > 0 && solAmount > 0 ? solAmount / tokenAmount : 0;
+/**
+ * Parse trade from tokenTransfers + nativeTransfers (fallback).
+ * Covers Jupiter, Raydium, PumpSwap, etc. where swap event may be missing.
+ */
+function parseFromTransfers(
+  tx: HeliusEnrichedTx,
+  walletAddress: string,
+) {
+  const tokenTransfers = tx.tokenTransfers || [];
+  const nativeTransfers = tx.nativeTransfers || [];
+
+  // Find token transfers involving the tracked wallet (exclude WSOL)
+  const tokensOut = tokenTransfers.filter(
+    (t) => t.fromUserAccount === walletAddress && t.mint !== WSOL_MINT && t.tokenAmount > 0
+  );
+  const tokensIn = tokenTransfers.filter(
+    (t) => t.toUserAccount === walletAddress && t.mint !== WSOL_MINT && t.tokenAmount > 0
+  );
+
+  // Calculate net SOL flow for this wallet from native transfers
+  let solOut = 0, solIn = 0;
+  for (const nt of nativeTransfers) {
+    if (nt.fromUserAccount === walletAddress) solOut += nt.amount;
+    if (nt.toUserAccount === walletAddress) solIn += nt.amount;
+  }
+
+  // Also check WSOL transfers
+  for (const tt of tokenTransfers) {
+    if (tt.mint === WSOL_MINT) {
+      if (tt.fromUserAccount === walletAddress) solOut += tt.tokenAmount * LAMPORTS;
+      if (tt.toUserAccount === walletAddress) solIn += tt.tokenAmount * LAMPORTS;
+    }
+  }
+
+  const netSolOut = (solOut - solIn) / LAMPORTS;
+  const netSolIn = (solIn - solOut) / LAMPORTS;
+
+  let solAmount = 0, tokenAmount = 0, tokenMint = "", tradeType: "buy" | "sell" = "buy";
+
+  if (tokensIn.length > 0 && netSolOut > 0.0001) {
+    // Wallet sent SOL, received tokens → BUY
+    tradeType = "buy";
+    solAmount = netSolOut;
+    tokenAmount = tokensIn[0].tokenAmount;
+    tokenMint = tokensIn[0].mint;
+  } else if (tokensOut.length > 0 && netSolIn > 0.0001) {
+    // Wallet sent tokens, received SOL → SELL
+    tradeType = "sell";
+    solAmount = netSolIn;
+    tokenAmount = tokensOut[0].tokenAmount;
+    tokenMint = tokensOut[0].mint;
+  } else if (tokensIn.length > 0 && tokensOut.length > 0) {
+    // Token-to-token swap
+    tradeType = "buy";
+    tokenMint = tokensIn[0].mint;
+    tokenAmount = tokensIn[0].tokenAmount;
+  } else if (tokensIn.length > 0) {
+    // Received tokens (maybe via a complex route)
+    tradeType = "buy";
+    tokenMint = tokensIn[0].mint;
+    tokenAmount = tokensIn[0].tokenAmount;
+    // Try to get SOL from accountData
+    const acct = (tx.accountData || []).find((a) => a.account === walletAddress);
+    if (acct && acct.nativeBalanceChange < 0) {
+      solAmount = Math.abs(acct.nativeBalanceChange) / LAMPORTS;
+    }
+  } else if (tokensOut.length > 0) {
+    // Sent tokens
+    tradeType = "sell";
+    tokenMint = tokensOut[0].mint;
+    tokenAmount = tokensOut[0].tokenAmount;
+    const acct = (tx.accountData || []).find((a) => a.account === walletAddress);
+    if (acct && acct.nativeBalanceChange > 0) {
+      solAmount = acct.nativeBalanceChange / LAMPORTS;
+    }
+  } else {
+    return null;
+  }
+
+  if (!tokenMint) return null;
+  return { solAmount, tokenAmount, tokenMint, tradeType };
+}
+
+/**
+ * Parse a Helius enriched transaction into trade data.
+ */
+function parseTrade(tx: HeliusEnrichedTx, trackedAddresses: Set<string>) {
+  const walletAddress = findTrackedWallet(tx, trackedAddresses);
+  if (!walletAddress) return null;
+
+  // Try swap event first, then fall back to raw transfers
+  const result = parseFromSwapEvent(tx, walletAddress)
+    || parseFromTransfers(tx, walletAddress);
+
+  if (!result) {
+    // Log the tx type for debugging missed formats
+    console.log(`[Skip] sig=${tx.signature?.slice(0, 12)}… type=${tx.type} source=${tx.source} wallet=${walletAddress.slice(0, 6)}…`);
+    return null;
+  }
+
+  const pricePerToken = result.tokenAmount > 0 && result.solAmount > 0
+    ? result.solAmount / result.tokenAmount
+    : 0;
 
   return {
     signature: tx.signature,
     slot: tx.slot ?? null,
     wallet_address: walletAddress,
-    trade_type: tradeType,
-    token_mint: tokenMint,
-    sol_amount: solAmount,
-    token_amount: tokenAmount,
+    trade_type: result.tradeType,
+    token_mint: result.tokenMint,
+    sol_amount: result.solAmount,
+    token_amount: result.tokenAmount,
     price_per_token: pricePerToken,
   };
 }
@@ -165,12 +261,15 @@ Deno.serve(async (req) => {
     }
 
     const inserts: any[] = [];
+    const seenSigs = new Set<string>();
 
     for (const tx of transactions) {
+      if (!tx.signature || seenSigs.has(tx.signature)) continue;
+      seenSigs.add(tx.signature);
+
       const trade = parseTrade(tx, trackedAddresses);
       if (!trade) continue;
 
-      // Deduplicate by signature
       inserts.push({
         ...trade,
         tracked_wallet_id: addrToId.get(trade.wallet_address) || null,
@@ -179,8 +278,7 @@ Deno.serve(async (req) => {
 
     let insertedCount = 0;
     if (inserts.length > 0) {
-      // Use upsert on signature to avoid duplicates
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("wallet_trades")
         .upsert(inserts, { onConflict: "signature", ignoreDuplicates: true });
 
@@ -188,16 +286,19 @@ Deno.serve(async (req) => {
         console.error("Insert error:", error.message);
       } else {
         insertedCount = inserts.length;
+        console.log(`✅ Inserted ${insertedCount} trade(s): ${inserts.map(i => `${i.trade_type} ${i.sol_amount.toFixed(3)} SOL ${i.token_mint.slice(0,6)}…`).join(", ")}`);
       }
     }
 
-    console.log(`Processed ${transactions.length} txs, inserted ${insertedCount} trades`);
+    if (insertedCount === 0 && transactions.length > 0) {
+      console.log(`Processed ${transactions.length} txs, 0 matched trades`);
+    }
 
     return new Response(JSON.stringify({ ok: true, inserted: insertedCount }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("wallet-trade-webhook error:", err);
+    console.error("wallet-trade-webhook error:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 200, // Return 200 so Helius doesn't retry
       headers: { ...corsHeaders, "Content-Type": "application/json" },
