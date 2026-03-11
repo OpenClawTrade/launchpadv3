@@ -504,40 +504,28 @@ export function KingOfTheHill() {
       </div>
 
       {/* Cards Row with scroll arrows on mobile */}
-      <div className="relative">
-        {/* Left arrow */}
+      <div className="relative flex items-center">
+        {/* Left arrow — always visible on mobile */}
         <button
           onClick={() => scroll("left")}
           className={cn(
-            "absolute left-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center",
-            "bg-background/80 backdrop-blur-sm border border-border/40 shadow-lg",
-            "text-foreground/70 hover:text-foreground hover:bg-background/95 transition-all",
+            "flex-shrink-0 z-20 w-8 h-8 rounded-full flex items-center justify-center",
+            "bg-muted/60 border border-border/40",
+            "transition-all",
             "md:hidden",
-            canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none",
+            canScrollLeft
+              ? "text-foreground/90 hover:bg-muted hover:border-border/60"
+              : "text-muted-foreground/30 cursor-default",
           )}
           aria-label="Scroll left"
+          disabled={!canScrollLeft}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Right arrow */}
-        <button
-          onClick={() => scroll("right")}
-          className={cn(
-            "absolute right-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center",
-            "bg-background/80 backdrop-blur-sm border border-border/40 shadow-lg",
-            "text-foreground/70 hover:text-foreground hover:bg-background/95 transition-all",
-            "md:hidden",
-            canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none",
-          )}
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
         <div
           ref={scrollRef}
-          className="flex flex-row gap-3 md:gap-4 overflow-x-auto pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide [&>*]:snap-start [&>*]:min-w-[280px] [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink"
+          className="flex-1 flex flex-row gap-3 md:gap-4 overflow-x-auto pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide mx-1 md:mx-0 [&>*]:snap-center [&>*]:min-w-[280px] [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {isLoading
@@ -545,6 +533,24 @@ export function KingOfTheHill() {
             : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} quickBuyAmount={quickBuyAmount} sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined} />)
           }
         </div>
+
+        {/* Right arrow — always visible on mobile */}
+        <button
+          onClick={() => scroll("right")}
+          className={cn(
+            "flex-shrink-0 z-20 w-8 h-8 rounded-full flex items-center justify-center",
+            "bg-muted/60 border border-border/40",
+            "transition-all",
+            "md:hidden",
+            canScrollRight
+              ? "text-foreground/90 hover:bg-muted hover:border-border/60"
+              : "text-muted-foreground/30 cursor-default",
+          )}
+          aria-label="Scroll right"
+          disabled={!canScrollRight}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );
