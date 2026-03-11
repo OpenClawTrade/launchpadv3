@@ -12,6 +12,7 @@ const LAMPORTS = 1e9;
 interface HeliusEnrichedTx {
   signature: string;
   slot?: number;
+  timestamp?: number;
   type?: string;
   source?: string;
   feePayer?: string;
@@ -143,19 +144,25 @@ Deno.serve(async (req) => {
     const transactions: HeliusEnrichedTx[] = await res.json();
     console.log(`[Backfill] Got ${transactions.length} swap txs for ${wallet_address.slice(0, 8)}…`);
 
-    const trackedSet = new Set([wallet_address]);
-    const inserts: any[] = [];
+    // Collect unique mints for metadata lookup
+    const mintSet = new Set<string>();
+    const rawInserts: any[] = [];
 
     for (const tx of transactions) {
       if (!tx.signature) continue;
-
       const result = parseSwapTrade(tx, wallet_address) || parseTransferTrade(tx, wallet_address);
       if (!result) continue;
 
+      mintSet.add(result.tokenMint);
       const pricePerToken = result.tokenAmount > 0 && result.solAmount > 0
         ? result.solAmount / result.tokenAmount : 0;
 
-      inserts.push({
+      // Use Helius timestamp (unix seconds) for real tx time
+      const txTime = tx.timestamp
+        ? new Date(tx.timestamp * 1000).toISOString()
+        : new Date().toISOString();
+
+      rawInserts.push({
         signature: tx.signature,
         slot: tx.slot ?? null,
         wallet_address,
@@ -165,14 +172,53 @@ Deno.serve(async (req) => {
         token_amount: result.tokenAmount,
         price_per_token: pricePerToken,
         tracked_wallet_id: trackedWallet?.id || null,
+        created_at: txTime,
       });
     }
+
+    // Fetch token metadata from Helius DAS for all unique mints
+    const mintMeta: Record<string, { name: string; symbol: string }> = {};
+    const mints = [...mintSet];
+    if (mints.length > 0) {
+      try {
+        const heliusRpc = Deno.env.get("HELIUS_RPC_URL") || `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
+        const dasRes = await fetch(heliusRpc, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "backfill-meta",
+            method: "getAssetBatch",
+            params: { ids: mints },
+          }),
+        });
+        const dasData = await dasRes.json();
+        for (const asset of dasData?.result || []) {
+          if (asset?.id && asset?.content?.metadata) {
+            mintMeta[asset.id] = {
+              name: asset.content.metadata.name || "",
+              symbol: asset.content.metadata.symbol || "",
+            };
+          }
+        }
+        console.log(`[Backfill] Fetched metadata for ${Object.keys(mintMeta).length}/${mints.length} tokens`);
+      } catch (metaErr) {
+        console.error("[Backfill] Metadata fetch failed:", metaErr);
+      }
+    }
+
+    // Enrich inserts with metadata
+    const inserts = rawInserts.map(insert => ({
+      ...insert,
+      token_name: mintMeta[insert.token_mint]?.name || null,
+      token_ticker: mintMeta[insert.token_mint]?.symbol || null,
+    }));
 
     let insertedCount = 0;
     if (inserts.length > 0) {
       const { error } = await supabase
         .from("wallet_trades")
-        .upsert(inserts, { onConflict: "signature", ignoreDuplicates: true });
+        .upsert(inserts, { onConflict: "signature" });
 
       if (error) {
         console.error("Backfill insert error:", error.message);

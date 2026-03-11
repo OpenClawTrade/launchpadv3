@@ -11,6 +11,7 @@ const LAMPORTS = 1e9;
 
 interface HeliusEnrichedTx {
   signature: string;
+  timestamp?: number;
   slot?: number;
   type?: string;
   source?: string;
@@ -203,6 +204,10 @@ function parseTrade(tx: HeliusEnrichedTx, trackedAddresses: Set<string>) {
     ? result.solAmount / result.tokenAmount
     : 0;
 
+  const txTime = tx.timestamp
+    ? new Date(tx.timestamp * 1000).toISOString()
+    : new Date().toISOString();
+
   return {
     signature: tx.signature,
     slot: tx.slot ?? null,
@@ -212,6 +217,7 @@ function parseTrade(tx: HeliusEnrichedTx, trackedAddresses: Set<string>) {
     sol_amount: result.solAmount,
     token_amount: result.tokenAmount,
     price_per_token: pricePerToken,
+    created_at: txTime,
   };
 }
 
@@ -279,6 +285,43 @@ Deno.serve(async (req) => {
         ...trade,
         tracked_wallet_id: addrToId.get(trade.wallet_address) || null,
       });
+    }
+
+    // Enrich with token metadata from Helius DAS
+    if (inserts.length > 0) {
+      const uniqueMints = [...new Set(inserts.map(i => i.token_mint))];
+      try {
+        const heliusApiKey = Deno.env.get("HELIUS_API_KEY");
+        const heliusRpc = Deno.env.get("HELIUS_RPC_URL") || `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
+        const dasRes = await fetch(heliusRpc, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0", id: "wh-meta",
+            method: "getAssetBatch",
+            params: { ids: uniqueMints },
+          }),
+        });
+        const dasData = await dasRes.json();
+        const meta: Record<string, { name: string; symbol: string }> = {};
+        for (const asset of dasData?.result || []) {
+          if (asset?.id && asset?.content?.metadata) {
+            meta[asset.id] = {
+              name: asset.content.metadata.name || "",
+              symbol: asset.content.metadata.symbol || "",
+            };
+          }
+        }
+        for (const ins of inserts) {
+          const m = meta[ins.token_mint];
+          if (m) {
+            ins.token_name = m.name;
+            ins.token_ticker = m.symbol;
+          }
+        }
+      } catch (metaErr) {
+        console.error("Metadata enrichment failed:", metaErr);
+      }
     }
 
     let insertedCount = 0;
