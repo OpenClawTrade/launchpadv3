@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { RefreshCw, Plus, Download, Upload, Trash2, Search, Wallet, Loader2, Maximize2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { RefreshCw, Plus, Download, Upload, Trash2, Search, Wallet, Loader2, Maximize2, TrendingUp, TrendingDown, Eye, Activity, Bell, BellOff } from "lucide-react";
 import { useWalletTracker, TRACKER_TABS, type TrackerTab, shortAddr } from "@/hooks/useWalletTracker";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
