@@ -75,26 +75,73 @@ function isWalletAddress(identifier: string) {
   return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(identifier);
 }
 
-function computeTradingStats(trades: AlphaTradeRecord[], positions: Map<string, PositionSummary>): TradingStats {
+function computeTradingStats(
+  alphaTrades: AlphaTradeRecord[],
+  alphaPositions: Map<string, PositionSummary>,
+  launchpadTrades: UserTrade[],
+  wallet: string | undefined,
+): TradingStats {
   let totalBuys = 0, totalSells = 0, totalBuySol = 0, totalSellSol = 0;
-  
-  for (const t of trades) {
-    if (t.trade_type === "buy") {
-      totalBuys++;
-      totalBuySol += t.amount_sol;
-    } else {
-      totalSells++;
-      totalSellSol += t.amount_sol;
+
+  // Count from alpha trades
+  for (const t of alphaTrades) {
+    if (t.trade_type === "buy") { totalBuys++; totalBuySol += t.amount_sol; }
+    else { totalSells++; totalSellSol += t.amount_sol; }
+  }
+
+  // Also count launchpad transactions
+  for (const t of launchpadTrades) {
+    if (t.transaction_type === "buy") { totalBuys++; totalBuySol += t.sol_amount; }
+    else { totalSells++; totalSellSol += t.sol_amount; }
+  }
+
+  // Merge positions: start with alpha positions, then add launchpad positions
+  const allPositions = new Map<string, PositionSummary>(alphaPositions);
+
+  // Build positions from launchpad_transactions (grouped by token_id)
+  if (launchpadTrades.length > 0 && wallet) {
+    const lpByToken = new Map<string, { buySol: number; sellSol: number; buyTokens: number; sellTokens: number }>();
+    for (const t of launchpadTrades) {
+      let entry = lpByToken.get(t.token_id);
+      if (!entry) { entry = { buySol: 0, sellSol: 0, buyTokens: 0, sellTokens: 0 }; lpByToken.set(t.token_id, entry); }
+      if (t.transaction_type === "buy") {
+        entry.buySol += t.sol_amount;
+        entry.buyTokens += t.token_amount;
+      } else {
+        entry.sellSol += t.sol_amount;
+        entry.sellTokens += t.token_amount;
+      }
+    }
+    for (const [tokenId, entry] of lpByToken) {
+      const key = `${wallet}::lp::${tokenId}`;
+      if (!allPositions.has(key) && entry.buySol > 0) {
+        const avgBuy = entry.buyTokens > 0 ? entry.buySol / entry.buyTokens : 0;
+        const costOfSold = avgBuy * entry.sellTokens;
+        allPositions.set(key, {
+          wallet_address: wallet,
+          token_mint: tokenId,
+          token_ticker: null,
+          total_bought_sol: entry.buySol,
+          total_sold_sol: entry.sellSol,
+          total_bought_tokens: entry.buyTokens,
+          total_sold_tokens: entry.sellTokens,
+          net_tokens: entry.buyTokens - entry.sellTokens,
+          avg_buy_price_sol: avgBuy,
+          realized_pnl_sol: entry.sellSol - costOfSold,
+          status: entry.sellTokens >= entry.buyTokens ? "SOLD" : entry.sellTokens > 0 ? "PARTIAL" : "HOLDING",
+        });
+      }
     }
   }
 
   let realizedPnl = 0;
   const pnlBuckets = { gt500: 0, gt200: 0, gt0: 0, gtNeg50: 0, ltNeg50: 0 };
-  
-  for (const pos of positions.values()) {
+
+  for (const pos of allPositions.values()) {
     realizedPnl += pos.realized_pnl_sol;
-    if (pos.total_bought_sol > 0 && pos.total_sold_sol > 0) {
-      const pctReturn = ((pos.total_sold_sol - (pos.avg_buy_price_sol * pos.total_sold_tokens)) / (pos.avg_buy_price_sol * pos.total_sold_tokens)) * 100;
+    const costBasis = pos.avg_buy_price_sol * pos.total_sold_tokens;
+    if (pos.total_bought_sol > 0 && pos.total_sold_sol > 0 && costBasis > 0) {
+      const pctReturn = ((pos.total_sold_sol - costBasis) / costBasis) * 100;
       if (pctReturn > 500) pnlBuckets.gt500++;
       else if (pctReturn > 200) pnlBuckets.gt200++;
       else if (pctReturn >= 0) pnlBuckets.gt0++;
@@ -110,7 +157,7 @@ function computeTradingStats(trades: AlphaTradeRecord[], positions: Map<string, 
     totalSells,
     totalBuySol,
     totalSellSol,
-    positions,
+    positions: allPositions,
     pnlDistribution: [
       { label: ">500%", count: pnlBuckets.gt500, color: "bg-green-500" },
       { label: "200-500%", count: pnlBuckets.gt200, color: "bg-green-400" },
