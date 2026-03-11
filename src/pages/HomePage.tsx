@@ -396,7 +396,7 @@ export default function HomePage() {
 
             {/* Description */}
             <p
-              className="text-[11px] sm:text-xs text-muted-foreground/60 max-w-lg mx-auto mb-5 leading-relaxed animate-fade-in"
+              className="text-[10px] sm:text-[11px] text-muted-foreground/60 max-w-md mx-auto mb-4 leading-relaxed animate-fade-in"
               style={{ animationDelay: "0.2s", animationFillMode: "both" }}
             >
               Lightning-fast execution, built-in launchpad, referral rewards, smart alpha tracking, and AI-powered agents — all in one terminal.
