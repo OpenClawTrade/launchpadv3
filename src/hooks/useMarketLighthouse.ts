@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+export type LighthouseTimeframe = "5m" | "1h" | "6h" | "24h";
+
 export interface MarketLighthouseData {
+  timeframe?: string;
   totalVol24hUsd: number;
   volChange24h: number;
   solPrice: number;
@@ -32,11 +35,13 @@ export interface MarketLighthouseData {
   updatedAt: string;
 }
 
-export function useMarketLighthouse() {
+export function useMarketLighthouse(timeframe: LighthouseTimeframe = "24h") {
   return useQuery<MarketLighthouseData>({
-    queryKey: ["market-lighthouse"],
+    queryKey: ["market-lighthouse", timeframe],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("market-lighthouse");
+      const { data, error } = await supabase.functions.invoke("market-lighthouse", {
+        body: { timeframe },
+      });
       if (error) throw error;
       return data as MarketLighthouseData;
     },

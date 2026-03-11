@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RefreshCw, Loader2 } from "lucide-react";
-import { useMarketLighthouse } from "@/hooks/useMarketLighthouse";
+import { useMarketLighthouse, type LighthouseTimeframe } from "@/hooks/useMarketLighthouse";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import bonkIcon from "@/assets/bonk-icon.jpg";
 import meteoraIcon from "@/assets/meteora-icon.svg";
@@ -74,8 +74,8 @@ export function MarketLighthouse({
   refreshing: boolean;
   compact?: boolean;
 }) {
-  const { data, isLoading, refetch } = useMarketLighthouse();
-  const [activeTab, setActiveTab] = useState<string>("24h");
+  const [activeTab, setActiveTab] = useState<LighthouseTimeframe>("24h");
+  const { data, isLoading, refetch } = useMarketLighthouse(activeTab);
 
   const handleRefreshAll = (e: React.MouseEvent) => {
     onRefresh(e);
@@ -144,7 +144,7 @@ export function MarketLighthouse({
       <div style={{ marginBottom: compact ? "6px" : "10px" }}>
         <div style={{ ...S.row, justifyContent: "space-between", marginBottom: "4px" }}>
           <div style={{ ...S.row, gap: "6px" }}>
-            <span style={{ fontSize: sz.fs.label, color: muted }}>24h Vol</span>
+            <span style={{ fontSize: sz.fs.label, color: muted }}>{activeTab} Vol</span>
             <span style={{ fontSize: sz.fs.val, fontWeight: 700 }}>{fUsd(totalVol)}</span>
           </div>
           <span style={{ fontSize: sz.fs.change, color: volChange >= 0 ? g : r }}>{fPct(volChange)}</span>
