@@ -6,6 +6,57 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/**
+ * Fetch all unique tracked wallet addresses across ALL users and
+ * PUT them to the Helius webhook so it monitors exactly that set.
+ */
+async function syncHeliusWebhook(supabase: ReturnType<typeof createClient>) {
+  const heliusApiKey = Deno.env.get("HELIUS_API_KEY");
+  const webhookId = Deno.env.get("HELIUS_WEBHOOK_ID");
+
+  if (!heliusApiKey || !webhookId) {
+    console.warn("Helius sync skipped – HELIUS_API_KEY or HELIUS_WEBHOOK_ID not set");
+    return;
+  }
+
+  // Gather every unique wallet address from the tracked_wallets table
+  const { data: rows, error } = await supabase
+    .from("tracked_wallets")
+    .select("wallet_address");
+
+  if (error) {
+    console.error("Failed to fetch tracked wallets for Helius sync:", error.message);
+    return;
+  }
+
+  const uniqueAddresses = [...new Set((rows || []).map((r: { wallet_address: string }) => r.wallet_address))];
+
+  // If the list is empty, use a placeholder so the webhook stays valid
+  const accountAddresses = uniqueAddresses.length > 0
+    ? uniqueAddresses
+    : ["11111111111111111111111111111111"];
+
+  try {
+    const res = await fetch(
+      `https://api.helius.xyz/v0/webhooks/${webhookId}?api-key=${heliusApiKey}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountAddresses }),
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`Helius webhook sync failed (${res.status}):`, body);
+    } else {
+      console.log(`Helius webhook synced with ${uniqueAddresses.length} address(es)`);
+    }
+  } catch (err) {
+    console.error("Helius webhook sync error:", err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,6 +106,10 @@ Deno.serve(async (req) => {
         }).select().single();
 
         if (error) throw error;
+
+        // Sync addresses to Helius after adding
+        await syncHeliusWebhook(supabase);
+
         return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -75,6 +130,10 @@ Deno.serve(async (req) => {
           .eq("user_profile_id", user_profile_id);
 
         if (error) throw error;
+
+        // Sync addresses to Helius after removing
+        await syncHeliusWebhook(supabase);
+
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -87,6 +146,10 @@ Deno.serve(async (req) => {
           .eq("user_profile_id", user_profile_id);
 
         if (error) throw error;
+
+        // Sync addresses to Helius after clearing
+        await syncHeliusWebhook(supabase);
+
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
