@@ -679,7 +679,7 @@ export default function FunTokenDetailPage() {
     );
   };
 
-
+  const CommentsSection = () => (
     <div className="trade-glass-panel p-4 md:p-3 lg:p-3 flex-1 min-h-0 overflow-hidden flex flex-col">
       <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5 mb-2">
         <MessageCircle className="h-3 w-3 text-primary/60" /> Discussion
