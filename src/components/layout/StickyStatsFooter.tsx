@@ -200,7 +200,7 @@ export function StickyStatsFooter() {
           {/* Wallet Tracker */}
           <div ref={wtDropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => { setWalletTrackerOpen(!walletTrackerOpen); setRegionOpen(false); setLaunchpadOpen(false); }}
+              onClick={() => { setWalletTrackerOpen(!walletTrackerOpen); setRegionOpen(false); setLaunchpadOpen(false); setNewPairsOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
