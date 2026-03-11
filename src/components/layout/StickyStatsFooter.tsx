@@ -154,17 +154,16 @@ export function StickyStatsFooter() {
     setTimeout(() => setNpRefreshing(false), 600);
   };
 
-  const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
-  if (pathname.startsWith("/punch") || pathname.startsWith("/punch-test") || isPunchDomain) return null;
-
-  const currentPing = pings[selectedRegion] ?? 0;
-
-
   useEffect(() => {
     supabase.functions.invoke("privy-user-count").then(({ data }) => {
       if (data?.count) setPlatformUsers(data.count);
     });
   }, []);
+
+  const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
+  if (pathname.startsWith("/punch") || pathname.startsWith("/punch-test") || isPunchDomain) return null;
+
+  const currentPing = pings[selectedRegion] ?? 0;
 
   const footer = (
     <div
