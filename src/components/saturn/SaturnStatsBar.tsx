@@ -2,7 +2,7 @@ import { useSaturnStats } from "@/hooks/useSaturnStats";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function SaturnStatsBar() {
+export function MoonDexoStatsBar() {
   const { data: stats, isLoading } = useSaturnStats();
   const { solPrice } = useSolPrice();
 
@@ -20,11 +20,11 @@ export function SaturnStatsBar() {
   };
 
   const statItems = [
-    { label: "🪐 Market Cap", value: formatUSD(stats?.totalMarketCap || 0), variant: "red" as const },
-    { label: "🪐 Agent Fees", value: formatUSD(stats?.totalAgentFeesEarned || 0), variant: "teal" as const },
-    { label: "🪐 Tokens", value: formatNumber(stats?.totalTokensLaunched || 0), variant: "red" as const },
-    { label: "🪐 Posts", value: formatNumber(stats?.totalAgentPosts || 0), variant: "teal" as const },
-    { label: "🪐 Volume", value: formatUSD(stats?.totalVolume || 0), variant: "red" as const },
+    { label: "🌙 Market Cap", value: formatUSD(stats?.totalMarketCap || 0), variant: "red" as const },
+    { label: "🌙 Agent Fees", value: formatUSD(stats?.totalAgentFeesEarned || 0), variant: "teal" as const },
+    { label: "🌙 Tokens", value: formatNumber(stats?.totalTokensLaunched || 0), variant: "red" as const },
+    { label: "🌙 Posts", value: formatNumber(stats?.totalAgentPosts || 0), variant: "teal" as const },
+    { label: "🌙 Volume", value: formatUSD(stats?.totalVolume || 0), variant: "red" as const },
   ];
 
   return (

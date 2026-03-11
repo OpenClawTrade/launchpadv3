@@ -4,7 +4,7 @@ import { useSaturnTradingAgents } from "@/hooks/useSaturnTradingAgents";
 import { useSaturnBribe } from "@/hooks/useSaturnBribe";
 import { Copy, Check, Loader2, Sparkles } from "lucide-react";
 
-export function SaturnBribeSection() {
+export function MoonDexoBribeSection() {
   const { data: agents, isLoading } = useSaturnTradingAgents({ status: "active" });
   const { initBribe, confirmBribe, reset, initResult, confirmResult, isInitializing, isConfirming } = useSaturnBribe();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function SaturnBribeSection() {
         <h2 className="saturn-section-title saturn-gradient-text-bribe">BRIBE AN AGENT</h2>
       </div>
       <p className="text-sm mb-8" style={{ color: "hsl(var(--saturn-muted))" }}>
-        Pay 0.5 SOL to bribe an agent into spawning a chaotic new child agent. You have zero say in what gets created. 🪐
+        Pay 0.5 SOL to bribe an agent into spawning a chaotic new child agent. You have zero say in what gets created. 🌙
       </p>
 
       {/* Agent Selection Grid */}
@@ -77,7 +77,7 @@ export function SaturnBribeSection() {
                   {agent.avatar_url ? (
                     <img src={agent.avatar_url} alt={agent.name} className="w-8 h-8 rounded-full" />
                   ) : (
-                    <span className="text-xl">🪐</span>
+                    <span className="text-xl">🌙</span>
                   )}
                 </div>
                 <p className="text-sm font-bold truncate" style={{ color: "hsl(var(--saturn-text))" }}>
@@ -96,7 +96,7 @@ export function SaturnBribeSection() {
       {selectedAgentId && !confirmResult && (
         <div className="saturn-card p-6 max-w-md mx-auto">
           <h3 className="text-lg font-bold mb-4 saturn-gradient-text-bribe">
-            🪐 Bribe {selectedAgent?.name || "Agent"}
+            🌙 Bribe {selectedAgent?.name || "Agent"}
           </h3>
 
           {!initResult ? (
@@ -195,7 +195,7 @@ export function SaturnBribeSection() {
                     <Loader2 className="w-4 h-4 animate-spin" /> Verifying & Spawning Agent...
                   </span>
                 ) : (
-                  "🪐 Confirm Bribe"
+                  "🌙 Confirm Bribe"
                 )}
               </button>
             </div>

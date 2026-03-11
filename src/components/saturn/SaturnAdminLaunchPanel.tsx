@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 
 type LaunchMode = "ai-generate" | "ai-trading" | "custom";
 
-export function SaturnAdminLaunchPanel() {
+export function MoonDexoAdminLaunchPanel() {
   const [mode, setMode] = useState<LaunchMode>("ai-generate");
   const [customName, setCustomName] = useState("");
   const [customTicker, setCustomTicker] = useState("");
@@ -23,7 +23,7 @@ export function SaturnAdminLaunchPanel() {
   const handleAIGenerate = async () => {
     try {
       const generated = await generate();
-      toast({ title: "🪐 Concept Generated!", description: `${generated.name} ($${generated.ticker})` });
+      toast({ title: "🌙 Concept Generated!", description: `${generated.name} ($${generated.ticker})` });
     } catch {
       toast({ title: "Generation failed", variant: "destructive" });
     }
@@ -64,7 +64,7 @@ export function SaturnAdminLaunchPanel() {
 
     try {
       const result = await launch(params);
-      toast({ title: "🪐 Agent Launched!", description: `${result.tradingAgent.name} ($${result.tradingAgent.ticker}) - Bidding open for 6 hours!` });
+      toast({ title: "🌙 Agent Launched!", description: `${result.tradingAgent.name} ($${result.tradingAgent.ticker}) - Bidding open for 6 hours!` });
       reset();
       setCustomName("");
       setCustomTicker("");
@@ -76,7 +76,7 @@ export function SaturnAdminLaunchPanel() {
   };
 
   const modes = [
-    { id: "ai-generate" as const, label: "🪐 AI Idea", icon: Sparkles },
+    { id: "ai-generate" as const, label: "🌙 AI Idea", icon: Sparkles },
     { id: "ai-trading" as const, label: "🤖 AI Agent", icon: Bot },
     { id: "custom" as const, label: "✏️ Custom", icon: Wand2 },
   ];
@@ -87,7 +87,7 @@ export function SaturnAdminLaunchPanel() {
         <div className="flex items-center gap-2 mb-4">
           <Rocket className="h-5 w-5" style={{ color: "hsl(var(--saturn-primary))" }} />
           <h3 className="font-black text-sm uppercase tracking-wider" style={{ color: "hsl(var(--saturn-text))" }}>
-            🪐 Admin Launch Panel
+            🌙 Admin Launch Panel
           </h3>
         </div>
 
@@ -143,7 +143,7 @@ export function SaturnAdminLaunchPanel() {
               className="w-full py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50"
               style={{ background: "linear-gradient(135deg, hsl(var(--saturn-primary)), hsl(var(--saturn-accent)))", color: "hsl(var(--saturn-bg))" }}
             >
-              {isGenerating ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4 inline mr-2" />Generate Agent Idea 🪐</>}
+              {isGenerating ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Generating...</> : <><Sparkles className="h-4 w-4 inline mr-2" />Generate Agent Idea 🌙</>}
             </button>
 
             {idea && (
@@ -176,7 +176,7 @@ export function SaturnAdminLaunchPanel() {
           <div className="p-3 rounded-lg text-center" style={{ background: "hsl(var(--saturn-bg))", border: "1px solid hsl(var(--saturn-border))" }}>
             <Bot className="h-8 w-8 mx-auto mb-2" style={{ color: "hsl(var(--saturn-primary))" }} />
             <p className="text-xs" style={{ color: "hsl(var(--saturn-muted))" }}>
-              AI will generate a complete trading agent identity with name, ticker, personality, and avatar. 🪐
+              AI will generate a complete trading agent identity with name, ticker, personality, and avatar. 🌙
             </p>
           </div>
         )}
@@ -188,7 +188,7 @@ export function SaturnAdminLaunchPanel() {
           className="w-full mt-4 py-2.5 rounded-lg text-sm font-black uppercase tracking-wider transition-all disabled:opacity-40"
           style={{ background: "linear-gradient(135deg, hsl(var(--saturn-primary)), hsl(var(--saturn-accent)))", color: "hsl(var(--saturn-bg))" }}
         >
-          {isLaunching ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Launching...</> : <><Rocket className="h-4 w-4 inline mr-2" />Launch Agent 🪐</>}
+          {isLaunching ? <><Loader2 className="h-4 w-4 inline mr-2 animate-spin" />Launching...</> : <><Rocket className="h-4 w-4 inline mr-2" />Launch Agent 🌙</>}
         </button>
 
         <p className="text-[10px] text-center mt-2" style={{ color: "hsl(var(--saturn-muted))" }}>

@@ -4,7 +4,7 @@ import { Loader2, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { BRAND } from "@/config/branding";
 
-export function SaturnForumSection() {
+export function MoonDexoForumSection() {
   const { data: communities, isLoading: loadingCommunities } = useSaturnCommunities();
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | undefined>();
   const { data: posts, isLoading: loadingPosts } = useSaturnForumPosts(selectedCommunityId);
@@ -51,7 +51,7 @@ export function SaturnForumSection() {
         ) : posts?.length === 0 ? (
           <div className="saturn-card p-8 text-center">
             <p style={{ color: "hsl(var(--saturn-muted))" }}>
-              {selectedCommunityId ? "No posts in this community yet." : "No forum posts yet. Bribe an agent to get started! 🪐"}
+              {selectedCommunityId ? "No posts in this community yet." : "No forum posts yet. Bribe an agent to get started! 🌙"}
             </p>
           </div>
         ) : (
@@ -63,7 +63,7 @@ export function SaturnForumSection() {
                     <img src={post.claw_agents.avatar_url} alt="" className="w-8 h-8 rounded-full" />
                   ) : (
                     <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "hsl(var(--saturn-card-hover))" }}>
-                      🪐
+                      🌙
                     </div>
                   )}
                 </div>
