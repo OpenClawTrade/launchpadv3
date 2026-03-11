@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useCodexNewPairs, type CodexPairToken } from "@/hooks/useCodexNewPairs";
-import { RefreshCw, Rocket, ExternalLink } from "lucide-react";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
+import { RefreshCw, Rocket, ExternalLink, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
 
 interface NewPairsPanelProps {
   onRefresh?: (e: React.MouseEvent) => void;
@@ -15,27 +16,36 @@ function formatMcap(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
+function timeAgo(raw: string | number | null): string {
+  if (!raw) return "—";
   try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: false })
-      .replace("about ", "")
-      .replace("less than a minute", "<1m")
-      .replace(" minutes", "m")
-      .replace(" minute", "m")
-      .replace(" hours", "h")
-      .replace(" hour", "h")
-      .replace(" days", "d")
-      .replace(" day", "d");
+    // Codex returns unix seconds — convert to ms
+    const ms = typeof raw === "number"
+      ? (raw < 1e12 ? raw * 1000 : raw)
+      : (() => {
+          const n = Number(raw);
+          if (!isNaN(n)) return n < 1e12 ? n * 1000 : n;
+          return new Date(raw).getTime();
+        })();
+    if (isNaN(ms)) return "—";
+    const diff = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (diff < 60) return `${diff}s`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
   } catch {
     return "—";
   }
 }
 
+const PAGE_SIZE = 10;
+
 export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelProps) {
   const { newPairs, isLoading } = useCodexNewPairs();
   const navigate = useNavigate();
-  const pairs = newPairs.slice(0, 20);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const pairs = newPairs.slice(0, visibleCount);
+  const hasMore = newPairs.length > visibleCount;
 
   const handleClick = (pair: CodexPairToken, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -133,102 +143,116 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
             No new pairs found
           </div>
         ) : (
-          pairs.map((pair, idx) => {
-            const changeColor = pair.change24h >= 0 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)";
-            return (
-              <button
-                key={pair.address || idx}
-                onClick={(e) => handleClick(pair, e)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 70px 50px",
-                  width: "100%",
-                  padding: "6px 12px",
-                  border: "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.03)",
-                  background: "transparent",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  transition: "background 0.1s",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(200,255,0,0.04)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-              >
-                {/* Token info */}
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                  {pair.imageUrl ? (
-                    <img
+          <>
+            {pairs.map((pair, idx) => {
+              const changeColor = pair.change24h >= 0 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)";
+              const dexScreenerUrl = pair.address
+                ? `https://dd.dexscreener.com/ds-data/tokens/solana/${pair.address}.png`
+                : null;
+              return (
+                <button
+                  key={pair.address || idx}
+                  onClick={(e) => handleClick(pair, e)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 70px 50px",
+                    width: "100%",
+                    padding: "6px 12px",
+                    border: "none",
+                    borderBottom: "1px solid rgba(255,255,255,0.03)",
+                    background: "transparent",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "background 0.1s",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(200,255,0,0.04)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  {/* Token info */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                    <OptimizedTokenImage
                       src={pair.imageUrl}
-                      alt=""
+                      fallbackSrc={dexScreenerUrl}
+                      fallbackText={pair.symbol}
+                      size={40}
                       style={{ width: "20px", height: "20px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                     />
-                  ) : (
-                    <div style={{
-                      width: "20px",
-                      height: "20px",
-                      borderRadius: "50%",
-                      background: "rgba(200,255,0,0.15)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: "#c8ff00",
-                      flexShrink: 0,
-                    }}>
-                      {pair.symbol?.charAt(0) || "?"}
-                    </div>
-                  )}
-                  <div style={{ minWidth: 0, overflow: "hidden" }}>
-                    <div style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: "rgba(255,255,255,0.9)",
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}>
-                      ${pair.symbol}
-                    </div>
-                    <div style={{
-                      fontSize: "9px",
-                      color: changeColor,
-                      fontWeight: 500,
-                      fontFamily: "'IBM Plex Mono', monospace",
-                    }}>
-                      {pair.change24h >= 0 ? "+" : ""}{pair.change24h.toFixed(1)}%
+                    <div style={{ minWidth: 0, overflow: "hidden" }}>
+                      <div style={{
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        color: "rgba(255,255,255,0.9)",
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}>
+                        ${pair.symbol}
+                      </div>
+                      <div style={{
+                        fontSize: "9px",
+                        color: changeColor,
+                        fontWeight: 500,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}>
+                        {pair.change24h >= 0 ? "+" : ""}{pair.change24h.toFixed(1)}%
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Market cap */}
-                <span style={{
+                  {/* Market cap */}
+                  <span style={{
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.6)",
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    textAlign: "right",
+                  }}>
+                    {formatMcap(pair.marketCap)}
+                  </span>
+
+                  {/* Age */}
+                  <span style={{
+                    fontSize: "9px",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.4)",
+                    fontFamily: "'IBM Plex Mono', monospace",
+                    textAlign: "right",
+                  }}>
+                    {timeAgo(pair.createdAt)}
+                  </span>
+                </button>
+              );
+            })}
+            {hasMore && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setVisibleCount((c) => c + PAGE_SIZE); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "4px",
+                  width: "100%",
+                  padding: "6px",
+                  border: "none",
+                  background: "rgba(255,255,255,0.03)",
+                  cursor: "pointer",
                   fontSize: "10px",
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.6)",
-                  fontFamily: "'IBM Plex Mono', monospace",
-                  textAlign: "right",
-                }}>
-                  {formatMcap(pair.marketCap)}
-                </span>
-
-                {/* Age */}
-                <span style={{
-                  fontSize: "9px",
                   fontWeight: 500,
                   color: "rgba(255,255,255,0.4)",
                   fontFamily: "'IBM Plex Mono', monospace",
-                  textAlign: "right",
-                }}>
-                  {timeAgo(pair.createdAt)}
-                </span>
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+              >
+                Load more
+                <ChevronDown style={{ width: "10px", height: "10px" }} />
               </button>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
