@@ -281,7 +281,7 @@ export default function HomePage() {
       <div className="relative z-10">
         {/* ═══ Hero Section — Compact, Immersive, Product-Teasing ═══ */}
         <section
-          className="relative overflow-hidden flex items-center justify-center py-8 sm:py-10 md:py-14 lg:py-16 min-h-[50vh] max-h-[65vh]"
+          className="relative overflow-hidden flex items-center justify-center py-6 sm:py-8 md:py-10 lg:py-12"
           style={{ background: "radial-gradient(ellipse 80% 60% at 50% 40%, hsl(220 60% 8%) 0%, hsl(220 40% 3%) 60%, hsl(0 0% 0%) 100%)" }}
         >
           {/* Ambient glow orbs */}
