@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { ChevronDown, Server, RefreshCw, Layers, Wallet, Rocket } from "lucide-react";
