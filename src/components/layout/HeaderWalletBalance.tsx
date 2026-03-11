@@ -101,11 +101,15 @@ function HeaderWalletBalanceInner() {
 
   if (!isAuthenticated || !embeddedAddress) return null;
 
+  const isBnb = chain === 'bnb';
+  const displayAddress = isBnb && evmWallet.address ? evmWallet.address : embeddedAddress;
+  const currencyLabel = isBnb ? 'BNB' : 'SOL';
+
   const handleCopy = async () => {
-    const ok = await copyToClipboard(embeddedAddress);
+    const ok = await copyToClipboard(displayAddress);
     if (ok) {
       setCopied(true);
-      toast({ title: "Address copied", description: "Send SOL to this address to top up" });
+      toast({ title: "Address copied", description: `Send ${currencyLabel} to this address to top up` });
       setTimeout(() => setCopied(false), 2000);
     }
     setMenuOpen(false);
