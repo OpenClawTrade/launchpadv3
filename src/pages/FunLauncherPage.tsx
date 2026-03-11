@@ -77,7 +77,7 @@ export default function FunLauncherPage() {
   const shouldRedirectToCreate = searchParams.get("create") === "1";
   useEffect(() => {
     if (shouldRedirectToCreate) {
-      funNavigate("/launchpad/create", { replace: true });
+      funNavigate("/launchpad", { replace: true });
     }
   }, [shouldRedirectToCreate, funNavigate]);
 
