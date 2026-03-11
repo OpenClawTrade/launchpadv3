@@ -36,13 +36,23 @@ async function syncHeliusWebhook(supabase: ReturnType<typeof createClient>) {
     ? uniqueAddresses
     : ["11111111111111111111111111111111"];
 
+  // Build webhook URL pointing to our receiver function
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const webhookURL = `${supabaseUrl}/functions/v1/wallet-trade-webhook`;
+  const webhookSecret = Deno.env.get("HELIUS_WEBHOOK_SECRET") || "";
+
   try {
+    const updateBody: Record<string, unknown> = { accountAddresses, webhookURL };
+    if (webhookSecret) {
+      updateBody.authHeader = webhookSecret;
+    }
+
     const res = await fetch(
       `https://api.helius.xyz/v0/webhooks/${webhookId}?api-key=${heliusApiKey}`,
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountAddresses }),
+        body: JSON.stringify(updateBody),
       },
     );
 
