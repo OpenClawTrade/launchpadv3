@@ -239,7 +239,7 @@ export function StickyStatsFooter() {
           {/* Launchpad selector */}
           <div ref={lpDropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => { setLaunchpadOpen(!launchpadOpen); setRegionOpen(false); }}
+              onClick={() => { setLaunchpadOpen(!launchpadOpen); setRegionOpen(false); setWalletTrackerOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
