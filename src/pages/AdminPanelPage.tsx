@@ -10,7 +10,7 @@ import {
   Users, Shield, Loader2
 } from "lucide-react";
 
-const ADMIN_PASSWORD = "claw2024treasury";
+const ADMIN_PASSWORD = "saturn";
 
 // Lazy load all admin content
 const TreasuryAdminContent = lazy(() => import("./TreasuryAdminPage").then(m => ({ default: m.default })));
