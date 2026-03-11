@@ -159,7 +159,7 @@ export function StickyStatsFooter() {
 
   const currentPing = pings[selectedRegion] ?? 0;
 
-  const [platformUsers, setPlatformUsers] = useState<number | null>(null);
+
   useEffect(() => {
     supabase.functions.invoke("privy-user-count").then(({ data }) => {
       if (data?.count) setPlatformUsers(data.count);
