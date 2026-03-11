@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const strategies = [
   {
     id: "conservative",
-    name: "Saturn Guard",
+    name: "MoonDexo Guard",
     badge: "Conservative",
     badgeColor: "text-emerald-400 bg-emerald-500/15 border-emerald-500/30",
     borderColor: "border-emerald-500/20 hover:border-emerald-500/40",
@@ -21,7 +21,7 @@ const strategies = [
   },
   {
     id: "balanced",
-    name: "Saturn Core",
+    name: "MoonDexo Core",
     badge: "Balanced",
     badgeColor: "text-amber-400 bg-amber-500/15 border-amber-500/30",
     borderColor: "border-amber-500/20 hover:border-amber-500/40",
@@ -36,7 +36,7 @@ const strategies = [
   },
   {
     id: "aggressive",
-    name: "Saturn Alpha",
+    name: "MoonDexo Alpha",
     badge: "Aggressive",
     badgeColor: "text-red-400 bg-red-500/15 border-red-500/30",
     borderColor: "border-red-500/20 hover:border-red-500/40",

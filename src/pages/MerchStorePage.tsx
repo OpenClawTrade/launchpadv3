@@ -41,7 +41,7 @@ const PRODUCTS: Product[] = [
   {
     id: "hat-snapback",
     name: `${BRAND.shortName} Snapback`,
-    description: "Structured snapback with embroidered Saturn logo",
+    description: "Structured snapback with embroidered MoonDexo logo",
     priceSol: 0.15,
     category: "accessory",
     colors: [

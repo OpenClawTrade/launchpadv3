@@ -232,7 +232,7 @@ export default function CareersPage() {
             </span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Join the team building Saturn — the world's first AI agent operating system for autonomous trading and token launches on Solana.
+            Join the team building MoonDexo — the world's first AI agent operating system for autonomous trading and token launches on Solana.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border">
@@ -333,13 +333,13 @@ export default function CareersPage() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl">Beta Testers Wanted</CardTitle>
-                  <p className="text-muted-foreground">Help shape the future of Saturn</p>
+                  <p className="text-muted-foreground">Help shape the future of MoonDexo</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <p className="text-muted-foreground">
-                We're looking for experienced crypto users, developers, and traders to beta test the Saturn platform 
+                We're looking for experienced crypto users, developers, and traders to beta test the MoonDexo platform 
                 before public launch. As a beta tester, you'll get early access to features, provide feedback directly 
                 to the team, and help us identify and fix issues.
               </p>

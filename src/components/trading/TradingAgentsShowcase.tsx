@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const STRATEGIES = [
   {
     id: "conservative",
-    name: "Saturn Guard",
+    name: "MoonDexo Guard",
     strategy: "Conservative",
     icon: Shield,
     color: "text-emerald-400",
@@ -17,7 +17,7 @@ const STRATEGIES = [
   },
   {
     id: "balanced",
-    name: "Saturn Core",
+    name: "MoonDexo Core",
     strategy: "Balanced",
     icon: Target,
     color: "text-amber-400",
@@ -28,7 +28,7 @@ const STRATEGIES = [
   },
   {
     id: "aggressive",
-    name: "Saturn Alpha",
+    name: "MoonDexo Alpha",
     strategy: "Aggressive",
     icon: Zap,
     color: "text-red-400",
