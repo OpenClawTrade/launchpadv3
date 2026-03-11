@@ -193,14 +193,13 @@ function KingCard({ token, rank, quickBuyAmount, sparklineData }: { token: KingT
         "rounded-2xl border transition-all duration-300 ease-out",
         "cursor-pointer",
         r.border, r.hoverBorder, r.glow,
-        "hover:scale-[1.02] active:scale-[0.98]",
+        "scale-[0.96] hover:scale-[0.99] active:scale-[0.95] md:scale-100 md:hover:scale-[1.02] md:active:scale-[0.98]",
         r.king ? "md:flex-[1.15]" : "md:flex-1",
         blink && "animate-[king-blink_0.3s_ease-in-out]",
       )}
       style={{
         background: "linear-gradient(135deg, hsl(0 0% 7%) 0%, hsl(0 0% 5%) 100%)",
-        padding: "14px",
-        margin: "0 6px",
+        padding: "12px",
       }}
     >
       {/* King crown glow for #1 */}
