@@ -9,7 +9,7 @@ import moonshotIcon from "@/assets/moonshot-icon.ico";
 import raydiumIcon from "@/assets/raydium-icon.ico";
 import orcaIcon from "@/assets/orca-icon.png";
 import jupiterIcon from "@/assets/jupiter-icon.svg";
-import phoenixIcon from "@/assets/phoenix-icon.svg";
+import phoenixIcon from "@/assets/phoenix-icon.png";
 import lifinityIcon from "@/assets/lifinity-icon.ico";
 import pumpswapIcon from "@/assets/pumpswap-icon.png";
 
