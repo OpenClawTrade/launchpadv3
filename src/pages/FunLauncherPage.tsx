@@ -74,11 +74,12 @@ export default function FunLauncherPage() {
   const funNavigate = useNavigate();
 
   // Redirect legacy ?create=1 to dedicated create page
+  const shouldRedirectToCreate = searchParams.get("create") === "1";
   useEffect(() => {
-    if (searchParams.get("create") === "1") {
+    if (shouldRedirectToCreate) {
       funNavigate("/launchpad/create", { replace: true });
     }
-  }, [searchParams, funNavigate]);
+  }, [shouldRedirectToCreate, funNavigate]);
 
   const [claimsPage, setClaimsPage] = useState(1);
   const [creatorFeesPage, setCreatorFeesPage] = useState(1);
@@ -182,6 +183,9 @@ export default function FunLauncherPage() {
   }, []);
 
   // Token filtering now handled inside AxiomTerminalGrid
+
+  // Don't render while redirecting to create page
+  if (shouldRedirectToCreate) return null;
 
   return (
     <div className="min-h-screen relative z-[1] overflow-x-hidden">
