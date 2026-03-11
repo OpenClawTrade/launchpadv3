@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState, useCallback, useEffect, lazy, Suspense } from "react";
 import saturnLogo from "@/assets/saturn-logo.png";
-import heroTerminalMockup from "@/assets/hero-terminal-mockup.jpg";
-import heroLaunchMockup from "@/assets/hero-launch-mockup.jpg";
+import heroTerminalMockup from "@/assets/hero-terminal-mockup.png";
+import heroLaunchMockup from "@/assets/hero-launch-mockup.png";
 
 // Lazy load heavy below-fold section components
 const AlphaSection = lazy(() => import("@/components/home/AlphaSection"));
@@ -321,51 +321,52 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* ── Flanking Product Screenshots — CLEARLY VISIBLE teasers ── */}
+          {/* ── Flanking Product Screenshots — VISIBLE teasers ── */}
           {/* Left: Trading Terminal */}
           <div
-            className="absolute left-[-4%] top-[2%] w-[48%] max-w-[680px] pointer-events-none hidden lg:block"
+            className="absolute left-[-2%] top-[0%] w-[46%] max-w-[660px] pointer-events-none hidden lg:block"
             style={{
-              transform: "perspective(1100px) rotateY(14deg) rotateX(-1.5deg)",
-              opacity: 0.68,
-              filter: "blur(10px) brightness(0.82) saturate(1.15)",
-              maskImage: "linear-gradient(to right, transparent 0%, black 5%, black 50%, transparent 88%)",
-              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 5%, black 50%, transparent 88%)",
+              transform: "perspective(1200px) rotateY(15deg) rotateX(-2deg)",
+              opacity: 0.62,
+              filter: "blur(1px) brightness(0.75) saturate(1.1)",
+              maskImage: "linear-gradient(to right, transparent 0%, black 6%, black 55%, transparent 90%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 6%, black 55%, transparent 90%)",
               zIndex: 1,
             }}
           >
-            <div className="relative rounded-2xl overflow-hidden"
+            <div className="relative rounded-xl overflow-hidden"
               style={{
-                border: "2px solid hsl(84 81% 44% / 0.3)",
-                boxShadow: "0 0 40px hsl(84 81% 44% / 0.18), 0 0 80px hsl(84 81% 44% / 0.08), 0 0 140px hsl(84 81% 44% / 0.04), inset 0 0 50px hsl(0 0% 0% / 0.5)",
+                border: "1.5px solid hsl(84 81% 44% / 0.25)",
+                boxShadow: "0 0 30px hsl(84 81% 44% / 0.12), 0 0 60px hsl(84 81% 44% / 0.06), 0 0 120px hsl(84 81% 44% / 0.03), inset 0 0 40px hsl(0 0% 0% / 0.4)",
               }}
             >
+              {/* Dark vignette overlay */}
               <div className="absolute inset-0 z-10 pointer-events-none"
-                style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 25%, hsl(0 0% 0% / 0.3) 100%)" }} />
+                style={{ background: "radial-gradient(ellipse 80% 80% at 50% 50%, transparent 30%, hsl(0 0% 0% / 0.35) 100%)" }} />
               <img src={heroTerminalMockup} alt="" className="w-full h-auto relative" loading="eager" />
             </div>
           </div>
 
           {/* Right: Token Launch */}
           <div
-            className="absolute right-[-4%] top-[2%] w-[46%] max-w-[640px] pointer-events-none hidden lg:block"
+            className="absolute right-[-2%] top-[2%] w-[44%] max-w-[620px] pointer-events-none hidden lg:block"
             style={{
-              transform: "perspective(1100px) rotateY(-14deg) rotateX(-1.5deg)",
-              opacity: 0.68,
-              filter: "blur(10px) brightness(0.82) saturate(1.15)",
-              maskImage: "linear-gradient(to left, transparent 0%, black 5%, black 50%, transparent 88%)",
-              WebkitMaskImage: "linear-gradient(to left, transparent 0%, black 5%, black 50%, transparent 88%)",
+              transform: "perspective(1200px) rotateY(-15deg) rotateX(-2deg)",
+              opacity: 0.62,
+              filter: "blur(1px) brightness(0.75) saturate(1.1)",
+              maskImage: "linear-gradient(to left, transparent 0%, black 6%, black 55%, transparent 90%)",
+              WebkitMaskImage: "linear-gradient(to left, transparent 0%, black 6%, black 55%, transparent 90%)",
               zIndex: 1,
             }}
           >
-            <div className="relative rounded-2xl overflow-hidden"
+            <div className="relative rounded-xl overflow-hidden"
               style={{
-                border: "2px solid hsl(84 81% 44% / 0.3)",
-                boxShadow: "0 0 40px hsl(84 81% 44% / 0.18), 0 0 80px hsl(84 81% 44% / 0.08), 0 0 140px hsl(84 81% 44% / 0.04), inset 0 0 50px hsl(0 0% 0% / 0.5)",
+                border: "1.5px solid hsl(84 81% 44% / 0.25)",
+                boxShadow: "0 0 30px hsl(84 81% 44% / 0.12), 0 0 60px hsl(84 81% 44% / 0.06), 0 0 120px hsl(84 81% 44% / 0.03), inset 0 0 40px hsl(0 0% 0% / 0.4)",
               }}
             >
               <div className="absolute inset-0 z-10 pointer-events-none"
-                style={{ background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 25%, hsl(0 0% 0% / 0.3) 100%)" }} />
+                style={{ background: "radial-gradient(ellipse 80% 80% at 50% 50%, transparent 30%, hsl(0 0% 0% / 0.35) 100%)" }} />
               <img src={heroLaunchMockup} alt="" className="w-full h-auto relative" loading="eager" />
             </div>
           </div>
