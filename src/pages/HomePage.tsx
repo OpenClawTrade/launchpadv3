@@ -122,7 +122,7 @@ function SectionHeader({ icon: Icon, title, linkTo, linkLabel }: {
 export { SectionHeader };
 
 /* ── Content wrapper — fluid on large screens ── */
-const CW = "w-full max-w-7xl xl:max-w-[92vw] 2xl:max-w-[1800px]";
+const CW = "w-full max-w-7xl lg:max-w-[1600px] xl:max-w-[1800px] 2xl:max-w-[92vw]";
 
 /* ── Section Divider ── */
 function SectionDivider() {
