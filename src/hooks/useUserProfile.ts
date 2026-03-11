@@ -299,8 +299,9 @@ export function useUserProfile(identifier: string | undefined) {
   });
 
   const alphaTrades = alphaTradesQuery.data ?? [];
+  const launchpadTrades = tradesQuery.data ?? [];
   const alphaPositions = useMemo(() => computePositions(alphaTrades), [alphaTrades]);
-  const tradingStats = useMemo(() => computeTradingStats(alphaTrades, alphaPositions), [alphaTrades, alphaPositions]);
+  const tradingStats = useMemo(() => computeTradingStats(alphaTrades, alphaPositions, launchpadTrades, wallet), [alphaTrades, alphaPositions, launchpadTrades, wallet]);
 
   return {
     profile: profileQuery.data,
