@@ -915,6 +915,7 @@ export default function FunTokenDetailPage() {
               <TokenDetailsSection />
               <ContractSection />
               <DescriptionSection />
+              <PnlSimulator />
               <CommentsSection />
             </div>
             {!isPunchToken && (

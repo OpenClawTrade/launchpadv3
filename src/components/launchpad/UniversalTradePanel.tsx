@@ -518,17 +518,6 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Jupiter Link */}
-        <div className="text-center pt-0.5">
-          <a
-            href={`https://jup.ag/swap/SOL-${token.mint_address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] font-mono text-muted-foreground hover:text-accent-foreground inline-flex items-center gap-1 transition-colors"
-          >
-            Trade on Jupiter <ExternalLink className="h-2.5 w-2.5" />
-          </a>
-        </div>
       </div>
     </div>
       <ProfitCardModal
