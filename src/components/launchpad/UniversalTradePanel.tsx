@@ -506,49 +506,7 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
               ))}
             </div>
 
-            {/* Slippage Selector */}
-            <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
-                Slippage Tolerance
-              </span>
-              <div className="flex gap-1.5 flex-wrap">
-                {SLIPPAGE_PRESETS.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => handleSlippagePreset(v)}
-                    className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
-                      slippage === v && !showCustomSlippage
-                        ? 'border-primary/60 bg-primary/10 text-primary'
-                        : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
-                    }`}
-                  >
-                    {v}%
-                  </button>
-                ))}
-                <button
-                  onClick={() => setShowCustomSlippage(!showCustomSlippage)}
-                  className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
-                    showCustomSlippage
-                      ? 'border-primary/60 bg-primary/10 text-primary'
-                      : 'border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground bg-background/40'
-                  }`}
-                >
-                  Custom
-                </button>
-                {showCustomSlippage && (
-                  <div className="relative w-20">
-                    <Input
-                      type="number"
-                      placeholder="0.5"
-                      value={customSlippage}
-                      onChange={(e) => handleCustomSlippage(e.target.value)}
-                      className="h-6 text-[10px] font-mono pr-5 border-border/40 bg-background/40 rounded-full"
-                    />
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-muted-foreground font-mono">%</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Slippage — already shown at top */}
 
             {/* Trade Info */}
             {numericAmount > 0 && (
