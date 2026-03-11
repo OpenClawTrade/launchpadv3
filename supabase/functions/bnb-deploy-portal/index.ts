@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
     const { abi, bytecode } = await compileSaturnPortal();
 
     // Deploy
-    console.log("[Portal Deploy] Deploying TunaPortal...");
+    console.log("[Portal Deploy] Deploying SaturnPortal...");
     const deployHash = await walletClient.deployContract({
       abi,
       bytecode,
