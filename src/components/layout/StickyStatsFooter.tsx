@@ -148,7 +148,6 @@ export function StickyStatsFooter() {
   const agents = stats?.totalAgents ?? 0;
   const feesClaimed = (stats?.totalAgentFeesEarned ?? 0).toFixed(2);
   const agentPosts = stats?.totalAgentPosts ?? 0;
-  const agentPosts = stats?.totalAgentPosts ?? 0;
   const currentPing = pings[selectedRegion] ?? 0;
 
   const totalLpTokens = launchpadStats?.reduce((s, lp) => s + lp.total, 0) ?? 0;
