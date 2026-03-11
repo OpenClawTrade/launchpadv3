@@ -99,6 +99,12 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Ensure the profile exists (Privy users may not have synced yet)
+        await supabase.from("profiles").upsert(
+          { id: user_profile_id },
+          { onConflict: "id", ignoreDuplicates: true },
+        );
+
         const { data, error } = await supabase.from("tracked_wallets").insert({
           user_profile_id,
           wallet_address,
