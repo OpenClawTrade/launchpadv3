@@ -155,10 +155,9 @@ export function StickyStatsFooter() {
   };
 
   useEffect(() => {
-    supabase.functions.invoke("privy-user-count").then(({ data, error }) => {
-      console.log("[StickyFooter] privy-user-count response:", data, error);
-      if (data?.count) setPlatformUsers(data.count);
-    }).catch(err => console.error("[StickyFooter] privy-user-count failed:", err));
+    supabase.from("profiles").select("id", { count: "exact", head: true }).then(({ count, error }) => {
+      if (!error && count !== null) setPlatformUsers(count);
+    });
   }, []);
 
   const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
