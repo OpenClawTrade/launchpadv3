@@ -287,6 +287,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Enrich with token metadata from Helius DAS
+    if (inserts.length > 0) {
+      const uniqueMints = [...new Set(inserts.map(i => i.token_mint))];
+      try {
+        const heliusApiKey = Deno.env.get("HELIUS_API_KEY");
+        const heliusRpc = Deno.env.get("HELIUS_RPC_URL") || `https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`;
+        const dasRes = await fetch(heliusRpc, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0", id: "wh-meta",
+            method: "getAssetBatch",
+            params: { ids: uniqueMints },
+          }),
+        });
+        const dasData = await dasRes.json();
+        const meta: Record<string, { name: string; symbol: string }> = {};
+        for (const asset of dasData?.result || []) {
+          if (asset?.id && asset?.content?.metadata) {
+            meta[asset.id] = {
+              name: asset.content.metadata.name || "",
+              symbol: asset.content.metadata.symbol || "",
+            };
+          }
+        }
+        for (const ins of inserts) {
+          const m = meta[ins.token_mint];
+          if (m) {
+            ins.token_name = m.name;
+            ins.token_ticker = m.symbol;
+          }
+        }
+      } catch (metaErr) {
+        console.error("Metadata enrichment failed:", metaErr);
+      }
+    }
+
     let insertedCount = 0;
     if (inserts.length > 0) {
       const { error } = await supabase
