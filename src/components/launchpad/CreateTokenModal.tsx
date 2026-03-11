@@ -1,30 +1,35 @@
 import { useState } from "react";
-import { X, Copy, Check, Rocket, Shield, Zap, Globe } from "lucide-react";
+import { X, Rocket, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 
 interface CreateTokenModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-const EXAMPLE_TEXT = "@saturntrade !saturntrade a meme coin about a dancing lobster";
+interface LaunchResult {
+  success: boolean;
+  name?: string;
+  ticker?: string;
+  mintAddress?: string;
+  imageUrl?: string;
+  solscanUrl?: string;
+  tradeUrl?: string;
+}
 
 export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
-  const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
+  const [lastResult, setLastResult] = useState<LaunchResult | null>(null);
 
   if (!open) return null;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(EXAMPLE_TEXT);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
   };
+
+  const handleReset = () => setLastResult(null);
 
   return (
     <div
@@ -39,8 +44,8 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
         className={cn(
           "relative z-10 w-[95%] md:w-full flex flex-col overflow-hidden",
           "animate-in slide-in-from-bottom-4 md:fade-in duration-300 md:duration-200",
-          "max-h-[88dvh] rounded-t-[28px] md:rounded-[24px]",
-          "md:max-w-[540px] md:mx-auto md:max-h-[85vh]",
+          "max-h-[90dvh] rounded-t-[28px] md:rounded-[24px]",
+          "md:max-w-[600px] md:mx-auto",
         )}
         style={{
           background: "linear-gradient(180deg, rgba(15,23,42,0.97) 0%, rgba(10,14,26,0.99) 100%)",
@@ -55,20 +60,20 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 md:px-10 pt-3 md:pt-8 pb-3 md:pb-2">
+        <div className="flex items-center justify-between px-5 md:px-8 pt-3 md:pt-6 pb-3 md:pb-2">
           <div className="flex items-center gap-3.5">
             <div
               className="flex items-center justify-center w-11 h-11 md:w-10 md:h-10 rounded-2xl md:rounded-xl"
               style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
             >
-              <Rocket className="w-5 h-5 md:w-5 md:h-5 text-white" />
+              <Rocket className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-[22px] md:text-xl font-bold text-[#F1F5F9] tracking-tight leading-tight">
                 Launch Token
               </h2>
-              <p className="text-xs md:text-xs text-[#64748B] font-medium mt-0.5">
-                via X (Twitter)
+              <p className="text-xs text-[#64748B] font-medium mt-0.5">
+                via Phantom Wallet
               </p>
             </div>
           </div>
@@ -82,143 +87,110 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
         </div>
 
         {/* Content — scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 md:px-10 py-4 md:py-6 space-y-5 md:space-y-5">
-
-          {/* Steps */}
-          <div className="space-y-0">
-            <p className="text-xs md:text-[11px] font-semibold uppercase tracking-[0.15em] text-[#64748B] mb-5 md:mb-4">
-              How it works
-            </p>
-
-            {/* Step 1 */}
-            <div className="flex items-start gap-4 md:gap-4">
-              <StepNumber n={1} />
-              <div className="flex-1 pt-1">
-                <p className="text-[15px] md:text-[14px] font-medium leading-snug text-[#E2E8F0]">
-                  Reply to any post on X with:
-                </p>
-                <div
-                  className="mt-3 rounded-2xl md:rounded-xl px-4 py-4 md:px-5 md:py-3.5 font-mono text-[13px] md:text-[13px] relative"
-                  style={{
-                    background: "rgba(15,23,42,0.9)",
-                    border: "1px solid rgba(51,65,85,0.6)",
-                  }}
-                >
-                  <div className="pr-10">
-                    <span className="text-[#F97316] font-semibold">@saturntrade</span>{" "}
-                    <span className="text-[#64748B]">!saturntrade</span>
-                    <br className="sm:hidden" />
-                    <span className="text-[#94A3B8] italic"> describe what you want to launch</span>
-                  </div>
-
-                  <button
-                    onClick={handleCopy}
-                    className={cn(
-                      "absolute top-3 right-3 flex items-center justify-center w-10 h-10 md:w-7 md:h-7 rounded-xl md:rounded-lg transition-all active:scale-90",
-                      copied
-                        ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-white/8 text-[#64748B] hover:bg-white/10 hover:text-[#94A3B8]"
-                    )}
-                    aria-label="Copy command"
-                  >
-                    {copied ? <Check className="w-4 h-4 md:w-3.5 md:h-3.5" /> : <Copy className="w-4 h-4 md:w-3.5 md:h-3.5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="h-5 md:h-4" />
-
-            {/* Step 2 */}
-            <div className="flex items-start gap-4 md:gap-4">
-              <StepNumber n={2} />
-              <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
-                Our AI generates the name, ticker, description & avatar automatically
-              </p>
-            </div>
-
-            <div className="h-5 md:h-4" />
-
-            {/* Step 3 */}
-            <div className="flex items-start gap-4 md:gap-4">
-              <StepNumber n={3} />
-              <p className="text-[15px] md:text-[14px] pt-1 leading-[1.55] text-[#CBD5E1]">
-                Token deploys instantly on Solana — you'll get a reply with the link
-              </p>
-            </div>
-          </div>
-
-          {/* Example */}
-          <div
-            className="rounded-2xl md:rounded-xl px-4 py-3.5 md:px-5 md:py-3.5"
-            style={{
-              background: "rgba(249,115,22,0.05)",
-              border: "1px solid rgba(249,115,22,0.12)",
-            }}
-          >
-            <p className="text-[12px] md:text-[12px] font-mono text-[#94A3B8] leading-relaxed">
-              <span className="text-[#64748B]">Example:</span>{" "}
-              <span className="text-[#F97316]">@saturntrade !saturntrade</span>{" "}
-              <span className="text-[#CBD5E1]">a meme coin about a dancing lobster</span>
-            </p>
-          </div>
-
-          {/* Trust badges */}
-          <div className="flex flex-wrap gap-2.5 md:gap-2">
-            <TrustBadge icon={<Globe className="w-3.5 h-3.5 md:w-3 md:h-3" />} label="Powered by Solana" />
-            <TrustBadge icon={<Zap className="w-3.5 h-3.5 md:w-3 md:h-3" />} label="Instant Deploy" />
-            <TrustBadge icon={<Shield className="w-3.5 h-3.5 md:w-3 md:h-3" />} label="Secure" />
-          </div>
-        </div>
-
-        {/* CTA — sticky bottom */}
-        <div className="px-5 md:px-10 pb-7 md:pb-8 pt-3">
-          <a
-            href="https://x.com/saturntrade"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2.5 w-full py-4 md:py-4 rounded-2xl text-[16px] md:text-[15px] font-bold text-white transition-all active:scale-[0.97] hover:shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #F97316, #EA580C)",
-              boxShadow: "0 6px 24px rgba(249,115,22,0.35)",
-              minHeight: "54px",
-            }}
-          >
-            Go to @saturntrade on X
-            <span className="text-white/80">→</span>
-          </a>
-
-          <p className="text-[10px] text-[#475569] text-center mt-3.5 leading-relaxed">
-            Tokens are launched on Solana mainnet. Trading fees apply. DYOR.
-          </p>
+        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-4 md:py-5">
+          {lastResult?.success && lastResult.mintAddress ? (
+            <SuccessResult result={lastResult} onReset={handleReset} onClose={onClose} />
+          ) : (
+            <TokenLauncher
+              bare
+              defaultMode="phantom"
+              onLaunchSuccess={() => {}}
+              onShowResult={(result) => setLastResult(result as LaunchResult)}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function StepNumber({ n }: { n: number }) {
+function SuccessResult({
+  result,
+  onReset,
+  onClose,
+}: {
+  result: LaunchResult;
+  onReset: () => void;
+  onClose: () => void;
+}) {
   return (
-    <div
-      className="flex items-center justify-center w-10 h-10 md:w-8 md:h-8 rounded-full flex-shrink-0 text-[13px] md:text-[12px] font-bold text-white"
-      style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
-    >
-      {String(n).padStart(2, "0")}
-    </div>
-  );
-}
+    <div className="space-y-5 animate-in fade-in duration-400">
+      {/* Token card */}
+      <div
+        className="rounded-2xl p-5 flex items-center gap-4"
+        style={{
+          background: "linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(6,182,212,0.06) 100%)",
+          border: "1px solid rgba(16,185,129,0.25)",
+          boxShadow: "0 0 24px rgba(16,185,129,0.08)",
+        }}
+      >
+        {result.imageUrl ? (
+          <img
+            src={result.imageUrl}
+            alt={result.name}
+            className="w-14 h-14 rounded-xl object-cover ring-2 ring-emerald-500/30"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-bold text-emerald-300 tracking-tight">
+            {result.name} (${result.ticker}) launched! 🚀
+          </p>
+          <p className="text-[11px] text-[#64748B] font-mono truncate mt-1">
+            {result.mintAddress}
+          </p>
+        </div>
+      </div>
 
-function TrustBadge({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 md:gap-1.5 px-3.5 md:px-3 py-2 md:py-1.5 rounded-full text-[11px] md:text-[11px] font-medium text-[#94A3B8]"
-      style={{
-        background: "rgba(51,65,85,0.2)",
-        border: "1px solid rgba(51,65,85,0.4)",
-      }}
-    >
-      <span className="text-[#22D3EE]">{icon}</span>
-      {label}
+      {/* Action links */}
+      <div className="flex gap-3">
+        {result.solscanUrl && (
+          <a
+            href={result.solscanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+            style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}
+          >
+            Solscan <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+        {result.tradeUrl && (
+          <a
+            href={result.tradeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors"
+            style={{
+              color: "#fb923c",
+              background: "rgba(249,115,22,0.08)",
+              border: "1px solid rgba(249,115,22,0.2)",
+            }}
+          >
+            Trade <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        )}
+      </div>
+
+      {/* Bottom buttons */}
+      <div className="flex gap-3 pt-2">
+        <button
+          onClick={onReset}
+          className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.97]"
+          style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 6px 24px rgba(249,115,22,0.3)" }}
+        >
+          Launch Another
+        </button>
+        <button
+          onClick={onClose}
+          className="flex-1 py-3.5 rounded-xl text-sm font-medium text-[#94A3B8] bg-white/5 hover:bg-white/10 transition-all active:scale-[0.97]"
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }
