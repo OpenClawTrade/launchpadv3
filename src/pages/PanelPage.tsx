@@ -2,6 +2,8 @@ import { useState, lazy, Suspense, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useChain } from "@/contexts/ChainContext";
+import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -30,6 +32,8 @@ function TabLoader() {
 export default function PanelPage() {
   const { isAuthenticated, login, logout, user, solanaAddress } = useAuth();
   const { isAdmin } = useIsAdmin(solanaAddress);
+  const { chain, chainConfig } = useChain();
+  const evmWallet = useEvmWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "portfolio";
@@ -42,9 +46,15 @@ export default function PanelPage() {
 
   const setTab = (tab: string) => setSearchParams({ tab });
 
+  const isBnb = chain === 'bnb';
+  const displayAddress = isBnb ? evmWallet.address : solanaAddress;
+  const explorerUrl = isBnb
+    ? `https://bscscan.com/address/${displayAddress}`
+    : `https://solscan.io/account/${displayAddress}`;
+
   const handleCopy = async () => {
-    if (!solanaAddress) return;
-    const ok = await copyToClipboard(solanaAddress);
+    if (!displayAddress) return;
+    const ok = await copyToClipboard(displayAddress);
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
   };
 
@@ -105,17 +115,20 @@ export default function PanelPage() {
               <h1 className="text-sm font-black text-foreground tracking-wider font-mono uppercase">
                 Saturn Panel
               </h1>
-              {solanaAddress && (
+              {displayAddress && (
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse" />
                   <span className="text-[11px] text-muted-foreground font-mono">
-                    {solanaAddress.slice(0, 6)}...{solanaAddress.slice(-4)}
+                    {displayAddress.slice(0, 6)}...{displayAddress.slice(-4)}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground/60 font-mono uppercase">
+                    {chainConfig.shortName}
                   </span>
                   <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground transition-colors">
                     {copied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
                   </button>
                   <a
-                    href={`https://solscan.io/account/${solanaAddress}`}
+                    href={explorerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors"

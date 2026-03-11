@@ -1,6 +1,7 @@
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useAlphaTrades, PositionSummary } from "@/hooks/useAlphaTrades";
-import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter } from "lucide-react";
+import { useChain } from "@/contexts/ChainContext";
+import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useMemo } from "react";
@@ -23,6 +24,8 @@ type TradeTypeFilter = "all" | "buy" | "sell";
 type HoldingFilter = "all" | "HOLDING" | "PARTIAL" | "SOLD";
 
 export default function AlphaTrackerPage() {
+  const { chain, chainConfig } = useChain();
+  const isBnb = chain === 'bnb';
   const { trades, loading, positions } = useAlphaTrades(100);
   const [searchToken, setSearchToken] = useState("");
   const [searchWallet, setSearchWallet] = useState("");
@@ -53,6 +56,11 @@ export default function AlphaTrackerPage() {
 
   const clearFilters = () => { setSearchToken(""); setSearchWallet(""); setTradeTypeFilter("all"); setHoldingFilter("all"); };
 
+  const getExplorerTxUrl = (txHash: string) => {
+    if (isBnb) return `https://bscscan.com/tx/${txHash}`;
+    return `https://solscan.io/tx/${txHash}`;
+  };
+
   return (
     <LaunchpadLayout hideFooter noPadding>
       <div className="relative z-10">
@@ -60,6 +68,7 @@ export default function AlphaTrackerPage() {
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/30">
           <Crosshair className="h-3.5 w-3.5 text-primary" />
           <h1 className="text-[13px] font-bold text-foreground tracking-tight">Alpha Tracker</h1>
+          <span className="text-[9px] font-mono text-muted-foreground/60 uppercase ml-1">{chainConfig.shortName}</span>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[9px] text-muted-foreground font-mono tabular-nums">
               {filteredTrades.length}/{trades.length}
@@ -72,6 +81,16 @@ export default function AlphaTrackerPage() {
             </button>
           </div>
         </div>
+
+        {/* BNB Chain Notice */}
+        {isBnb && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-yellow-500/5 border-b border-yellow-500/20">
+            <AlertCircle className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+            <span className="text-[11px] text-yellow-400/80 font-mono">
+              Alpha Tracker currently tracks Solana trades. BNB Chain tracking coming soon.
+            </span>
+          </div>
+        )}
 
         {/* Filters */}
         {showFilters && (
@@ -118,7 +137,7 @@ export default function AlphaTrackerPage() {
           <span></span>
           <span>Trader</span>
           <span>Type</span>
-          <span className="text-right">SOL</span>
+          <span className="text-right">{chainConfig.nativeCurrency.symbol}</span>
           <span className="text-right">Tokens</span>
           <span className="text-right">MCap</span>
           <span className="text-center">Status</span>
@@ -191,7 +210,7 @@ export default function AlphaTrackerPage() {
                     </span>
                   </div>
 
-                  {/* SOL Amount */}
+                  {/* SOL/BNB Amount */}
                   <span className={`text-[10px] font-mono text-right tabular-nums ${isBuy ? "text-green-400/90" : "text-red-400/90"}`}>
                     {isBuy ? "+" : "-"}{trade.amount_sol?.toFixed(3)}
                   </span>
@@ -205,7 +224,7 @@ export default function AlphaTrackerPage() {
                   <div className="text-right">
                     {mcap != null ? (
                       <span className="text-[10px] font-mono text-foreground/50 tabular-nums">
-                        {formatMcap(mcap)} SOL
+                        {formatMcap(mcap)} {chainConfig.nativeCurrency.symbol}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/30">—</span>
@@ -230,7 +249,7 @@ export default function AlphaTrackerPage() {
                   <div className="text-right">
                     {trade.tx_hash ? (
                       <a
-                        href={`https://solscan.io/tx/${trade.tx_hash}`}
+                        href={getExplorerTxUrl(trade.tx_hash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[9px] font-mono text-muted-foreground/40 hover:text-primary transition-colors inline-flex items-center gap-0.5 justify-end"

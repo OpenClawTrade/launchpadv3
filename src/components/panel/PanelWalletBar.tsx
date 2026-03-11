@@ -3,6 +3,8 @@ import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { usePrivy } from "@privy-io/react-auth";
 import { useExportWallet } from "@privy-io/react-auth/solana";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
+import { useChain } from "@/contexts/ChainContext";
+import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +40,114 @@ export default function PanelWalletBar() {
 }
 
 function WalletBarInner() {
+  const { chain, chainConfig } = useChain();
+  const isBnb = chain === 'bnb';
+
+  if (isBnb) {
+    return <BnbWalletBar />;
+  }
+  return <SolanaWalletBar />;
+}
+
+function BnbWalletBar() {
+  const { address, isConnected, balance, isBalanceLoading, connect } = useEvmWallet();
+  const { chainConfig } = useChain();
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+
+  const handleCopy = async () => {
+    if (!address) return;
+    const ok = await copyToClipboard(address);
+    if (ok) { setCopied(true); toast({ title: "Address copied!" }); setTimeout(() => setCopied(false), 2000); }
+  };
+
+  if (!isConnected || !address) {
+    return (
+      <div className="mx-4 mb-3 rounded-xl bg-white/[0.04] backdrop-blur-md border border-white/10 p-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={connect}>
+            <Wallet className="h-3.5 w-3.5" />
+            Connect BNB Wallet
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const truncated = `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+  return (
+    <div className="mx-4 mb-3 rounded-xl bg-white/[0.04] backdrop-blur-md border border-white/10 p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Balance */}
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(234,179,8,0.15)" }}>
+            <Wallet className="h-3.5 w-3.5" style={{ color: "#eab308" }} />
+          </div>
+          <span className="font-mono font-bold text-sm">
+            {isBalanceLoading ? "..." : balance}
+          </span>
+          <span className="text-xs text-muted-foreground font-mono">{chainConfig.nativeCurrency.symbol}</span>
+        </div>
+
+        <div className="h-5 w-px bg-white/10 hidden sm:block" />
+
+        {/* Address */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs text-muted-foreground">{truncated}</span>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+            {copied ? <Check className="h-3 w-3" style={{ color: "#eab308" }} /> : <Copy className="h-3 w-3" />}
+          </Button>
+        </div>
+
+        <div className="h-5 w-px bg-white/10 hidden sm:block" />
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5">
+          {/* Deposit QR */}
+          <Dialog open={showQR} onOpenChange={setShowQR}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs px-2">
+                <ArrowDownToLine className="h-3 w-3" />
+                Deposit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5" /> Deposit {chainConfig.nativeCurrency.symbol}
+                </DialogTitle>
+                <DialogDescription>Scan QR or copy address to send {chainConfig.nativeCurrency.symbol}</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="bg-white p-4 rounded-xl">
+                  <QRCode value={address} size={180} />
+                </div>
+                <div className="w-full">
+                  <Label className="text-xs text-muted-foreground">Wallet Address (BNB Chain)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input value={address} readOnly className="font-mono text-xs" />
+                    <Button variant="outline" size="icon" onClick={handleCopy}>
+                      {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* BscScan */}
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(`https://bscscan.com/address/${address}`, "_blank")}>
+            <ExternalLink className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SolanaWalletBar() {
   const { walletAddress, isWalletReady, getBalance, getBalanceStrict } = useSolanaWalletWithPrivy();
   const { exportWallet } = useExportWallet();
   const { toast } = useToast();
@@ -73,7 +183,6 @@ function WalletBarInner() {
     return () => clearInterval(interval);
   }, [isWalletReady]);
 
-  // Deposit detection polling
   useEffect(() => {
     if (!showQR || !isWalletReady) return;
     if (balanceAtOpen === null && balance !== null) setBalanceAtOpen(balance);
@@ -148,7 +257,6 @@ function WalletBarInner() {
           </Button>
         </div>
 
-        {/* Divider */}
         <div className="h-5 w-px bg-white/10 hidden sm:block" />
 
         {/* Address */}
@@ -159,7 +267,6 @@ function WalletBarInner() {
           </Button>
         </div>
 
-        {/* Divider */}
         <div className="h-5 w-px bg-white/10 hidden sm:block" />
 
         {/* Action buttons */}
