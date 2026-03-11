@@ -31,7 +31,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const [solBalance, setSolBalance] = useState<number | null>(null);
   const [instaBuy, setInstaBuy] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(true);
   const [profitCardData, setProfitCardData] = useState<ProfitCardData | null>(null);
   const [showProfitCard, setShowProfitCard] = useState(false);
 

@@ -58,7 +58,7 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
   const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
   const [instaBuy, setInstaBuy] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(true);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
   const [showLatency, setShowLatency] = useState(false);
   const [profitCardData, setProfitCardData] = useState<ProfitCardData | null>(null);
