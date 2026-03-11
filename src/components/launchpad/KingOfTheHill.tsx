@@ -440,7 +440,6 @@ function KingCardSkeleton() {
 /* ── export ── */
 export function KingOfTheHill() {
   const { tokens, isLoading } = useKingOfTheHill();
-  // onlineCount removed — single indicator now lives in FunLauncherPage
   const [quickBuyAmount] = useState(() => {
     try {
       const v = localStorage.getItem("pulse-quick-buy-amount");
@@ -454,6 +453,34 @@ export function KingOfTheHill() {
     [tokens]
   );
   const { data: sparklines } = useSparklineBatch(sparklineAddresses);
+
+  // Scroll arrows state
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    const ro = new ResizeObserver(updateScrollState);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", updateScrollState); ro.disconnect(); };
+  }, [updateScrollState, tokens]);
+
+  const scroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === "left" ? -290 : 290, behavior: "smooth" });
+  };
 
   return (
     <div className="w-full">
@@ -476,14 +503,48 @@ export function KingOfTheHill() {
         </div>
       </div>
 
-      {/* Cards Row — horizontal scroll on mobile */}
-      <div className="flex flex-row gap-3 md:gap-4 overflow-x-auto pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide [&>*]:snap-start [&>*]:min-w-[280px] [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink"
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        {isLoading
-          ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
-          : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} quickBuyAmount={quickBuyAmount} sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined} />)
-        }
+      {/* Cards Row with scroll arrows on mobile */}
+      <div className="relative">
+        {/* Left arrow */}
+        <button
+          onClick={() => scroll("left")}
+          className={cn(
+            "absolute left-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center",
+            "bg-background/80 backdrop-blur-sm border border-border/40 shadow-lg",
+            "text-foreground/70 hover:text-foreground hover:bg-background/95 transition-all",
+            "md:hidden",
+            canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none",
+          )}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+
+        {/* Right arrow */}
+        <button
+          onClick={() => scroll("right")}
+          className={cn(
+            "absolute right-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full flex items-center justify-center",
+            "bg-background/80 backdrop-blur-sm border border-border/40 shadow-lg",
+            "text-foreground/70 hover:text-foreground hover:bg-background/95 transition-all",
+            "md:hidden",
+            canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none",
+          )}
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+
+        <div
+          ref={scrollRef}
+          className="flex flex-row gap-3 md:gap-4 overflow-x-auto pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide [&>*]:snap-start [&>*]:min-w-[280px] [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {isLoading
+            ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
+            : tokens?.map((t, i) => <KingCard key={t.id} token={t} rank={i + 1} quickBuyAmount={quickBuyAmount} sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined} />)
+          }
+        </div>
       </div>
     </div>
   );
