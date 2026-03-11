@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { JustLaunched } from "@/components/launchpad/JustLaunched";
