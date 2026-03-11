@@ -74,17 +74,24 @@ export function WalletTrackerPanel({
       if (fnError) throw fnError;
       const tracked = (resp?.data || []) as TrackedWallet[];
 
-      // Fetch balances in parallel
+      // Fetch balances and last tx time in parallel
       const connection = new Connection(getRpcUrl(), "confirmed");
       const enriched: WalletWithBalance[] = await Promise.all(
         tracked.map(async (w) => {
           let balance: number | null = null;
+          let lastActive: string | null = null;
           try {
             const pub = new PublicKey(w.wallet_address);
-            const lamports = await connection.getBalance(pub);
+            const [lamports, sigs] = await Promise.all([
+              connection.getBalance(pub),
+              connection.getSignaturesForAddress(pub, { limit: 1 }),
+            ]);
             balance = lamports / LAMPORTS_PER_SOL;
+            if (sigs.length > 0 && sigs[0].blockTime) {
+              lastActive = new Date(sigs[0].blockTime * 1000).toISOString();
+            }
           } catch {}
-          return { ...w, balance, lastActive: w.created_at };
+          return { ...w, balance, lastActive };
         })
       );
       setWallets(enriched);
@@ -333,7 +340,7 @@ export function WalletTrackerPanel({
               marginBottom: "2px",
             }}
           >
-            <span style={{ fontSize: sz.fs.label, color: dim, fontWeight: 500 }}>Created</span>
+            <span style={{ fontSize: sz.fs.label, color: dim, fontWeight: 500 }}>Added</span>
             <span style={{ fontSize: sz.fs.label, color: dim, fontWeight: 500 }}>Name</span>
             <span style={{ fontSize: sz.fs.label, color: dim, fontWeight: 500, textAlign: "right" }}>Balance</span>
             <span style={{ fontSize: sz.fs.label, color: dim, fontWeight: 500, textAlign: "right" }}>Last Active</span>
@@ -382,7 +389,9 @@ export function WalletTrackerPanel({
                   {w.balance !== null ? `${w.balance.toFixed(2)}` : "—"}
                 </span>
                 <span style={{ fontSize: sz.fs.label, color: muted, textAlign: "right" }}>
-                  {formatDistanceToNow(new Date(w.lastActive || w.created_at), { addSuffix: false }).replace("about ", "")}
+                  {w.lastActive
+                    ? formatDistanceToNow(new Date(w.lastActive), { addSuffix: false }).replace("about ", "")
+                    : "—"}
                 </span>
                 <button
                   onClick={() => handleRemove(w.id)}
