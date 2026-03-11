@@ -36,58 +36,63 @@ export function CreateTokenModal({ open, onClose }: CreateTokenModalProps) {
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
       onClick={handleBackdropClick}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      {/* Backdrop with blur */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+
+      {/* Floating neon orbs for depth */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="launch-modal-orb launch-modal-orb-1" />
+        <div className="launch-modal-orb launch-modal-orb-2" />
+        <div className="launch-modal-orb launch-modal-orb-3" />
+      </div>
 
       {/* Modal */}
       <div
         className={cn(
           "relative z-10 w-[95%] md:w-full flex flex-col overflow-hidden",
-          "animate-in slide-in-from-bottom-4 md:fade-in duration-300 md:duration-200",
-          "max-h-[90dvh] rounded-t-[28px] md:rounded-[24px]",
-          "md:max-w-[600px] md:mx-auto",
+          "launch-modal-enter",
+          "max-h-[90dvh] rounded-t-[20px] md:rounded-2xl",
+          "md:max-w-[580px] md:mx-auto",
+          "launch-modal-container",
         )}
-        style={{
-          background: "linear-gradient(180deg, rgba(15,23,42,0.97) 0%, rgba(10,14,26,0.99) 100%)",
-          border: "1px solid rgba(51,65,85,0.5)",
-          boxShadow: "0 -8px 60px rgba(0,0,0,0.5), 0 0 40px rgba(249,115,22,0.06)",
-          backdropFilter: "blur(20px)",
-        }}
       >
+        {/* Neon border glow overlay */}
+        <div className="absolute inset-0 rounded-t-[20px] md:rounded-2xl pointer-events-none launch-modal-border-glow" />
+
         {/* Mobile drag handle */}
-        <div className="md:hidden flex justify-center pt-3 pb-2">
-          <div className="w-12 h-1.5 rounded-full bg-white/20" />
+        <div className="md:hidden flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-white/15" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 md:px-8 pt-3 md:pt-6 pb-3 md:pb-2">
-          <div className="flex items-center gap-3.5">
-            <div
-              className="flex items-center justify-center w-11 h-11 md:w-10 md:h-10 rounded-2xl md:rounded-xl"
-              style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
-            >
-              <Rocket className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between px-5 md:px-6 pt-4 md:pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="launch-modal-icon-badge">
+              <Rocket className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-[22px] md:text-xl font-bold text-[#F1F5F9] tracking-tight leading-tight">
+              <h2 className="text-lg md:text-[17px] font-bold text-white tracking-tight leading-tight">
                 Launch Token
               </h2>
-              <p className="text-xs text-[#64748B] font-medium mt-0.5">
+              <p className="text-[11px] text-white/35 font-medium mt-0.5 font-mono tracking-wide">
                 via Phantom Wallet
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-11 h-11 md:w-8 md:h-8 rounded-2xl md:rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all"
+            className="flex items-center justify-center w-9 h-9 md:w-8 md:h-8 rounded-xl bg-white/5 hover:bg-white/10 hover:rotate-90 active:scale-90 transition-all duration-300"
             aria-label="Close"
           >
-            <X className="w-5 h-5 md:w-4 md:h-4 text-[#94A3B8]" />
+            <X className="w-4 h-4 text-white/50" />
           </button>
         </div>
 
+        {/* Separator */}
+        <div className="mx-5 md:mx-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
         {/* Content — scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 md:px-8 py-4 md:py-5">
+        <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4 scrollbar-thin launch-modal-content">
           {lastResult?.success && lastResult.mintAddress ? (
             <SuccessResult result={lastResult} onReset={handleReset} onClose={onClose} />
           ) : (
@@ -116,14 +121,7 @@ function SuccessResult({
   return (
     <div className="space-y-5 animate-in fade-in duration-400">
       {/* Token card */}
-      <div
-        className="rounded-2xl p-5 flex items-center gap-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(6,182,212,0.06) 100%)",
-          border: "1px solid rgba(16,185,129,0.25)",
-          boxShadow: "0 0 24px rgba(16,185,129,0.08)",
-        }}
-      >
+      <div className="launch-modal-success-card rounded-2xl p-5 flex items-center gap-4">
         {result.imageUrl ? (
           <img
             src={result.imageUrl}
@@ -139,7 +137,7 @@ function SuccessResult({
           <p className="text-base font-bold text-emerald-300 tracking-tight">
             {result.name} (${result.ticker}) launched! 🚀
           </p>
-          <p className="text-[11px] text-[#64748B] font-mono truncate mt-1">
+          <p className="text-[11px] text-white/30 font-mono truncate mt-1">
             {result.mintAddress}
           </p>
         </div>
@@ -152,7 +150,7 @@ function SuccessResult({
             href={result.solscanUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-all hover:scale-[1.02] duration-200"
             style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}
           >
             Solscan <ExternalLink className="w-3.5 h-3.5" />
@@ -163,11 +161,10 @@ function SuccessResult({
             href={result.tradeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-primary hover:brightness-110 transition-all hover:scale-[1.02] duration-200"
             style={{
-              color: "#fb923c",
-              background: "rgba(249,115,22,0.08)",
-              border: "1px solid rgba(249,115,22,0.2)",
+              background: "hsl(72 100% 50% / 0.08)",
+              border: "1px solid hsl(72 100% 50% / 0.2)",
             }}
           >
             Trade <ExternalLink className="w-3.5 h-3.5" />
@@ -179,14 +176,14 @@ function SuccessResult({
       <div className="flex gap-3 pt-2">
         <button
           onClick={onReset}
-          className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.97]"
-          style={{ background: "linear-gradient(135deg, #F97316, #EA580C)", boxShadow: "0 6px 24px rgba(249,115,22,0.3)" }}
+          className="flex-1 py-3.5 rounded-xl text-sm font-bold text-black transition-all active:scale-[0.97] hover:scale-[1.02] hover:shadow-lg duration-200"
+          style={{ background: "hsl(72 100% 50%)", boxShadow: "0 6px 24px hsl(72 100% 50% / 0.25)" }}
         >
           Launch Another
         </button>
         <button
           onClick={onClose}
-          className="flex-1 py-3.5 rounded-xl text-sm font-medium text-[#94A3B8] bg-white/5 hover:bg-white/10 transition-all active:scale-[0.97]"
+          className="flex-1 py-3.5 rounded-xl text-sm font-medium text-white/50 bg-white/5 hover:bg-white/10 transition-all active:scale-[0.97] duration-200"
         >
           Close
         </button>
