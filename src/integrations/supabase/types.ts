@@ -4119,6 +4119,77 @@ export type Database = {
           },
         ]
       }
+      kol_scan_errors: {
+        Row: {
+          created_at: string
+          error_message: string
+          id: string
+          kol_username: string
+          raw_response_preview: string | null
+          run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          id?: string
+          kol_username: string
+          raw_response_preview?: string | null
+          run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          id?: string
+          kol_username?: string
+          raw_response_preview?: string | null
+          run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_scan_errors_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "kol_scan_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_scan_runs: {
+        Row: {
+          accounts_scanned: number
+          cas_detected: number
+          created_at: string
+          duration_ms: number | null
+          errors_count: number
+          id: string
+          raw_response_sample: string | null
+          tweets_fetched: number
+          tweets_inserted: number
+        }
+        Insert: {
+          accounts_scanned?: number
+          cas_detected?: number
+          created_at?: string
+          duration_ms?: number | null
+          errors_count?: number
+          id?: string
+          raw_response_sample?: string | null
+          tweets_fetched?: number
+          tweets_inserted?: number
+        }
+        Update: {
+          accounts_scanned?: number
+          cas_detected?: number
+          created_at?: string
+          duration_ms?: number | null
+          errors_count?: number
+          id?: string
+          raw_response_sample?: string | null
+          tweets_fetched?: number
+          tweets_inserted?: number
+        }
+        Relationships: []
+      }
       launch_idempotency_locks: {
         Row: {
           completed_at: string | null
