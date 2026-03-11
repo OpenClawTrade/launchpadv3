@@ -42,7 +42,7 @@ const AgentConnectPage = lazyWithRetry(() => import("./pages/AgentConnectPage"))
 const BagsAgentsPage = lazyWithRetry(() => import("./pages/BagsAgentsPage"));
 const TradingAgentProfilePage = lazyWithRetry(() => import("./pages/TradingAgentProfilePage"));
 const WhitepaperPage = lazyWithRetry(() => import("./pages/WhitepaperPage"));
-const ClawSDKPage = lazyWithRetry(() => import("./pages/ClawSDKPage"));
+
 const CareersPage = lazyWithRetry(() => import("./pages/CareersPage"));
 const ClawModePage = lazyWithRetry(() => import("./pages/ClawModePage"));
 const TunnelDistributePage = lazyWithRetry(() => import("./pages/TunnelDistributePage"));

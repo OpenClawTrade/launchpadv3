@@ -19,7 +19,7 @@ const NAV_LINKS = [
   { to: "/x-tracker", label: "X Tracker", icon: Radar },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/leverage", label: "Leverage", icon: CandlestickChart },
-  { to: "/sdk", label: "SDK", icon: Code2 },
+  
   { to: "/whitepaper", label: "Docs", icon: FileText },
   { to: "/merch", label: "Merch", icon: ShoppingBag },
   { to: "/panel", label: "Panel", icon: LayoutDashboard },
