@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RefreshCw, Loader2 } from "lucide-react";
-import { useMarketLighthouse } from "@/hooks/useMarketLighthouse";
+import { useMarketLighthouse, type LighthouseTimeframe } from "@/hooks/useMarketLighthouse";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import bonkIcon from "@/assets/bonk-icon.jpg";
 import meteoraIcon from "@/assets/meteora-icon.svg";

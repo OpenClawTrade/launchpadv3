@@ -5,8 +5,24 @@ const corsHeaders = {
 };
 
 const CACHE_TTL = 3 * 60 * 1000;
-let cachedData: unknown = null;
-let cachedAt = 0;
+const cache: Record<string, { data: unknown; at: number }> = {};
+
+type Timeframe = "5m" | "1h" | "6h" | "24h";
+
+// Maps our timeframe to GeckoTerminal attribute keys
+const GECKO_VOL_KEY: Record<Timeframe, string> = {
+  "5m": "m5",
+  "1h": "h1",
+  "6h": "h6",
+  "24h": "h24",
+};
+
+const GECKO_TX_KEY: Record<Timeframe, string> = {
+  "5m": "m5",
+  "1h": "h1",
+  "6h": "h6",
+  "24h": "h24",
+};
 
 type ProtocolRow = {
   name: string;
@@ -15,11 +31,11 @@ type ProtocolRow = {
 };
 
 type DexStats = {
-  volume24hUsd: number;
-  buyCount24h: number;
-  sellCount24h: number;
-  buyers24h: number;
-  sellers24h: number;
+  volumeUsd: number;
+  buyCount: number;
+  sellCount: number;
+  buyers: number;
+  sellers: number;
 };
 
 async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 9000): Promise<Response> {
@@ -82,7 +98,7 @@ async function fetchDefiLlamaDexOverview() {
   }
 }
 
-async function fetchGeckoDexPoolsStats(dexId: string): Promise<DexStats | null> {
+async function fetchGeckoDexPoolsStats(dexId: string, tf: Timeframe): Promise<DexStats | null> {
   try {
     const res = await fetchWithTimeout(`https://api.geckoterminal.com/api/v2/networks/solana/dexes/${dexId}/pools?page=1`, {}, 9000);
     if (!res.ok) return null;
@@ -90,30 +106,27 @@ async function fetchGeckoDexPoolsStats(dexId: string): Promise<DexStats | null> 
     const json = await res.json();
     const pools = Array.isArray(json?.data) ? json.data : [];
 
-    let volume24hUsd = 0;
-    let buyCount24h = 0;
-    let sellCount24h = 0;
-    let buyers24h = 0;
-    let sellers24h = 0;
+    const volKey = GECKO_VOL_KEY[tf];
+    const txKey = GECKO_TX_KEY[tf];
+
+    let volumeUsd = 0;
+    let buyCount = 0;
+    let sellCount = 0;
+    let buyers = 0;
+    let sellers = 0;
 
     for (const pool of pools) {
       const attributes = pool?.attributes || {};
-      const h24Tx = attributes?.transactions?.h24 || {};
+      const txData = attributes?.transactions?.[txKey] || {};
 
-      volume24hUsd += Number(attributes?.volume_usd?.h24 || 0);
-      buyCount24h += Number(h24Tx?.buys || 0);
-      sellCount24h += Number(h24Tx?.sells || 0);
-      buyers24h += Number(h24Tx?.buyers || 0);
-      sellers24h += Number(h24Tx?.sellers || 0);
+      volumeUsd += Number(attributes?.volume_usd?.[volKey] || 0);
+      buyCount += Number(txData?.buys || 0);
+      sellCount += Number(txData?.sells || 0);
+      buyers += Number(txData?.buyers || 0);
+      sellers += Number(txData?.sellers || 0);
     }
 
-    return {
-      volume24hUsd,
-      buyCount24h,
-      sellCount24h,
-      buyers24h,
-      sellers24h,
-    };
+    return { volumeUsd, buyCount, sellCount, buyers, sellers };
   } catch {
     return null;
   }
@@ -122,15 +135,23 @@ async function fetchGeckoDexPoolsStats(dexId: string): Promise<DexStats | null> 
 function aggregateDexStats(rows: Array<DexStats | null>): DexStats {
   return rows.reduce(
     (acc, row) => ({
-      volume24hUsd: acc.volume24hUsd + Number(row?.volume24hUsd || 0),
-      buyCount24h: acc.buyCount24h + Number(row?.buyCount24h || 0),
-      sellCount24h: acc.sellCount24h + Number(row?.sellCount24h || 0),
-      buyers24h: acc.buyers24h + Number(row?.buyers24h || 0),
-      sellers24h: acc.sellers24h + Number(row?.sellers24h || 0),
+      volumeUsd: acc.volumeUsd + Number(row?.volumeUsd || 0),
+      buyCount: acc.buyCount + Number(row?.buyCount || 0),
+      sellCount: acc.sellCount + Number(row?.sellCount || 0),
+      buyers: acc.buyers + Number(row?.buyers || 0),
+      sellers: acc.sellers + Number(row?.sellers || 0),
     }),
-    { volume24hUsd: 0, buyCount24h: 0, sellCount24h: 0, buyers24h: 0, sellers24h: 0 },
+    { volumeUsd: 0, buyCount: 0, sellCount: 0, buyers: 0, sellers: 0 },
   );
 }
+
+// DeFi Llama only gives 24h data. Scale proportionally for shorter timeframes.
+const TF_SCALE: Record<Timeframe, number> = {
+  "5m": 5 / 1440,
+  "1h": 1 / 24,
+  "6h": 6 / 24,
+  "24h": 1,
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -138,8 +159,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (cachedData && Date.now() - cachedAt < CACHE_TTL) {
-      return new Response(JSON.stringify(cachedData), {
+    // Parse timeframe from body
+    let tf: Timeframe = "24h";
+    try {
+      const body = await req.json();
+      if (body?.timeframe && ["5m", "1h", "6h", "24h"].includes(body.timeframe)) {
+        tf = body.timeframe as Timeframe;
+      }
+    } catch {
+      // no body or invalid JSON → default 24h
+    }
+
+    const cacheKey = tf;
+    const cached = cache[cacheKey];
+    if (cached && Date.now() - cached.at < CACHE_TTL) {
+      return new Response(JSON.stringify(cached.data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -148,24 +182,29 @@ Deno.serve(async (req) => {
       fetchSolPriceUsd(),
       fetchDefiLlamaDexOverview(),
       aggregateDexStats(await Promise.all([
-        fetchGeckoDexPoolsStats("pump-fun"),
-        fetchGeckoDexPoolsStats("pumpswap"),
+        fetchGeckoDexPoolsStats("pump-fun", tf),
+        fetchGeckoDexPoolsStats("pumpswap", tf),
       ])),
       aggregateDexStats(await Promise.all([
-        fetchGeckoDexPoolsStats("raydium-launchlab"),
+        fetchGeckoDexPoolsStats("raydium-launchlab", tf),
       ])),
       aggregateDexStats(await Promise.all([
-        fetchGeckoDexPoolsStats("moonit"),
+        fetchGeckoDexPoolsStats("moonit", tf),
       ])),
     ]);
 
+    const scale = TF_SCALE[tf];
+    const tfLabel = tf === "24h" ? "24h" : tf;
+
+    // DeFi Llama data is always 24h — scale for display in shorter timeframes
+    const scaledTotalVol = Number(dexOverview?.total24hUsd || 0) * scale;
+
     const topProtocols = (dexOverview?.protocols || []).slice(0, 3).map((p) => ({
       name: p.name,
-      vol24hUsd: p.vol24hUsd,
+      vol24hUsd: p.vol24hUsd * scale,
       change: p.change24h,
     }));
 
-    const totalVol24hUsd = Number(dexOverview?.total24hUsd || 0);
     const volChange24h = Number(dexOverview?.change24h || 0);
 
     const launchpads = [
@@ -174,37 +213,36 @@ Deno.serve(async (req) => {
       { type: "moonshot", stats: moonshotStats },
     ].map((lp) => ({
       type: lp.type,
-      vol24hUsd: lp.stats.volume24hUsd,
-      vol24hSol: solPriceUsd > 0 ? lp.stats.volume24hUsd / solPriceUsd : 0,
+      vol24hUsd: lp.stats.volumeUsd,
+      vol24hSol: solPriceUsd > 0 ? lp.stats.volumeUsd / solPriceUsd : 0,
       change: 0,
     }));
 
-    const buyCount = pumpStats.buyCount24h + bonkStats.buyCount24h + moonshotStats.buyCount24h;
-    const sellCount = pumpStats.sellCount24h + bonkStats.sellCount24h + moonshotStats.sellCount24h;
-    const buyVolUsd = pumpStats.volume24hUsd + bonkStats.volume24hUsd + moonshotStats.volume24hUsd;
-
-    const totalLocalVolUsd = buyVolUsd;
+    const buyCount = pumpStats.buyCount + bonkStats.buyCount + moonshotStats.buyCount;
+    const sellCount = pumpStats.sellCount + bonkStats.sellCount + moonshotStats.sellCount;
+    const totalLocalVolUsd = pumpStats.volumeUsd + bonkStats.volumeUsd + moonshotStats.volumeUsd;
     const totalTrades = buyCount + sellCount;
 
     const response = {
-      totalVol24hUsd,
+      timeframe: tf,
+      totalVol24hUsd: scaledTotalVol,
       volChange24h,
       solPrice: solPriceUsd,
 
       totalTrades,
       tradesChange: 0,
-      uniqueTraders: pumpStats.buyers24h + bonkStats.buyers24h + moonshotStats.buyers24h,
+      uniqueTraders: pumpStats.buyers + bonkStats.buyers + moonshotStats.buyers,
       tradersChange: 0,
 
       buyCount,
-      buyVolUsd: totalLocalVolUsd * (buyCount + sellCount > 0 ? buyCount / (buyCount + sellCount) : 0.5),
+      buyVolUsd: totalLocalVolUsd * (totalTrades > 0 ? buyCount / totalTrades : 0.5),
       buyVolSol: solPriceUsd > 0
-        ? (totalLocalVolUsd * (buyCount + sellCount > 0 ? buyCount / (buyCount + sellCount) : 0.5)) / solPriceUsd
+        ? (totalLocalVolUsd * (totalTrades > 0 ? buyCount / totalTrades : 0.5)) / solPriceUsd
         : 0,
       sellCount,
-      sellVolUsd: totalLocalVolUsd * (buyCount + sellCount > 0 ? sellCount / (buyCount + sellCount) : 0.5),
+      sellVolUsd: totalLocalVolUsd * (totalTrades > 0 ? sellCount / totalTrades : 0.5),
       sellVolSol: solPriceUsd > 0
-        ? (totalLocalVolUsd * (buyCount + sellCount > 0 ? sellCount / (buyCount + sellCount) : 0.5)) / solPriceUsd
+        ? (totalLocalVolUsd * (totalTrades > 0 ? sellCount / totalTrades : 0.5)) / solPriceUsd
         : 0,
       ownVolUsd: totalLocalVolUsd,
 
@@ -221,8 +259,7 @@ Deno.serve(async (req) => {
       updatedAt: new Date().toISOString(),
     };
 
-    cachedData = response;
-    cachedAt = Date.now();
+    cache[cacheKey] = { data: response, at: Date.now() };
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
