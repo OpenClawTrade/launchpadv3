@@ -69,14 +69,13 @@ export const CopyTrading = forwardRef<HTMLDivElement, Record<string, never>>(fun
     queryFn: async () => {
       if (!profileId) return [];
       
-      const { data, error } = await supabase
-        .from('tracked_wallets')
-        .select('*')
-        .eq('user_profile_id', profileId)
-        .order('created_at', { ascending: false });
+      const { data: resp, error: fnError } = await supabase.functions.invoke('wallet-tracker-manage', {
+        body: { action: 'list', user_profile_id: profileId },
+      });
 
-      if (error) throw error;
-      return data as TrackedWallet[];
+      if (fnError) throw fnError;
+      if (resp?.error) throw new Error(resp.error);
+      return (resp?.data || []) as TrackedWallet[];
     },
     enabled: !!profileId,
   });
