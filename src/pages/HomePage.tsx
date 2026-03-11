@@ -373,7 +373,7 @@ export default function HomePage() {
 
             {/* Title */}
             <h1
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight mb-2 animate-fade-in"
+              className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight mb-1.5 animate-fade-in"
               style={{
                 background: "linear-gradient(135deg, hsl(48 96% 53%) 0%, hsl(84 81% 44%) 100%)",
                 WebkitBackgroundClip: "text",
