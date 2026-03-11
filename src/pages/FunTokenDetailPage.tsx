@@ -323,8 +323,8 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               </span>
             )}
           </div>
-          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25">BUY</button>
-          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20">SELL</button>
+          <button onClick={() => setMobileTab('trade')} className="trade-btn-buy font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95">BUY</button>
+          <button onClick={() => setMobileTab('trade')} className="trade-btn-sell font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95">SELL</button>
         </div>
       </div>
     </LaunchpadLayout>
