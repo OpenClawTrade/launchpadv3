@@ -241,7 +241,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             )}
             {mobileTab === 'chart' && (
               <>
-                <div className="trade-glass-panel overflow-hidden" style={{ backgroundColor: 'hsl(222 40% 3% / 0.8)' }}>
+                <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
                   <CodexChart tokenAddress={mintAddress} height={340} />
                 </div>
                 <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} />
