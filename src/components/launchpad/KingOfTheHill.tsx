@@ -489,7 +489,7 @@ export function KingOfTheHill() {
       {/* Premium Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <img src=BRAND.logoPath alt="Saturn" className="w-6 h-6 md:w-9 md:h-9 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]" />
+          <img src={BRAND.logoPath} alt={BRAND.shortName} className="w-6 h-6 md:w-9 md:h-9 object-contain drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]" />
           <div>
             <h2 className="text-[13px] md:text-base font-black uppercase tracking-[0.08em] text-foreground" style={{ textShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
               King of the Hill
