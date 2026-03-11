@@ -81,9 +81,6 @@ export default function FunLauncherPage() {
     }
   }, [shouldRedirectToCreate, funNavigate]);
 
-  // Don't render anything while redirecting
-  if (shouldRedirectToCreate) return null;
-
   const [claimsPage, setClaimsPage] = useState(1);
   const [creatorFeesPage, setCreatorFeesPage] = useState(1);
   const pageSize = 15;
