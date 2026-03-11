@@ -554,27 +554,41 @@ export default function FunTokenDetailPage() {
     </div>
   );
 
-  const TokenDetailsSection = () => (
-    <div className="trade-glass-panel p-4 md:p-3 lg:p-3 space-y-1">
-      <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5 mb-2">
-        <Activity className="h-3 w-3 text-primary/60" /> Token Details
-      </h3>
-      <div className="space-y-0">
-        {[
-          { label: 'Price', value: codexPrice && codexPrice > 0 ? formatPriceUsd(codexPrice) : `${(token.price_sol || 0).toFixed(8)} SOL` },
-          { label: 'Market Cap', value: codexMcap && codexMcap > 0 ? `$${codexMcap >= 1000 ? `${(codexMcap / 1000).toFixed(1)}K` : codexMcap.toFixed(0)}` : formatUsd(token.market_cap_sol || 0) },
-          { label: 'Volume 24h', value: codexEnrichment?.volume24hUsd && codexEnrichment.volume24hUsd > 0 ? `$${codexEnrichment.volume24hUsd.toFixed(0)}` : `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
-          { label: 'Holders', value: (codexHolders ?? token.holder_count ?? 0).toLocaleString() },
-          { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
-        ].map((row, i) => (
-          <div key={i} className="trade-detail-row">
-            <span className="text-[11px] md:text-[10px] font-mono text-muted-foreground/60">{row.label}</span>
-            <span className="text-[11px] md:text-[10px] font-mono text-foreground/85 font-medium">{row.value}</span>
-          </div>
-        ))}
+  const TokenDetailsSection = () => {
+    const vol = codexEnrichment?.volume24hUsd || (token.volume_24h_sol || 0) * solPrice;
+    const liq = codexEnrichment?.liquidity || 0;
+    const holders = codexHolders ?? token.holder_count ?? 0;
+    const risk = getRiskLevel(vol, liq, holders);
+    
+    return (
+      <div className="trade-glass-panel p-4 md:p-3 lg:p-3 space-y-1">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5">
+            <Activity className="h-3 w-3 text-primary/60" /> Token Details
+          </h3>
+          <span className={`trade-risk-badge ${risk.className}`}>
+            <Shield className="h-2.5 w-2.5" />
+            {risk.label}
+          </span>
+        </div>
+        <div className="space-y-0">
+          {[
+            { label: 'Price', value: codexPrice && codexPrice > 0 ? formatPriceUsd(codexPrice) : `${(token.price_sol || 0).toFixed(8)} SOL` },
+            { label: 'Market Cap', value: codexMcap && codexMcap > 0 ? `$${codexMcap >= 1000 ? `${(codexMcap / 1000).toFixed(1)}K` : codexMcap.toFixed(0)}` : formatUsd(token.market_cap_sol || 0) },
+            { label: 'Volume 24h', value: codexEnrichment?.volume24hUsd && codexEnrichment.volume24hUsd > 0 ? `$${codexEnrichment.volume24hUsd.toFixed(0)}` : `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
+            { label: 'Holders', value: holders.toLocaleString() },
+            { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
+            { label: 'Age', value: formatDistanceToNow(new Date(token.created_at), { addSuffix: false }) },
+          ].map((row, i) => (
+            <div key={i} className="trade-detail-row">
+              <span className="text-[11px] md:text-[10px] font-mono text-muted-foreground/60">{row.label}</span>
+              <span className="text-[11px] md:text-[10px] font-mono text-foreground/85 font-medium">{row.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ContractSection = () => {
     if (!token.mint_address) return null;
