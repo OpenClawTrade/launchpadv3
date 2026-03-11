@@ -383,7 +383,7 @@ export function StickyStatsFooter() {
           {/* Region selector */}
           <div ref={dropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => { setRegionOpen(!regionOpen); setLaunchpadOpen(false); setWalletTrackerOpen(false); }}
+              onClick={() => { setRegionOpen(!regionOpen); setLaunchpadOpen(false); setWalletTrackerOpen(false); setNewPairsOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
