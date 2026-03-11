@@ -1,33 +1,45 @@
 
 
-## Wallet Tracker -- Footer Popup (Market Lighthouse Style)
+## Two Issues to Fix
 
-### What Changes
+### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
 
-1. **Replace PAYOUTS stat** in `StickyStatsFooter.tsx` with a "Wallet Tracker" button (wallet icon) that opens a popup panel, same pattern as the Market Lighthouse launchpad button.
+The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
 
-2. **Create `WalletTrackerPanel.tsx`** -- a new component styled identically to `MarketLighthouse.tsx` (dark `#0F0F0F` bg, `#1A1A1A` cards, same border/radius/font conventions, compact mode for mobile). Features based on the screenshot:
+**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
 
-   - **Header**: "Wallet Tracker" title with green dot, tabs: All | Manager | Trades | Monitor
-   - **Toolbar**: Search input ("Search by name or addr..."), Import/Export/Add Wallet buttons
-   - **Table**: Columns -- Created, Name, Balance, Last Active, Remove All action
-   - **Data source**: Reads from existing `tracked_wallets` table (already has `wallet_address`, `wallet_label`, `created_at`). Balance fetched on-chain via `@solana/web3.js`. Last active derived from latest `wallet_trades` entry.
-   - **Add Wallet**: Inline dialog to add address + label, inserts into `tracked_wallets`
-   - **Remove All**: Bulk delete all tracked wallets for the user
-   - **Auth-gated**: Shows "Connect to track wallets" if not authenticated
+Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
 
-3. **Footer integration** in `StickyStatsFooter.tsx`:
-   - Add wallet icon button between the stats area and connection badge
-   - Toggle `walletTrackerOpen` state, close other dropdowns when opened
-   - Render `WalletTrackerPanel` in same popup pattern (absolute/fixed positioning, portal-aware)
-   - Remove the `PAYOUTS` stat item and its divider
+**Changes:**
+- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
 
-### Files to Create
-- `src/components/layout/WalletTrackerPanel.tsx`
+### 2. Alpha Tracker Shows No Trades from the Platform
 
-### Files to Edit
-- `src/components/layout/StickyStatsFooter.tsx` -- remove PAYOUTS, add wallet tracker button + popup
+The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
 
-### No DB changes needed
-The `tracked_wallets` table already exists with all required fields.
+**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
+
+**Changes:**
+- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
+
+### Technical Details
+
+**alpha_trades schema** (from types.ts):
+- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+
+**Data available in launchpad-swap:**
+- `userWallet` -> `wallet_address`
+- `token.mint_address` -> `token_mint`  
+- `token.name` -> `token_name`
+- `token.ticker` -> `token_ticker`
+- `isBuy ? "buy" : "sell"` -> `trade_type`
+- `solAmount` -> `amount_sol`
+- `tokenAmount` -> `amount_tokens`
+- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
+- `clientSignature` / generated signature -> `tx_hash`
+- Profile lookup for display name/avatar
+
+**Files to modify:**
+1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
+2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
 

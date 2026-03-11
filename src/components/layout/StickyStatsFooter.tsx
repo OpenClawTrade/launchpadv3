@@ -4,8 +4,9 @@ import { useClawStats } from "@/hooks/useClawStats";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
-import { ChevronDown, Server, RefreshCw, Layers } from "lucide-react";
+import { ChevronDown, Server, RefreshCw, Layers, Wallet } from "lucide-react";
 import { MarketLighthouse } from "./MarketLighthouse";
+import { WalletTrackerPanel } from "./WalletTrackerPanel";
 import pumpfunPill from "@/assets/pumpfun-pill.webp";
 import meteoraIcon from "@/assets/meteora-icon.svg";
 import bonkIcon from "@/assets/bonk-icon.jpg";
@@ -68,11 +69,14 @@ export function StickyStatsFooter() {
   const [selectedRegion, setSelectedRegion] = useState("EU-E");
   const [regionOpen, setRegionOpen] = useState(false);
   const [launchpadOpen, setLaunchpadOpen] = useState(false);
+  const [walletTrackerOpen, setWalletTrackerOpen] = useState(false);
   const [pings, setPings] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [lpRefreshing, setLpRefreshing] = useState(false);
+  const [wtRefreshing, setWtRefreshing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const lpDropdownRef = useRef<HTMLDivElement>(null);
+  const wtDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -101,7 +105,7 @@ export function StickyStatsFooter() {
 
   // Close dropdowns on outside click
   useEffect(() => {
-    if (!regionOpen && !launchpadOpen) return;
+    if (!regionOpen && !launchpadOpen && !walletTrackerOpen) return;
     const handleClick = (e: MouseEvent) => {
       if (regionOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setRegionOpen(false);
@@ -109,10 +113,13 @@ export function StickyStatsFooter() {
       if (launchpadOpen && lpDropdownRef.current && !lpDropdownRef.current.contains(e.target as Node)) {
         setLaunchpadOpen(false);
       }
+      if (walletTrackerOpen && wtDropdownRef.current && !wtDropdownRef.current.contains(e.target as Node)) {
+        setWalletTrackerOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [regionOpen, launchpadOpen]);
+  }, [regionOpen, launchpadOpen, walletTrackerOpen]);
 
   const handleRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,6 +135,12 @@ export function StickyStatsFooter() {
     setTimeout(() => setLpRefreshing(false), 600);
   };
 
+  const handleWtRefresh = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWtRefreshing(true);
+    setTimeout(() => setWtRefreshing(false), 600);
+  };
+
   const isPunchDomain = typeof window !== "undefined" && (window.location.hostname === "punchlaunch.fun" || window.location.hostname === "www.punchlaunch.fun");
   if (pathname.startsWith("/punch") || pathname.startsWith("/punch-test") || isPunchDomain) return null;
 
@@ -135,7 +148,6 @@ export function StickyStatsFooter() {
   const agents = stats?.totalAgents ?? 0;
   const feesClaimed = (stats?.totalAgentFeesEarned ?? 0).toFixed(2);
   const agentPosts = stats?.totalAgentPosts ?? 0;
-  const payouts = (stats?.totalAgentPayouts ?? 0).toFixed(2);
   const currentPing = pings[selectedRegion] ?? 0;
 
   const totalLpTokens = launchpadStats?.reduce((s, lp) => s + lp.total, 0) ?? 0;
@@ -188,8 +200,6 @@ export function StickyStatsFooter() {
           <StatItem label="FEES" value={`${feesClaimed} SOL`} />
           <Divider />
           <StatItem label="POSTS" value={agentPosts.toLocaleString()} />
-          <Divider />
-          <StatItem label="PAYOUTS" value={`${payouts} SOL`} />
         </div>
 
         {/* Connection + Launchpads + Region */}
@@ -229,7 +239,7 @@ export function StickyStatsFooter() {
           {/* Launchpad selector */}
           <div ref={lpDropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => { setLaunchpadOpen(!launchpadOpen); setRegionOpen(false); }}
+              onClick={() => { setLaunchpadOpen(!launchpadOpen); setRegionOpen(false); setWalletTrackerOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -279,10 +289,47 @@ export function StickyStatsFooter() {
             )}
           </div>
 
+          {/* Wallet Tracker */}
+          <div ref={wtDropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => { setWalletTrackerOpen(!walletTrackerOpen); setRegionOpen(false); setLaunchpadOpen(false); }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "3px 8px",
+                borderRadius: "6px",
+                border: "1px solid hsl(var(--border))",
+                background: walletTrackerOpen ? "hsl(var(--primary) / 0.15)" : "hsl(var(--muted))",
+                cursor: "pointer",
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "hsl(var(--foreground))",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Wallet style={{ width: "12px", height: "12px" }} />
+            </button>
+
+            {walletTrackerOpen && (
+              <div style={{
+                position: isMobile ? "fixed" : "absolute",
+                bottom: isMobile ? "48px" : "calc(100% + 8px)",
+                right: isMobile ? undefined : 0,
+                left: isMobile ? "50%" : undefined,
+                transform: isMobile ? "translateX(-50%)" : undefined,
+                zIndex: 100000,
+              }}>
+                <WalletTrackerPanel onRefresh={handleWtRefresh} refreshing={wtRefreshing} compact={isMobile} />
+              </div>
+            )}
+          </div>
+
           {/* Region selector */}
           <div ref={dropdownRef} style={{ position: "relative" }}>
             <button
-              onClick={() => { setRegionOpen(!regionOpen); setLaunchpadOpen(false); }}
+              onClick={() => { setRegionOpen(!regionOpen); setLaunchpadOpen(false); setWalletTrackerOpen(false); }}
               style={{
                 display: "flex",
                 alignItems: "center",
