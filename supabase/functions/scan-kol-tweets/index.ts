@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
                 contract_address: ca.address,
                 chain: ca.chain,
                 kol_username: kol.username,
-                kol_profile_image: kol.profile_image_url,
+                kol_profile_image: kol.cached_avatar_url || kol.profile_image_url,
                 token_name: tokenName,
                 token_symbol: tokenSymbol,
                 token_image_url: tokenImageUrl,
