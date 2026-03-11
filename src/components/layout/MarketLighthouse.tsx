@@ -58,8 +58,8 @@ function getProtocolIcon(name: string): string {
   if (lower.includes("pump")) return pumpswapIcon;
   if (lower.includes("phoenix")) return phoenixIcon;
   if (lower.includes("lifinity")) return lifinityIcon;
-  if (lower.includes("solfi")) return raydiumIcon;
-  return raydiumIcon;
+  if (lower.includes("solfi")) return solfiIcon;
+  return "";
 }
 
 const TIME_TABS = ["5m", "1h", "6h", "24h"] as const;
