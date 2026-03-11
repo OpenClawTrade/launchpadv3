@@ -408,7 +408,7 @@ export default function HomePage() {
                 { icon: Zap, label: "Fastest Execution" },
                 { icon: Shield, label: "Secure Trading" },
                 { icon: Users, label: "Referral System" },
-                { icon: Bot, label: "AI Agents" },
+                { icon: Bot, label: "Agents Staking" },
               ].map(({ icon: FIcon, label }) => (
                 <div
                   key={label}
