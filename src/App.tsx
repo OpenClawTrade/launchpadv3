@@ -136,6 +136,7 @@ const App = () => (
                     <Route path="/vanity-admin" element={<VanityAdminPage />} />
                     <Route path="/site" element={<LaunchpadTemplatePage />} />
                     <Route path="/admin" element={<AdminPanelPage />} />
+                    <Route path="/admin/branding" element={<BrandingAdminPage />} />
                     <Route path="/admin/twitter" element={<Navigate to="/admin?tab=xbots" replace />} />
                     <Route path="/admin/treasury" element={<Navigate to="/admin?tab=treasury" replace />} />
                     <Route path="/trade" element={<TradePage />} />
