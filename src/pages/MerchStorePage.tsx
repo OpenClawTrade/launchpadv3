@@ -41,7 +41,7 @@ const PRODUCTS: Product[] = [
   {
     id: "hat-snapback",
     name: `${BRAND.shortName} Snapback`,
-    description: "Structured snapback with embroidered Saturn logo",
+    description: "Structured snapback with embroidered MoonDexo logo",
     priceSol: 0.15,
     category: "accessory",
     colors: [
@@ -53,8 +53,8 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "hat-beanie",
-    name: "Saturn Beanie",
-    description: "Knit beanie with woven Saturn patch",
+    name: "MoonDexo Beanie",
+    description: "Knit beanie with woven MoonDexo patch",
     priceSol: 0.12,
     category: "accessory",
     colors: [
@@ -75,7 +75,7 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "mug-ceramic",
-    name: "Saturn Ceramic Mug",
+    name: "MoonDexo Ceramic Mug",
     description: "11oz ceramic mug, dishwasher safe",
     priceSol: 0.1,
     category: "accessory",
@@ -88,8 +88,8 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "phone-case",
-    name: "Saturn Phone Case",
-    description: "Slim protective case with Saturn design",
+    name: "MoonDexo Phone Case",
+    description: "Slim protective case with MoonDexo design",
     priceSol: 0.12,
     category: "accessory",
     bgGradient: "bg-gradient-to-br from-violet-900/30 to-zinc-900",
@@ -97,8 +97,8 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "tshirt-dev",
-    name: "Saturn Dev Tee",
-    description: '"I build on Saturn" limited edition tee',
+    name: "MoonDexo Dev Tee",
+    description: '"I build on MoonDexo" limited edition tee',
     priceSol: 0.3,
     category: "apparel",
     sizes: ["S", "M", "L", "XL", "2XL"],

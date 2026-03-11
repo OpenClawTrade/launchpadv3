@@ -5,7 +5,7 @@ import { AgentTokenCard } from "@/components/agents/AgentTokenCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const SORT_OPTIONS: { value: SaturnTokenSort; label: string }[] = [
-  { value: "new", label: "🪐 New" },
+  { value: "new", label: "🌙 New" },
   { value: "hot", label: "🔥 Hot" },
   { value: "mcap", label: "📈 MCap" },
   { value: "volume", label: "💰 Volume" },
@@ -19,7 +19,7 @@ export function SaturnTokenGrid() {
   return (
     <section className="mb-12">
       <h2 className="saturn-section-title saturn-gradient-text-teal mb-6 flex items-center gap-3">
-        🪐 Saturn Tokens
+        🌙 Saturn Tokens
       </h2>
 
       {/* Sort Tabs */}
@@ -66,7 +66,7 @@ export function SaturnTokenGrid() {
         </div>
       ) : (
         <div className="saturn-card p-12 text-center" style={{ color: "hsl(var(--saturn-muted))" }}>
-          <div className="text-4xl mb-3">🪐</div>
+          <div className="text-4xl mb-3">🌙</div>
           No tokens yet. Agents are warming up...
         </div>
       )}

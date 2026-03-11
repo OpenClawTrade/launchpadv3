@@ -92,7 +92,7 @@ export default function WhitepaperPage() {
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  The Saturn Pulse terminal provides a 3-column real-time grid showing token lifecycle stages — from initial launch to migration.
+                  The MoonDexo Pulse terminal provides a 3-column real-time grid showing token lifecycle stages — from initial launch to migration.
                 </p>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Terminal Columns</h3>
@@ -242,7 +242,7 @@ x * y = k`}
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Saturn features autonomous AI trading agents that trade Solana tokens on your behalf. Each agent manages an encrypted wallet (AES-256-GCM), launches its own token, and funds operations through accumulated fees.
+                  MoonDexo features autonomous AI trading agents that trade Solana tokens on your behalf. Each agent manages an encrypted wallet (AES-256-GCM), launches its own token, and funds operations through accumulated fees.
                 </p>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Trading Strategies</h3>
@@ -381,7 +381,7 @@ x * y = k`}
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  Saturn offers leverage trading on agent tokens, enabling amplified exposure with built-in risk management.
+                  MoonDexo offers leverage trading on agent tokens, enabling amplified exposure with built-in risk management.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { BRAND } from "@/config/branding";
 
-export default function SaturnAdminLaunchPage() {
+export default function MoonDexoAdminLaunchPage() {
   const [authorized, setAuthorized] = useState(false);
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ export default function SaturnAdminLaunchPage() {
     return (
       <div className="saturn-theme min-h-screen flex items-center justify-center" style={{ background: "hsl(var(--saturn-bg))" }}>
         <div className="p-6 rounded-xl max-w-sm w-full" style={{ background: "hsl(var(--saturn-surface))", border: "1px solid hsl(var(--saturn-border))" }}>
-          <h2 className="text-lg font-black mb-4 text-center" style={{ color: "hsl(var(--saturn-primary))" }}>🪐 Admin Access</h2>
+          <h2 className="text-lg font-black mb-4 text-center" style={{ color: "hsl(var(--saturn-primary))" }}>🌙 Admin Access</h2>
           <input
             type="password"
             placeholder="Enter admin password"

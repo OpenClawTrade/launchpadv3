@@ -50,7 +50,7 @@ export function BnbLauncher() {
 
     setIsLaunching(true);
     toast.info('🚀 Creating token on BNB Chain...', {
-      description: 'Deploying via Saturn bonding curve. This may take 30-60 seconds.',
+      description: 'Deploying via MoonDexo bonding curve. This may take 30-60 seconds.',
     });
 
     try {

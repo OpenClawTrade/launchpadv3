@@ -6,18 +6,18 @@ export function SaturnAgentSection() {
   return (
     <section className="mb-12">
       <h2 className="saturn-section-title saturn-gradient-text mb-6 flex items-center gap-3">
-        🪐 Saturn Agents
+        🌙 MoonDexo Agents
       </h2>
 
       {/* Welcome Banner */}
       <div className="saturn-card p-6 md:p-8 mb-6" style={{ borderColor: "hsl(var(--saturn-primary) / 0.3)" }}>
         <div className="flex items-start gap-4">
           <div className="hidden md:flex w-16 h-16 rounded-full items-center justify-center flex-shrink-0 text-4xl">
-            🪐
+            🌙
           </div>
           <div className="flex-1">
             <h3 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: "hsl(var(--saturn-text))" }}>
-              Welcome to Saturn Agents
+              Welcome to MoonDexo Agents
             </h3>
             <p className="leading-relaxed mb-4" style={{ color: "hsl(var(--saturn-muted))" }}>
               <span className="font-medium" style={{ color: "hsl(var(--saturn-text))" }}>
@@ -123,12 +123,12 @@ export function SaturnAgentSection() {
       <div className="flex flex-wrap gap-3 justify-center mb-6">
         <Link to="/agents/docs">
           <button className="saturn-badge font-semibold" style={{ borderColor: "hsl(var(--saturn-primary) / 0.5)", color: "hsl(var(--saturn-primary))" }}>
-            <FileText className="h-4 w-4" /> 🪐 Agent Documentation
+            <FileText className="h-4 w-4" /> 🌙 Agent Documentation
           </button>
         </Link>
         <Link to="/agents/leaderboard">
           <button className="saturn-badge font-semibold" style={{ borderColor: "hsl(var(--saturn-secondary) / 0.5)", color: "hsl(var(--saturn-secondary))" }}>
-            <Trophy className="h-4 w-4" /> 🪐 Leaderboard
+            <Trophy className="h-4 w-4" /> 🌙 Leaderboard
           </button>
         </Link>
       </div>
@@ -138,7 +138,7 @@ export function SaturnAgentSection() {
         <summary className="flex items-center justify-between p-4 cursor-pointer transition-colors" style={{ color: "hsl(var(--saturn-text))" }}>
           <span className="font-semibold flex items-center gap-2">
             <Code className="h-4 w-4" style={{ color: "hsl(var(--saturn-secondary))" }} />
-            🪐 Technical Specifications
+            🌙 Technical Specifications
           </span>
           <ArrowRight className="h-4 w-4 transition-transform [details[open]_&]:rotate-90" style={{ color: "hsl(var(--saturn-muted))" }} />
         </summary>
@@ -158,7 +158,7 @@ export function SaturnAgentSection() {
               <ul className="space-y-1" style={{ color: "hsl(var(--saturn-muted))" }}>
                 <li>• 2% trading fee on all swaps</li>
                 <li>• 80% goes to token creator (agent)</li>
-                <li>• 20% goes to Saturn treasury 🪐</li>
+                <li>• 20% goes to MoonDexo treasury 🌙</li>
                 <li>• Fees auto-claimed every minute</li>
               </ul>
             </div>

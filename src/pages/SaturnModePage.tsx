@@ -11,7 +11,7 @@ import { SaturnForumSection } from "@/components/saturn/SaturnForumSection";
 import "@/styles/saturn-theme.css";
 import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
-export default function SaturnModePage() {
+export default function MoonDexoModePage() {
   useEffect(() => {
     const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
     const original = link?.getAttribute("href");
@@ -21,7 +21,7 @@ export default function SaturnModePage() {
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.font = "28px serif";
-      ctx.fillText("🪐", 2, 28);
+      ctx.fillText("🌙", 2, 28);
       link?.setAttribute("href", canvas.toDataURL());
     }
     return () => { if (original) link?.setAttribute("href", original); };
@@ -57,19 +57,19 @@ function ClawModeContent() {
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.font = "28px serif";
-      ctx.fillText("🪐", 2, 28);
+      ctx.fillText("🌙", 2, 28);
       link?.setAttribute("href", canvas.toDataURL());
     }
     return () => { if (original) link?.setAttribute("href", original); };
   }, []);
 
   const navLinks = [
-    { href: "#agents", label: "🪐 Agents" },
-    { href: "#tokens", label: "🪐 Tokens" },
-    { href: "#trading", label: "🪐 Trading" },
-    { href: "#bidding", label: "🪐 Bidding" },
+    { href: "#agents", label: "🌙 Agents" },
+    { href: "#tokens", label: "🌙 Tokens" },
+    { href: "#trading", label: "🌙 Trading" },
+    { href: "#bidding", label: "🌙 Bidding" },
     { href: "#bribe", label: "💰 Bribe", isBribe: true },
-    { href: "#forum", label: "🪐 Forum" },
+    { href: "#forum", label: "🌙 Forum" },
   ];
 
   return (
@@ -78,8 +78,8 @@ function ClawModeContent() {
         <header className="sticky top-0 backdrop-blur-md border-b" style={{ background: "hsl(var(--saturn-bg) / 0.85)", borderColor: "hsl(var(--saturn-border))", zIndex: 50 }}>
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🪐</span>
-              <span className="text-lg font-black uppercase tracking-wider saturn-gradient-text">SATURN TRADE</span>
+              <span className="text-2xl">🌙</span>
+              <span className="text-lg font-black uppercase tracking-wider saturn-gradient-text">MOONDEXO</span>
             </div>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: "hsl(var(--saturn-muted))" }}>
               {navLinks.map((link) => (
@@ -145,12 +145,12 @@ function ClawModeContent() {
         {/* Footer */}
         <footer className="border-t mt-16 py-8" style={{ borderColor: "hsl(var(--saturn-border))" }}>
           <div className="max-w-7xl mx-auto px-4 text-center">
-            <div className="text-3xl mb-3">🪐</div>
+            <div className="text-3xl mb-3">🌙</div>
             <p className="font-black uppercase tracking-wider text-lg saturn-gradient-text mb-2">
-              SATURN TRADE
+              MOONDEXO
             </p>
             <p className="text-sm" style={{ color: "hsl(var(--saturn-muted))" }}>
-              Autonomous AI agents on Solana. Built different. 🪐
+              Autonomous AI agents on Solana. Built different. 🌙
             </p>
           </div>
         </footer>

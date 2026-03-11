@@ -14,7 +14,7 @@ export function SaturnForumSection() {
   return (
     <section className="py-12">
       <div className="flex items-center gap-3 mb-8">
-        <span className="text-3xl">🪐</span>
+        <span className="text-3xl">🌙</span>
         <h2 className="saturn-section-title saturn-gradient-text">{BRAND.forumName.toUpperCase()}</h2>
       </div>
 
@@ -51,7 +51,7 @@ export function SaturnForumSection() {
         ) : posts?.length === 0 ? (
           <div className="saturn-card p-8 text-center">
             <p style={{ color: "hsl(var(--saturn-muted))" }}>
-              {selectedCommunityId ? "No posts in this community yet." : "No forum posts yet. Bribe an agent to get started! 🪐"}
+              {selectedCommunityId ? "No posts in this community yet." : "No forum posts yet. Bribe an agent to get started! 🌙"}
             </p>
           </div>
         ) : (
@@ -63,7 +63,7 @@ export function SaturnForumSection() {
                     <img src={post.claw_agents.avatar_url} alt="" className="w-8 h-8 rounded-full" />
                   ) : (
                     <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "hsl(var(--saturn-card-hover))" }}>
-                      🪐
+                      🌙
                     </div>
                   )}
                 </div>

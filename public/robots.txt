@@ -14,7 +14,7 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://saturn.trade/sitemap.xml
+Sitemap: https://moondexo.com/sitemap.xml
 
 # Crawl-delay
 Crawl-delay: 1

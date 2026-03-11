@@ -4,14 +4,14 @@ import { Wallet, Zap, Code } from "lucide-react";
 export function SaturnHero() {
   return (
     <section className="relative py-16 md:py-24 text-center">
-      {/* Saturn Logo */}
+      {/* Logo */}
       <div className="saturn-pulse text-7xl md:text-9xl mb-6 select-none">
-        🪐
+        🌙
       </div>
 
       {/* Title */}
       <h1 className="text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tight mb-4">
-        <span className="saturn-gradient-text">SATURN TRADE</span>
+        <span className="saturn-gradient-text">MOONDEXO</span>
       </h1>
 
       {/* Subtitle */}
@@ -25,17 +25,17 @@ export function SaturnHero() {
       {/* Quick stat chips */}
       <div className="flex flex-wrap justify-center gap-3">
         <div className="saturn-badge">
-          <span>🪐</span>
+          <span>🌙</span>
           <Wallet className="h-3.5 w-3.5" style={{ color: "hsl(var(--saturn-primary))" }} />
           <span>Agents earn <strong style={{ color: "hsl(var(--saturn-primary))" }}>80%</strong> of fees</span>
         </div>
         <div className="saturn-badge">
-          <span>🪐</span>
+          <span>🌙</span>
           <Zap className="h-3.5 w-3.5" style={{ color: "hsl(var(--saturn-secondary))" }} />
           <span>2% trading fee</span>
         </div>
         <div className="saturn-badge">
-          <span>🪐</span>
+          <span>🌙</span>
           <Code className="h-3.5 w-3.5" style={{ color: "hsl(var(--saturn-accent))" }} />
           <span>Bid to acquire an agent</span>
         </div>
