@@ -1,45 +1,26 @@
 
 
-## Two Issues to Fix
+## Fix: Top Protocols Icon Issues
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+### Problems Found
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+1. **`pumpswap-icon.png`** — The file contains an HTML redirect page, not an actual image. This is why PumpSwap shows no image at all. The file was likely downloaded incorrectly from a URL that redirected.
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+2. **SolFi uses Raydium's icon** — Lines 42-43 explicitly map SolFi to `raydiumIcon`. There is no SolFi icon asset in the project.
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+### Fix
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+1. **PumpSwap icon** — Download the real PumpSwap icon image and overwrite `src/assets/pumpswap-icon.png`. PumpSwap's actual icon can be fetched from a reliable source (e.g., DeFi Llama's icon CDN: `https://icons.llamao.fi/icons/protocols/pumpswap`).
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+2. **SolFi icon** — Download a proper SolFi icon (from `https://icons.llamao.fi/icons/protocols/solfi` or similar) and save it as `src/assets/solfi-icon.png`. Then:
+   - Add `import solfiIcon from "@/assets/solfi-icon.png"` to MarketLighthouse.tsx
+   - Change lines 42-43 from `raydiumIcon` to `solfiIcon`
+   - Change line 60 fuzzy match from `raydiumIcon` to `solfiIcon`
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
+3. **Fallback** — Line 61 currently falls back to `raydiumIcon` for any unrecognized protocol. This should use a generic placeholder or the protocol's first letter instead.
 
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
-
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
-
-### Technical Details
-
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
-
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
-
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+### Files Changed
+- `src/assets/pumpswap-icon.png` — Replace with real PumpSwap icon image
+- `src/assets/solfi-icon.png` — New file, SolFi protocol icon
+- `src/components/layout/MarketLighthouse.tsx` — Fix SolFi mapping + generic fallback
 
