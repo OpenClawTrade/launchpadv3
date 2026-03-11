@@ -132,8 +132,8 @@ function HeaderWalletBalanceInner() {
           <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-foreground font-mono">
             {balance !== null
-              ? `${balance.toFixed(3)} SOL`
-              : `${embeddedAddress.slice(0, 4)}..${embeddedAddress.slice(-4)}`}
+              ? `${balance.toFixed(3)} ${currencyLabel}`
+              : `${displayAddress.slice(0, 4)}..${displayAddress.slice(-4)}`}
           </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
