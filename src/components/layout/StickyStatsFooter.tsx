@@ -73,8 +73,10 @@ export function StickyStatsFooter() {
   const [pings, setPings] = useState<Record<string, number>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [lpRefreshing, setLpRefreshing] = useState(false);
+  const [wtRefreshing, setWtRefreshing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const lpDropdownRef = useRef<HTMLDivElement>(null);
+  const wtDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
