@@ -369,7 +369,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-3 pt-2">
             {/* Safety Checks - horizontal grid */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
               {safetyChecks.map((check) => (
                 <div key={check.label} className="flex flex-col items-center gap-1 py-2">
                   {check.loading ? (
