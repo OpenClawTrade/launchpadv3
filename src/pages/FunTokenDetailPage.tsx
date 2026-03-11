@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import pancakeswapBunny from "@/assets/pancakeswap-bunny.png";
 import { useParams, Link } from "react-router-dom";
 import { useFunToken } from "@/hooks/useFunToken";
@@ -45,7 +45,14 @@ function getExplorerUrl(addr: string, isBsc: boolean): string {
 function getTradeUrl(addr: string, isBsc: boolean): string {
   return isBsc
     ? `https://pancakeswap.finance/swap?outputCurrency=${addr}&chain=bsc`
-    : `https://axiom.trade/meme/${addr}?chain=sol`;
+    : `https://solscan.io/token/${addr}`;
+}
+
+function getRiskLevel(volume: number, liquidity: number, holders: number): { label: string; className: string } {
+  const ratio = liquidity > 0 ? volume / liquidity : 0;
+  if (holders >= 100 && liquidity >= 10000 && ratio < 5) return { label: 'Lower Risk', className: 'trade-risk-low' };
+  if (holders >= 20 && liquidity >= 1000) return { label: 'Medium Risk', className: 'trade-risk-medium' };
+  return { label: 'Higher Risk', className: 'trade-risk-high' };
 }
 
 const TOTAL_SUPPLY = 1_000_000_000;
@@ -161,19 +168,10 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                   {token.twitterUrl && <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground hover:bg-primary/5"><Twitter className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>}
                   <a href={getExplorerUrl(mintAddress, isBsc)} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 lg:h-7 lg:w-7 text-muted-foreground hover:text-foreground hover:bg-primary/5"><ExternalLink className="h-3.5 w-3.5 lg:h-3 lg:w-3" /></Button></a>
                 </div>
-                <a href={getTradeUrl(mintAddress, isBsc)} target="_blank" rel="noopener noreferrer">
+                <a href={getExplorerUrl(mintAddress, isBsc)} target="_blank" rel="noopener noreferrer">
                   <Button size="sm" className="h-8 lg:h-7 px-2.5 text-[9px] font-mono gap-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg">
-                    {isBsc ? (
-                      <>
-                        <img src={pancakeswapBunny} alt="PancakeSwap" className="h-4 w-4 rounded-full object-cover flex-shrink-0" />
-                        <span className="hidden sm:inline">PancakeSwap</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-                        <span className="hidden sm:inline">Axiom</span>
-                      </>
-                    )}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                    <span className="hidden sm:inline">Explorer</span>
                   </Button>
                 </a>
               </div>
@@ -325,8 +323,8 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               </span>
             )}
           </div>
-          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25">BUY</button>
-          <button onClick={() => setMobileTab('trade')} className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20">SELL</button>
+          <button onClick={() => setMobileTab('trade')} className="trade-btn-buy font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95">BUY</button>
+          <button onClick={() => setMobileTab('trade')} className="trade-btn-sell font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95">SELL</button>
         </div>
       </div>
     </LaunchpadLayout>
@@ -556,27 +554,41 @@ export default function FunTokenDetailPage() {
     </div>
   );
 
-  const TokenDetailsSection = () => (
-    <div className="trade-glass-panel p-4 md:p-3 lg:p-3 space-y-1">
-      <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5 mb-2">
-        <Activity className="h-3 w-3 text-primary/60" /> Token Details
-      </h3>
-      <div className="space-y-0">
-        {[
-          { label: 'Price', value: codexPrice && codexPrice > 0 ? formatPriceUsd(codexPrice) : `${(token.price_sol || 0).toFixed(8)} SOL` },
-          { label: 'Market Cap', value: codexMcap && codexMcap > 0 ? `$${codexMcap >= 1000 ? `${(codexMcap / 1000).toFixed(1)}K` : codexMcap.toFixed(0)}` : formatUsd(token.market_cap_sol || 0) },
-          { label: 'Volume 24h', value: codexEnrichment?.volume24hUsd && codexEnrichment.volume24hUsd > 0 ? `$${codexEnrichment.volume24hUsd.toFixed(0)}` : `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
-          { label: 'Holders', value: (codexHolders ?? token.holder_count ?? 0).toLocaleString() },
-          { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
-        ].map((row, i) => (
-          <div key={i} className="trade-detail-row">
-            <span className="text-[11px] md:text-[10px] font-mono text-muted-foreground/60">{row.label}</span>
-            <span className="text-[11px] md:text-[10px] font-mono text-foreground/85 font-medium">{row.value}</span>
-          </div>
-        ))}
+  const TokenDetailsSection = () => {
+    const vol = codexEnrichment?.volume24hUsd || (token.volume_24h_sol || 0) * solPrice;
+    const liq = codexEnrichment?.liquidity || 0;
+    const holders = codexHolders ?? token.holder_count ?? 0;
+    const risk = getRiskLevel(vol, liq, holders);
+    
+    return (
+      <div className="trade-glass-panel p-4 md:p-3 lg:p-3 space-y-1">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[10px] md:text-[9px] lg:text-[8px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5">
+            <Activity className="h-3 w-3 text-primary/60" /> Token Details
+          </h3>
+          <span className={`trade-risk-badge ${risk.className}`}>
+            <Shield className="h-2.5 w-2.5" />
+            {risk.label}
+          </span>
+        </div>
+        <div className="space-y-0">
+          {[
+            { label: 'Price', value: codexPrice && codexPrice > 0 ? formatPriceUsd(codexPrice) : `${(token.price_sol || 0).toFixed(8)} SOL` },
+            { label: 'Market Cap', value: codexMcap && codexMcap > 0 ? `$${codexMcap >= 1000 ? `${(codexMcap / 1000).toFixed(1)}K` : codexMcap.toFixed(0)}` : formatUsd(token.market_cap_sol || 0) },
+            { label: 'Volume 24h', value: codexEnrichment?.volume24hUsd && codexEnrichment.volume24hUsd > 0 ? `$${codexEnrichment.volume24hUsd.toFixed(0)}` : `${formatSolAmount(token.volume_24h_sol || 0)} SOL` },
+            { label: 'Holders', value: holders.toLocaleString() },
+            { label: 'Supply', value: formatTokenAmount(TOTAL_SUPPLY) },
+            { label: 'Age', value: formatDistanceToNow(new Date(token.created_at), { addSuffix: false }) },
+          ].map((row, i) => (
+            <div key={i} className="trade-detail-row">
+              <span className="text-[11px] md:text-[10px] font-mono text-muted-foreground/60">{row.label}</span>
+              <span className="text-[11px] md:text-[10px] font-mono text-foreground/85 font-medium">{row.value}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ContractSection = () => {
     if (!token.mint_address) return null;
@@ -617,6 +629,51 @@ export default function FunTokenDetailPage() {
           >
             {showFullDesc ? <><ChevronUp className="h-3 w-3" /> Less</> : <><ChevronDown className="h-3 w-3" /> More</>}
           </button>
+        )}
+      </div>
+    );
+  };
+  const PnlSimulator = () => {
+    const [simSol, setSimSol] = useState('');
+    const [simMultiplier, setSimMultiplier] = useState('2');
+    const simAmount = parseFloat(simSol) || 0;
+    const simMult = parseFloat(simMultiplier) || 2;
+    const simProfit = simAmount * (simMult - 1);
+    const simProfitPct = ((simMult - 1) * 100).toFixed(0);
+
+    return (
+      <div className="trade-pnl-panel p-3 space-y-2">
+        <h3 className="text-[9px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60 flex items-center gap-1.5">
+          <TrendingUp className="h-2.5 w-2.5 text-primary/60" /> PNL Simulator
+        </h3>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 relative">
+            <input
+              type="number"
+              placeholder="SOL amount"
+              value={simSol}
+              onChange={(e) => setSimSol(e.target.value)}
+              className="w-full bg-hsl(222 28% 8% / 0.8) border border-border/30 rounded-md px-2.5 py-1.5 text-[10px] font-mono text-foreground placeholder:text-muted-foreground/40 trade-input-glow focus:outline-none"
+            />
+          </div>
+          <span className="text-[9px] font-mono text-muted-foreground/50">×</span>
+          <select
+            value={simMultiplier}
+            onChange={(e) => setSimMultiplier(e.target.value)}
+            className="bg-hsl(222 28% 8% / 0.8) border border-border/30 rounded-md px-2 py-1.5 text-[10px] font-mono text-foreground focus:outline-none trade-input-glow appearance-none cursor-pointer"
+          >
+            {[2, 3, 5, 10, 20, 50, 100].map(m => (
+              <option key={m} value={m}>{m}x</option>
+            ))}
+          </select>
+        </div>
+        {simAmount > 0 && (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[9px] font-mono text-muted-foreground/60">Profit at {simMult}x</span>
+            <span className="text-[11px] font-mono font-bold text-green-400">
+              +{simProfit.toFixed(2)} SOL ({simProfitPct}%)
+            </span>
+          </div>
         )}
       </div>
     );
@@ -903,6 +960,7 @@ export default function FunTokenDetailPage() {
                   </div>
                 </div>
               )}
+              <PnlSimulator />
               <CommentsSection />
             </div>
           </div>
@@ -926,13 +984,13 @@ export default function FunTokenDetailPage() {
             </div>
             <button
               onClick={() => setMobileTab('trade')}
-              className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 hover:shadow-[0_0_12px_hsl(142_71%_45%/0.2)]"
+              className="trade-btn-buy font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95"
             >
               BUY
             </button>
             <button
               onClick={() => setMobileTab('trade')}
-              className="font-mono text-xs font-bold px-5 py-2.5 rounded-lg min-h-[44px] transition-all active:scale-95 bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20 hover:shadow-[0_0_12px_hsl(0_72%_51%/0.2)]"
+              className="trade-btn-sell font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95"
             >
               SELL
             </button>

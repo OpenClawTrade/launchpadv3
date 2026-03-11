@@ -725,71 +725,118 @@
   color: hsl(24 95% 60%);
 }
 
-/* ── Premium Trade Detail Page — 2025 Cosmic Terminal ── */
+/* ── Premium Trade Detail Page — 2025 Cosmic Terminal v2 ── */
 .trade-page-bg {
   background: 
-    radial-gradient(ellipse 120% 60% at 50% -10%, hsl(80 60% 20% / 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 80% 50% at 80% 20%, hsl(260 60% 20% / 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 0%, hsl(222 60% 8%) 0%, hsl(225 55% 3%) 50%, hsl(230 70% 2%) 100%);
+    radial-gradient(ellipse 100% 50% at 50% -5%, hsl(80 60% 22% / 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 40% at 85% 15%, hsl(260 50% 25% / 0.06) 0%, transparent 45%),
+    radial-gradient(circle 400px at 15% 80%, hsl(200 60% 15% / 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 0%, hsl(222 60% 6%) 0%, hsl(225 55% 3%) 40%, hsl(230 70% 1.5%) 100%);
   min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+/* Cosmic floating particles */
+.trade-page-bg::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, hsl(var(--primary) / 0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, hsl(var(--primary) / 0.2) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 15%, hsl(var(--primary) / 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 45%, hsl(260 60% 65% / 0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 75%, hsl(var(--primary) / 0.25) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 45% 85%, hsl(200 60% 50% / 0.15) 0%, transparent 100%),
+    radial-gradient(1px 1px at 20% 50%, hsl(var(--primary) / 0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, hsl(var(--primary) / 0.15) 0%, transparent 100%);
+  animation: trade-particles-drift 30s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+@keyframes trade-particles-drift {
+  0% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-3px) translateX(2px); }
+  50% { transform: translateY(-5px) translateX(-2px); }
+  75% { transform: translateY(-2px) translateX(3px); }
+  100% { transform: translateY(0) translateX(0); }
 }
 
 .trade-glass-panel {
-  background: linear-gradient(135deg, hsl(222 30% 10% / 0.75) 0%, hsl(222 30% 7% / 0.6) 100%);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid hsl(222 20% 20% / 0.6);
+  background: linear-gradient(135deg, hsl(222 28% 10% / 0.8) 0%, hsl(222 28% 6% / 0.65) 100%);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid hsl(222 20% 22% / 0.55);
   border-radius: 12px;
-  box-shadow: 0 4px 24px hsl(222 50% 5% / 0.5), inset 0 1px 0 hsl(222 20% 25% / 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 4px 24px hsl(222 50% 4% / 0.5),
+    0 1px 0 hsl(222 20% 25% / 0.1) inset;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
 .trade-glass-panel:hover {
-  border-color: hsl(var(--primary) / 0.25);
-  box-shadow: 0 4px 32px hsl(222 50% 5% / 0.6), 0 0 20px hsl(var(--primary) / 0.05), inset 0 1px 0 hsl(222 20% 25% / 0.2);
+  border-color: hsl(var(--primary) / 0.28);
+  box-shadow:
+    0 6px 36px hsl(222 50% 4% / 0.6),
+    0 0 24px hsl(var(--primary) / 0.06),
+    0 1px 0 hsl(222 20% 28% / 0.15) inset;
   transform: translateY(-1px);
 }
 
 .trade-glass-panel-glow {
-  background: linear-gradient(135deg, hsl(222 30% 10% / 0.8) 0%, hsl(222 30% 6% / 0.7) 100%);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border: 1px solid hsl(var(--primary) / 0.2);
+  background: linear-gradient(135deg, hsl(222 28% 10% / 0.85) 0%, hsl(222 28% 5% / 0.75) 100%);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid hsl(var(--primary) / 0.22);
   border-radius: 12px;
   box-shadow: 
-    0 4px 24px hsl(222 50% 5% / 0.5),
-    0 0 30px hsl(var(--primary) / 0.06),
-    inset 0 1px 0 hsl(var(--primary) / 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    0 4px 24px hsl(222 50% 4% / 0.5),
+    0 0 40px hsl(var(--primary) / 0.05),
+    inset 0 1px 0 hsl(var(--primary) / 0.1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .trade-glass-panel-glow:hover {
-  border-color: hsl(var(--primary) / 0.35);
+  border-color: hsl(var(--primary) / 0.38);
   box-shadow: 
-    0 4px 32px hsl(222 50% 5% / 0.6),
-    0 0 40px hsl(var(--primary) / 0.1),
-    inset 0 1px 0 hsl(var(--primary) / 0.12);
+    0 6px 36px hsl(222 50% 4% / 0.6),
+    0 0 50px hsl(var(--primary) / 0.1),
+    inset 0 1px 0 hsl(var(--primary) / 0.15);
   transform: translateY(-1px);
 }
 
 .trade-topbar {
-  background: linear-gradient(180deg, hsl(222 30% 11% / 0.9) 0%, hsl(222 30% 8% / 0.85) 100%);
-  backdrop-filter: blur(28px) saturate(1.4);
-  -webkit-backdrop-filter: blur(28px) saturate(1.4);
-  border: 1px solid hsl(222 20% 20% / 0.7);
+  background: linear-gradient(180deg, hsl(222 30% 10% / 0.92) 0%, hsl(222 30% 7% / 0.88) 100%);
+  backdrop-filter: blur(32px) saturate(1.5);
+  -webkit-backdrop-filter: blur(32px) saturate(1.5);
+  border: 1px solid hsl(222 20% 22% / 0.65);
   border-radius: 14px;
   box-shadow: 
-    0 8px 32px hsl(222 50% 5% / 0.6),
-    inset 0 1px 0 hsl(222 20% 28% / 0.25),
-    0 0 0 1px hsl(222 20% 15% / 0.3);
+    0 8px 40px hsl(222 50% 3% / 0.6),
+    inset 0 1px 0 hsl(222 20% 30% / 0.2),
+    0 0 0 1px hsl(222 20% 14% / 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.trade-topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 5%;
+  right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.12), transparent);
+  pointer-events: none;
 }
 
 .trade-stat-card {
-  background: linear-gradient(145deg, hsl(222 30% 10% / 0.7) 0%, hsl(222 30% 7% / 0.5) 100%);
-  border: 1px solid hsl(222 20% 20% / 0.5);
+  background: linear-gradient(145deg, hsl(222 28% 10% / 0.75) 0%, hsl(222 28% 6% / 0.55) 100%);
+  border: 1px solid hsl(222 20% 22% / 0.45);
   border-radius: 10px;
   padding: 12px 16px;
   text-align: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 12px hsl(222 50% 5% / 0.3);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 12px hsl(222 50% 4% / 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -800,53 +847,61 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.15), transparent);
+  background: linear-gradient(90deg, transparent 10%, hsl(var(--primary) / 0.2) 50%, transparent 90%);
 }
 .trade-stat-card:hover {
-  background: linear-gradient(145deg, hsl(222 30% 12% / 0.8) 0%, hsl(222 30% 9% / 0.6) 100%);
-  border-color: hsl(var(--primary) / 0.3);
-  box-shadow: 0 4px 20px hsl(var(--primary) / 0.08), 0 2px 12px hsl(222 50% 5% / 0.4);
-  transform: translateY(-2px);
+  background: linear-gradient(145deg, hsl(222 28% 12% / 0.85) 0%, hsl(222 28% 8% / 0.65) 100%);
+  border-color: hsl(var(--primary) / 0.35);
+  box-shadow: 0 6px 24px hsl(var(--primary) / 0.1), 0 2px 12px hsl(222 50% 4% / 0.4);
+  transform: translateY(-2px) scale(1.02);
+}
+.trade-stat-card:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .trade-avatar-glow {
   box-shadow: 
-    0 0 16px hsl(var(--primary) / 0.3),
-    0 0 6px hsl(var(--primary) / 0.15),
+    0 0 20px hsl(var(--primary) / 0.35),
+    0 0 8px hsl(var(--primary) / 0.2),
     inset 0 0 8px hsl(var(--primary) / 0.05);
-  border: 2px solid hsl(var(--primary) / 0.4);
+  border: 2px solid hsl(var(--primary) / 0.45);
   transition: all 0.3s ease;
+}
+.trade-avatar-glow:hover {
+  box-shadow:
+    0 0 28px hsl(var(--primary) / 0.5),
+    0 0 12px hsl(var(--primary) / 0.3);
+  border-color: hsl(var(--primary) / 0.7);
 }
 
 .trade-bonding-bar {
   height: 8px;
   border-radius: 999px;
-  background: hsl(222 20% 12%);
+  background: hsl(222 20% 10%);
   overflow: hidden;
-  box-shadow: inset 0 1px 3px hsl(222 50% 5% / 0.5);
+  box-shadow: inset 0 2px 4px hsl(222 50% 3% / 0.6);
 }
 .trade-bonding-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(80 76% 53%) 50%, hsl(142 71% 45%) 100%);
-  box-shadow: 0 0 16px hsl(var(--primary) / 0.6), 0 0 4px hsl(var(--primary) / 0.4);
+  background: linear-gradient(90deg, hsl(var(--primary)) 0%, hsl(80 76% 53%) 40%, hsl(142 71% 45%) 100%);
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.6), 0 0 6px hsl(var(--primary) / 0.4);
   transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
 }
 .trade-bonding-fill::after {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 20px;
+  top: 0; right: 0;
+  width: 30px;
   height: 100%;
-  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.3));
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.4));
   border-radius: 999px;
-  animation: trade-bonding-shimmer 2s ease-in-out infinite;
+  animation: trade-bonding-shimmer 1.8s ease-in-out infinite;
 }
 @keyframes trade-bonding-shimmer {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.8; }
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
 }
 
 .trade-price-pill {
@@ -864,50 +919,53 @@
 .trade-price-pill-up {
   background: hsl(142 71% 45% / 0.15);
   color: hsl(142 71% 55%);
-  border: 1px solid hsl(142 71% 45% / 0.25);
-  box-shadow: 0 0 12px hsl(142 71% 45% / 0.08);
+  border: 1px solid hsl(142 71% 45% / 0.3);
+  box-shadow: 0 0 14px hsl(142 71% 45% / 0.1);
+  text-shadow: 0 0 8px hsl(142 71% 45% / 0.3);
 }
 .trade-price-pill-down {
   background: hsl(0 72% 51% / 0.15);
   color: hsl(0 72% 60%);
-  border: 1px solid hsl(0 72% 51% / 0.25);
-  box-shadow: 0 0 12px hsl(0 72% 51% / 0.08);
+  border: 1px solid hsl(0 72% 51% / 0.3);
+  box-shadow: 0 0 14px hsl(0 72% 51% / 0.1);
+  text-shadow: 0 0 8px hsl(0 72% 51% / 0.3);
 }
 
 .trade-mobile-bar {
-  background: linear-gradient(180deg, hsl(222 40% 6% / 0.97) 0%, hsl(222 40% 4% / 0.98) 100%);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  border-top: 1px solid hsl(222 20% 18% / 0.7);
-  box-shadow: 0 -8px 32px hsl(222 50% 5% / 0.5);
+  background: linear-gradient(180deg, hsl(222 40% 5% / 0.97) 0%, hsl(222 40% 3% / 0.99) 100%);
+  backdrop-filter: blur(28px) saturate(1.5);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border-top: 1px solid hsl(var(--primary) / 0.15);
+  box-shadow: 0 -8px 40px hsl(222 50% 3% / 0.6), 0 -2px 0 hsl(var(--primary) / 0.05);
 }
 
 .trade-tab-active {
-  background: linear-gradient(180deg, hsl(var(--primary) / 0.12) 0%, hsl(var(--primary) / 0.06) 100%);
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.14) 0%, hsl(var(--primary) / 0.06) 100%);
   color: hsl(var(--primary));
   font-weight: 700;
   border-bottom: 2px solid hsl(var(--primary));
-  box-shadow: 0 2px 16px hsl(var(--primary) / 0.2), inset 0 -1px 0 hsl(var(--primary) / 0.1);
+  box-shadow: 0 2px 20px hsl(var(--primary) / 0.25), inset 0 -1px 0 hsl(var(--primary) / 0.12);
+  text-shadow: 0 0 12px hsl(var(--primary) / 0.3);
 }
 
 .trade-detail-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 4px;
-  border-bottom: 1px solid hsl(222 20% 16% / 0.3);
+  padding: 8px 6px;
+  border-bottom: 1px solid hsl(222 20% 14% / 0.3);
   transition: all 0.2s ease;
   border-radius: 6px;
 }
 .trade-detail-row:last-child { border-bottom: none; }
 .trade-detail-row:hover {
-  background: linear-gradient(90deg, hsl(var(--primary) / 0.04) 0%, transparent 100%);
-  padding-left: 8px;
-  border-color: hsl(var(--primary) / 0.1);
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.05) 0%, transparent 100%);
+  padding-left: 10px;
+  border-color: hsl(var(--primary) / 0.12);
 }
 
 @keyframes trade-price-flash {
-  0% { background-color: hsl(var(--primary) / 0.2); box-shadow: 0 0 12px hsl(var(--primary) / 0.15); }
+  0% { background-color: hsl(var(--primary) / 0.25); box-shadow: 0 0 16px hsl(var(--primary) / 0.2); }
   100% { background-color: transparent; box-shadow: none; }
 }
 .trade-price-flash {
@@ -921,11 +979,163 @@
   content: '';
   position: absolute;
   top: -1px;
-  left: 10%;
-  right: 10%;
+  left: 8%;
+  right: 8%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent);
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.35), transparent);
   z-index: 1;
+}
+.trade-chart-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.15), transparent);
+  z-index: 1;
+}
+
+/* Risk score badge */
+.trade-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.trade-risk-low {
+  background: hsl(142 71% 45% / 0.12);
+  color: hsl(142 71% 55%);
+  border: 1px solid hsl(142 71% 45% / 0.25);
+}
+.trade-risk-medium {
+  background: hsl(45 93% 47% / 0.12);
+  color: hsl(45 93% 60%);
+  border: 1px solid hsl(45 93% 47% / 0.25);
+}
+.trade-risk-high {
+  background: hsl(0 72% 51% / 0.12);
+  color: hsl(0 72% 60%);
+  border: 1px solid hsl(0 72% 51% / 0.25);
+}
+
+/* PNL Simulator panel */
+.trade-pnl-panel {
+  background: linear-gradient(135deg, hsl(222 28% 9% / 0.8) 0%, hsl(222 28% 5% / 0.7) 100%);
+  border: 1px solid hsl(222 20% 22% / 0.4);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.trade-pnl-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.18), transparent);
+}
+
+/* Neon focus ring for inputs */
+.trade-input-glow:focus-within {
+  border-color: hsl(var(--primary) / 0.5) !important;
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12), 0 0 20px hsl(var(--primary) / 0.08) !important;
+}
+
+/* Gradient shine buttons */
+.trade-btn-buy {
+  background: linear-gradient(135deg, hsl(142 71% 38%) 0%, hsl(142 71% 45%) 50%, hsl(142 71% 40%) 100%);
+  color: white;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+.trade-btn-buy::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+  transition: left 0.5s ease;
+}
+.trade-btn-buy:hover::after {
+  left: 100%;
+}
+.trade-btn-buy:hover {
+  box-shadow: 0 0 24px hsl(142 71% 45% / 0.35);
+  transform: translateY(-1px);
+}
+.trade-btn-sell {
+  background: linear-gradient(135deg, hsl(0 72% 45%) 0%, hsl(0 72% 51%) 50%, hsl(0 72% 47%) 100%);
+  color: white;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+.trade-btn-sell::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+  transition: left 0.5s ease;
+}
+.trade-btn-sell:hover::after {
+  left: 100%;
+}
+.trade-btn-sell:hover {
+  box-shadow: 0 0 24px hsl(0 72% 51% / 0.35);
+  transform: translateY(-1px);
+}
+
+/* Neon ring hover effect for interactive elements */
+.trade-neon-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.trade-neon-hover:hover {
+  transform: scale(1.03);
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
+  filter: brightness(1.1);
+}
+
+/* Slide-in animation for new trade rows */
+@keyframes trade-row-slide-in {
+  0% { opacity: 0; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.trade-row-new {
+  animation: trade-row-slide-in 0.35s ease-out;
+}
+
+/* Layout preset buttons */
+.trade-layout-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  letter-spacing: 0.04em;
+  background: hsl(222 28% 10% / 0.6);
+  border: 1px solid hsl(222 20% 22% / 0.4);
+  color: hsl(222 10% 60%);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.trade-layout-btn:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+}
+.trade-layout-btn.active {
+  border-color: hsl(var(--primary) / 0.4);
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.12);
+  box-shadow: 0 0 12px hsl(var(--primary) / 0.1);
 }
 
 .terminal-trust-pill {
