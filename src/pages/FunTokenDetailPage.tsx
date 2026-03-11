@@ -635,8 +635,8 @@ export default function FunTokenDetailPage() {
 
   return (
     <LaunchpadLayout>
-      <div className="trade-page-bg -m-4 p-2 md:p-3">
-        <div className="max-w-[1600px] mx-auto flex flex-col gap-2 pb-32 md:pb-24">
+      <div className="trade-page-bg -m-4 p-2.5 md:p-4">
+        <div className="max-w-[1600px] mx-auto flex flex-col gap-2.5 pb-32 md:pb-24">
 
           {/* ──── TOP BAR ──── */}
           <div className="trade-topbar overflow-hidden">
