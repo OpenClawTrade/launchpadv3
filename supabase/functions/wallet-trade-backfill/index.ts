@@ -12,6 +12,7 @@ const LAMPORTS = 1e9;
 interface HeliusEnrichedTx {
   signature: string;
   slot?: number;
+  timestamp?: number;
   type?: string;
   source?: string;
   feePayer?: string;
