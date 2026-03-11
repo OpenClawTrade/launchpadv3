@@ -126,16 +126,21 @@ function HeaderWalletBalanceInner() {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-[12px] font-bold transition-all duration-200 hover:bg-surface-hover flex-shrink-0 border border-border cursor-pointer group"
+          className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg text-xs font-bold
+                     transition-all duration-200 flex-shrink-0
+                     border border-border/30 bg-card/20 backdrop-blur-sm
+                     hover:bg-card/40 hover:border-primary/30 hover:scale-[1.03]
+                     hover:shadow-[0_0_16px_hsl(84_81%_44%/0.08)]
+                     cursor-pointer group"
           title="Wallet menu"
         >
-          <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-foreground font-mono">
+          <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(152_69%_53%/0.6)]" />
+          <span className="text-foreground font-mono tracking-wide">
             {balance !== null
               ? `${balance.toFixed(3)} ${currencyLabel}`
               : `${displayAddress.slice(0, 4)}..${displayAddress.slice(-4)}`}
           </span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
         </button>
 
         {menuOpen && (
