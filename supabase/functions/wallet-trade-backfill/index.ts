@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
     if (inserts.length > 0) {
       const { error } = await supabase
         .from("wallet_trades")
-        .upsert(inserts, { onConflict: "signature", ignoreDuplicates: true });
+        .upsert(inserts, { onConflict: "signature" });
 
       if (error) {
         console.error("Backfill insert error:", error.message);
