@@ -258,7 +258,7 @@ export default function HomePage() {
     if (location.pathname !== "/") return;
     const createParam = new URLSearchParams(location.search).get("create");
     if (createParam === "1") {
-      navigate("/launchpad?create=1", { replace: true });
+      navigate("/launchpad/create", { replace: true });
     }
   }, [location.pathname, location.search, navigate]);
 

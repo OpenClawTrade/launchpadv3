@@ -121,6 +121,7 @@ const App = () => (
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
                     <Route path="/launchpad" element={<FunLauncherPage />} />
+                    <Route path="/launchpad/create" element={<CreateTokenPage />} />
                     
                      {/* Chain-specific launch routes */}
                      <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
