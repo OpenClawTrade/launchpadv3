@@ -115,7 +115,7 @@ function HeaderWalletBalanceInner() {
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
                 ) : (
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <img src={defaultAvatar} alt="" className="h-full w-full object-cover" />
                 )}
               </div>
               <div className="text-left min-w-0">
