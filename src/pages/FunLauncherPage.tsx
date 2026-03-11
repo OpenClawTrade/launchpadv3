@@ -184,6 +184,9 @@ export default function FunLauncherPage() {
 
   // Token filtering now handled inside AxiomTerminalGrid
 
+  // Don't render while redirecting to create page
+  if (shouldRedirectToCreate) return null;
+
   return (
     <div className="min-h-screen relative z-[1] overflow-x-hidden">
       {/* Sidebar */}
