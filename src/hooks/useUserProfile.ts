@@ -135,18 +135,17 @@ function computeTradingStats(
   }
 
   let realizedPnl = 0;
-  const pnlBuckets = { gt500: 0, gt200: 0, gt0: 0, gtNeg50: 0, ltNeg50: 0 };
+  const pnlBuckets = { gt10: 0, gt5: 0, gt0: 0, gtNeg1: 0, ltNeg1: 0 };
 
   for (const pos of allPositions.values()) {
     realizedPnl += pos.realized_pnl_sol;
-    const costBasis = pos.avg_buy_price_sol * pos.total_sold_tokens;
-    if (pos.total_bought_sol > 0 && pos.total_sold_sol > 0 && costBasis > 0) {
-      const pctReturn = ((pos.total_sold_sol - costBasis) / costBasis) * 100;
-      if (pctReturn > 500) pnlBuckets.gt500++;
-      else if (pctReturn > 200) pnlBuckets.gt200++;
-      else if (pctReturn >= 0) pnlBuckets.gt0++;
-      else if (pctReturn >= -50) pnlBuckets.gtNeg50++;
-      else pnlBuckets.ltNeg50++;
+    if (pos.total_bought_sol > 0 && pos.total_sold_sol > 0) {
+      const pnlSol = pos.realized_pnl_sol;
+      if (pnlSol > 10) pnlBuckets.gt10++;
+      else if (pnlSol > 5) pnlBuckets.gt5++;
+      else if (pnlSol >= 0) pnlBuckets.gt0++;
+      else if (pnlSol >= -1) pnlBuckets.gtNeg1++;
+      else pnlBuckets.ltNeg1++;
     }
   }
 
@@ -159,11 +158,11 @@ function computeTradingStats(
     totalSellSol,
     positions: allPositions,
     pnlDistribution: [
-      { label: ">500%", count: pnlBuckets.gt500, color: "bg-green-500" },
-      { label: "200-500%", count: pnlBuckets.gt200, color: "bg-green-400" },
-      { label: "0-200%", count: pnlBuckets.gt0, color: "bg-emerald-400" },
-      { label: "0 to -50%", count: pnlBuckets.gtNeg50, color: "bg-orange-400" },
-      { label: "< -50%", count: pnlBuckets.ltNeg50, color: "bg-red-500" },
+      { label: ">10 SOL", count: pnlBuckets.gt10, color: "bg-green-500" },
+      { label: "5-10 SOL", count: pnlBuckets.gt5, color: "bg-green-400" },
+      { label: "0-5 SOL", count: pnlBuckets.gt0, color: "bg-emerald-400" },
+      { label: "0 to -1", count: pnlBuckets.gtNeg1, color: "bg-orange-400" },
+      { label: "< -1 SOL", count: pnlBuckets.ltNeg1, color: "bg-red-500" },
     ],
   };
 }
