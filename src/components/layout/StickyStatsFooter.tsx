@@ -313,15 +313,8 @@ export function StickyStatsFooter() {
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
-          gap: "2px",
         }}>
-          <StatItem label="TKN" value={tokens.toLocaleString()} />
-          <Dot />
-          <StatItem label="AGT" value={agents.toLocaleString()} />
-          <Dot />
-          <StatItem label="FEES" value={`${feesClaimed}`} />
-          <Dot />
-          <StatItem label="POSTS" value={agentPosts.toLocaleString()} />
+          <StatItem label="TKN" value={totalLpTokens.toLocaleString()} />
         </div>
 
         {/* RIGHT: Launchpads + Region */}
