@@ -160,14 +160,15 @@ export function StickyStatsFooter() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "40px",
+        height: "36px",
         zIndex: 99999,
-        background: "hsl(var(--background))",
-        borderTop: "1px solid hsl(var(--border))",
+        background: "#0d0d0f",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
         display: "flex",
         alignItems: "center",
         width: "100%",
         boxSizing: "border-box",
+        fontFamily: "'IBM Plex Mono', monospace",
       }}
     >
       <div style={{
@@ -175,67 +176,108 @@ export function StickyStatsFooter() {
         alignItems: "center",
         justifyContent: "space-between",
         width: "100%",
-        paddingLeft: "12px",
-        paddingRight: "12px",
-        gap: "8px",
+        paddingLeft: "8px",
+        paddingRight: "8px",
+        gap: "6px",
         boxSizing: "border-box",
         overflow: "visible",
       }}>
-        {/* Stats */}
+        {/* LEFT: Wallet Tracker + Connection */}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+          {/* Wallet Tracker */}
+          <div ref={wtDropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => { setWalletTrackerOpen(!walletTrackerOpen); setRegionOpen(false); setLaunchpadOpen(false); }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "2px 7px",
+                borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: walletTrackerOpen ? "rgba(200,255,0,0.1)" : "rgba(255,255,255,0.04)",
+                cursor: "pointer",
+                fontSize: "10px",
+                fontWeight: 500,
+                color: walletTrackerOpen ? "#c8ff00" : "rgba(255,255,255,0.6)",
+                whiteSpace: "nowrap",
+                transition: "all 0.15s",
+              }}
+            >
+              <Wallet style={{ width: "11px", height: "11px" }} />
+              <span>Tracker</span>
+            </button>
+
+            {walletTrackerOpen && (
+              <div style={{
+                position: isMobile ? "fixed" : "absolute",
+                bottom: isMobile ? "44px" : "calc(100% + 6px)",
+                left: isMobile ? "50%" : 0,
+                right: isMobile ? undefined : undefined,
+                transform: isMobile ? "translateX(-50%)" : undefined,
+                zIndex: 100000,
+              }}>
+                <WalletTrackerPanel onRefresh={handleWtRefresh} refreshing={wtRefreshing} compact={isMobile} />
+              </div>
+            )}
+          </div>
+
+          {/* Connection dot */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            background: isOnline ? "rgba(0,255,170,0.06)" : "rgba(255,77,77,0.08)",
+          }}>
+            <span
+              className={isOnline ? "pulse-dot" : ""}
+              style={{
+                display: "inline-block",
+                width: "5px",
+                height: "5px",
+                borderRadius: "50%",
+                backgroundColor: isOnline ? "#00FFAA" : "#FF4D4D",
+                flexShrink: 0,
+              }}
+            />
+            <span style={{
+              fontSize: "9px",
+              fontWeight: 500,
+              color: isOnline ? "rgba(0,255,170,0.7)" : "rgba(255,77,77,0.7)",
+              whiteSpace: "nowrap",
+            }}>
+              {isOnline ? "Stable" : "Offline"}
+            </span>
+          </div>
+        </div>
+
+        {/* CENTER: Stats */}
         <div style={{
           display: "flex",
           alignItems: "center",
           flex: "1 1 0%",
+          justifyContent: "center",
           minWidth: 0,
           overflowX: "auto",
           overflowY: "hidden",
           WebkitOverflowScrolling: "touch",
           scrollbarWidth: "none",
           msOverflowStyle: "none",
+          gap: "2px",
         }}>
-          <StatItem label="TOKENS" value={tokens.toLocaleString()} />
-          <Divider />
-          <StatItem label="AGENTS" value={agents.toLocaleString()} />
-          <Divider />
-          <StatItem label="FEES" value={`${feesClaimed} SOL`} />
-          <Divider />
+          <StatItem label="TKN" value={tokens.toLocaleString()} />
+          <Dot />
+          <StatItem label="AGT" value={agents.toLocaleString()} />
+          <Dot />
+          <StatItem label="FEES" value={`${feesClaimed}`} />
+          <Dot />
           <StatItem label="POSTS" value={agentPosts.toLocaleString()} />
         </div>
 
-        {/* Connection + Launchpads + Region */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-          {/* Connection */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "2px 8px",
-            borderRadius: "4px",
-            background: isOnline ? "hsla(152, 60%, 18%, 0.6)" : "hsla(0, 60%, 18%, 0.6)",
-            border: `1px solid ${isOnline ? "hsla(152, 50%, 30%, 0.5)" : "hsla(0, 50%, 30%, 0.5)"}`,
-          }}>
-            <span
-              className={isOnline ? "pulse-dot" : ""}
-              style={{
-                display: "inline-block",
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                backgroundColor: isOnline ? "hsl(152, 60%, 45%)" : "hsl(0, 84%, 60%)",
-                flexShrink: 0,
-              }}
-            />
-            <span style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "9px",
-              fontWeight: 500,
-              color: isOnline ? "hsl(152, 50%, 55%)" : "hsl(0, 70%, 60%)",
-              whiteSpace: "nowrap",
-            }}>
-              {isOnline ? "Connection is stable" : "Connection lost"}
-            </span>
-          </div>
-
+        {/* RIGHT: Launchpads + Region */}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
           {/* Launchpad selector */}
           <div ref={lpDropdownRef} style={{ position: "relative" }}>
             <button
@@ -244,14 +286,13 @@ export function StickyStatsFooter() {
                 display: "flex",
                 alignItems: "center",
                 gap: "0px",
-                padding: "4px 8px",
+                padding: "3px 6px",
                 borderRadius: "999px",
-                border: "1px solid hsl(var(--border))",
-                background: "hsl(var(--muted))",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
                 cursor: "pointer",
               }}
             >
-              {/* Hardcoded 3 icons: pumpfun, bonk, meteora */}
               {[
                 { icon: pumpfunPill, alt: "pumpfun" },
                 { icon: bonkIcon, alt: "bonk" },
@@ -262,12 +303,12 @@ export function StickyStatsFooter() {
                   src={item.icon}
                   alt={item.alt}
                   style={{
-                    width: "18px",
-                    height: "18px",
+                    width: "16px",
+                    height: "16px",
                     borderRadius: "50%",
                     objectFit: "cover",
-                    border: "2px solid hsl(var(--muted))",
-                    marginLeft: i > 0 ? "-6px" : "0",
+                    border: "1.5px solid #0d0d0f",
+                    marginLeft: i > 0 ? "-5px" : "0",
                     position: "relative",
                     zIndex: 3 - i,
                   }}
@@ -278,50 +319,13 @@ export function StickyStatsFooter() {
             {launchpadOpen && (
               <div style={{
                 position: isMobile ? "fixed" : "absolute",
-                bottom: isMobile ? "48px" : "calc(100% + 8px)",
+                bottom: isMobile ? "44px" : "calc(100% + 6px)",
                 right: isMobile ? undefined : 0,
                 left: isMobile ? "50%" : undefined,
                 transform: isMobile ? "translateX(-50%)" : undefined,
                 zIndex: 100000,
               }}>
                 <MarketLighthouse onRefresh={handleLpRefresh} refreshing={lpRefreshing} compact={isMobile} />
-              </div>
-            )}
-          </div>
-
-          {/* Wallet Tracker */}
-          <div ref={wtDropdownRef} style={{ position: "relative" }}>
-            <button
-              onClick={() => { setWalletTrackerOpen(!walletTrackerOpen); setRegionOpen(false); setLaunchpadOpen(false); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "3px 8px",
-                borderRadius: "6px",
-                border: "1px solid hsl(var(--border))",
-                background: walletTrackerOpen ? "hsl(var(--primary) / 0.15)" : "hsl(var(--muted))",
-                cursor: "pointer",
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "hsl(var(--foreground))",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Wallet style={{ width: "12px", height: "12px" }} />
-            </button>
-
-            {walletTrackerOpen && (
-              <div style={{
-                position: isMobile ? "fixed" : "absolute",
-                bottom: isMobile ? "48px" : "calc(100% + 8px)",
-                right: isMobile ? undefined : 0,
-                left: isMobile ? "50%" : undefined,
-                transform: isMobile ? "translateX(-50%)" : undefined,
-                zIndex: 100000,
-              }}>
-                <WalletTrackerPanel onRefresh={handleWtRefresh} refreshing={wtRefreshing} compact={isMobile} />
               </div>
             )}
           </div>
@@ -333,67 +337,61 @@ export function StickyStatsFooter() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
-                padding: "3px 8px",
-                borderRadius: "6px",
-                border: "1px solid hsl(var(--border))",
-                background: "hsl(var(--muted))",
+                gap: "3px",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
                 cursor: "pointer",
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "11px",
+                fontSize: "10px",
                 fontWeight: 600,
-                color: "hsl(var(--foreground))",
+                color: "rgba(255,255,255,0.7)",
                 whiteSpace: "nowrap",
               }}
             >
               {selectedRegion}
-              <span style={{ fontSize: "10px", fontWeight: 500, color: getPingColor(currentPing) }}>
+              <span style={{ fontSize: "9px", fontWeight: 500, color: getPingColor(currentPing) }}>
                 {currentPing}ms
               </span>
-              <ChevronDown style={{ width: "12px", height: "12px", color: "hsl(var(--muted-foreground))", transform: regionOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              <ChevronDown style={{ width: "10px", height: "10px", color: "rgba(255,255,255,0.3)", transform: regionOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
             </button>
 
             {regionOpen && (
               <div style={{
                 position: isMobile ? "fixed" : "absolute",
-                bottom: isMobile ? "48px" : "calc(100% + 6px)",
+                bottom: isMobile ? "44px" : "calc(100% + 6px)",
                 right: isMobile ? undefined : 0,
                 left: isMobile ? "50%" : undefined,
                 transform: isMobile ? "translateX(-50%)" : undefined,
-                width: isMobile ? "180px" : "220px",
+                width: isMobile ? "180px" : "200px",
                 maxWidth: isMobile ? "calc(100vw - 16px)" : undefined,
-                background: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "10px",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                padding: "6px",
+                background: "#141416",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "8px",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                padding: "4px",
                 zIndex: 100000,
               }}>
                 <div style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "6px 8px 8px",
-                  borderBottom: "1px solid hsl(var(--border))",
-                  marginBottom: "4px",
+                  padding: "5px 8px 6px",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  marginBottom: "2px",
                 }}>
-                  <span style={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    color: "hsl(var(--foreground))",
-                  }}>Regions</span>
+                  <span style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>Regions</span>
                   <button onClick={handleRefresh} style={{
                     background: "none",
                     border: "none",
                     cursor: "pointer",
                     padding: "2px",
                     display: "flex",
-                    color: "hsl(var(--muted-foreground))",
+                    color: "rgba(255,255,255,0.3)",
                   }}>
                     <RefreshCw style={{
-                      width: "13px",
-                      height: "13px",
+                      width: "12px",
+                      height: "12px",
                       transition: "transform 0.6s",
                       transform: refreshing ? "rotate(360deg)" : "none",
                     }} />
@@ -410,26 +408,26 @@ export function StickyStatsFooter() {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
+                        gap: "6px",
                         width: "100%",
-                        padding: "7px 8px",
-                        borderRadius: "6px",
+                        padding: "5px 8px",
+                        borderRadius: "4px",
                         border: "none",
-                        borderLeft: isSelected ? "3px solid hsl(var(--primary))" : "3px solid transparent",
-                        background: isSelected ? "hsl(var(--muted))" : "transparent",
+                        borderLeft: isSelected ? "2px solid #c8ff00" : "2px solid transparent",
+                        background: isSelected ? "rgba(255,255,255,0.06)" : "transparent",
                         cursor: "pointer",
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: "12px",
+                        fontSize: "11px",
                         textAlign: "left",
-                        color: "hsl(var(--foreground))",
+                        color: "rgba(255,255,255,0.8)",
                         transition: "background 0.1s",
+                        fontFamily: "'IBM Plex Mono', monospace",
                       }}
-                      onMouseEnter={(e) => { if (!isSelected) (e.currentTarget.style.background = "hsl(var(--muted) / 0.5)"); }}
+                      onMouseEnter={(e) => { if (!isSelected) (e.currentTarget.style.background = "rgba(255,255,255,0.03)"); }}
                       onMouseLeave={(e) => { if (!isSelected) (e.currentTarget.style.background = "transparent"); }}
                     >
-                      <Server style={{ width: "14px", height: "14px", color: isSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))", flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontWeight: isSelected ? 700 : 500 }}>{r.label}</span>
-                      <span style={{ fontWeight: 600, color: getPingColor(ping), fontSize: "11px" }}>{ping}ms</span>
+                      <Server style={{ width: "12px", height: "12px", color: isSelected ? "#c8ff00" : "rgba(255,255,255,0.25)", flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontWeight: isSelected ? 700 : 400 }}>{r.label}</span>
+                      <span style={{ fontWeight: 600, color: getPingColor(ping), fontSize: "10px" }}>{ping}ms</span>
                     </button>
                   );
                 })}
