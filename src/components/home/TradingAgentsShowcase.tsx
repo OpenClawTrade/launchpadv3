@@ -92,7 +92,7 @@ export default function TradingAgentsShowcase() {
             <div
               key={s.id}
               className={cn(
-                "group relative rounded-xl border backdrop-blur-sm p-5 transition-all duration-300",
+                "group relative rounded-xl border backdrop-blur-sm p-5 transition-all duration-300 h-full flex flex-col",
                 "bg-gradient-to-b to-card/40 hover:scale-[1.02]",
                 s.gradientFrom,
                 s.borderColor,
@@ -140,7 +140,7 @@ export default function TradingAgentsShowcase() {
               {/* CTA */}
               <Link
                 to="/agents"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300
+                className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300
                            bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40
                            hover:shadow-[0_0_16px_hsl(var(--primary)/0.15)]"
               >

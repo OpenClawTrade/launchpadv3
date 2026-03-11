@@ -193,8 +193,8 @@ function KingCard({ token, rank, quickBuyAmount, sparklineData }: { token: KingT
         "rounded-2xl border transition-all duration-300 ease-out",
         "cursor-pointer",
         r.border, r.hoverBorder, r.glow,
-        "scale-[0.96] hover:scale-[0.99] active:scale-[0.95] md:scale-100 md:hover:scale-[1.02] md:active:scale-[0.98]",
-        r.king ? "md:flex-[1.15]" : "md:flex-1",
+        "scale-[0.96] hover:scale-[0.99] active:scale-[0.95] md:scale-[0.97] md:hover:scale-100 md:active:scale-[0.98]",
+        r.king ? "md:flex-[1.06]" : "md:flex-1",
         blink && "animate-[king-blink_0.3s_ease-in-out]",
       )}
       style={{
@@ -526,7 +526,7 @@ export function KingOfTheHill() {
 
         <div
           ref={scrollRef}
-          className="flex-1 flex flex-row md:gap-4 overflow-x-auto pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide mx-1 md:mx-0 [&>*]:snap-center [&>*]:min-w-full [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink md:[&>*]:snap-align-none"
+          className="flex-1 flex flex-row md:gap-5 overflow-x-auto md:overflow-visible pb-2 md:pb-0 snap-x snap-mandatory scrollbar-hide mx-1 md:mx-0 md:px-1 [&>*]:snap-center [&>*]:min-w-full [&>*]:flex-shrink-0 md:[&>*]:min-w-0 md:[&>*]:flex-shrink md:[&>*]:snap-align-none"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {isLoading
