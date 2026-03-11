@@ -15,12 +15,12 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// TunaPortal Solidity Source — compiled on-the-fly
+// SaturnPortal Solidity Source — compiled on-the-fly
 // ============================================================================
-const TUNA_PORTAL_SOURCE = `// SPDX-License-Identifier: MIT
+const SATURN_PORTAL_SOURCE = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract TunaToken {
+contract SaturnToken {
     string public name;
     string public symbol;
     uint8 public constant decimals = 18;
@@ -60,7 +60,7 @@ contract TunaToken {
     }
 }
 
-contract TunaPortal {
+contract SaturnPortal {
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 1e18;
     uint256 public constant BONDING_TOKENS = 800_000_000 * 1e18;
     uint256 public constant LP_TOKENS = 200_000_000 * 1e18;
@@ -222,7 +222,7 @@ contract TunaPortal {
 // ============================================================================
 // Solidity Compiler
 // ============================================================================
-async function compileTunaPortal(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
+async function compileSaturnPortal(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
   const t0 = Date.now();
   console.log("[Compile] Fetching Solidity compiler...");
 
@@ -243,7 +243,7 @@ async function compileTunaPortal(): Promise<{ abi: any[]; bytecode: `0x${string}
 
   const input = JSON.stringify({
     language: "Solidity",
-    sources: { "TunaPortal.sol": { content: TUNA_PORTAL_SOURCE } },
+    sources: { "SaturnPortal.sol": { content: SATURN_PORTAL_SOURCE } },
     settings: {
       optimizer: { enabled: true, runs: 200 },
       outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
@@ -259,8 +259,8 @@ async function compileTunaPortal(): Promise<{ abi: any[]; bytecode: `0x${string}
     }
   }
 
-  const contract = output.contracts?.["TunaPortal.sol"]?.["TunaPortal"];
-  if (!contract) throw new Error("TunaPortal not found in output");
+  const contract = output.contracts?.["SaturnPortal.sol"]?.["SaturnPortal"];
+  if (!contract) throw new Error("SaturnPortal not found in output");
 
   const bytecodeHex = contract.evm?.bytecode?.object;
   if (!bytecodeHex || bytecodeHex.length < 100) throw new Error("Invalid bytecode");
@@ -312,11 +312,11 @@ Deno.serve(async (req) => {
     }
 
     // Compile
-    console.log("[Portal Deploy] Compiling TunaPortal...");
-    const { abi, bytecode } = await compileTunaPortal();
+    console.log("[Portal Deploy] Compiling SaturnPortal...");
+    const { abi, bytecode } = await compileSaturnPortal();
 
     // Deploy
-    console.log("[Portal Deploy] Deploying TunaPortal...");
+    console.log("[Portal Deploy] Deploying SaturnPortal...");
     const deployHash = await walletClient.deployContract({
       abi,
       bytecode,
@@ -331,7 +331,7 @@ Deno.serve(async (req) => {
     const portalAddress = receipt.contractAddress;
     if (!portalAddress) throw new Error("No contract address in receipt");
 
-    console.log(`[Portal Deploy] ✅ TunaPortal deployed at: ${portalAddress}`);
+    console.log(`[Portal Deploy] ✅ SaturnPortal deployed at: ${portalAddress}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
       network: "bnb",
       chainId: 56,
       explorerUrl: `https://bscscan.com/address/${portalAddress}`,
-      message: `TunaPortal deployed at ${portalAddress}. Set BNB_PORTAL_ADDRESS secret to this value.`,
+      message: `SaturnPortal deployed at ${portalAddress}. Set BNB_PORTAL_ADDRESS secret to this value.`,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {

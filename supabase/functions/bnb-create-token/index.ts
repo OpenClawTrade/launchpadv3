@@ -20,7 +20,7 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// TunaPortal ABI (only the functions we call)
+// SaturnPortal ABI (only the functions we call)
 // ============================================================================
 const PORTAL_ABI = [
   {
@@ -287,7 +287,7 @@ Deno.serve(async (req) => {
         creatorFeeBps,
         explorerUrl: `https://bscscan.com/tx/${txHash}`,
         tokenUrl: tokenAddress ? `https://bscscan.com/token/${tokenAddress}` : null,
-        message: `Token ${body.name} ($${body.ticker}) created on BNB Chain via TunaPortal bonding curve`,
+        message: `Token ${body.name} ($${body.ticker}) created on BNB Chain via SaturnPortal bonding curve`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
