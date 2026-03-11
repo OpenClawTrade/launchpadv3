@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Search, Plus, Menu, X } from "lucide-react";
 import { XIcon } from "@/components/icons/XIcon";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
 import { EthPriceDisplay } from "./EthPriceDisplay";
 import { BnbPriceDisplay } from "./BnbPriceDisplay";
@@ -12,6 +12,8 @@ import { HeaderWalletBalance } from "./HeaderWalletBalance";
 import { useAuth } from "@/hooks/useAuth";
 import saturnLogo from "@/assets/saturn-logo.png";
 import { BRAND } from "@/config/branding";
+import { useTokenSearch } from "@/hooks/useTokenSearch";
+import { GlobalSearchDropdown } from "@/components/search/GlobalSearchDropdown";
 
 interface TopBarProps {
   onMobileMenuOpen?: () => void;
@@ -30,6 +32,11 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
   const [search, setSearch] = useState(() => isOnTrade ? (searchParams.get("q") || "") : "");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const { data: searchResults = [], isLoading: searchLoading } = useTokenSearch(debouncedQuery);
 
   useEffect(() => {
     if (isOnTrade) {
@@ -37,6 +44,25 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
     } else {
       setSearch("");
     }
+  }, [location.pathname]);
+
+  // Debounce search query
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(search.trim());
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [search]);
+
+  // Show dropdown when we have a query
+  useEffect(() => {
+    setShowDropdown(debouncedQuery.length >= 2);
+  }, [debouncedQuery]);
+
+  // Close dropdown on route change
+  useEffect(() => {
+    setShowDropdown(false);
   }, [location.pathname]);
 
   const handleSearchChange = useCallback((value: string) => {
@@ -51,14 +77,21 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
   }, [isOnTrade, setSearchParams]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && search.trim() && !isOnTrade) {
-      navigate(`/trade?q=${encodeURIComponent(search.trim())}`);
-      setMobileSearchOpen(false);
+    if (e.key === "Enter" && search.trim()) {
+      // If on trade page, just filter locally; otherwise navigate
+      if (!isOnTrade) {
+        navigate(`/trade?q=${encodeURIComponent(search.trim())}`);
+        setMobileSearchOpen(false);
+      }
+      setShowDropdown(false);
     }
     if (e.key === "Escape") {
+      setShowDropdown(false);
       setMobileSearchOpen(false);
     }
   }, [search, isOnTrade, navigate]);
+
+  const closeDropdown = useCallback(() => setShowDropdown(false), []);
 
   const { goToPanel } = usePanelNav();
 
@@ -90,7 +123,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
               <ChainSwitcher />
             </div>
 
-            {/* Desktop search */}
+            {/* Desktop search with dropdown */}
             <div className="hidden md:block relative w-56 lg:w-72 xl:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground/60" />
               <input
@@ -99,6 +132,7 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
+                onFocus={() => { if (debouncedQuery.length >= 2) setShowDropdown(true); }}
                 className="w-full h-9 pl-9 pr-3 text-xs rounded-lg outline-none
                            text-foreground placeholder-muted-foreground/50
                            font-mono tracking-wide
@@ -107,6 +141,14 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
                            focus:border-primary/40 focus:ring-1 focus:ring-primary/20
                            focus:bg-card/40 focus:shadow-[0_0_12px_hsl(84_81%_44%/0.08)]"
               />
+              {showDropdown && (
+                <GlobalSearchDropdown
+                  results={searchResults}
+                  isLoading={searchLoading}
+                  query={debouncedQuery}
+                  onClose={closeDropdown}
+                />
+              )}
             </div>
 
             {/* Mobile search icon */}
@@ -200,12 +242,23 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
               />
             </div>
             <button
-              onClick={() => setMobileSearchOpen(false)}
+              onClick={() => { setMobileSearchOpen(false); setShowDropdown(false); }}
               className="flex items-center justify-center h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground transition-colors bg-card/20"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
+          {/* Mobile search results */}
+          {debouncedQuery.length >= 2 && (
+            <div className="flex-1 overflow-y-auto px-2">
+              <GlobalSearchDropdown
+                results={searchResults}
+                isLoading={searchLoading}
+                query={debouncedQuery}
+                onClose={() => setMobileSearchOpen(false)}
+              />
+            </div>
+          )}
         </div>
       )}
     </>
