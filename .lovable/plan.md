@@ -1,45 +1,50 @@
 
 
-## Two Issues to Fix
+## Wallet Trade Notifications with Sound
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+### Current State
+- `wallet_trades` table exists with realtime enabled (`supabase_realtime` publication)
+- `CopyTrading.tsx` already subscribes to `wallet_trades` INSERTs and shows toasts — but only when that component is mounted
+- `useTradeSounds.ts` hook exists with `playBuy()` and `playSell()` functions using Web Audio API
+- **Nothing writes to `wallet_trades`** — the table is empty. There's no edge function or webhook ingesting on-chain trades from tracked wallets
+- `HELIUS_API_KEY` secret exists, which is needed for Helius webhooks
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+### The Problem
+The entire pipeline is broken: no backend process monitors tracked wallets on-chain and writes trades into `wallet_trades`. Without that, realtime subscriptions have nothing to deliver.
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+### Plan
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+#### 1. Create edge function: `wallet-trade-webhook`
+Receives Helius enhanced transaction webhook POSTs. Parses swap/trade data (token mint, SOL amount, buy/sell direction, signature) and inserts into `wallet_trades` table. Validates requests via a `HELIUS_WEBHOOK_SECRET` header. This is the critical missing piece — it turns on-chain activity into database rows that trigger realtime events.
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+#### 2. Create edge function: `wallet-tracker-sync`
+Called when users add/remove tracked wallets. Aggregates all unique wallet addresses from `tracked_wallets` table and creates/updates a Helius webhook via their API (`HELIUS_API_KEY` already exists). Stores the webhook ID so future calls update the same webhook rather than creating new ones. This keeps Helius monitoring the right addresses.
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+- Will need a new secret `HELIUS_WEBHOOK_SECRET` for authenticating incoming webhook payloads.
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
+#### 3. Create hook: `useWalletTradeNotifications`
+A global hook mounted in `StickyStatsFooter.tsx` (always visible) that:
+- Loads the user's tracked wallet addresses once
+- Subscribes to `postgres_changes` INSERT on `wallet_trades` 
+- When a trade arrives for a tracked wallet: shows a toast notification AND plays the appropriate sound (`playBuy` for buys, `playSell` for sells) using the existing `useTradeSounds` hook
+- No polling — purely event-driven via Supabase Realtime websocket
 
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
+#### 4. Wire into WalletTrackerPanel
+- Call `wallet-tracker-sync` edge function when adding/removing wallets to keep Helius webhook address list current
+- Update "Last Active" column in real-time when trades arrive
 
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
+#### 5. Register edge functions in config.toml
+Add `wallet-trade-webhook` and `wallet-tracker-sync` with `verify_jwt = false`.
 
-### Technical Details
+### Files to Create
+- `supabase/functions/wallet-trade-webhook/index.ts`
+- `supabase/functions/wallet-tracker-sync/index.ts`
+- `src/hooks/useWalletTradeNotifications.ts`
 
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+### Files to Edit
+- `src/components/layout/StickyStatsFooter.tsx` — mount `useWalletTradeNotifications`
+- `src/components/layout/WalletTrackerPanel.tsx` — call sync on add/remove, receive realtime updates
 
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
-
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+### Secret Needed
+- `HELIUS_WEBHOOK_SECRET` — a random string to validate incoming webhook requests
 
