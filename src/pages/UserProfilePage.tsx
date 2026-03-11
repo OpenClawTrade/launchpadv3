@@ -180,17 +180,26 @@ export default function UserProfilePage() {
                 <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Balance</span>
               </div>
               <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Bought</p>
-                  <p className="text-base font-bold font-mono text-foreground">{tradingStats.totalBuySol.toFixed(4)} SOL</p>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Wallet className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">SOL Balance</p>
+                    <p className="text-lg font-bold font-mono text-foreground">
+                      {solBalance !== null && solBalance !== undefined ? `${solBalance.toFixed(4)} SOL` : "—"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Sold</p>
-                  <p className="text-base font-bold font-mono text-foreground">{tradingStats.totalSellSol.toFixed(4)} SOL</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Unrealized</p>
-                  <p className="text-sm font-mono text-muted-foreground">—</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Bought</p>
+                    <p className="text-sm font-bold font-mono text-foreground">{tradingStats.totalBuySol.toFixed(4)} SOL</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground/60 font-mono uppercase">Total Sold</p>
+                    <p className="text-sm font-bold font-mono text-foreground">{tradingStats.totalSellSol.toFixed(4)} SOL</p>
+                  </div>
                 </div>
               </div>
             </div>
