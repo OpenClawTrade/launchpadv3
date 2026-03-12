@@ -217,8 +217,8 @@ export async function signAndSendTransaction(
 
   console.log("[privy] signAndSendTransaction URL:", url);
 
-  // Generate authorization signature using node:crypto (matching Privy docs exactly)
-  const authSignature = getAuthorizationSignature(url, bodyObj);
+  // Generate authorization signature using Web Crypto API
+  const authSignature = await getAuthorizationSignature(url, bodyObj);
 
   const res = await fetch(url, {
     method: "POST",
