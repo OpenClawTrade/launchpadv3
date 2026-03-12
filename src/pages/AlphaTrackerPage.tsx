@@ -156,6 +156,7 @@ export default function AlphaTrackerPage() {
               const posKey = `${trade.wallet_address}::${trade.token_mint}`;
               const position = positions.get(posKey);
               const mcap = trade.price_sol != null ? trade.price_sol * 1_000_000_000 : null;
+              const nativeSymbol = trade.chain === 'bnb' ? 'BNB' : 'SOL';
 
               return (
                 <div
