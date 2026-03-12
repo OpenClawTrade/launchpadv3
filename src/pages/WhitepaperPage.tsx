@@ -104,7 +104,7 @@ export default function WhitepaperPage() {
                   {[
                     { mode: "New Pairs", desc: "Freshly launched tokens — catch tokens at their earliest stage with bonding curve pricing on either chain." },
                     { mode: "Final Stretch", desc: "Tokens approaching graduation threshold — high momentum plays ready to migrate to full AMM liquidity." },
-                    { mode: "Migrated", desc: "Graduated tokens trading on Meteora CP-AMM (Solana) or PancakeSwap (BNB) with permanent locked liquidity." },
+                    { mode: "Migrated", desc: "Graduated tokens that have completed their bonding curve and migrated to full AMM liquidity pools." },
                   ].map((item) => (
                     <Card key={item.mode} className="p-4 bg-card/50">
                       <h4 className="font-semibold text-foreground">{item.mode}</h4>
