@@ -204,7 +204,7 @@ export default function AlphaTrackerPage() {
 
                   {/* SOL/BNB Amount */}
                   <span className={`text-[10px] font-mono text-right tabular-nums ${isBuy ? "text-green-400/90" : "text-red-400/90"}`}>
-                    {isBuy ? "+" : "-"}{trade.amount_sol?.toFixed(3)}
+                    {isBuy ? "+" : "-"}{trade.amount_sol?.toFixed(3)} {nativeSymbol}
                   </span>
 
                   {/* Token Amount */}
