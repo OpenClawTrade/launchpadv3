@@ -235,6 +235,21 @@ export default function PanelUnifiedDashboard() {
   const [sendOpen, setSendOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountSecurityOpen, setAccountSecurityOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+
+  // Profile for settings modal
+  const [profile, setProfile] = useState<{ display_name?: string | null; avatar_url?: string | null; username?: string | null } | null>(null);
+  useEffect(() => {
+    if (!activeAddress) return;
+    const fetchProfile = async () => {
+      const col = isBnb ? "evm_wallet_address" : "solana_wallet_address";
+      const { data } = await supabase.from("profiles").select("display_name, avatar_url, username").eq(col, activeAddress).maybeSingle();
+      if (data) setProfile(data);
+    };
+    fetchProfile();
+  }, [activeAddress, isBnb, settingsOpen]);
 
   // Export wallet
   let exportWalletFn: any = null;
