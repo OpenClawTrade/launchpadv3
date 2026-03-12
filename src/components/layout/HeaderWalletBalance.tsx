@@ -20,6 +20,7 @@ function HeaderWalletBalanceInner() {
   const { walletAddress: embeddedAddress, getBalance } = useSolanaWalletWithPrivy();
   const { chain } = useChain();
   const evmWallet = useEvmWallet();
+  const privyEvm = usePrivyEvmWallet();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
