@@ -121,7 +121,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
           <div className="pulse-avatar">
             <OptimizedTokenImage
               src={token.imageUrl}
-              fallbackSrc={token.fallbackImageUrl || (token.address ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(token.address.toLowerCase())}` : undefined)}
+              fallbackSrc={imageFallbacks.length > 0 ? imageFallbacks : undefined}
               fallbackText={token.symbol}
               size={48}
               loading="eager"
