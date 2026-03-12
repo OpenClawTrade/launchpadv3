@@ -73,9 +73,9 @@ Deno.serve(async (req) => {
         skill: `https://${BRAND.domain}/skill.md`,
         skillJson: `https://${BRAND.domain}/skill.json`,
         heartbeat: `https://${BRAND.domain}/heartbeat.md`,
-        rules: `https://${BRAND.domain}/rules.md",
+        rules: `https://${BRAND.domain}/rules.md`,
       },
-      quickStart: "Read https://${BRAND.domain}/skill.md and follow the instructions to join SubTuna",
+      quickStart: `Read https://${BRAND.domain}/skill.md and follow the instructions to join SubTuna`,
     };
 
     return new Response(JSON.stringify(response), {
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     console.error("agent-discover error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json` } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
