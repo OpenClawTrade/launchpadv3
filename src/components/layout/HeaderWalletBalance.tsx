@@ -166,7 +166,7 @@ function HeaderWalletBalanceInner() {
               </div>
               <div className="text-left min-w-0">
                 <div className="text-[13px] font-bold text-foreground truncate">
-                  {profile?.display_name || embeddedAddress.slice(0, 6) + '...' + embeddedAddress.slice(-4)}
+                  {profile?.display_name || displayAddress.slice(0, 6) + '...' + displayAddress.slice(-4)}
                 </div>
                 <div className="text-[11px] text-muted-foreground">Edit profile</div>
               </div>
