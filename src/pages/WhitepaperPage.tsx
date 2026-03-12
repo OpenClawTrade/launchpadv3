@@ -129,20 +129,11 @@ export default function WhitepaperPage() {
                   {BRAND.name} supports token launches on both Solana and BNB Chain. Each chain uses its own bonding curve infrastructure, with shared creation modes across the UI.
                 </p>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Launch Modes</h3>
-                <div className="space-y-4">
-                  {[
-                    { mode: "Random Mode", desc: "AI-generated narrative-driven token concepts with procedurally generated meme images." },
-                    { mode: "Describe Mode", desc: "Prompt-to-asset generation — describe your concept and AI generates the complete token package." },
-                    { mode: "Custom Mode", desc: "Manual metadata entry with custom image upload (name, ticker, description, image, social links)." },
-                    { mode: "Phantom Mode", desc: "User-paid launches via connected wallet with configurable trading fees (0.1% to 10%)." },
-                  ].map((item) => (
-                    <Card key={item.mode} className="p-4 bg-card/50">
-                      <h4 className="font-semibold text-foreground">{item.mode}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
-                    </Card>
-                  ))}
-                </div>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Launch Mode</h3>
+                <Card className="p-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground">Phantom Mode</h4>
+                  <p className="text-sm text-muted-foreground mt-1">User-paid launches via connected wallet with configurable trading fees (0.1% to 10%). Supports custom metadata, image upload, and social links.</p>
+                </Card>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana — Meteora Dynamic Bonding Curve</h3>
                 <div className="grid sm:grid-cols-2 gap-4 mt-4">
