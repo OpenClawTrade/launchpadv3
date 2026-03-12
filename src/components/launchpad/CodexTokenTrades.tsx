@@ -51,9 +51,10 @@ interface Props {
   isLoading: boolean;
   holders?: HolderInfo[];
   currentPriceUsd?: number;
+  isBsc?: boolean;
 }
 
-export function CodexTokenTrades({ events, isLoading, holders = [], currentPriceUsd = 0 }: Props) {
+export function CodexTokenTrades({ events, isLoading, holders = [], currentPriceUsd = 0, isBsc = false }: Props) {
   const holdersMap = useMemo(() => {
     const m = new Map<string, HolderInfo>();
     for (const h of holders) m.set(h.address, h);
