@@ -18,6 +18,7 @@ interface BnbTradePanelProps {
 export function BnbTradePanel({ tokenAddress, ticker, name, imageUrl }: BnbTradePanelProps) {
   const { isAuthenticated, login } = useAuth();
   const { address: evmAddress } = usePrivyEvmWallet();
+  const { executeBnbSwap, isLoading } = useBnbSwap();
   const [isBuy, setIsBuy] = useState(true);
   const [amount, setAmount] = useState("0.05");
   const userWallet = evmAddress || "unknown";
@@ -46,7 +47,7 @@ export function BnbTradePanel({ tokenAddress, ticker, name, imageUrl }: BnbTrade
     });
 
     try {
-      const result = await executeBnbSwap(tokenAddress, action, amtNum, userWallet, 3, ticker, name);
+      const result = await executeBnbSwap(tokenAddress, action, amtNum, userWallet, 3);
       if (result.success) {
         toast.success(`✅ ${isBuy ? 'Buy' : 'Sell'} Executed!`, {
           id: toastId,
