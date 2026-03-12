@@ -22,7 +22,8 @@ import {
   Wallet, Briefcase, DollarSign, Rocket, Users, TrendingUp, Coins,
   ArrowRight, Plus, Copy, Check, CheckCircle, Loader2, Gift, ExternalLink,
   ArrowUpRight, ArrowDownLeft, Repeat, Key, ChevronDown, ChevronUp,
-  Twitter, Sparkles, BarChart3, Download, Shield, Zap, Target
+  Twitter, Sparkles, BarChart3, Download, Shield, Zap, Target,
+  Settings, User, ArrowDownToLine
 } from "lucide-react";
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
