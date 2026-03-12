@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Token, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,8 +24,20 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
   const { toast } = useToast();
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
+  const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
 
   const isGraduated = token.status === 'graduated';
+
+  // Fetch on-chain token balance for display
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress && token.mint_address && tradeType === 'sell') {
+      getTokenBalance(token.mint_address)
+        .then(bal => setOnChainTokenBalance(bal))
+        .catch(() => setOnChainTokenBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, token.mint_address, getTokenBalance, tradeType]);
+
+  const displayBalance = (onChainTokenBalance !== null && onChainTokenBalance > 0) ? onChainTokenBalance : userBalance;
 
   const handleQuickBuy = async (solAmount: number, index: number) => {
     if (!isAuthenticated) {
@@ -202,7 +214,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
               size="sm"
               className="h-12 flex-col gap-0.5 hover:bg-red-500/10 hover:border-red-500/50 hover:text-red-500"
               onClick={() => handleQuickSell(percentage, index)}
-              disabled={loadingIndex !== null || userBalance <= 0}
+              disabled={loadingIndex !== null || displayBalance <= 0}
             >
               {loadingIndex === index + 10 ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -210,7 +222,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
                 <>
                   <span className="font-bold">{percentage}%</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {formatTokenAmount((userBalance * percentage) / 100)}
+                    {formatTokenAmount((displayBalance * percentage) / 100)}
                   </span>
                 </>
               )}
@@ -222,7 +234,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
       {/* Balance Info */}
       {tradeType === 'sell' && (
         <p className="text-xs text-center text-muted-foreground">
-          Balance: {formatTokenAmount(userBalance)} {token.ticker}
+          Balance: {formatTokenAmount(displayBalance)} {token.ticker}
         </p>
       )}
     </div>

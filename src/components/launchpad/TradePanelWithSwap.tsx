@@ -9,6 +9,7 @@ import { Loader2, Wallet, AlertTriangle, ChevronDown, CheckCircle2, XCircle, Ext
 import { useRugCheck } from "@/hooks/useRugCheck";
 import { useToast } from "@/hooks/use-toast";
 import { useRealSwap } from "@/hooks/useRealSwap";
+import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { ProfitCardModal, type ProfitCardData } from "@/components/launchpad/ProfitCardModal";
 
 interface TradePanelWithSwapProps {
@@ -21,6 +22,7 @@ const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwapProps) {
   const { isAuthenticated, login, solanaAddress, profileId } = useAuth();
   const { executeRealSwap, isLoading: isSwapLoading, getBalance } = useRealSwap();
+  const { getTokenBalance } = useSolanaWalletWithPrivy();
   const { toast } = useToast();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState<string>('');
@@ -29,6 +31,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   const [customSlippage, setCustomSlippage] = useState<string>('');
   const [showCustomSlippage, setShowCustomSlippage] = useState(false);
   const [solBalance, setSolBalance] = useState<number | null>(null);
+  const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
   const [instaBuy, setInstaBuy] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(true);
@@ -37,6 +40,8 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
+  // Always prefer on-chain balance over stale DB value
+  const effectiveTokenBalance = (onChainTokenBalance !== null && onChainTokenBalance > 0) ? onChainTokenBalance : userBalance;
 
   // Fetch real SOL balance
   useEffect(() => {
@@ -44,6 +49,18 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       getBalance().then(setSolBalance).catch(() => setSolBalance(null));
     }
   }, [isAuthenticated, solanaAddress, getBalance, isLoading]);
+
+  // Fetch real on-chain token balance for sells
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress && token.mint_address) {
+      getTokenBalance(token.mint_address)
+        .then(bal => {
+          console.log(`[TradePanelWithSwap] On-chain token balance: ${bal}`);
+          setOnChainTokenBalance(bal);
+        })
+        .catch(() => setOnChainTokenBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, token.mint_address, getTokenBalance, isLoading]);
 
   const virtualSol = (token.virtual_sol_reserves || 30) + (token.real_sol_reserves || 0);
   const virtualToken = (token.virtual_token_reserves || 1_000_000_000) - (token.real_token_reserves || 0);
@@ -63,7 +80,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       setAmount(value.toString());
       setSelectedPreset(index);
     } else {
-      const tokenAmount = (userBalance * value) / 100;
+      const tokenAmount = (effectiveTokenBalance * value) / 100;
       setAmount(tokenAmount.toString());
       setSelectedPreset(index);
     }
@@ -74,7 +91,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       const maxSol = Math.max(0, solBalance - 0.005);
       setAmount(maxSol.toFixed(4));
     } else if (!isBuy) {
-      setAmount(userBalance.toString());
+      setAmount(effectiveTokenBalance.toString());
     }
     setSelectedPreset(null);
   };
@@ -99,7 +116,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       toast({ title: "Invalid amount", description: `Entered: "${amount}", parsed: ${tradeAmount}`, variant: "destructive" });
       return;
     }
-    if (!isBuy && tradeAmount > userBalance) {
+    if (!isBuy && tradeAmount > effectiveTokenBalance) {
       toast({ title: "Insufficient token balance", variant: "destructive" });
       return;
     }
@@ -321,7 +338,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
             <span className="text-[10px] font-mono text-muted-foreground">
               Bal: {isBuy
                 ? (solBalance !== null ? `${solBalance.toFixed(4)} SOL` : '—')
-                : `${formatTokenAmount(userBalance)} ${token.ticker}`}
+                : `${formatTokenAmount(effectiveTokenBalance)} ${token.ticker}`}
             </span>
           </div>
           <div className="relative bg-background/60 border border-border/50 rounded-lg hover:border-border/80 focus-within:border-primary/50 transition-colors">
