@@ -906,7 +906,7 @@ export default function PanelUnifiedDashboard() {
                   <p className="text-xs font-bold">Your Referral Link</p>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-3">
-                  Earn <span className="text-[#f97316] font-bold">5%</span> of trading fees from referred users.
+                  Earn <span className="text-[#f97316] font-bold">50%</span> of trading fees from referred users.
                 </p>
                 <div className="flex items-center gap-2">
                   <div
