@@ -84,7 +84,7 @@ export default function WhitepaperPage() {
                   <li><strong className="text-foreground">AI Trading Agents:</strong> Autonomous agents with Guard, Core, and Alpha strategies that trade on your behalf</li>
                   <li><strong className="text-foreground">Alpha Tracker:</strong> Track smart-money wallets and copy-trade winning positions in real-time</li>
                   <li><strong className="text-foreground">X Tracker:</strong> Monitor KOL mentions and sentiment from Twitter/X for early signals</li>
-                  <li><strong className="text-foreground">Leverage Trading:</strong> Amplified exposure via Aster DEX on BNB Chain with built-in risk management</li>
+                  <li><strong className="text-foreground">Leverage Trading:</strong> Amplified exposure on BNB Chain via our partnership with AsterDEX, backed by deep liquidity pool guarantees</li>
                   
                 </ul>
               </section>
@@ -104,7 +104,7 @@ export default function WhitepaperPage() {
                   {[
                     { mode: "New Pairs", desc: "Freshly launched tokens — catch tokens at their earliest stage with bonding curve pricing on either chain." },
                     { mode: "Final Stretch", desc: "Tokens approaching graduation threshold — high momentum plays ready to migrate to full AMM liquidity." },
-                    { mode: "Migrated", desc: "Graduated tokens trading on Meteora CP-AMM (Solana) or PancakeSwap (BNB) with permanent locked liquidity." },
+                    { mode: "Migrated", desc: "Graduated tokens that have completed their bonding curve and migrated to full AMM liquidity pools." },
                   ].map((item) => (
                     <Card key={item.mode} className="p-4 bg-card/50">
                       <h4 className="font-semibold text-foreground">{item.mode}</h4>
@@ -113,45 +113,10 @@ export default function WhitepaperPage() {
                   ))}
                 </div>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Trade Execution by Chain</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 text-foreground">Component</th>
-                        <th className="text-left py-2 px-2 text-foreground">Solana</th>
-                        <th className="text-left py-2 px-2 text-foreground">BNB Chain</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-muted-foreground">
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Swap Router</td>
-                        <td className="py-2 px-2">Jupiter V6 API</td>
-                        <td className="py-2 px-2">OpenOcean Aggregator</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">MEV Protection</td>
-                        <td className="py-2 px-2">Jito Block Engine</td>
-                        <td className="py-2 px-2">—</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Data Feed</td>
-                        <td className="py-2 px-2">Codex + DexScreener</td>
-                        <td className="py-2 px-2">DexScreener (BSC)</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Default Slippage</td>
-                        <td className="py-2 px-2">5% (configurable)</td>
-                        <td className="py-2 px-2">5% (configurable)</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-2">Wallet</td>
-                        <td className="py-2 px-2">Privy Embedded + Phantom</td>
-                        <td className="py-2 px-2">Privy Embedded + MetaMask</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">One-Click Trade Execution</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  All trades across both Solana and BNB Chain are executed with a single click through Privy embedded wallets. The platform automatically selects the best swap route and handles transaction signing seamlessly — no manual wallet approvals required.
+                </p>
               </section>
 
               {/* Section 3 — Token Launchpad */}
@@ -164,20 +129,11 @@ export default function WhitepaperPage() {
                   {BRAND.name} supports token launches on both Solana and BNB Chain. Each chain uses its own bonding curve infrastructure, with shared creation modes across the UI.
                 </p>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Launch Modes</h3>
-                <div className="space-y-4">
-                  {[
-                    { mode: "Random Mode", desc: "AI-generated narrative-driven token concepts with procedurally generated meme images." },
-                    { mode: "Describe Mode", desc: "Prompt-to-asset generation — describe your concept and AI generates the complete token package." },
-                    { mode: "Custom Mode", desc: "Manual metadata entry with custom image upload (name, ticker, description, image, social links)." },
-                    { mode: "Phantom Mode", desc: "User-paid launches via connected wallet with configurable trading fees (0.1% to 10%)." },
-                  ].map((item) => (
-                    <Card key={item.mode} className="p-4 bg-card/50">
-                      <h4 className="font-semibold text-foreground">{item.mode}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
-                    </Card>
-                  ))}
-                </div>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Launch Mode</h3>
+                <Card className="p-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground">Phantom Mode</h4>
+                  <p className="text-sm text-muted-foreground mt-1">User-paid launches via connected wallet with configurable trading fees (0.1% to 10%). Supports custom metadata, image upload, and social links.</p>
+                </Card>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana — Meteora Dynamic Bonding Curve</h3>
                 <div className="grid sm:grid-cols-2 gap-4 mt-4">
@@ -203,7 +159,6 @@ export default function WhitepaperPage() {
                 <div className="grid sm:grid-cols-2 gap-4 mt-4">
                   {[
                     { label: "Total Supply", value: "1,000,000,000 tokens" },
-                    { label: "Contract", value: "Flap.sh Portal (0xe2cE…9De0)" },
                     { label: "Graduation Threshold", value: "~16 BNB" },
                     { label: "Post-Graduation DEX", value: "PancakeSwap" },
                     { label: "Token Standard", value: "BEP-20" },
@@ -375,15 +330,15 @@ export default function WhitepaperPage() {
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  {BRAND.name} provides leverage trading via <strong className="text-foreground">Aster DEX</strong> on BNB Chain, enabling amplified exposure with built-in risk management for perpetual contract trading.
+                  {BRAND.name} is partnered with <strong className="text-foreground"><a href="https://asterdex.com" target="_blank" rel="noopener noreferrer" className="text-success hover:underline">AsterDEX</a></strong> to leverage their deep liquidity pools for perpetual contract trading on BNB Chain. This partnership enables users to trade with very high amounts of crypto, with pool guarantees from AsterDEX ensuring all trades are settled and paid out reliably.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   {[
-                    { label: "Protocol", value: "Aster DEX (BNB Chain)" },
+                    { label: "Partner", value: "AsterDEX (asterdex.com)" },
                     { label: "Type", value: "Perpetual Contracts" },
                     { label: "Collateral", value: "BNB / USDT" },
-                    { label: "Risk Management", value: "Built-in liquidation engine" },
+                    { label: "Liquidity", value: "AsterDEX pool-guaranteed" },
                   ].map((item) => (
                     <div key={item.label} className="flex justify-between text-sm p-3 bg-card/30 rounded">
                       <span className="text-muted-foreground">{item.label}</span>
@@ -403,38 +358,19 @@ export default function WhitepaperPage() {
                   {BRAND.name} implements transparent fee models on both chains, with trading fees routed through platform infrastructure for controlled redistribution to creators.
                 </p>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana Fee Structure</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-2 text-foreground">Token Type</th>
-                        <th className="text-left py-3 px-2 text-foreground">Fee</th>
-                        <th className="text-left py-3 px-2 text-foreground">Creator Share</th>
-                        <th className="text-left py-3 px-2 text-foreground">Platform Share</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-muted-foreground">
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Standard Launch</td>
-                        <td className="py-3 px-2">2%</td>
-                        <td className="py-3 px-2 text-success">50%</td>
-                        <td className="py-3 px-2">50%</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Phantom Mode</td>
-                        <td className="py-3 px-2">0.1–10%</td>
-                        <td className="py-3 px-2 text-success">50%</td>
-                        <td className="py-3 px-2">50%</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Agent Token</td>
-                        <td className="py-3 px-2">2%</td>
-                        <td className="py-3 px-2 text-success">30% Creator / 30% Agent</td>
-                        <td className="py-3 px-2">40%</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana Fee Structure (Phantom Mode)</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { label: "Trading Fee", value: "0.1–10% (configurable)" },
+                    { label: "Creator Share", value: "50%" },
+                    { label: "Platform Share", value: "50%" },
+                    { label: "Distribution", value: "Via Position NFT fees" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex justify-between text-sm p-3 bg-card/30 rounded">
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="text-foreground font-medium">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">BNB Chain Fee Structure — Split Vault</h3>
@@ -526,7 +462,6 @@ export default function WhitepaperPage() {
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Wallet Security</h3>
                 <ul className="space-y-2 text-muted-foreground">
                   <li><strong className="text-foreground">Trading Agent Wallets:</strong> AES-256-GCM encryption via Web Crypto API</li>
-                  <li><strong className="text-foreground">Deployer Wallets:</strong> Fresh keypair per token, never reused</li>
                   <li><strong className="text-foreground">Treasury:</strong> Private keys isolated in Edge Functions, never client-side</li>
                 </ul>
 
