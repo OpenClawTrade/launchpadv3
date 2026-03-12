@@ -147,7 +147,7 @@ export function TradePanel({ token, userBalance = 0, userSolBalance = 0, onTrade
                 {isBuy ? 'You pay' : 'You sell'}
               </span>
               <span className="text-muted-foreground">
-                Balance: {isBuy ? formatSolAmount(userSolBalance) : formatTokenAmount(userBalance)} {isBuy ? 'SOL' : token.ticker}
+                Balance: {isBuy ? formatSolAmount(userSolBalance) : formatTokenAmount(effectiveTokenBalance)} {isBuy ? 'SOL' : token.ticker}
               </span>
             </div>
             <div className="relative">
