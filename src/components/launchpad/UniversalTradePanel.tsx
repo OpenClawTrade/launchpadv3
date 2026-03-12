@@ -199,6 +199,23 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
       setShowLatency(true);
       setTimeout(() => setShowLatency(false), 5000);
 
+      if (result.signature) {
+        supabase.functions.invoke('launchpad-swap', {
+          body: {
+            mintAddress: token.mint_address,
+            userWallet: solanaAddress,
+            amount: numericAmount,
+            isBuy,
+            profileId: profileId || undefined,
+            signature: result.signature,
+            outputAmount: result.outputAmount ?? null,
+            tokenName: token.name,
+            tokenTicker: token.ticker,
+            mode: 'alpha_only',
+          },
+        }).catch((err) => console.warn('[UniversalTradePanel] alpha record failed (non-fatal):', err));
+      }
+
       setAmount(''); setQuote(null); setSelectedPreset(null);
 
       // Show profit card modal

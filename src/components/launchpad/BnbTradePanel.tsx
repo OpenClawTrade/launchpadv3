@@ -61,7 +61,7 @@ export function BnbTradePanel({ tokenAddress, ticker, name, imageUrl }: BnbTrade
     } catch (err: any) {
       toast.error("❌ Swap Failed", { id: toastId, description: err?.message?.slice(0, 100) });
     }
-  }, [isAuthenticated, isBuy, amount, tokenAddress, ticker, userWallet, executeBnbSwap, login]);
+  }, [isAuthenticated, isBuy, amount, tokenAddress, ticker, name, userWallet, evmAddress, executeBnbSwap, login]);
 
   return (
     <div className="trade-glass-panel p-4 md:p-3 space-y-3">
