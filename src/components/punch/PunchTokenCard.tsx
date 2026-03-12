@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import type { PunchToken } from "@/hooks/usePunchTokenFeed";
 import type { VoteCounts } from "@/hooks/usePunchVotes";
 import type { TokenMarketData } from "@/hooks/usePunchMarketData";
+import { formatChange24h } from "@/lib/formatters";
 
 function timeAgo(dateStr: string): string {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
