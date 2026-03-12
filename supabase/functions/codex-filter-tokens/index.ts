@@ -238,11 +238,18 @@ Deno.serve(async (req) => {
       const address = r.token?.info?.address ?? null;
       const isBsc = safeNetworkId === BSC_NETWORK_ID;
       const dexChain = isBsc ? "bsc" : "solana";
-      const dexScreenerImage = address
-        ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${address}.png`
+      const normalizedAddress = normalizeAddress(address);
+      const dexScreenerImage = normalizedAddress
+        ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${normalizedAddress}.png`
         : null;
-      const identiconImage = address
-        ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(address.toLowerCase())}`
+      const oneInchImage = isBsc && normalizedAddress
+        ? `https://tokens.1inch.io/56/${normalizedAddress}.png`
+        : null;
+      const pancakeSwapImage = isBsc && normalizedAddress
+        ? `https://tokens.pancakeswap.finance/images/symbol/${normalizedAddress}.png`
+        : null;
+      const identiconImage = normalizedAddress
+        ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(normalizedAddress)}`
         : null;
 
       // Upstream Codex image (the launchpad's own token image, if available)
@@ -253,17 +260,26 @@ Deno.serve(async (req) => {
       let fallbackImageUrl: string | null;
 
       if (isBsc) {
-        // BSC: prefer non-Dex launchpad metadata image only when it is address-bound.
-        // This avoids random mismatched images while still supporting very new pairs not yet indexed by DexScreener.
-        const verifiedLaunchpadImage = isAddressBoundImageUrl(codexImage, address) ? codexImage : null;
+        // BSC: prioritize launchpad/Codex media when trusted, then deterministic CDN fallbacks.
+        const launchpadPreferredImage = (
+          isAddressBoundImageUrl(codexImage, normalizedAddress) ||
+          isTrustedBscImageUrl(codexImage)
+        ) ? codexImage : null;
 
-        imageUrl = verifiedLaunchpadImage || dexScreenerImage || identiconImage;
-        fallbackImageUrl = verifiedLaunchpadImage
-          ? (dexScreenerImage || identiconImage)
-          : (dexScreenerImage ? identiconImage : null);
+        const bscImageCandidates = uniqueNonEmpty([
+          launchpadPreferredImage,
+          dexScreenerImage,
+          oneInchImage,
+          pancakeSwapImage,
+          identiconImage,
+        ]);
+
+        imageUrl = bscImageCandidates[0] ?? null;
+        fallbackImageUrl = bscImageCandidates[1] ?? null;
       } else {
-        imageUrl = codexImage || dexScreenerImage || identiconImage;
-        fallbackImageUrl = codexImage ? dexScreenerImage : identiconImage;
+        const solanaImageCandidates = uniqueNonEmpty([codexImage, dexScreenerImage, identiconImage]);
+        imageUrl = solanaImageCandidates[0] ?? null;
+        fallbackImageUrl = solanaImageCandidates[1] ?? null;
       }
 
       return {
