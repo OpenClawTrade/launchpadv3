@@ -289,7 +289,9 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             </div>
             <div className="col-span-3 flex flex-col gap-2">
               {privyAvailable && (
-                <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                isBsc
+                  ? <BnbTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                  : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
               )}
               <EmbeddedWalletCard />
               <div className="trade-glass-panel p-3 space-y-1.5">
