@@ -282,7 +282,7 @@ export default function PanelMyLaunchesTab() {
 
       {totalUnclaimed > 0 && totalUnclaimed < MIN_CLAIM_SOL && (
         <p className="text-xs text-muted-foreground text-center font-mono">
-          Minimum claim: {MIN_CLAIM_SOL} SOL. Current unclaimed: {totalUnclaimed.toFixed(4)} SOL
+          Minimum claim: {MIN_CLAIM_SOL} {currencySymbol}. Current unclaimed: {totalUnclaimed.toFixed(4)} {currencySymbol}
         </p>
       )}
 
