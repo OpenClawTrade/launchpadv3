@@ -235,7 +235,9 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             {mobileTab === 'trade' && (
               <>
                 {privyAvailable && (
-                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                  isBsc
+                    ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
+                    : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
                 )}
                 <EmbeddedWalletCard />
               </>
@@ -245,7 +247,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
                   <CodexChart tokenAddress={mintAddress} networkId={networkId} height={340} />
                 </div>
-                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} />
+                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
               </>
             )}
           </div>
@@ -256,7 +258,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
                 <CodexChart tokenAddress={mintAddress} networkId={networkId} height={420} />
               </div>
-              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} />
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
               <div className="trade-glass-panel p-3 space-y-1.5">
                 <h3 className="text-[9px] font-mono uppercase tracking-[0.14em] text-muted-foreground/60">Contract</h3>
                 <div className="flex items-center gap-2">
@@ -268,7 +270,9 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             <div className="col-span-5 flex flex-col gap-2">
               <div className="sticky top-2 flex flex-col gap-2">
                 {privyAvailable && (
-                  <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                  isBsc
+                    ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
+                    : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
                 )}
                 <EmbeddedWalletCard />
               </div>
@@ -281,11 +285,13 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
               <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
                 <CodexChart tokenAddress={mintAddress} networkId={networkId} height={380} />
               </div>
-              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} />
+              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
             </div>
             <div className="col-span-3 flex flex-col gap-2">
               {privyAvailable && (
-                <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                isBsc
+                  ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
+                  : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
               )}
               <EmbeddedWalletCard />
               <div className="trade-glass-panel p-3 space-y-1.5">

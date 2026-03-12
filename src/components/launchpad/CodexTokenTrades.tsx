@@ -51,9 +51,10 @@ interface Props {
   isLoading: boolean;
   holders?: HolderInfo[];
   currentPriceUsd?: number;
+  isBsc?: boolean;
 }
 
-export function CodexTokenTrades({ events, isLoading, holders = [], currentPriceUsd = 0 }: Props) {
+export function CodexTokenTrades({ events, isLoading, holders = [], currentPriceUsd = 0, isBsc = false }: Props) {
   const holdersMap = useMemo(() => {
     const m = new Map<string, HolderInfo>();
     for (const h of holders) m.set(h.address, h);
@@ -168,9 +169,9 @@ export function CodexTokenTrades({ events, isLoading, holders = [], currentPrice
 
                 {/* Transaction */}
                 <td className="py-2 px-3 text-right">
-                  {e.txHash ? (
+                {e.txHash ? (
                     <a
-                      href={`https://solscan.io/tx/${e.txHash}`}
+                      href={isBsc ? `https://bscscan.com/tx/${e.txHash}` : `https://solscan.io/tx/${e.txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[11px] text-muted-foreground/50 hover:text-foreground underline underline-offset-2 transition-colors inline-flex items-center gap-1"

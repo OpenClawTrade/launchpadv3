@@ -11,6 +11,7 @@ interface Props {
   isLoading: boolean;
   trades?: TokenTradeEvent[];
   currentPriceUsd?: number;
+  isBsc?: boolean;
 }
 
 interface HolderStats {
@@ -134,8 +135,9 @@ function HolderFundingCell({ address }: { address: string }) {
   );
 }
 
-export function HoldersTable({ holders, totalCount, isLoading, trades = [], currentPriceUsd = 0 }: Props) {
+export function HoldersTable({ holders, totalCount, isLoading, trades = [], currentPriceUsd = 0, isBsc = false }: Props) {
   const statsMap = useMemo(() => buildHolderStatsMap(trades), [trades]);
+  const explorerBase = isBsc ? 'https://bscscan.com/address' : 'https://solscan.io/account';
 
   if (isLoading && holders.length === 0) {
     return (
@@ -162,7 +164,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
              <tr className="text-muted-foreground/50 uppercase tracking-wider text-[9px] border-b border-white/[0.06]">
                <th className="text-left py-2.5 px-1.5 font-medium w-6">#</th>
                <th className="text-left py-2.5 px-1.5 font-medium">Wallet</th>
-               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">SOL Bal</th>
+               <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">{isBsc ? 'BNB Bal' : 'SOL Bal'}</th>
                <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">Bought (Avg)</th>
                <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">Sold (Avg)</th>
                <th className="text-right py-2.5 px-1.5 font-medium whitespace-nowrap">U. PnL ↕</th>
@@ -187,7 +189,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                     <div className="flex items-center gap-1.5">
                       <Filter className="h-3 w-3 text-muted-foreground/30 shrink-0 cursor-pointer hover:text-muted-foreground/60 transition-colors" />
                       <a
-                        href={`https://solscan.io/account/${holder.address}`}
+                        href={`${explorerBase}/${holder.address}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0"
@@ -203,7 +205,7 @@ export function HoldersTable({ holders, totalCount, isLoading, trades = [], curr
                           <span className="text-[11px] text-blue-400 font-bold">{label} ◆</span>
                         ) : (
                           <a
-                            href={`https://solscan.io/account/${holder.address}`}
+                            href={`${explorerBase}/${holder.address}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-foreground/70 text-[11px] hover:text-foreground transition-colors"
