@@ -113,45 +113,10 @@ export default function WhitepaperPage() {
                   ))}
                 </div>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Trade Execution by Chain</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-2 text-foreground">Component</th>
-                        <th className="text-left py-2 px-2 text-foreground">Solana</th>
-                        <th className="text-left py-2 px-2 text-foreground">BNB Chain</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-muted-foreground">
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Swap Router</td>
-                        <td className="py-2 px-2">Jupiter V6 API</td>
-                        <td className="py-2 px-2">OpenOcean Aggregator</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">MEV Protection</td>
-                        <td className="py-2 px-2">Jito Block Engine</td>
-                        <td className="py-2 px-2">—</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Data Feed</td>
-                        <td className="py-2 px-2">Codex + DexScreener</td>
-                        <td className="py-2 px-2">DexScreener (BSC)</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 px-2">Default Slippage</td>
-                        <td className="py-2 px-2">5% (configurable)</td>
-                        <td className="py-2 px-2">5% (configurable)</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 px-2">Wallet</td>
-                        <td className="py-2 px-2">Privy Embedded + Phantom</td>
-                        <td className="py-2 px-2">Privy Embedded + MetaMask</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">One-Click Trade Execution</h3>
+                <p className="text-muted-foreground leading-relaxed">
+                  All trades across both Solana and BNB Chain are executed with a single click through Privy embedded wallets. The platform automatically selects the best swap route and handles transaction signing seamlessly — no manual wallet approvals required.
+                </p>
               </section>
 
               {/* Section 3 — Token Launchpad */}
