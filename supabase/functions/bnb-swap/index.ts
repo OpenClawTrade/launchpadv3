@@ -34,6 +34,7 @@ const FOURMEME_MANAGER_ABI = parseAbi([
 
 const FOURMEME_HELPER_ABI = parseAbi([
   "function tryBuy(address token, uint256 amount, uint256 funds) external view returns (address tokenManager, address quote, uint256 estimatedAmount, uint256 estimatedCost, uint256 estimatedFee, uint256 fundRequirement, uint256 fundAsParameter)",
+  "function liquidityAdded(address token) external view returns (bool)",
 ]);
 
 // ── SaturnPortal bonding curve ABI ──
@@ -141,6 +142,21 @@ async function resolveTokenRoute(
     const [tokenManager] = result;
     // If tokenManager is non-zero, this token is on Four.meme
     if (tokenManager && tokenManager !== "0x0000000000000000000000000000000000000000") {
+      // Check if liquidity has already been added (migrated to PancakeSwap)
+      try {
+        const migrated = await publicClient.readContract({
+          address: FOURMEME_HELPER3 as `0x${string}`,
+          abi: FOURMEME_HELPER_ABI,
+          functionName: "liquidityAdded",
+          args: [tokenAddress as `0x${string}`],
+        });
+        if (migrated) {
+          console.log(`[bnb-swap] Route: OpenOcean (Four.meme token migrated to PancakeSwap)`);
+          return { route: "openocean", graduated: true };
+        }
+      } catch (e) {
+        console.log(`[bnb-swap] liquidityAdded check failed, assuming not migrated: ${(e as Error).message?.slice(0, 60)}`);
+      }
       console.log(`[bnb-swap] Route: Four.meme (bonding curve, manager: ${tokenManager})`);
       return { route: "fourmeme", graduated: false };
     }
@@ -169,6 +185,7 @@ async function executeFourMemeBuy(
     to: FOURMEME_TOKEN_MANAGER,
     data: callData,
     value: numberToHex(bnbAmount),
+    gas: numberToHex(300000n),
   });
 }
 
@@ -447,10 +464,20 @@ Deno.serve(async (req) => {
 
     } else if (route === "fourmeme") {
       console.log(`[bnb-swap] Executing via Four.meme: ${body.action}`);
-      if (body.action === "buy") {
-        txHash = await executeFourMemeBuy(walletId, body.tokenAddress, parseEther(body.amount));
-      } else {
-        txHash = await executeFourMemeSell(walletId, walletAddress, body.tokenAddress, parseEther(body.amount), publicClient);
+      try {
+        if (body.action === "buy") {
+          txHash = await executeFourMemeBuy(walletId, body.tokenAddress, parseEther(body.amount));
+        } else {
+          txHash = await executeFourMemeSell(walletId, walletAddress, body.tokenAddress, parseEther(body.amount), publicClient);
+        }
+      } catch (fourErr) {
+        // Four.meme reverted — token may have migrated, fallback to OpenOcean
+        console.log(`[bnb-swap] Four.meme reverted, falling back to OpenOcean: ${(fourErr as Error).message?.slice(0, 100)}`);
+        const result = await executeOpenOceanSwap(
+          walletId, walletAddress, body.tokenAddress, body.action, body.amount, slippage, publicClient
+        );
+        txHash = result.txHash;
+        estimatedOutput = result.estimatedOutput;
       }
 
     } else {
