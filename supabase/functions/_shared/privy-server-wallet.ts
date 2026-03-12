@@ -128,6 +128,27 @@ export function findSolanaEmbeddedWallet(
 }
 
 /**
+ * Find the Ethereum/EVM embedded wallet from a Privy user's linked accounts.
+ */
+export function findEvmEmbeddedWallet(
+  user: PrivyUser
+): { address: string; walletId: string } | null {
+  const wallet = user.linked_accounts.find(
+    (a) =>
+      a.type === "wallet" &&
+      a.chain_type === "ethereum" &&
+      (a.wallet_client_type === "privy" || a.connector_type === "embedded")
+  );
+
+  if (!wallet || !wallet.id) return null;
+
+  return {
+    address: wallet.address,
+    walletId: wallet.id,
+  };
+}
+
+/**
  * Sign and send a Solana transaction using Privy's server-side wallet RPC.
  * Uses the exact URL format from Privy API docs: https://api.privy.io/v1/wallets/{id}/rpc
  */
@@ -208,6 +229,46 @@ export async function signTransaction(
 }
 
 /**
+ * Send an EVM transaction using Privy's server-side wallet RPC.
+ * CAIP-2 for BSC mainnet: eip155:56
+ */
+export async function evmSendTransaction(
+  walletId: string,
+  txParams: { to: string; data?: string; value?: string; gas?: string },
+  caip2 = "eip155:56"
+): Promise<string> {
+  const url = `https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}/rpc`;
+  const bodyObj = {
+    method: "eth_sendTransaction",
+    caip2,
+    params: {
+      transaction: txParams,
+    },
+  };
+
+  console.log("[privy] eth_sendTransaction URL:", url, "to:", txParams.to);
+
+  const authSignature = getAuthorizationSignature(url, bodyObj);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+      "privy-authorization-signature": authSignature,
+    },
+    body: JSON.stringify(bodyObj),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Privy eth_sendTransaction failed (${res.status}): ${body}`);
+  }
+
+  const data = await res.json();
+  return data.data?.hash || data.data?.transaction_hash || data.hash || "";
+}
+
+/**
  * Convenience: Look up a user by Privy DID, find their Solana wallet,
  * and return everything needed for server-side signing.
  */
@@ -221,6 +282,29 @@ export async function resolveUserWallet(privyDid: string): Promise<{
 
   if (!wallet) {
     throw new Error(`No Solana embedded wallet found for user ${privyDid}`);
+  }
+
+  return {
+    privyUserId: user.id,
+    walletAddress: wallet.address,
+    walletId: wallet.walletId,
+  };
+}
+
+/**
+ * Convenience: Look up a user by Privy DID, find their EVM wallet,
+ * and return everything needed for server-side signing.
+ */
+export async function resolveEvmWallet(privyDid: string): Promise<{
+  privyUserId: string;
+  walletAddress: string;
+  walletId: string;
+}> {
+  const user = await getPrivyUser(privyDid);
+  const wallet = findEvmEmbeddedWallet(user);
+
+  if (!wallet) {
+    throw new Error(`No EVM embedded wallet found for user ${privyDid}`);
   }
 
   return {

@@ -6013,6 +6013,7 @@ export type Database = {
           location: string | null
           posts_count: number | null
           privy_did: string | null
+          privy_evm_wallet_id: string | null
           privy_wallet_id: string | null
           solana_wallet_address: string | null
           updated_at: string
@@ -6034,6 +6035,7 @@ export type Database = {
           location?: string | null
           posts_count?: number | null
           privy_did?: string | null
+          privy_evm_wallet_id?: string | null
           privy_wallet_id?: string | null
           solana_wallet_address?: string | null
           updated_at?: string
@@ -6055,6 +6057,7 @@ export type Database = {
           location?: string | null
           posts_count?: number | null
           privy_did?: string | null
+          privy_evm_wallet_id?: string | null
           privy_wallet_id?: string | null
           solana_wallet_address?: string | null
           updated_at?: string

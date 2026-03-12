@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 interface BnbSwapResult {
   success: boolean;
@@ -12,6 +12,7 @@ interface BnbSwapResult {
 
 export function useBnbSwap() {
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = usePrivy();
 
   const executeBnbSwap = useCallback(async (
     tokenAddress: string,
@@ -28,6 +29,7 @@ export function useBnbSwap() {
           action,
           amount: amount.toString(),
           userWallet,
+          privyUserId: user?.id || undefined,
           slippage,
         },
       });
@@ -49,7 +51,7 @@ export function useBnbSwap() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   return { executeBnbSwap, isLoading };
 }
