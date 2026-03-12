@@ -222,7 +222,7 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
                 <>
                   <span className="font-bold">{percentage}%</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {formatTokenAmount((userBalance * percentage) / 100)}
+                    {formatTokenAmount((displayBalance * percentage) / 100)}
                   </span>
                 </>
               )}
