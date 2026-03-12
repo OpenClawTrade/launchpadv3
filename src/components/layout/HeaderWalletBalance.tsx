@@ -15,6 +15,7 @@ import { DepositDialog } from "@/components/wallet/DepositDialog";
 import { useChain } from "@/contexts/ChainContext";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
+import { fetchBnbBalance as fetchBnbBalanceRpc } from "@/lib/bscRpc";
 
 function HeaderWalletBalanceInner() {
   const { isAuthenticated, logout } = useAuth();
