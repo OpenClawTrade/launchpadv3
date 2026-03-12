@@ -1019,6 +1019,21 @@ export default function PanelUnifiedDashboard() {
         {swapOpen && <SwapModal open={swapOpen} onOpenChange={setSwapOpen} />}
         {receiveOpen && <ReceiveDialog open={receiveOpen} onOpenChange={setReceiveOpen} walletAddress={walletAddr || ""} />}
       </Suspense>
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        profile={profile}
+        onProfileUpdate={() => {}}
+      />
+      <AccountSecurityModal open={accountSecurityOpen} onClose={() => setAccountSecurityOpen(false)} />
+      <DepositDialog
+        open={depositOpen}
+        onOpenChange={setDepositOpen}
+        address={activeAddress || ""}
+        chain={isBnb ? "bnb" : "solana"}
+        getBalance={isSolana ? getBalance : undefined}
+      />
     </div>
   );
 }
