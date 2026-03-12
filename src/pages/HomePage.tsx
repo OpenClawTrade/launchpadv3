@@ -508,6 +508,31 @@ export default function HomePage() {
                 <span className="font-mono">42ms EU</span>
               </div>
             </div>
+
+            {/* Partner logos */}
+            <div
+              className="flex items-center justify-center gap-4 md:gap-5 mt-4 animate-fade-in"
+              style={{ animationDelay: "0.65s", animationFillMode: "both" }}
+            >
+              <span className="text-[8px] font-mono uppercase tracking-[0.15em] text-muted-foreground/30 mr-1">Powered by</span>
+              {[
+                { name: "Solana", url: "https://cryptologos.cc/logos/solana-sol-logo.svg" },
+                { name: "Alchemy", url: "https://www.datocms-assets.com/105223/1701987815-alchemy-mark-blue.svg" },
+                { name: "Helius", url: "https://assets-global.website-files.com/641ba798c17bb180d832b666/641baa495a81e71b2cd4dcdc_helius-mark.svg" },
+                { name: "Phantom", url: "https://phantom.com/img/phantom-logo.svg" },
+                { name: "BNB Chain", url: "https://cryptologos.cc/logos/bnb-bnb-logo.svg" },
+                { name: "Vercel", url: "https://assets.vercel.com/image/upload/v1607554385/repositories/vercel/logo.png" },
+              ].map((p) => (
+                <div
+                  key={p.name}
+                  className="flex items-center gap-1 opacity-30 hover:opacity-70 transition-opacity duration-300 cursor-default"
+                  title={p.name}
+                >
+                  <img src={p.url} alt={p.name} className="h-3.5 w-3.5 md:h-4 md:w-4 object-contain" loading="lazy" />
+                  <span className="text-[7px] md:text-[8px] font-mono text-muted-foreground/40 hidden sm:inline">{p.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
