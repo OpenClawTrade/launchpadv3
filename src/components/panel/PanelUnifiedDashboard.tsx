@@ -995,7 +995,7 @@ export default function PanelUnifiedDashboard() {
                 <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside leading-relaxed">
                   <li>Share your unique referral link</li>
                   <li>They sign up and start trading on MoonDexo</li>
-                  <li>You earn <span className="text-[#f97316] font-semibold">5%</span> of their trading fees</li>
+                  <li>You earn <span className="text-[#f97316] font-semibold">50%</span> of their trading fees</li>
                   <li>Rewards tracked in real-time</li>
                 </ol>
               </div>
