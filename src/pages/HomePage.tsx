@@ -377,17 +377,6 @@ export default function HomePage() {
 
           {/* ── Hero Content ── */}
           <div className="relative z-10 w-full max-w-2xl lg:max-w-3xl mx-auto px-4 text-center">
-            {/* MoonDexo Logo */}
-            <div className="relative mx-auto w-14 h-14 sm:w-16 sm:h-16 mb-4 animate-fade-in">
-              <div className="absolute inset-[-14px] rounded-full pointer-events-none"
-                style={{ background: "radial-gradient(circle, hsl(38 90% 50% / 0.25) 0%, transparent 70%)" }} />
-              <img
-                src={saturnLogo}
-                alt={BRAND.name}
-                className="w-full h-full relative z-10 drop-shadow-[0_0_40px_hsl(38_90%_50%/0.5)]"
-              />
-            </div>
-
             {/* Title — larger, deeper glow */}
             <h1
               className="text-3xl sm:text-4xl md:text-5xl lg:text-[4rem] font-black tracking-tight mb-2 animate-fade-in"
