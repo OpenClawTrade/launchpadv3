@@ -257,6 +257,7 @@ Deno.serve(async (req) => {
           display_name: name,
           avatar_url: avatarUrl,
           solana_wallet_address: solanaWalletAddress,
+          evm_wallet_address: evmWalletAddress,
           privy_wallet_id: privyWalletId,
           privy_did: privyUserId,
         });
