@@ -24,8 +24,20 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
   const { toast } = useToast();
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
+  const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
 
   const isGraduated = token.status === 'graduated';
+
+  // Fetch on-chain token balance for display
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress && token.mint_address && tradeType === 'sell') {
+      getTokenBalance(token.mint_address)
+        .then(bal => setOnChainTokenBalance(bal))
+        .catch(() => setOnChainTokenBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, token.mint_address, getTokenBalance, tradeType]);
+
+  const displayBalance = (onChainTokenBalance !== null && onChainTokenBalance > 0) ? onChainTokenBalance : userBalance;
 
   const handleQuickBuy = async (solAmount: number, index: number) => {
     if (!isAuthenticated) {
