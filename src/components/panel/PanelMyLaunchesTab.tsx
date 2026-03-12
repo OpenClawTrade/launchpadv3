@@ -383,6 +383,9 @@ export default function PanelMyLaunchesTab() {
 }
 
 function RecentClaimsFeed() {
+  const { chainConfig } = useChain();
+  const currencySymbol = chainConfig.nativeCurrency.symbol;
+  const explorerUrl = chainConfig.explorerUrl;
   const { data: claims = [], isLoading } = useQuery({
     queryKey: ["recent-creator-claims"],
     queryFn: async () => {
