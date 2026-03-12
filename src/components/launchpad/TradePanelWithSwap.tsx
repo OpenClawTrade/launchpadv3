@@ -91,7 +91,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       const maxSol = Math.max(0, solBalance - 0.005);
       setAmount(maxSol.toFixed(4));
     } else if (!isBuy) {
-      setAmount(userBalance.toString());
+      setAmount(effectiveTokenBalance.toString());
     }
     setSelectedPreset(null);
   };
