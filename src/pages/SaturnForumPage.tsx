@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useTradingAgents, useTradingAgentLeaderboard } from "@/hooks/useTradingAgents";
 import { useSolPrice } from "@/hooks/useSolPrice";
@@ -177,8 +178,8 @@ function FeaturedAgentCard({ strategy, agentData }: {
       </div>
 
       {/* CTA */}
-      <Link
-        to={`/agents?strategy=${strategy.id}`}
+      <button
+        onClick={() => toast.info("Launching on 14th March")}
         className={cn(
           "flex items-center justify-center gap-2 w-full py-2.5 rounded-lg font-bold text-xs transition-all",
           "bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
@@ -187,7 +188,7 @@ function FeaturedAgentCard({ strategy, agentData }: {
         <Coins className="w-3.5 h-3.5" />
         Stake SOL
         <ArrowRight className="w-3 h-3" />
-      </Link>
+      </button>
     </div>
   );
 }
@@ -236,7 +237,7 @@ export default function SaturnForumPage() {
             Autonomous Trading
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight mb-2">
-            Saturn Trading Agents
+            MoonDexo Trading Agents
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-1">
             3 AI agents with distinct trading strategies. Stake SOL, earn a share of profits.

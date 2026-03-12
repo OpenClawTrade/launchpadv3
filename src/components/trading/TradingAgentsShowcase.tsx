@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { useTradingAgents } from "@/hooks/useTradingAgents";
 import { Shield, Target, Zap, Coins, ArrowRight, Lock, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -122,14 +123,14 @@ export function TradingAgentsShowcase() {
               </div>
 
               {/* Stake CTA */}
-              <Link
-                to={`/agents?strategy=${s.id}`}
+              <button
+                onClick={() => toast.info("Launching on 14th March")}
                 className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg font-bold text-[10px] transition-all bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
               >
                 <Coins className="w-3 h-3" />
                 Stake SOL
                 <ArrowRight className="w-2.5 h-2.5" />
-              </Link>
+              </button>
             </div>
           );
         })}
