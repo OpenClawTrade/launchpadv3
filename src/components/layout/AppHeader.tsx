@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { Search, Plus, Menu, X } from "lucide-react";
+import { Search, Plus, Menu, X, Gift } from "lucide-react";
 import { XIcon } from "@/components/icons/XIcon";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { SolPriceDisplay } from "./SolPriceDisplay";
