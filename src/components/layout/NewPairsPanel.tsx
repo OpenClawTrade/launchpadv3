@@ -60,9 +60,27 @@ const IMG_STYLE: React.CSSProperties = {
   width: "20px", height: "20px", borderRadius: "50%", objectFit: "cover", flexShrink: 0,
 };
 
-function TokenIcon({ pair, dexScreenerUrl }: { pair: CodexPairToken; dexScreenerUrl: string | null }) {
-  const [stage, setStage] = useState(0); // 0=primary, 1=dex, 2=text
-  const srcs = [pair.imageUrl, dexScreenerUrl].filter(Boolean) as string[];
+function toChecksumHex(addr: string): string {
+  // Simple pass-through — Trust Wallet CDN accepts lowercase too
+  return addr.toLowerCase();
+}
+
+function TokenIcon({ pair, dexScreenerUrl, chain }: { pair: CodexPairToken; dexScreenerUrl: string | null; chain: PanelChain }) {
+  const [stage, setStage] = useState(0);
+
+  const srcs: string[] = [];
+  // 1. Primary image from Codex
+  if (pair.imageUrl) srcs.push(pair.imageUrl);
+  // 2. DexScreener token image
+  if (dexScreenerUrl) srcs.push(dexScreenerUrl);
+  // 3. For BNB: Trust Wallet CDN
+  if (chain === "bnb" && pair.address) {
+    srcs.push(`https://assets-cdn.trustwallet.com/blockchains/smartchain/assets/${pair.address}/logo.png`);
+  }
+  // 4. For BNB: PancakeSwap token list image
+  if (chain === "bnb" && pair.address) {
+    srcs.push(`https://tokens.pancakeswap.finance/images/${pair.address}.png`);
+  }
 
   if (stage >= srcs.length) {
     return (
