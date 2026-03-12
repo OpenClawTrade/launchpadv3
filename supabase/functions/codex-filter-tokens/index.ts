@@ -95,19 +95,22 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   let filters: string;
   let rankings: string;
 
-  const oneDayAgo = Math.floor(Date.now() / 1000) - 86400;
-  const twoDaysAgo = Math.floor(Date.now() / 1000) - 172800;
+  const now = Math.floor(Date.now() / 1000);
+  const oneDayAgo = now - 86400;
+  const twoDaysAgo = now - 172800;
+  const bscNewCutoff = now - BSC_NEW_LOOKBACK_SECONDS;
+  const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
 
   if (networkId === BSC_NETWORK_ID) {
-    // BSC: no launchpad graduation concept — use liquidity/volume filters
+    // BSC: broader discovery window so very recent launches are not under-represented.
     switch (column) {
       case "new":
-        filters = `{ network: [${networkId}], createdAt: { gte: ${oneDayAgo} }, liquidity: { gte: 1000 } }`;
+        filters = `{ network: [${networkId}], createdAt: { gte: ${bscNewCutoff} } }`;
         rankings = `{ attribute: createdAt, direction: DESC }`;
         break;
       case "completing":
-        // "Final Stretch" on BSC = high volume new tokens
-        filters = `{ network: [${networkId}], createdAt: { gte: ${twoDaysAgo} }, volume24: { gte: 5000 }, liquidity: { gte: 5000 } }`;
+        // "Final Stretch" on BSC = high-volume tokens from the last week.
+        filters = `{ network: [${networkId}], createdAt: { gte: ${bscCompletingCutoff} }, volume24: { gte: 5000 }, liquidity: { gte: 5000 } }`;
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
       case "completed":
