@@ -72,6 +72,23 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
       : `${token.address.slice(0, 4)}...${token.address.slice(-4)}`
     : "";
 
+  const normalizedAddress = token.address?.toLowerCase() ?? null;
+  const identiconFallback = normalizedAddress
+    ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(normalizedAddress)}`
+    : null;
+  const bscFallbackCandidates = isBnb && normalizedAddress
+    ? [
+        `https://tokens.1inch.io/56/${normalizedAddress}.png`,
+        `https://tokens.pancakeswap.finance/images/symbol/${normalizedAddress}.png`,
+      ]
+    : [];
+
+  const imageFallbacks = [
+    token.fallbackImageUrl,
+    ...bscFallbackCandidates,
+    identiconFallback,
+  ].filter((url, index, arr): url is string => !!url && arr.indexOf(url) === index);
+
   const handleCopyCA = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
