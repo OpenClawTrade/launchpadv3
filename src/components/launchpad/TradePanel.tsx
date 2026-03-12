@@ -8,6 +8,7 @@ import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, format
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowDown, Loader2, Wallet, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 
 interface TradePanelProps {
   token: Token;
@@ -18,14 +19,26 @@ interface TradePanelProps {
 
 export function TradePanel({ token, userBalance = 0, userSolBalance = 0, onTrade }: TradePanelProps) {
   const { isAuthenticated, login, solanaAddress } = useAuth();
+  const { getTokenBalance } = useSolanaWalletWithPrivy();
   const { toast } = useToast();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [slippage, setSlippage] = useState(5);
+  const [onChainTokenBalance, setOnChainTokenBalance] = useState<number | null>(null);
 
   const isBuy = tradeType === 'buy';
   const numericAmount = parseFloat(amount) || 0;
+  const effectiveTokenBalance = (onChainTokenBalance !== null && onChainTokenBalance > 0) ? onChainTokenBalance : userBalance;
+
+  // Fetch real on-chain token balance
+  useEffect(() => {
+    if (isAuthenticated && solanaAddress && token.mint_address) {
+      getTokenBalance(token.mint_address)
+        .then(bal => setOnChainTokenBalance(bal))
+        .catch(() => setOnChainTokenBalance(null));
+    }
+  }, [isAuthenticated, solanaAddress, token.mint_address, getTokenBalance, isLoading]);
 
   // Calculate quote based on trade type
   const virtualSol = token.virtual_sol_reserves + token.real_sol_reserves;
