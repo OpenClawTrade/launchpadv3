@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAgentTokens } from "@/hooks/useAgentTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Trophy, TrendingUp, TrendingDown } from "lucide-react";
+import { formatChange24h } from "@/lib/formatters";
 
 export function AgentTopTokens() {
   const { data: tokens, isLoading } = useAgentTokens({ sort: "mcap", limit: 5 });

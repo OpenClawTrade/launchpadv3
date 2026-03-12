@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatSolAmount } from "@/hooks/useLaunchpad";
+import { formatChange24h } from "@/lib/formatters";
 import { ExternalLink, BarChart3, CandlestickChart, TrendingUp } from "lucide-react";
 import { LightweightChart } from "./LightweightChart";
 

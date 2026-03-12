@@ -147,7 +147,7 @@ export function PunchTokenCard({ token, voteCounts, onVote, marketData, solPrice
               isNegative ? "text-red-400" : "text-green-400"
             }`}
           >
-            {formatChange(displayChange)}
+            {formatChange24h(displayChange)}
           </span>
         )}
 

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, TrendingUp, TrendingDown, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { formatChange24h } from "@/lib/formatters";
 
 interface AgentTokenCardProps {
   id: string;

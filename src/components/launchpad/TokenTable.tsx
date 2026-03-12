@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatChange24h } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";

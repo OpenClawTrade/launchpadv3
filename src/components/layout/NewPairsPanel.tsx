@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatChange24h } from "@/lib/formatters";
 import { useCodexNewPairs, type CodexPairToken, SOLANA_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { RefreshCw, Rocket, ExternalLink, ChevronDown } from "lucide-react";

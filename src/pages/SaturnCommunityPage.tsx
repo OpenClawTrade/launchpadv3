@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { formatChange24h } from "@/lib/formatters";
 import { useParams, Link } from "react-router-dom";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { ForumLayout } from "@/components/forum/ForumLayout";
