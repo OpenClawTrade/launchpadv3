@@ -70,7 +70,7 @@ const ReferralRedirectPage = lazyWithRetry(() => import("./pages/ReferralRedirec
 const WalletTrackerPage = lazyWithRetry(() => import("./pages/WalletTrackerPage"));
 const CreateTokenPage = lazyWithRetry(() => import("./pages/CreateTokenPage"));
 const AllTokensPage = lazyWithRetry(() => import("./pages/AllTokensPage"));
-
+const RewardsPage = lazyWithRetry(() => import("./pages/RewardsPage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 
@@ -199,6 +199,7 @@ const App = () => (
                      <Route path="/punch-games" element={<PunchGamesPage />} />
                      <Route path="/link/:code" element={<ReferralRedirectPage />} />
                      <Route path="/wallet-tracker" element={<WalletTrackerPage />} />
+                     <Route path="/rewards" element={<RewardsPage />} />
                      <Route path="*" element={<NotFound />} />
                   </Routes>
                   </div>
