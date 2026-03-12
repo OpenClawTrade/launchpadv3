@@ -497,7 +497,7 @@ function RecentClaimsFeed() {
               </span>
               {claim.signature && (
                 <a
-                  href={`https://solscan.io/tx/${claim.signature}`}
+                  href={`${explorerUrl}/tx/${claim.signature}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-foreground"
