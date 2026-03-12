@@ -403,11 +403,30 @@ class NoPancakeSwapLiquidityError extends Error {
   }
 }
 
-// ── Wallet Resolution ──
-async function resolveWallet(
-  body: SwapRequest,
-  supabase: any
-): Promise<{ walletId: string; walletAddress: string }> {
+function isNoPancakeSwapLiquidityError(error: unknown): boolean {
+  const e = error as {
+    code?: string;
+    message?: string;
+    shortMessage?: string;
+    details?: string;
+    cause?: { message?: string; shortMessage?: string };
+  };
+
+  if (e?.code === "NO_PANCAKESWAP_LIQUIDITY") return true;
+
+  const combined = [
+    e?.message,
+    e?.shortMessage,
+    e?.details,
+    e?.cause?.message,
+    e?.cause?.shortMessage,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return combined.includes("no liquidity on pancakeswap") || combined.includes("insufficient_liquidity");
+}
   let walletId: string | null = null;
   let walletAddress: string = body.userWallet;
 
