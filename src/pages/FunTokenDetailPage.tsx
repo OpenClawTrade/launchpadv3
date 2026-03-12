@@ -998,7 +998,7 @@ export default function FunTokenDetailPage() {
               </span>
               {priceChange !== 0 && (
                 <span className={`text-[10px] font-mono font-bold ${isPriceUp ? 'text-green-400' : 'text-destructive'}`}>
-                  {isPriceUp ? '+' : ''}{priceChange.toFixed(1)}%
+                  {formatChange24h(priceChange)}
                 </span>
               )}
             </div>
