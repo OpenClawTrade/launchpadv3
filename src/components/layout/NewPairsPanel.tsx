@@ -220,13 +220,7 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
                 >
                   {/* Token info */}
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                    <OptimizedTokenImage
-                      src={pair.imageUrl}
-                      fallbackSrc={dexScreenerUrl}
-                      fallbackText={pair.symbol}
-                      size={40}
-                      style={{ width: "20px", height: "20px", borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                    />
+                    <TokenIcon pair={pair} dexScreenerUrl={dexScreenerUrl} />
                     <div style={{ minWidth: 0, overflow: "hidden" }}>
                       <div style={{
                         fontSize: "11px",
