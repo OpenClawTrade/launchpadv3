@@ -403,6 +403,31 @@ export default function PanelUnifiedDashboard() {
             color={EMERALD}
           />
         </div>
+
+        {/* Quick Actions Row */}
+        <div className="relative z-10 flex flex-wrap gap-2 mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <button
+            onClick={() => setDepositOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-medium text-muted-foreground hover:text-foreground transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <ArrowDownToLine className="h-3 w-3" /> Deposit
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-medium text-muted-foreground hover:text-foreground transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <Settings className="h-3 w-3" /> Settings
+          </button>
+          <button
+            onClick={() => setAccountSecurityOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-medium text-muted-foreground hover:text-foreground transition-colors"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <User className="h-3 w-3" /> Account & Security
+          </button>
+        </div>
       </GlassCard>
 
       {/* ═══════════════════════════════════════════ */}
