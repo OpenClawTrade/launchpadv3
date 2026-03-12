@@ -252,19 +252,19 @@ export default function PanelMyLaunchesTab() {
             <p className="text-lg font-bold font-mono" style={{ color: "#4ade80" }}>
               {totalEarned.toFixed(4)}
             </p>
-            <p className="text-[10px] text-muted-foreground">Your Share (SOL)</p>
+            <p className="text-[10px] text-muted-foreground">Your Share ({currencySymbol})</p>
           </Card>
           <Card className="p-3 bg-white/5 border-white/10 text-center">
             <p className="text-lg font-bold font-mono" style={{ color: "#4ade80" }}>
               {totalClaimed.toFixed(4)}
             </p>
-            <p className="text-[10px] text-muted-foreground">Total Claimed (SOL)</p>
+            <p className="text-[10px] text-muted-foreground">Total Claimed ({currencySymbol})</p>
           </Card>
           <Card className="p-3 bg-white/5 border-white/10 text-center">
             <p className="text-lg font-bold font-mono text-yellow-400">
               {totalUnclaimed.toFixed(4)}
             </p>
-            <p className="text-[10px] text-muted-foreground">Unclaimed (SOL)</p>
+            <p className="text-[10px] text-muted-foreground">Unclaimed ({currencySymbol})</p>
           </Card>
         </div>
       )}
