@@ -358,38 +358,19 @@ export default function WhitepaperPage() {
                   {BRAND.name} implements transparent fee models on both chains, with trading fees routed through platform infrastructure for controlled redistribution to creators.
                 </p>
 
-                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana Fee Structure</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-3 px-2 text-foreground">Token Type</th>
-                        <th className="text-left py-3 px-2 text-foreground">Fee</th>
-                        <th className="text-left py-3 px-2 text-foreground">Creator Share</th>
-                        <th className="text-left py-3 px-2 text-foreground">Platform Share</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-muted-foreground">
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Standard Launch</td>
-                        <td className="py-3 px-2">2%</td>
-                        <td className="py-3 px-2 text-success">50%</td>
-                        <td className="py-3 px-2">50%</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Phantom Mode</td>
-                        <td className="py-3 px-2">0.1–10%</td>
-                        <td className="py-3 px-2 text-success">50%</td>
-                        <td className="py-3 px-2">50%</td>
-                      </tr>
-                      <tr className="border-b border-border/50">
-                        <td className="py-3 px-2">Agent Token</td>
-                        <td className="py-3 px-2">2%</td>
-                        <td className="py-3 px-2 text-success">30% Creator / 30% Agent</td>
-                        <td className="py-3 px-2">40%</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Solana Fee Structure (Phantom Mode)</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { label: "Trading Fee", value: "0.1–10% (configurable)" },
+                    { label: "Creator Share", value: "50%" },
+                    { label: "Platform Share", value: "50%" },
+                    { label: "Distribution", value: "Via Position NFT fees" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex justify-between text-sm p-3 bg-card/30 rounded">
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="text-foreground font-medium">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">BNB Chain Fee Structure — Split Vault</h3>
