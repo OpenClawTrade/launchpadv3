@@ -152,7 +152,7 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
     setBuyingAmount(amount);
 
     try {
-      const result = await executeBnbSwap(mintAddress, "buy", amount, evmAddress);
+      const result = await executeBnbSwap(mintAddress, "buy", amount, userWallet);
       if (result.success) {
         toast.success("✅ BNB Trade Executed!", {
           id: toastId,
