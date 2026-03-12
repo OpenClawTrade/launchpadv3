@@ -188,7 +188,7 @@ export default function AllTokensPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+              <div className="flex items-center justify-between text-sm text-muted-foreground px-1 mb-3">
                 <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''} (page {page}/{totalPages || 1})</span>
                 {searchQuery && (
                   <button onClick={() => setSearchQuery("")} className="text-primary hover:underline text-xs">
@@ -196,15 +196,17 @@ export default function AllTokensPage() {
                   </button>
                 )}
               </div>
-              {filteredTokens.map((token, index) => (
-                <div
-                  key={token.id}
-                  className="animate-fadeIn"
-                  style={{ animationDelay: `${index * 30}ms` }}
-                >
-                  <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
-                </div>
-              ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filteredTokens.map((token, index) => (
+                  <div
+                    key={token.id}
+                    className="animate-fadeIn"
+                    style={{ animationDelay: `${index * 30}ms` }}
+                  >
+                    <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
+                  </div>
+                ))}
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
