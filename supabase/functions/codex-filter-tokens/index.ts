@@ -12,6 +12,8 @@ const SOLANA_NETWORK_ID = 1399811149;
 const BSC_NETWORK_ID = 56;
 const MAX_REASONABLE_CHANGE_24H_DEFAULT = 10_000;
 const MAX_REASONABLE_CHANGE_24H_BSC = 1_000;
+const BSC_NEW_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
+const BSC_COMPLETING_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 
 function toFiniteNumber(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -34,6 +36,31 @@ function isAddressBoundImageUrl(imageUrl: string | null | undefined, address: st
 
   const withoutPrefix = normalizedAddress.replace(/^0x/, "");
   return withoutPrefix.length > 0 && normalizedUrl.includes(withoutPrefix);
+}
+
+function isTrustedBscImageUrl(imageUrl: string | null | undefined): boolean {
+  if (!imageUrl) return false;
+
+  try {
+    const hostname = new URL(imageUrl).hostname.toLowerCase();
+    return (
+      hostname === "token-media.defined.fi" ||
+      hostname.endsWith(".defined.fi") ||
+      hostname.includes("pancakeswap.finance") ||
+      hostname.includes("1inch.io")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const value of values) {
+    if (!value) continue;
+    if (!out.includes(value)) out.push(value);
+  }
+  return out;
 }
 
 async function fetchDexScreenerChange24h(address: string, networkId: number): Promise<number | null> {
