@@ -65,7 +65,7 @@ function toChecksumHex(addr: string): string {
   return addr.toLowerCase();
 }
 
-function TokenIcon({ pair, dexScreenerUrl, chain }: { pair: CodexPairToken; dexScreenerUrl: string | null; chain: PanelChain }) {
+function TokenIcon({ pair, chain }: { pair: CodexPairToken; chain: PanelChain }) {
   const [stage, setStage] = useState(0);
 
   // DexScreener is the most reliable single source for token images
