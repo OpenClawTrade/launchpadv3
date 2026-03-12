@@ -267,7 +267,7 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
                 >
                   {/* Token info */}
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                    <TokenIcon pair={pair} dexScreenerUrl={dexScreenerUrl} chain={selectedChain} />
+                    <TokenIcon pair={pair} chain={selectedChain} />
                     <div style={{ minWidth: 0, overflow: "hidden" }}>
                       <div style={{
                         fontSize: "11px",
