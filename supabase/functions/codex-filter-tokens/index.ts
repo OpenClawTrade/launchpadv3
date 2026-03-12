@@ -10,6 +10,40 @@ type Column = "new" | "completing" | "completed";
 
 const SOLANA_NETWORK_ID = 1399811149;
 const BSC_NETWORK_ID = 56;
+const MAX_REASONABLE_CHANGE_24H = 10_000;
+
+function toFiniteNumber(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+async function fetchDexScreenerChange24h(address: string, networkId: number): Promise<number | null> {
+  try {
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const expectedChain = networkId === BSC_NETWORK_ID ? "bsc" : "solana";
+    const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+    const filteredPairs = pairs.filter((pair: any) => pair?.chainId === expectedChain);
+    const poolCandidates = filteredPairs.length > 0 ? filteredPairs : pairs;
+
+    if (poolCandidates.length === 0) return null;
+
+    const bestPair = poolCandidates.sort(
+      (a: any, b: any) => toFiniteNumber(b?.liquidity?.usd) - toFiniteNumber(a?.liquidity?.usd)
+    )[0];
+
+    const change = toFiniteNumber(bestPair?.priceChange?.h24);
+    return Number.isFinite(change) ? change : null;
+  } catch {
+    return null;
+  }
+}
 
 function buildQuery(column: Column, limit: number, networkId: number): string {
   let filters: string;
