@@ -9,6 +9,7 @@ export interface CodexPairToken {
   name: string;
   symbol: string;
   imageUrl: string | null;
+  fallbackImageUrl: string | null;
   marketCap: number;
   volume24h: number;
   change24h: number;

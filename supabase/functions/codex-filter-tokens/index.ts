@@ -197,16 +197,29 @@ Deno.serve(async (req) => {
         ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(address.toLowerCase())}`
         : null;
 
-      // BSC: prefer DexScreener (has real logos), then upstream Codex images, identicon as last resort.
-      let imageUrl = isBsc
-        ? (dexScreenerImage || r.token?.info?.imageSmallUrl || r.token?.info?.imageThumbUrl || r.token?.info?.imageLargeUrl || identiconImage)
-        : (r.token?.info?.imageSmallUrl || r.token?.info?.imageThumbUrl || r.token?.info?.imageLargeUrl || dexScreenerImage || identiconImage);
+      // Upstream Codex image (the launchpad's own token image, if available)
+      const codexImage = r.token?.info?.imageSmallUrl || r.token?.info?.imageThumbUrl || r.token?.info?.imageLargeUrl || null;
+
+      // Primary image: prefer real upstream images from Codex, then DexScreener CDN
+      // Fallback image: next-best source for the UI to try if primary 404s
+      let imageUrl: string | null;
+      let fallbackImageUrl: string | null;
+
+      if (isBsc) {
+        // BSC: Codex upstream (launchpad image) > DexScreener > identicon
+        imageUrl = codexImage || dexScreenerImage;
+        fallbackImageUrl = codexImage ? dexScreenerImage : identiconImage;
+      } else {
+        imageUrl = codexImage || dexScreenerImage || identiconImage;
+        fallbackImageUrl = codexImage ? dexScreenerImage : identiconImage;
+      }
 
       return {
         address,
         name: r.token?.info?.name ?? "Unknown",
         symbol: r.token?.info?.symbol ?? "???",
         imageUrl,
+        fallbackImageUrl,
         marketCap: toFiniteNumber(r.marketCap),
         volume24h: toFiniteNumber(r.volume24),
         change24h: toFiniteNumber(r.change24),
