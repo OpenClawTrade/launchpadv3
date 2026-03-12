@@ -82,15 +82,6 @@ export default function AlphaTrackerPage() {
           </div>
         </div>
 
-        {/* BNB Chain Notice */}
-        {isBnb && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-yellow-500/5 border-b border-yellow-500/20">
-            <AlertCircle className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-            <span className="text-[11px] text-yellow-400/80 font-mono">
-              Alpha Tracker currently tracks Solana trades. BNB Chain tracking coming soon.
-            </span>
-          </div>
-        )}
 
         {/* Filters */}
         {showFilters && (
