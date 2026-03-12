@@ -99,10 +99,10 @@ function HeaderWalletBalanceInner() {
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  if (!isAuthenticated || !embeddedAddress) return null;
+  if (!isAuthenticated || (!embeddedAddress && !evmWallet.address)) return null;
 
   const isBnb = chain === 'bnb';
-  const displayAddress = isBnb && evmWallet.address ? evmWallet.address : embeddedAddress;
+  const displayAddress = isBnb && evmWallet.address ? evmWallet.address : (embeddedAddress || '');
   const currencyLabel = isBnb ? 'BNB' : 'SOL';
 
   const handleCopy = async () => {
