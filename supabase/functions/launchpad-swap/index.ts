@@ -266,6 +266,51 @@ serve(async (req) => {
       );
     }
 
+    // ===== ALPHA_ONLY MODE =====
+    // For external swaps (PumpFun, Jupiter via UniversalTradePanel) that only need alpha_trades recording
+    if (mode === 'alpha_only' && clientSignature) {
+      console.log("[launchpad-swap] Alpha-only mode - recording trade for Alpha Tracker:", { signature: clientSignature, isBuy, amount });
+
+      try {
+        let traderDisplayName: string | null = null;
+        let traderAvatarUrl: string | null = null;
+        if (profileId) {
+          const { data: profile } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", profileId).single();
+          if (profile) {
+            traderDisplayName = profile.display_name;
+            traderAvatarUrl = profile.avatar_url;
+          }
+        }
+
+        const solAmount = isBuy ? amount : (outputAmount || amount);
+        const tokensAmount = isBuy ? (outputAmount || 0) : amount;
+
+        await supabase.from("alpha_trades").insert({
+          wallet_address: userWallet,
+          token_mint: mintAddress,
+          token_name: tokenName || token.name || null,
+          token_ticker: tokenTicker || token.ticker || null,
+          trade_type: isBuy ? "buy" : "sell",
+          amount_sol: solAmount,
+          amount_tokens: tokensAmount,
+          price_usd: null,
+          price_sol: token.price_sol || null,
+          tx_hash: clientSignature,
+          trader_display_name: traderDisplayName,
+          trader_avatar_url: traderAvatarUrl,
+          chain: 'solana',
+        });
+        console.log("[launchpad-swap] Alpha-only trade recorded successfully");
+      } catch (alphaErr) {
+        console.warn("[launchpad-swap] alpha_trades insert failed:", alphaErr);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, signature: clientSignature }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Block graduated tokens from legacy simulate mode (record mode above still works)
     if (token.status === "graduated") {
       return new Response(
