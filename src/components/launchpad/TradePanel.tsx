@@ -77,7 +77,7 @@ export function TradePanel({ token, userBalance = 0, userSolBalance = 0, onTrade
       return;
     }
 
-    if (!isBuy && numericAmount > userBalance) {
+    if (!isBuy && numericAmount > effectiveTokenBalance) {
       toast({ title: "Insufficient token balance", variant: "destructive" });
       return;
     }
