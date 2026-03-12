@@ -465,7 +465,7 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
             }}
           >
             <div className="flex items-center gap-1.5">
-              {PRESET_AMOUNTS.map((amt) => (
+              {PRESET_AMOUNTS_SOL.map((amt) => (
                 <button
                   key={amt}
                   type="button"
