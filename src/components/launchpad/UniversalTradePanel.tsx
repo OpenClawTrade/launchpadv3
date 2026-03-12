@@ -32,7 +32,7 @@ const SLIPPAGE_PRESETS = [0.5, 1, 2, 5, 10];
 const HELIUS_RPC = import.meta.env.VITE_HELIUS_RPC_URL || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : "https://mainnet.helius-rpc.com");
 
 export function UniversalTradePanel({ token, userTokenBalance: externalTokenBalance }: UniversalTradePanelProps) {
-  const { isAuthenticated, login, solanaAddress } = useAuth();
+  const { isAuthenticated, login, solanaAddress, profileId } = useAuth();
   const { getBuyQuote, getSellQuote, buyToken, sellToken, isLoading: swapLoading } = useJupiterSwap();
   const { swap: pumpFunSwap } = usePumpFunSwap();
   const { signAndSendTransaction, isWalletReady, getBalance } = useSolanaWalletWithPrivy();
