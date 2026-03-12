@@ -61,7 +61,7 @@ export function TradePanel({ token, userBalance = 0, userSolBalance = 0, onTrade
       setAmount(value.toString());
     } else {
       // Percentage of balance
-      const tokenAmount = (userBalance * value) / 100;
+      const tokenAmount = (effectiveTokenBalance * value) / 100;
       setAmount(tokenAmount.toString());
     }
   };
