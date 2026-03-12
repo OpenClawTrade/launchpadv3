@@ -150,7 +150,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 {token.change24h !== 0 && (
                   <span className={`trade-price-pill ${isPriceUp ? 'trade-price-pill-up' : 'trade-price-pill-down'}`}>
                     {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {isPriceUp ? '+' : ''}{Math.abs(token.change24h).toFixed(1)}%
+                    {formatChange24h(token.change24h)}
                   </span>
                 )}
               </div>
