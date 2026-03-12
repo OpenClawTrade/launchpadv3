@@ -55,7 +55,7 @@ function buildLoginCookies(fullCookie: string): string {
 }
 
 // Base URLs for links
-const TRADING_AGENT_BASE_URL = `https://${BRAND.domain}/agents/trading";
+const TRADING_AGENT_BASE_URL = `https://${BRAND.domain}/agents/trading`;
 
 // Post to X using linked X-Bot account
 async function postToX(
