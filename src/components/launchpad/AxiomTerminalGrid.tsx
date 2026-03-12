@@ -149,7 +149,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
 
   // Column labels adapt to chain
   const columnLabels = isBnb
-    ? { new: "New BNB Pairs", final: "Trending", migrated: "Top Liquidity" }
+    ? { new: "New BNB Pairs", final: "Final Stretch", migrated: "Top Liquidity" }
     : { new: "New Pairs", final: "Final Stretch", migrated: "Migrated" };
 
   const columns = [

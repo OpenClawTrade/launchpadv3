@@ -97,9 +97,9 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
         rankings = `{ attribute: createdAt, direction: DESC }`;
         break;
       case "completing":
-        // "Final Stretch" on BSC = high-volume tokens from the last week.
-        filters = `{ network: [${networkId}], createdAt: { gte: ${bscCompletingCutoff} }, volume24: { gte: 5000 }, liquidity: { gte: 5000 } }`;
-        rankings = `{ attribute: volume24, direction: DESC }`;
+        // "Final Stretch" on BSC = tokens near graduation (50-99% bonding progress)
+        filters = `{ network: [${networkId}], createdAt: { gte: ${bscCompletingCutoff} }, launchpadGraduationPercent: { gte: 50, lte: 99 }, launchpadCompleted: false, launchpadMigrated: false }`;
+        rankings = `{ attribute: marketCap, direction: DESC }`;
         break;
       case "completed":
         // "Migrated" on BSC = established tokens with decent liquidity and volume
