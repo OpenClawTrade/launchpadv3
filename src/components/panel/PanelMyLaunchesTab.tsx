@@ -348,7 +348,7 @@ export default function PanelMyLaunchesTab() {
                     {token.name} <span className="text-muted-foreground">${token.ticker}</span>
                   </p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{earned.toFixed(4)} SOL earned</span>
+                    <span>{earned.toFixed(4)} {currencySymbol} earned</span>
                     {token.mint_address && (
                       <a
                         href={`https://solscan.io/token/${token.mint_address}`}
