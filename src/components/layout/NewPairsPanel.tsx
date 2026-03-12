@@ -56,7 +56,40 @@ function BnbIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelProps) {
+const IMG_STYLE: React.CSSProperties = {
+  width: "20px", height: "20px", borderRadius: "50%", objectFit: "cover", flexShrink: 0,
+};
+
+function TokenIcon({ pair, dexScreenerUrl }: { pair: CodexPairToken; dexScreenerUrl: string | null }) {
+  const [stage, setStage] = useState(0); // 0=primary, 1=dex, 2=text
+  const srcs = [pair.imageUrl, dexScreenerUrl].filter(Boolean) as string[];
+
+  if (stage >= srcs.length) {
+    return (
+      <div style={{
+        ...IMG_STYLE,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(255,255,255,0.08)", fontSize: "8px", fontWeight: 700,
+        color: "rgba(255,255,255,0.5)", fontFamily: "'IBM Plex Mono', monospace",
+      }}>
+        {pair.symbol?.slice(0, 2) || "?"}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={srcs[stage]}
+      alt={pair.symbol}
+      style={IMG_STYLE}
+      loading="eager"
+      decoding="sync"
+      onError={() => setStage((s) => s + 1)}
+    />
+  );
+}
+
+
   const [selectedChain, setSelectedChain] = useState<PanelChain>("solana");
   const networkId = selectedChain === "bnb" ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
   const { newPairs, isLoading } = useCodexNewPairs(networkId);
