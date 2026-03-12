@@ -33,6 +33,7 @@ function trendingToCodex(t: TrendingToken): CodexPairToken {
     name: t.name,
     symbol: t.symbol,
     imageUrl: t.imageUrl ?? null,
+    fallbackImageUrl: t.address ? `https://dd.dexscreener.com/ds-data/tokens/solana/${t.address}.png` : null,
     marketCap: t.marketCap ?? 0,
     volume24h: t.volume24h ?? 0,
     change24h: t.priceChange6h ?? 0,
