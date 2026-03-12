@@ -1,15 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
-  createWalletClient,
   createPublicClient,
   http,
   parseEther,
   formatEther,
-  encodeFunctionData,
   parseAbi,
+  encodeFunctionData,
+  numberToHex,
 } from "https://esm.sh/viem@2.45.1";
 import { bsc } from "https://esm.sh/viem@2.45.1/chains";
-import { privateKeyToAccount } from "https://esm.sh/viem@2.45.1/accounts";
+import {
+  getPrivyUser,
+  findEvmEmbeddedWallet,
+  evmSendTransaction,
+} from "../_shared/privy-server-wallet.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +58,7 @@ const PORTAL_ABI = [
   },
 ] as const;
 
-// ── ERC-20 approve ABI ──
+// ── ERC-20 ABI ──
 const ERC20_ABI = parseAbi([
   "function approve(address spender, uint256 amount) external returns (bool)",
   "function allowance(address owner, address spender) external view returns (uint256)",
@@ -71,82 +75,8 @@ interface SwapRequest {
   action: "buy" | "sell";
   amount: string; // BNB amount for buy, token amount for sell
   userWallet: string;
-  slippage?: number; // percentage, default 3
-}
-
-// ── OpenOcean DEX swap for graduated tokens ──
-async function openOceanSwap(
-  tokenAddress: string,
-  action: "buy" | "sell",
-  amount: string,
-  slippage: number,
-  account: ReturnType<typeof privateKeyToAccount>,
-  publicClient: any,
-  walletClient: any,
-): Promise<{ txHash: string; outAmount: string }> {
-  const inToken = action === "buy" ? BNB_NATIVE : tokenAddress;
-  const outToken = action === "buy" ? tokenAddress : BNB_NATIVE;
-
-  // For sells, we need token amount in smallest unit
-  const inAmountRaw = parseEther(amount).toString();
-
-  // If selling, ensure token approval for OpenOcean router
-  if (action === "sell") {
-    // Get OpenOcean quote first to find the router address
-    const quoteUrl = `${OPENOCEAN_API}/quote?inTokenAddress=${inToken}&outTokenAddress=${outToken}&amount=${amount}&gasPrice=3`;
-    console.log(`[bnb-swap] OpenOcean quote: ${quoteUrl}`);
-    const quoteRes = await fetch(quoteUrl);
-    const quoteData = await quoteRes.json();
-    if (quoteData.code !== 200) {
-      throw new Error(`OpenOcean quote failed: ${JSON.stringify(quoteData)}`);
-    }
-  }
-
-  // Get swap calldata from OpenOcean
-  const swapUrl = `${OPENOCEAN_API}/swap?inTokenAddress=${inToken}&outTokenAddress=${outToken}&amount=${amount}&gasPrice=3&slippage=${slippage}&account=${account.address}`;
-  console.log(`[bnb-swap] OpenOcean swap URL: ${swapUrl}`);
-
-  const swapRes = await fetch(swapUrl);
-  const swapData = await swapRes.json();
-
-  if (swapData.code !== 200 || !swapData.data) {
-    throw new Error(`OpenOcean swap failed: ${JSON.stringify(swapData)}`);
-  }
-
-  const { to, data, value: txValue, outAmount } = swapData.data;
-
-  // For sell: approve the OpenOcean router if needed
-  if (action === "sell") {
-    const currentAllowance = await publicClient.readContract({
-      address: tokenAddress as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: "allowance",
-      args: [account.address, to as `0x${string}`],
-    });
-
-    const sellAmount = BigInt(inAmountRaw);
-    if (currentAllowance < sellAmount) {
-      console.log(`[bnb-swap] Approving ${to} for token ${tokenAddress}`);
-      const approveTx = await walletClient.writeContract({
-        address: tokenAddress as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [to as `0x${string}`, sellAmount * 2n], // approve 2x for buffer
-      });
-      await publicClient.waitForTransactionReceipt({ hash: approveTx, confirmations: 1, timeout: 20_000 });
-      console.log(`[bnb-swap] Approval confirmed: ${approveTx}`);
-    }
-  }
-
-  // Execute the swap
-  const txHash = await walletClient.sendTransaction({
-    to: to as `0x${string}`,
-    data: data as `0x${string}`,
-    value: BigInt(txValue || "0"),
-  });
-
-  console.log(`[bnb-swap] OpenOcean tx: ${txHash}`);
-  return { txHash, outAmount: outAmount || "0" };
+  privyUserId?: string; // did:privy:... for server-side signing
+  slippage?: number;
 }
 
 Deno.serve(async (req) => {
@@ -164,20 +94,81 @@ Deno.serve(async (req) => {
       );
     }
 
-    const deployerKey = Deno.env.get("BASE_DEPLOYER_PRIVATE_KEY");
-    if (!deployerKey) {
+    // ── Resolve user's EVM wallet via Privy ──
+    let walletId: string | null = null;
+    let walletAddress: string = body.userWallet;
+
+    // First try DB cache
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (body.privyUserId) {
+      // Check DB for cached wallet ID
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("privy_evm_wallet_id, evm_wallet_address")
+        .eq("privy_did", body.privyUserId)
+        .maybeSingle();
+
+      if (profile?.privy_evm_wallet_id) {
+        walletId = profile.privy_evm_wallet_id;
+        walletAddress = profile.evm_wallet_address || body.userWallet;
+        console.log(`[bnb-swap] Using cached EVM wallet ID: ${walletId}`);
+      } else {
+        // Fetch from Privy API
+        console.log(`[bnb-swap] Fetching EVM wallet from Privy for ${body.privyUserId}`);
+        const user = await getPrivyUser(body.privyUserId);
+        const evmWallet = findEvmEmbeddedWallet(user);
+
+        if (!evmWallet) {
+          return new Response(
+            JSON.stringify({ error: "No EVM embedded wallet found. Please ensure your account has an EVM wallet." }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        walletId = evmWallet.walletId;
+        walletAddress = evmWallet.address;
+
+        // Cache for future calls
+        await supabase
+          .from("profiles")
+          .update({ privy_evm_wallet_id: walletId, evm_wallet_address: walletAddress })
+          .eq("privy_did", body.privyUserId);
+      }
+    } else {
+      // Fallback: try to find by wallet address
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("privy_did, privy_evm_wallet_id")
+        .eq("evm_wallet_address", body.userWallet)
+        .maybeSingle();
+
+      if (profile?.privy_evm_wallet_id) {
+        walletId = profile.privy_evm_wallet_id;
+      } else if (profile?.privy_did) {
+        const user = await getPrivyUser(profile.privy_did);
+        const evmWallet = findEvmEmbeddedWallet(user);
+        if (evmWallet) {
+          walletId = evmWallet.walletId;
+          walletAddress = evmWallet.address;
+          await supabase
+            .from("profiles")
+            .update({ privy_evm_wallet_id: walletId })
+            .eq("privy_did", profile.privy_did);
+        }
+      }
+    }
+
+    if (!walletId) {
       return new Response(
-        JSON.stringify({ error: "Deployer key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Could not resolve EVM wallet. Please pass privyUserId." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const account = privateKeyToAccount(
-      (deployerKey.startsWith("0x") ? deployerKey : `0x${deployerKey}`) as `0x${string}`
-    );
-
     const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
-    const walletClient = createWalletClient({ account, chain: bsc, transport: http(BSC_RPC) });
     const slippage = body.slippage ?? 3;
 
     // ── Check if token is on bonding curve or graduated ──
@@ -195,18 +186,16 @@ Deno.serve(async (req) => {
         const [, , , , , graduated] = tokenInfo;
         isGraduated = graduated;
       } catch (e) {
-        // Token not on portal — assume graduated / external DEX token
         console.log(`[bnb-swap] Token not on portal, routing to OpenOcean`);
         isGraduated = true;
       }
     } else {
-      // No portal deployed, use OpenOcean for all tokens
       isGraduated = true;
     }
 
-    // ── Check deployer balance ──
+    // ── Check user's balance ──
     if (body.action === "buy") {
-      const balance = await publicClient.getBalance({ address: account.address });
+      const balance = await publicClient.getBalance({ address: walletAddress as `0x${string}` });
       const bnbAmount = parseEther(body.amount);
       if (balance < bnbAmount + parseEther("0.002")) {
         return new Response(
@@ -222,37 +211,109 @@ Deno.serve(async (req) => {
     if (isGraduated) {
       // ── Route through OpenOcean DEX aggregator ──
       console.log(`[bnb-swap] Graduated token — using OpenOcean for ${body.action}`);
-      const result = await openOceanSwap(
-        body.tokenAddress,
-        body.action,
-        body.amount,
-        slippage,
-        account,
-        publicClient,
-        walletClient,
-      );
-      txHash = result.txHash;
-      estimatedOutput = result.outAmount;
+
+      const inToken = body.action === "buy" ? BNB_NATIVE : body.tokenAddress;
+      const outToken = body.action === "buy" ? body.tokenAddress : BNB_NATIVE;
+
+      // For sells, approve first
+      if (body.action === "sell") {
+        const sellAmountRaw = parseEther(body.amount);
+
+        // Get quote first to find router address
+        const swapUrl = `${OPENOCEAN_API}/swap?inTokenAddress=${inToken}&outTokenAddress=${outToken}&amount=${body.amount}&gasPrice=3&slippage=${slippage}&account=${walletAddress}`;
+        const swapRes = await fetch(swapUrl);
+        const swapData = await swapRes.json();
+
+        if (swapData.code !== 200 || !swapData.data) {
+          throw new Error(`OpenOcean swap failed: ${JSON.stringify(swapData)}`);
+        }
+
+        const routerAddress = swapData.data.to as string;
+
+        // Check allowance
+        const currentAllowance = await publicClient.readContract({
+          address: body.tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: "allowance",
+          args: [walletAddress as `0x${string}`, routerAddress as `0x${string}`],
+        });
+
+        if (currentAllowance < sellAmountRaw) {
+          console.log(`[bnb-swap] Approving ${routerAddress} for token ${body.tokenAddress}`);
+          const approveData = encodeFunctionData({
+            abi: ERC20_ABI,
+            functionName: "approve",
+            args: [routerAddress as `0x${string}`, sellAmountRaw * 2n],
+          });
+
+          const approveHash = await evmSendTransaction(walletId, {
+            to: body.tokenAddress,
+            data: approveData,
+          });
+          console.log(`[bnb-swap] Approval tx: ${approveHash}`);
+
+          // Wait for approval confirmation
+          await publicClient.waitForTransactionReceipt({
+            hash: approveHash as `0x${string}`,
+            confirmations: 1,
+            timeout: 20_000,
+          });
+        }
+
+        // Execute the swap
+        txHash = await evmSendTransaction(walletId, {
+          to: swapData.data.to,
+          data: swapData.data.data,
+          value: numberToHex(BigInt(swapData.data.value || "0")),
+        });
+        estimatedOutput = swapData.data.outAmount || "0";
+      } else {
+        // Buy — get swap data from OpenOcean
+        const swapUrl = `${OPENOCEAN_API}/swap?inTokenAddress=${inToken}&outTokenAddress=${outToken}&amount=${body.amount}&gasPrice=3&slippage=${slippage}&account=${walletAddress}`;
+        console.log(`[bnb-swap] OpenOcean swap URL: ${swapUrl}`);
+
+        const swapRes = await fetch(swapUrl);
+        const swapData = await swapRes.json();
+
+        if (swapData.code !== 200 || !swapData.data) {
+          throw new Error(`OpenOcean swap failed: ${JSON.stringify(swapData)}`);
+        }
+
+        txHash = await evmSendTransaction(walletId, {
+          to: swapData.data.to,
+          data: swapData.data.data,
+          value: numberToHex(BigInt(swapData.data.value || "0")),
+        });
+        estimatedOutput = swapData.data.outAmount || "0";
+      }
     } else {
       // ── Bonding curve swap via SaturnPortal ──
       console.log(`[bnb-swap] Bonding curve token — using SaturnPortal for ${body.action}`);
 
       if (body.action === "buy") {
         const bnbAmount = parseEther(body.amount);
-        txHash = await walletClient.writeContract({
-          address: portalAddress as `0x${string}`,
+        const callData = encodeFunctionData({
           abi: PORTAL_ABI,
           functionName: "buy",
           args: [body.tokenAddress as `0x${string}`],
-          value: bnbAmount,
+        });
+
+        txHash = await evmSendTransaction(walletId, {
+          to: portalAddress!,
+          data: callData,
+          value: numberToHex(bnbAmount),
         });
       } else {
         const tokenAmount = parseEther(body.amount);
-        txHash = await walletClient.writeContract({
-          address: portalAddress as `0x${string}`,
+        const callData = encodeFunctionData({
           abi: PORTAL_ABI,
           functionName: "sell",
           args: [body.tokenAddress as `0x${string}`, tokenAmount],
+        });
+
+        txHash = await evmSendTransaction(walletId, {
+          to: portalAddress!,
+          data: callData,
         });
       }
     }
@@ -261,22 +322,18 @@ Deno.serve(async (req) => {
 
     // Wait for confirmation
     const receipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
+      hash: txHash as `0x${string}`,
       confirmations: 1,
       timeout: 30_000,
     });
 
     // ── Record trade in alpha_trades ──
     try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
       await supabase.from("alpha_trades").insert({
         token_mint: body.tokenAddress,
-        wallet_address: body.userWallet,
+        wallet_address: walletAddress,
         trade_type: body.action,
-        amount_sol: parseFloat(body.amount), // BNB amount (field is generic)
+        amount_sol: parseFloat(body.amount),
         amount_tokens: parseFloat(estimatedOutput) || 0,
         tx_hash: txHash,
         chain: "bnb",
