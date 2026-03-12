@@ -127,8 +127,8 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
   isCompact?: boolean;
 }) {
   const { executeBnbSwap, isLoading } = useBnbSwap();
-  const { isAuthenticated } = useAuth();
-  const { evmAddress } = useMultiWallet();
+  const { isAuthenticated, solanaAddress } = useAuth();
+  const userWallet = solanaAddress || "unknown";
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
