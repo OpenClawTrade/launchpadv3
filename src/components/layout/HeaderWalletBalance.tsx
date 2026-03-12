@@ -15,6 +15,7 @@ import { DepositDialog } from "@/components/wallet/DepositDialog";
 import { useChain } from "@/contexts/ChainContext";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
+import { fetchBnbBalance as fetchBnbBalanceRpc } from "@/lib/bscRpc";
 
 function HeaderWalletBalanceInner() {
   const { isAuthenticated, logout } = useAuth();
@@ -64,14 +65,9 @@ function HeaderWalletBalanceInner() {
       let cancelled = false;
       const fetchBnbBal = async () => {
         try {
-          const res = await fetch('https://bsc-dataseed.binance.org', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBalance', params: [bnbAddress, 'latest'], id: 1 }),
-          });
-          const data = await res.json();
-          if (data?.result && !cancelled) {
-            setBalance(Number(BigInt(data.result)) / 1e18);
+          const bal = await fetchBnbBalanceRpc(bnbAddress);
+          if (!cancelled) {
+            setBalance(bal);
           }
         } catch (e) { console.warn("BNB balance fetch failed:", e); }
       };

@@ -185,7 +185,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
                 name: "BNB Smart Chain",
                 nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
                 rpcUrls: {
-                  default: { http: ["https://bsc-dataseed.binance.org"] },
+                  default: { http: [`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno'}.supabase.co/functions/v1/bsc-rpc`] },
                 },
                 blockExplorers: {
                   default: { name: "BscScan", url: "https://bscscan.com" },
@@ -197,7 +197,7 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
               name: "BNB Smart Chain",
               nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
               rpcUrls: {
-                default: { http: ["https://bsc-dataseed.binance.org"] },
+                default: { http: [`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno'}.supabase.co/functions/v1/bsc-rpc`] },
               },
               blockExplorers: {
                 default: { name: "BscScan", url: "https://bscscan.com" },
