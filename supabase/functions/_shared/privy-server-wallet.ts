@@ -229,6 +229,46 @@ export async function signTransaction(
 }
 
 /**
+ * Send an EVM transaction using Privy's server-side wallet RPC.
+ * CAIP-2 for BSC mainnet: eip155:56
+ */
+export async function evmSendTransaction(
+  walletId: string,
+  txParams: { to: string; data?: string; value?: string; gas?: string },
+  caip2 = "eip155:56"
+): Promise<string> {
+  const url = `https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}/rpc`;
+  const bodyObj = {
+    method: "eth_sendTransaction",
+    caip2,
+    params: {
+      transaction: txParams,
+    },
+  };
+
+  console.log("[privy] eth_sendTransaction URL:", url, "to:", txParams.to);
+
+  const authSignature = getAuthorizationSignature(url, bodyObj);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+      "privy-authorization-signature": authSignature,
+    },
+    body: JSON.stringify(bodyObj),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Privy eth_sendTransaction failed (${res.status}): ${body}`);
+  }
+
+  const data = await res.json();
+  return data.data?.hash || data.data?.transaction_hash || data.hash || "";
+}
+
+/**
  * Convenience: Look up a user by Privy DID, find their Solana wallet,
  * and return everything needed for server-side signing.
  */
@@ -242,6 +282,29 @@ export async function resolveUserWallet(privyDid: string): Promise<{
 
   if (!wallet) {
     throw new Error(`No Solana embedded wallet found for user ${privyDid}`);
+  }
+
+  return {
+    privyUserId: user.id,
+    walletAddress: wallet.address,
+    walletId: wallet.walletId,
+  };
+}
+
+/**
+ * Convenience: Look up a user by Privy DID, find their EVM wallet,
+ * and return everything needed for server-side signing.
+ */
+export async function resolveEvmWallet(privyDid: string): Promise<{
+  privyUserId: string;
+  walletAddress: string;
+  walletId: string;
+}> {
+  const user = await getPrivyUser(privyDid);
+  const wallet = findEvmEmbeddedWallet(user);
+
+  if (!wallet) {
+    throw new Error(`No EVM embedded wallet found for user ${privyDid}`);
   }
 
   return {
