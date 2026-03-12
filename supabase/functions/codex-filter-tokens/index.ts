@@ -155,15 +155,10 @@ Deno.serve(async (req) => {
       const address = r.token?.info?.address ?? null;
       let imageUrl = r.token?.info?.imageSmallUrl || r.token?.info?.imageThumbUrl || r.token?.info?.imageLargeUrl || null;
       
-      // BSC fallback: use Trust Wallet asset repo for token logos
-      if (!imageUrl && address && safeNetworkId === BSC_NETWORK_ID) {
-        const checksumAddr = address;
-        imageUrl = `https://assets-cdn.trustwallet.com/blockchains/smartchain/assets/${checksumAddr}/logo.png`;
-      }
-
-      // Solana fallback: use DexScreener CDN for token images
-      if (!imageUrl && address && safeNetworkId === SOLANA_NETWORK_ID) {
-        imageUrl = `https://dd.dexscreener.com/ds-data/tokens/solana/${address}.png`;
+      // Universal fallback: DexScreener CDN is the most reliable for all chains
+      if (!imageUrl && address) {
+        const dexChain = safeNetworkId === BSC_NETWORK_ID ? "bsc" : "solana";
+        imageUrl = `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${address}.png`;
       }
 
       return {

@@ -65,22 +65,20 @@ function toChecksumHex(addr: string): string {
   return addr.toLowerCase();
 }
 
-function TokenIcon({ pair, dexScreenerUrl, chain }: { pair: CodexPairToken; dexScreenerUrl: string | null; chain: PanelChain }) {
+function TokenIcon({ pair, chain }: { pair: CodexPairToken; chain: PanelChain }) {
   const [stage, setStage] = useState(0);
 
+  // DexScreener is the most reliable single source for token images
+  const dexChain = chain === "bnb" ? "bsc" : "solana";
+  const dexUrl = pair.address
+    ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${pair.address}.png`
+    : null;
+
   const srcs: string[] = [];
-  // 1. Primary image from Codex
-  if (pair.imageUrl) srcs.push(pair.imageUrl);
-  // 2. DexScreener token image
-  if (dexScreenerUrl) srcs.push(dexScreenerUrl);
-  // 3. For BNB: Trust Wallet CDN
-  if (chain === "bnb" && pair.address) {
-    srcs.push(`https://assets-cdn.trustwallet.com/blockchains/smartchain/assets/${pair.address}/logo.png`);
-  }
-  // 4. For BNB: PancakeSwap token list image
-  if (chain === "bnb" && pair.address) {
-    srcs.push(`https://tokens.pancakeswap.finance/images/${pair.address}.png`);
-  }
+  // 1. DexScreener first — most reliable for new tokens
+  if (dexUrl) srcs.push(dexUrl);
+  // 2. Codex image as backup
+  if (pair.imageUrl && pair.imageUrl !== dexUrl) srcs.push(pair.imageUrl);
 
   if (stage >= srcs.length) {
     return (
@@ -245,10 +243,6 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
           <>
             {pairs.map((pair, idx) => {
               const changeColor = pair.change24h >= 0 ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)";
-              const dexChain = selectedChain === "bnb" ? "bsc" : "solana";
-              const dexScreenerUrl = pair.address
-                ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${pair.address}.png`
-                : null;
               return (
                 <button
                   key={pair.address || idx}
@@ -272,7 +266,7 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
                 >
                   {/* Token info */}
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                    <TokenIcon pair={pair} dexScreenerUrl={dexScreenerUrl} chain={selectedChain} />
+                    <TokenIcon pair={pair} chain={selectedChain} />
                     <div style={{ minWidth: 0, overflow: "hidden" }}>
                       <div style={{
                         fontSize: "11px",
