@@ -90,23 +90,22 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
 
   if (networkId === BSC_NETWORK_ID) {
-    // BSC launchpads known to Codex
-    const bscLaunchpads = `["Four.meme", "Four.meme Fair"]`;
+    // BSC launchpads: Four.meme (main BSC launchpad), Four.meme Fair, Moonit, TokenMill V2
+    const bscLaunchpads = `["Four.meme", "Four.meme Fair", "Moonit", "TokenMill V2"]`;
 
-    // BSC: broader discovery window so very recent launches are not under-represented.
     switch (column) {
       case "new":
-        filters = `{ network: [${networkId}], createdAt: { gte: ${bscNewCutoff} } }`;
+        filters = `{ network: [${networkId}], launchpadName: ${bscLaunchpads}, createdAt: { gte: ${bscNewCutoff} } }`;
         rankings = `{ attribute: createdAt, direction: DESC }`;
         break;
       case "completing":
-        // "Final Stretch" on BSC = tokens with bonding progress >= 20%, with some activity
-        filters = `{ network: [${networkId}], launchpadGraduationPercent: { gte: 20, lte: 99 }, launchpadCompleted: false, launchpadMigrated: false, liquidity: { gte: 1 } }`;
+        // "Final Stretch" on BSC = tokens near graduation (50-99% bonding progress)
+        filters = `{ network: [${networkId}], launchpadName: ${bscLaunchpads}, launchpadGraduationPercent: { gte: 50, lte: 99 }, launchpadCompleted: false, launchpadMigrated: false }`;
         rankings = `{ attribute: marketCap, direction: DESC }`;
         break;
       case "completed":
-        // "Migrated" on BSC = established tokens with decent liquidity and volume
-        filters = `{ network: [${networkId}], liquidity: { gte: 10000 }, volume24: { gte: 1000 } }`;
+        // "Migrated" on BSC = graduated tokens with decent liquidity and volume
+        filters = `{ network: [${networkId}], launchpadName: ${bscLaunchpads}, launchpadMigrated: true, liquidity: { gte: 10000 }, volume24: { gte: 1000 } }`;
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
     }
