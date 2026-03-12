@@ -75,6 +75,7 @@ function formatSolAmount(amount: number): string {
 
 /** Lightweight view for tokens not in our database — fetched from Codex on-chain data */
 function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number; isBsc?: boolean }) {
+  const networkId = isBsc ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
   const privyAvailable = usePrivyAvailable();
   const { solanaAddress } = useAuth();
   const { managedWallets } = useMultiWallet();
