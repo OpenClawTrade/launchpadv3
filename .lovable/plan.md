@@ -1,45 +1,35 @@
 
 
-## Two Issues to Fix
+## Plan: Rewrite Documentation Page for Multi-Chain Coverage
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+### Issues Found
+1. **Wrong ticker**: Page never mentions $MOON — needs to reference it as the platform token
+2. **Solana-only**: No mention of BNB Chain, PancakeSwap graduation, OpenOcean routing, or Split Vault fee system
+3. **Outdated URLs**: Links section points to `saturntrade.lovable.app` and `x.com/saturntrade` instead of `moondexo.com` and `x.com/moondexo`
+4. **Subtitle wrong**: Says "The Fastest AI-Powered Trading Terminal on Solana" — should be multi-chain
+5. **Missing features**: Discover page, Tokens page, Merch page not mentioned
+6. **Stale details**: Infrastructure section lists only Helius — should include Alchemy as primary RPC
+7. **Template string bugs**: Lines 29 and 548 use `${BRAND.name}` (template literal syntax) inside JSX — should be `{BRAND.name}`
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+### Changes — Single File: `src/pages/WhitepaperPage.tsx`
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+Full rewrite of all content sections:
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+**Header**: Fix to "MoonDexo Documentation" with subtitle "Multi-Chain AI Trading Terminal — Solana & BNB Chain". Token: $MOON.
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+**Table of Contents** — Updated to 10 sections matching actual features from sidebar:
+1. Platform Overview (multi-chain, $MOON token)
+2. Pulse Trading Terminal (Solana + BNB columns, Codex/DexScreener data)
+3. Token Launchpad (Solana: Meteora DBC; BNB: SaturnPortal bonding curve with ~16 BNB graduation)
+4. Tokens & Discover (token browser, trending, DexScreener integration)
+5. AI Trading Agents (strategies, voice fingerprinting)
+6. Alpha Tracker (smart money tracking)
+7. X Tracker (KOL monitoring)
+8. Leverage Trading (Aster DEX on BNB Chain)
+9. Fee Architecture (Solana fee split + BNB Split Vault with 1% platform + up to 8% creator)
+10. Technical Infrastructure & Security (dual-chain stack: Alchemy + Helius RPC, Privy auth, OpenOcean for BNB swaps, Jupiter for Solana)
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+**Links section**: Updated to use `BRAND.domain`, `BRAND.twitterUrl`
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
-
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
-
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
-
-### Technical Details
-
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
-
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
-
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+**Fix JSX bugs**: `${BRAND.name}` → `{BRAND.name}` on lines 29 and 548
 
