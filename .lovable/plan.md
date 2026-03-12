@@ -1,40 +1,45 @@
 
 
-## Problem
+## Two Issues to Fix
 
-When BNB Chain is selected, the header wallet button still shows the Solana embedded address. This happens because:
+### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
 
-1. **Privy creates embedded EVM wallets** (`createOnLogin: "all-users"` for ethereum) — but the header doesn't read them.
-2. **`useEvmWallet`** uses wagmi/RainbowKit, which only tracks *externally connected* wallets (MetaMask, etc.), not Privy's embedded EVM wallet.
-3. So `evmWallet.address` is `undefined` for existing users who haven't manually connected MetaMask, and it falls back to the Solana address.
+The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
 
-## Solution
+**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
 
-Create a hook that reads the **Privy embedded EVM wallet** address using `useWallets()` from `@privy-io/react-auth` (which returns both Solana and EVM wallets), and use it in the header when BNB chain is selected.
+Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
 
-### Changes
+**Changes:**
+- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
 
-1. **New hook: `src/hooks/usePrivyEvmWallet.ts`**
-   - Import `useWallets` from `@privy-io/react-auth` (not the solana-specific one)
-   - Find the embedded Ethereum wallet (walletClientType === "privy" and chainType includes "ethereum" or address starts with "0x")
-   - Expose `address`, `isReady`
-   - If no embedded EVM wallet exists for an existing user, call `useCreateWallet` from `@privy-io/react-auth` to force creation
+### 2. Alpha Tracker Shows No Trades from the Platform
 
-2. **Update `src/components/layout/HeaderWalletBalance.tsx`**
-   - Import the new `usePrivyEvmWallet` hook
-   - When `chain === 'bnb'`, prefer the Privy embedded EVM address over `evmWallet.address`
-   - For BNB balance fetching, use the Privy EVM address
-   - Keep wagmi/RainbowKit `useEvmWallet` as fallback for externally connected wallets
+The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
 
-3. **Update `src/hooks/useAuth.ts`**
-   - Add `evmAddress` field to `UseAuthReturn` by finding the EVM wallet from the `useWallets()` results (which already imports from `@privy-io/react-auth`)
+**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
 
-### Key technical detail
+**Changes:**
+- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
 
-`useWallets` from `@privy-io/react-auth` returns all wallet types. EVM embedded wallets have:
-- `walletClientType === "privy"` 
-- `chainType === "ethereum"`
-- Address starts with `0x`
+### Technical Details
 
-This distinguishes them from the Solana embedded wallet which has `chainType === "solana"`.
+**alpha_trades schema** (from types.ts):
+- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+
+**Data available in launchpad-swap:**
+- `userWallet` -> `wallet_address`
+- `token.mint_address` -> `token_mint`  
+- `token.name` -> `token_name`
+- `token.ticker` -> `token_ticker`
+- `isBuy ? "buy" : "sell"` -> `trade_type`
+- `solAmount` -> `amount_sol`
+- `tokenAmount` -> `amount_tokens`
+- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
+- `clientSignature` / generated signature -> `tx_hash`
+- Profile lookup for display name/avatar
+
+**Files to modify:**
+1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
+2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
 

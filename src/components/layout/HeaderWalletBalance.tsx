@@ -13,12 +13,14 @@ import { AccountSecurityModal } from "@/components/settings/AccountSecurityModal
 import { PortfolioModal } from "@/components/portfolio/PortfolioModal";
 import { useChain } from "@/contexts/ChainContext";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
+import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 
 function HeaderWalletBalanceInner() {
   const { isAuthenticated, logout } = useAuth();
   const { walletAddress: embeddedAddress, getBalance } = useSolanaWalletWithPrivy();
   const { chain } = useChain();
   const evmWallet = useEvmWallet();
+  const privyEvm = usePrivyEvmWallet();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -41,8 +43,9 @@ function HeaderWalletBalanceInner() {
 
   useEffect(() => {
     if (chain === 'bnb') {
-      // Fetch BNB balance via BSC RPC for EVM wallet
-      if (!evmWallet.isConnected || !evmWallet.address) {
+      // Fetch BNB balance via BSC RPC for EVM wallet (prefer Privy embedded, fallback to wagmi)
+      const bnbAddress = privyEvm.address || evmWallet.address;
+      if (!bnbAddress) {
         setBalance(null);
         return;
       }
@@ -54,7 +57,7 @@ function HeaderWalletBalanceInner() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               jsonrpc: '2.0', method: 'eth_getBalance',
-              params: [evmWallet.address, 'latest'], id: 1,
+              params: [bnbAddress, 'latest'], id: 1,
             }),
           });
           const data = await res.json();
@@ -86,7 +89,7 @@ function HeaderWalletBalanceInner() {
       const interval = setInterval(fetchBal, 30000);
       return () => { cancelled = true; clearInterval(interval); };
     }
-  }, [embeddedAddress, getBalance, chain, evmWallet.isConnected, evmWallet.address]);
+  }, [embeddedAddress, getBalance, chain, evmWallet.isConnected, evmWallet.address, privyEvm.address]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -99,10 +102,10 @@ function HeaderWalletBalanceInner() {
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  if (!isAuthenticated || (!embeddedAddress && !evmWallet.address)) return null;
+  if (!isAuthenticated || (!embeddedAddress && !evmWallet.address && !privyEvm.address)) return null;
 
   const isBnb = chain === 'bnb';
-  const displayAddress = isBnb && evmWallet.address ? evmWallet.address : (embeddedAddress || '');
+  const displayAddress = isBnb ? (privyEvm.address || evmWallet.address || '') : (embeddedAddress || '');
   const currencyLabel = isBnb ? 'BNB' : 'SOL';
 
   const handleCopy = async () => {
