@@ -38,21 +38,9 @@ function isAddressBoundImageUrl(imageUrl: string | null | undefined, address: st
   return withoutPrefix.length > 0 && normalizedUrl.includes(withoutPrefix);
 }
 
-function isTrustedBscImageUrl(imageUrl: string | null | undefined): boolean {
-  if (!imageUrl) return false;
-
-  try {
-    const hostname = new URL(imageUrl).hostname.toLowerCase();
-    return (
-      hostname === "token-media.defined.fi" ||
-      hostname.endsWith(".defined.fi") ||
-      hostname.includes("pancakeswap.finance") ||
-      hostname.includes("1inch.io")
-    );
-  } catch {
-    return false;
-  }
-}
+// No longer trust upstream image hostnames (e.g. token-media.defined.fi) blindly —
+// they frequently serve mismatched logos for BSC tokens.
+// Only address-bound verification is used for BSC image selection.
 
 function uniqueNonEmpty(values: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -260,11 +248,9 @@ Deno.serve(async (req) => {
       let fallbackImageUrl: string | null;
 
       if (isBsc) {
-        // BSC: prioritize launchpad/Codex media when trusted, then deterministic CDN fallbacks.
-        const launchpadPreferredImage = (
-          isAddressBoundImageUrl(codexImage, normalizedAddress) ||
-          isTrustedBscImageUrl(codexImage)
-        ) ? codexImage : null;
+        // BSC: only use Codex image when it contains the token's contract address in its URL.
+        const launchpadPreferredImage = isAddressBoundImageUrl(codexImage, normalizedAddress)
+          ? codexImage : null;
 
         const bscImageCandidates = uniqueNonEmpty([
           launchpadPreferredImage,
