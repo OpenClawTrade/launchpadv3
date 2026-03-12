@@ -35,6 +35,9 @@ import { copyToClipboard } from "@/lib/clipboard";
 const SendTokenModal = lazy(() => import("@/components/wallet/SendTokenModal"));
 const SwapModal = lazy(() => import("@/components/wallet/SwapModal"));
 const ReceiveDialog = lazy(() => import("@/components/wallet/ReceiveDialog"));
+import { SettingsModal } from "@/components/settings/SettingsModal";
+import { AccountSecurityModal } from "@/components/settings/AccountSecurityModal";
+import { DepositDialog } from "@/components/wallet/DepositDialog";
 import TokenHoldingsList from "@/components/wallet/TokenHoldingsList";
 import WalletTransactionHistory from "@/components/wallet/WalletTransactionHistory";
 
