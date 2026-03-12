@@ -266,6 +266,17 @@ serve(async (req) => {
       );
     }
 
+    // Block graduated tokens from legacy simulate mode (record mode above still works)
+    if (token.status === "graduated") {
+      return new Response(
+        JSON.stringify({ 
+          error: "Token has graduated. Trade on DEX.",
+          jupiterUrl: `https://jup.ag/swap/SOL-${mintAddress}`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ===== LEGACY SIMULATE MODE (fallback) =====
     // Calculate using bonding curve
     const virtualSol = token.virtual_sol_reserves || 30;
