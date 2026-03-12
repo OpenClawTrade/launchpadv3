@@ -35,6 +35,17 @@ interface FastSwapResult {
   graduated?: boolean;
 }
 
+// Module-level cached DBC client singleton
+let cachedDbcClient: DynamicBondingCurveClient | null = null;
+let cachedDbcRpcUrl: string | null = null;
+
+function getOrCreateDbcClient(connection: Connection, rpcUrl: string): DynamicBondingCurveClient {
+  if (cachedDbcClient && cachedDbcRpcUrl === rpcUrl) return cachedDbcClient;
+  cachedDbcClient = DynamicBondingCurveClient.create(connection, 'confirmed');
+  cachedDbcRpcUrl = rpcUrl;
+  return cachedDbcClient;
+}
+
 export function useFastSwap() {
   const { signAndSendTransaction, walletAddress, getConnection } = useSolanaWalletWithPrivy();
   const { buyToken, sellToken } = useJupiterSwap();
@@ -47,22 +58,6 @@ export function useFastSwap() {
   useEffect(() => {
     startBlockhashPoller();
   }, []);
-
-  /**
-   * Fast bonding curve swap via Meteora DBC SDK
-   * Eagerly imported, cached blockhash, optimistic result
-   */
-  const swapBondingCurve = useCallback(async (
-    token: Token,
-    amount: number,
-    isBuy: boolean,
-    slippageBps: number = 500,
-  ): Promise<FastSwapResult> => {
-    if (!walletAddress) throw new Error('Wallet not connected');
-    if (!token.dbc_pool_address) throw new Error('Token has no DBC pool address');
-
-    const connection = getConnection();
-    const client = DynamicBondingCurveClient.create(connection, 'confirmed');
 
     const poolAddress = new PublicKey(token.dbc_pool_address);
     const ownerPubkey = new PublicKey(walletAddress);
