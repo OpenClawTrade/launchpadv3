@@ -76,6 +76,9 @@ const CREATOR_SHARE = 0.3;
 
 export default function PanelMyLaunchesTab() {
   const { user, solanaAddress } = useAuth();
+  const { chainConfig } = useChain();
+  const currencySymbol = chainConfig.nativeCurrency.symbol;
+  const explorerUrl = chainConfig.explorerUrl;
   const twitterUsername = user?.twitter?.username;
   const { toast } = useToast();
   const queryClient = useQueryClient();
