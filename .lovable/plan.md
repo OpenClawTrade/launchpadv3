@@ -1,45 +1,82 @@
 
 
-## Two Issues to Fix
+## Plan: BNB 1-Click Trading via 1inch + Unified Alpha Tracker
 
-### 1. Trade Success Toast -- Use the Same Radix Toast Style as Announcements
+The approved plan was never implemented. Here is the concrete implementation plan.
 
-The trade success toast (line 133 in `TradePanelWithSwap.tsx`) already uses the Radix `useToast` system which renders through the styled `toast.tsx` component. The announcements, however, use **Sonner** (`toast()` from `sonner`), which has a completely different, simpler appearance.
+### Pre-requisite: 1inch API Key
 
-**Plan:** Migrate the announcement toasts in `useAnnouncements.ts` to use the Radix `useToast` system (from `@/hooks/use-toast`) so both announcements and trade success notifications share the same professional dark glass style. Since `useAnnouncements` is a hook, it can import the `toast` function from `use-toast.ts` directly.
+A `ONEINCH_API_KEY` secret is needed. Free from [portal.1inch.dev](https://portal.1inch.dev). I will use `add_secret` to request it before proceeding with code.
 
-Alternatively (and more practically): the trade success toast already looks professional. The user likely wants both to look the same. The simplest approach is to ensure the trade toasts use the `variant: "success"` for the green styled variant already defined in `toast.tsx`.
+---
 
-**Changes:**
-- `src/components/launchpad/TradePanelWithSwap.tsx`: Add `variant: "success"` to the trade success toast call (line 133).
+### 1. Database Migration — Add `chain` column to `alpha_trades`
 
-### 2. Alpha Tracker Shows No Trades from the Platform
+```sql
+ALTER TABLE alpha_trades ADD COLUMN chain TEXT NOT NULL DEFAULT 'solana';
+CREATE INDEX idx_alpha_trades_chain ON alpha_trades(chain);
+```
 
-The `alpha_trades` table is never populated by any code path. The `launchpad-swap` edge function records trades into `launchpad_transactions` but never inserts into `alpha_trades`. The Alpha Tracker feed reads exclusively from `alpha_trades`.
+This lets BNB and Solana trades coexist in one table/feed.
 
-**Plan:** Add an insert into `alpha_trades` inside the `launchpad-swap` edge function after every successful trade recording (both in "record" mode and in the standard swap flow). This will populate the Alpha Tracker with platform trades in real-time.
+### 2. New Edge Function: `bnb-dex-swap/index.ts`
 
-**Changes:**
-- `supabase/functions/launchpad-swap/index.ts`: After recording a transaction in `launchpad_transactions`, also insert a row into `alpha_trades` with the relevant fields (wallet_address, token_mint, token_name, token_ticker, trade_type, amount_sol, amount_tokens, price_usd, tx_hash, trader_display_name, trader_avatar_url). This needs to happen in both the "record" mode block (~line 161) and the standard swap block.
+Server-side 1-click swap for BNB tokens (no wallet prompts — uses deployer key like Solana's `server-trade`).
 
-### Technical Details
+- Accepts: `{ tokenAddress, action, amount, userWallet }`
+- For **bonding curve tokens**: calls existing Portal contract buy/sell (reuse `bnb-swap` logic)
+- For **graduated/external tokens**: calls 1inch Swap API v6 (`GET /swap/v6.0/56/swap`) to get calldata, then signs+broadcasts via deployer key using viem
+- Records trade in `alpha_trades` with `chain = 'bnb'`
+- Uses `ONEINCH_API_KEY`, `BASE_DEPLOYER_PRIVATE_KEY`
 
-**alpha_trades schema** (from types.ts):
-- `wallet_address`, `token_mint`, `token_name`, `token_ticker`, `trade_type`, `amount_sol`, `amount_tokens`, `price_usd`, `tx_hash`, `created_at`, `trader_display_name`, `trader_avatar_url`
+### 3. New Hook: `src/hooks/useBnbFastSwap.ts`
 
-**Data available in launchpad-swap:**
-- `userWallet` -> `wallet_address`
-- `token.mint_address` -> `token_mint`  
-- `token.name` -> `token_name`
-- `token.ticker` -> `token_ticker`
-- `isBuy ? "buy" : "sell"` -> `trade_type`
-- `solAmount` -> `amount_sol`
-- `tokenAmount` -> `amount_tokens`
-- `newPrice` -> can derive `price_usd` (if SOL price available, otherwise null)
-- `clientSignature` / generated signature -> `tx_hash`
-- Profile lookup for display name/avatar
+Mirrors `useFastSwap` interface:
+- `{ executeFastSwap, isLoading, lastLatencyMs, walletAddress }`
+- Calls `bnb-dex-swap` edge function via `supabase.functions.invoke()`
+- Returns `{ success, signature (txHash) }`
+- No wallet signing — fully server-side
 
-**Files to modify:**
-1. `src/components/launchpad/TradePanelWithSwap.tsx` -- add `variant: "success"` to trade success toast
-2. `supabase/functions/launchpad-swap/index.ts` -- insert into `alpha_trades` after each successful trade
+### 4. Update `PulseQuickBuyButton.tsx`
+
+Replace the static PancakeSwap link (lines 106-121) with a `BnbQuickBuy` component:
+- Same UI as `SolanaQuickBuy`: preset amounts (0.1, 0.5, 1, 2 BNB), popover, sell-100%
+- Uses `useBnbFastSwap` hook
+- BscScan TX links on success toasts
+
+### 5. Update `bnb-swap/index.ts`
+
+Add `alpha_trades` insert after successful bonding curve trade (matching `launchpad-swap` pattern) with `chain = 'bnb'`.
+
+### 6. Update `useAlphaTrades.ts` — Unified Feed
+
+- Remove any chain filtering — fetch ALL trades (both chains)
+- Add `chain` field to `AlphaTrade` interface
+- No changes to realtime subscription (it already listens to all inserts)
+
+### 7. Update `AlphaTrackerPage.tsx` — Unified Multi-Chain
+
+- **Remove** the "BNB Chain tracking coming soon" yellow banner (lines 86-93)
+- Add a small chain icon/badge per trade row (SOL or BNB icon)
+- Explorer links already dynamic (line 59-62) — works as-is
+- Add chain filter button to filter panel (SOL / BNB / ALL)
+
+### 8. Update Agent Staking (`TradingAgentsShowcase`) — Chain-Aware
+
+- When BNB chain active: show "Stake BNB" instead of "Stake SOL"
+- Update amount labels to BNB denomination
+
+### Files to create (2)
+- `supabase/functions/bnb-dex-swap/index.ts`
+- `src/hooks/useBnbFastSwap.ts`
+
+### Files to modify (6)
+- `src/components/launchpad/PulseQuickBuyButton.tsx`
+- `src/hooks/useAlphaTrades.ts`
+- `src/pages/AlphaTrackerPage.tsx`
+- `supabase/functions/bnb-swap/index.ts`
+- `src/components/trading/TradingAgentsShowcase.tsx`
+- `src/components/home/TradingAgentsShowcase.tsx`
+
+### 1 database migration
 
