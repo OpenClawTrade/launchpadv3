@@ -142,6 +142,21 @@ async function resolveTokenRoute(
     const [tokenManager] = result;
     // If tokenManager is non-zero, this token is on Four.meme
     if (tokenManager && tokenManager !== "0x0000000000000000000000000000000000000000") {
+      // Check if liquidity has already been added (migrated to PancakeSwap)
+      try {
+        const migrated = await publicClient.readContract({
+          address: FOURMEME_HELPER3 as `0x${string}`,
+          abi: FOURMEME_HELPER_ABI,
+          functionName: "liquidityAdded",
+          args: [tokenAddress as `0x${string}`],
+        });
+        if (migrated) {
+          console.log(`[bnb-swap] Route: OpenOcean (Four.meme token migrated to PancakeSwap)`);
+          return { route: "openocean", graduated: true };
+        }
+      } catch (e) {
+        console.log(`[bnb-swap] liquidityAdded check failed, assuming not migrated: ${(e as Error).message?.slice(0, 60)}`);
+      }
       console.log(`[bnb-swap] Route: Four.meme (bonding curve, manager: ${tokenManager})`);
       return { route: "fourmeme", graduated: false };
     }
