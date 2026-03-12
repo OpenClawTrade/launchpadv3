@@ -153,22 +153,21 @@ export default function AllTokensPage() {
           </TabsList>
         </Tabs>
 
-        {/* Token List */}
-        <div className="space-y-3">
+        {/* Token Grid */}
+        <div>
           {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="p-4 border border-border rounded-xl bg-card space-y-3 animate-pulse">
-                <div className="flex gap-4">
-                  <Skeleton className="h-14 w-14 rounded-xl" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-32" />
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-full max-w-xs" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="rounded-xl bg-card border border-border overflow-hidden animate-pulse">
+                  <Skeleton className="w-full aspect-[16/9]" />
+                  <div className="p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-2 w-full rounded-full" />
                   </div>
                 </div>
-                <Skeleton className="h-2 w-full rounded-full" />
-              </div>
-            ))
+              ))}
+            </div>
           ) : filteredTokens.length === 0 ? (
             <div className="text-center py-16 space-y-4">
               <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
@@ -189,7 +188,7 @@ export default function AllTokensPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+              <div className="flex items-center justify-between text-sm text-muted-foreground px-1 mb-3">
                 <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''} (page {page}/{totalPages || 1})</span>
                 {searchQuery && (
                   <button onClick={() => setSearchQuery("")} className="text-primary hover:underline text-xs">
@@ -197,15 +196,17 @@ export default function AllTokensPage() {
                   </button>
                 )}
               </div>
-              {filteredTokens.map((token, index) => (
-                <div
-                  key={token.id}
-                  className="animate-fadeIn"
-                  style={{ animationDelay: `${index * 30}ms` }}
-                >
-                  <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
-                </div>
-              ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {filteredTokens.map((token, index) => (
+                  <div
+                    key={token.id}
+                    className="animate-fadeIn"
+                    style={{ animationDelay: `${index * 30}ms` }}
+                  >
+                    <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
+                  </div>
+                ))}
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
