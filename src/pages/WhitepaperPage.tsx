@@ -330,15 +330,15 @@ export default function WhitepaperPage() {
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  {BRAND.name} provides leverage trading via <strong className="text-foreground">Aster DEX</strong> on BNB Chain, enabling amplified exposure with built-in risk management for perpetual contract trading.
+                  {BRAND.name} is partnered with <strong className="text-foreground"><a href="https://asterdex.com" target="_blank" rel="noopener noreferrer" className="text-success hover:underline">AsterDEX</a></strong> to leverage their deep liquidity pools for perpetual contract trading on BNB Chain. This partnership enables users to trade with very high amounts of crypto, with pool guarantees from AsterDEX ensuring all trades are settled and paid out reliably.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   {[
-                    { label: "Protocol", value: "Aster DEX (BNB Chain)" },
+                    { label: "Partner", value: "AsterDEX (asterdex.com)" },
                     { label: "Type", value: "Perpetual Contracts" },
                     { label: "Collateral", value: "BNB / USDT" },
-                    { label: "Risk Management", value: "Built-in liquidation engine" },
+                    { label: "Liquidity", value: "AsterDEX pool-guaranteed" },
                   ].map((item) => (
                     <div key={item.label} className="flex justify-between text-sm p-3 bg-card/30 rounded">
                       <span className="text-muted-foreground">{item.label}</span>
