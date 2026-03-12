@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Image as ImageIcon, Globe, Twitter, AlertCircle, Loader2, Coins, Shield, TrendingUp, Zap } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, AlertCircle, Loader2, Coins, Shield, TrendingUp, Zap, Info } from 'lucide-react';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { toast } from 'sonner';
@@ -21,8 +21,11 @@ interface BnbLaunchFormData {
   twitterUrl: string;
   telegramUrl: string;
   initialBuyBnb: string;
-  creatorFeePct: number;
+  creatorFeePct: number; // 0-8%
 }
+
+const PLATFORM_FEE_PCT = 1; // 1% always
+const MAX_CREATOR_FEE_PCT = 8;
 
 export function BnbLauncher() {
   const { isConnected, address, balance, connect } = useEvmWallet();
@@ -36,13 +39,14 @@ export function BnbLauncher() {
     twitterUrl: '',
     telegramUrl: '',
     initialBuyBnb: '0',
-    creatorFeePct: 50,
+    creatorFeePct: 3, // default 3% creator fee
   });
 
   const handleInputChange = (field: keyof BnbLaunchFormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const totalTaxPct = PLATFORM_FEE_PCT + formData.creatorFeePct;
   const canLaunch = isConnected && formData.name && formData.ticker;
 
   const handleLaunch = useCallback(async () => {
@@ -50,7 +54,7 @@ export function BnbLauncher() {
 
     setIsLaunching(true);
     toast.info('🚀 Creating token on BNB Chain...', {
-      description: 'Deploying via MoonDexo bonding curve. This may take 30-60 seconds.',
+      description: 'Deploying with bonding curve. This may take 30-60 seconds.',
     });
 
     try {
@@ -60,7 +64,7 @@ export function BnbLauncher() {
           ticker: formData.ticker.toUpperCase(),
           creatorWallet: address,
           initialBuyBnb: formData.initialBuyBnb !== '0' ? formData.initialBuyBnb : undefined,
-          creatorFeeBps: Math.round(formData.creatorFeePct * 100),
+          creatorFeeBps: formData.creatorFeePct * 100, // Convert % to bps
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
           websiteUrl: formData.websiteUrl || null,
@@ -83,7 +87,7 @@ export function BnbLauncher() {
       setFormData({
         name: '', ticker: '', description: '', imageUrl: '',
         websiteUrl: '', twitterUrl: '', telegramUrl: '',
-        initialBuyBnb: '0', creatorFeePct: 50,
+        initialBuyBnb: '0', creatorFeePct: 3,
       });
     } catch (error) {
       console.error('BNB launch error:', error);
@@ -108,7 +112,7 @@ export function BnbLauncher() {
                   Launch on BNB Chain
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Deploy a token with a bonding curve. Tradable instantly on any DEX aggregator.
+                  Deploy a BEP-20 token with bonding curve. Auto-migrates to PancakeSwap.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
@@ -137,7 +141,7 @@ export function BnbLauncher() {
                 <Zap className="h-4 w-4 text-blue-400 shrink-0" />
                 <div>
                   <p className="text-xs text-muted-foreground">Graduates</p>
-                  <p className="text-sm font-semibold">PCS V3</p>
+                  <p className="text-sm font-semibold">PancakeSwap</p>
                 </div>
               </div>
             </div>
@@ -250,20 +254,32 @@ export function BnbLauncher() {
             {/* Creator Fee */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>Creator Fee Share</Label>
+                <Label className="flex items-center gap-1.5">
+                  Creator Fee
+                  <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                </Label>
                 <span className="text-sm font-semibold text-primary">{formData.creatorFeePct}%</span>
               </div>
               <Slider
                 value={[formData.creatorFeePct]}
                 onValueChange={([v]) => handleInputChange('creatorFeePct', v)}
                 min={0}
-                max={100}
-                step={5}
+                max={MAX_CREATOR_FEE_PCT}
+                step={1}
                 className="w-full"
               />
-              <p className="text-xs text-muted-foreground">
-                Your share of the 1% trading fee. Remaining {100 - formData.creatorFeePct}% goes to the platform.
-              </p>
+              <div className="flex items-start gap-2 p-2.5 bg-yellow-500/5 border border-yellow-500/15 rounded-lg">
+                <Info className="h-3.5 w-3.5 text-yellow-400 mt-0.5 shrink-0" />
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p>
+                    <span className="text-foreground font-medium">Total token tax: {totalTaxPct}%</span>
+                    {' '}({PLATFORM_FEE_PCT}% platform + {formData.creatorFeePct}% creator)
+                  </p>
+                  <p>
+                    Creator fee is sent to your connected wallet on every trade.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Initial Buy */}
@@ -289,7 +305,7 @@ export function BnbLauncher() {
               <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
                 Token launches on a bonding curve — price increases as people buy.
-                <strong className="text-foreground"> At ~16 BNB in reserves, it graduates to PancakeSwap V3 with full liquidity.</strong>
+                <strong className="text-foreground"> At ~16 BNB in reserves, it graduates to PancakeSwap with full liquidity.</strong>
               </p>
             </div>
 
@@ -316,7 +332,7 @@ export function BnbLauncher() {
                 ) : (
                   <>
                     <Rocket className="mr-2 h-5 w-5" />
-                    Launch Token
+                    Launch Token ({totalTaxPct}% tax)
                   </>
                 )}
               </Button>
@@ -340,16 +356,43 @@ export function BnbLauncher() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">1.</span>
-              <p>Token deploys on BNB Chain with a <strong className="text-foreground">bonding curve</strong> (1B supply, 18 decimals)</p>
+              <p>Token deploys on BNB Chain with a <strong className="text-foreground">bonding curve</strong> (1B supply, BEP-20)</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">2.</span>
-              <p>Users buy & sell against the curve — price goes up as more BNB flows in. <strong className="text-foreground">1% fee</strong> per trade, split between you and the platform.</p>
+              <p>Users buy & sell against the curve — price goes up as more BNB flows in. <strong className="text-foreground">{totalTaxPct}% tax</strong> per trade ({PLATFORM_FEE_PCT}% platform + {formData.creatorFeePct}% to you).</p>
             </div>
             <div className="flex items-start gap-2">
               <span className="text-yellow-400 font-bold shrink-0">3.</span>
-              <p>At <strong className="text-foreground">~16 BNB</strong> in reserves, token <strong className="text-foreground">graduates to PancakeSwap V3</strong> with full liquidity. Tradable on any DEX aggregator forever.</p>
+              <p>At <strong className="text-foreground">~16 BNB</strong> in reserves, token <strong className="text-foreground">graduates to PancakeSwap</strong> with full liquidity. Tradable on any DEX aggregator.</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Fee Breakdown */}
+        <Card className="bg-card/50 backdrop-blur border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Coins className="h-5 w-5 text-yellow-400" />
+              Fee Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Platform fee</span>
+              <span className="font-mono font-semibold">{PLATFORM_FEE_PCT}%</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Creator fee</span>
+              <span className="font-mono font-semibold text-primary">{formData.creatorFeePct}%</span>
+            </div>
+            <div className="border-t border-border/50 pt-2 flex items-center justify-between">
+              <span className="text-foreground font-medium">Total tax per trade</span>
+              <span className="font-mono font-bold text-yellow-400">{totalTaxPct}%</span>
+            </div>
+            <p className="text-xs text-muted-foreground pt-1">
+              Max total tax: {PLATFORM_FEE_PCT + MAX_CREATOR_FEE_PCT}% ({MAX_CREATOR_FEE_PCT}% creator + {PLATFORM_FEE_PCT}% platform)
+            </p>
           </CardContent>
         </Card>
       </div>
