@@ -329,7 +329,14 @@ Deno.serve(async (req) => {
       console.log(`[codex-filter-tokens] Normalized ${outlierCount} outlier change24h values for network ${safeNetworkId} (threshold=${maxAllowedChange}%)`);
     }
 
-    const finalTokens = normalizedTokens.filter((token: any) => token !== null);
+    const finalTokens = normalizedTokens
+      .filter((token: any) => token !== null)
+      .filter((token: any) => {
+        if (safeNetworkId === BSC_NETWORK_ID && validColumn === "completing") {
+          return token.volume24h >= BSC_COMPLETING_MIN_VOLUME_24H;
+        }
+        return true;
+      });
 
     return new Response(JSON.stringify({ tokens: finalTokens, column: validColumn, networkId: safeNetworkId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
