@@ -17,6 +17,12 @@ import { useMemo, useRef, useState, useCallback, useEffect, lazy, Suspense } fro
 import heroTerminalMockup from "@/assets/hero-terminal-mockup.png";
 import heroLaunchMockup from "@/assets/hero-launch-mockup.png";
 import { BRAND } from "@/config/branding";
+import partnerSolana from "@/assets/partners/solana.png";
+import partnerAlchemy from "@/assets/partners/alchemy.png";
+import partnerHelius from "@/assets/partners/helius.png";
+import partnerPhantom from "@/assets/partners/phantom.png";
+import partnerBnb from "@/assets/partners/bnbchain.png";
+import partnerVercel from "@/assets/partners/vercel.png";
 import { useChain } from "@/contexts/ChainContext";
 
 // Lazy load heavy below-fold section components
@@ -516,12 +522,12 @@ export default function HomePage() {
             >
               <span className="text-[8px] font-mono uppercase tracking-[0.15em] text-muted-foreground/30 mr-1">Powered by</span>
               {[
-                { name: "Solana", url: "https://cryptologos.cc/logos/solana-sol-logo.svg" },
-                { name: "Alchemy", url: "https://www.datocms-assets.com/105223/1701987815-alchemy-mark-blue.svg" },
-                { name: "Helius", url: "https://assets-global.website-files.com/641ba798c17bb180d832b666/641baa495a81e71b2cd4dcdc_helius-mark.svg" },
-                { name: "Phantom", url: "https://phantom.com/img/phantom-logo.svg" },
-                { name: "BNB Chain", url: "https://cryptologos.cc/logos/bnb-bnb-logo.svg" },
-                { name: "Vercel", url: "https://assets.vercel.com/image/upload/v1607554385/repositories/vercel/logo.png" },
+                { name: "Solana", url: partnerSolana },
+                { name: "Alchemy", url: partnerAlchemy },
+                { name: "Helius", url: partnerHelius },
+                { name: "Phantom", url: partnerPhantom },
+                { name: "BNB Chain", url: partnerBnb },
+                { name: "Vercel", url: partnerVercel },
               ].map((p) => (
                 <div
                   key={p.name}
