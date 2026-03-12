@@ -247,7 +247,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
                   <CodexChart tokenAddress={mintAddress} networkId={networkId} height={340} />
                 </div>
-                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} />
+                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
               </>
             )}
           </div>
