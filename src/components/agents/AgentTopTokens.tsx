@@ -84,7 +84,7 @@ export function AgentTopTokens() {
                     </Badge>
                     <div className={`flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-green-500" : "text-red-500"}`}>
                       {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {Math.abs(priceChange).toFixed(1)}%
+                      {formatChange24h(priceChange)}
                     </div>
                   </div>
 

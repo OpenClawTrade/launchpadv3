@@ -285,7 +285,7 @@ export function NewPairsPanel({ onRefresh, refreshing, compact }: NewPairsPanelP
                         fontWeight: 500,
                         fontFamily: "'IBM Plex Mono', monospace",
                       }}>
-                        {pair.change24h >= 0 ? "+" : ""}{pair.change24h.toFixed(1)}%
+                        {formatChange24h(pair.change24h)}
                       </div>
                     </div>
                   </div>

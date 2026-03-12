@@ -9,6 +9,7 @@ import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
 import type { SupportedChain } from "@/contexts/ChainContext";
+import { formatChange24h } from "@/lib/formatters";
 
 function formatUsdCompact(usd: number): string {
   if (!isFinite(usd) || usd > 1e15) return "$?";

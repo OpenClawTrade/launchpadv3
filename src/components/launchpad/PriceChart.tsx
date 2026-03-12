@@ -214,7 +214,7 @@ export function PriceChart({
         <div>
           <p className="text-2xl font-bold">{formatSolAmount(currentPrice)} SOL</p>
           <p className={`text-sm font-medium ${isPositive ? "text-green-500" : "text-red-500"}`}>
-            {isPositive ? "+" : ""}{priceChange24h.toFixed(2)}% (24h)
+            {formatChange24h(priceChange24h)} (24h)
           </p>
         </div>
         

@@ -29,11 +29,7 @@ function formatHolders(n: number): string {
   return n.toString();
 }
 
-function formatChange(pct: number): string {
-  const abs = Math.abs(pct);
-  if (abs >= 100) return `${pct > 0 ? "+" : ""}${pct.toFixed(0)}%`;
-  return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
-}
+// Use centralized formatChange24h
 
 interface PunchTokenCardProps {
   token: PunchToken;

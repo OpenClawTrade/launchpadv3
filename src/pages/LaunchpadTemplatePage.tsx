@@ -528,7 +528,7 @@ export default function LaunchpadTemplatePage() {
                         ) : (
                           <TrendingDown className="w-3 h-3 mr-1" />
                         )}
-                        {isPositive ? "+" : ""}{priceChange.toFixed(1)}%
+                        {formatChange24h(priceChange)}
                       </Badge>
                     </div>
 
