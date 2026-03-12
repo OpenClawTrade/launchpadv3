@@ -135,8 +135,9 @@ function HolderFundingCell({ address }: { address: string }) {
   );
 }
 
-export function HoldersTable({ holders, totalCount, isLoading, trades = [], currentPriceUsd = 0 }: Props) {
+export function HoldersTable({ holders, totalCount, isLoading, trades = [], currentPriceUsd = 0, isBsc = false }: Props) {
   const statsMap = useMemo(() => buildHolderStatsMap(trades), [trades]);
+  const explorerBase = isBsc ? 'https://bscscan.com/address' : 'https://solscan.io/account';
 
   if (isLoading && holders.length === 0) {
     return (
