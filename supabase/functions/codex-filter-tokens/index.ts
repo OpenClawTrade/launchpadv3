@@ -225,18 +225,22 @@ Deno.serve(async (req) => {
       };
     });
 
+    const maxAllowedChange = safeNetworkId === BSC_NETWORK_ID
+      ? MAX_REASONABLE_CHANGE_24H_BSC
+      : MAX_REASONABLE_CHANGE_24H_DEFAULT;
+
     const normalizedTokens = await Promise.all(tokens.map(async (token: any) => {
       // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)
       if (token.marketCap > 1e15) return null;
 
-      if (Math.abs(token.change24h) <= MAX_REASONABLE_CHANGE_24H) {
+      if (Math.abs(token.change24h) <= maxAllowedChange) {
         return token;
       }
 
       // BSC outliers are frequently bad upstream values; verify from DexScreener before trusting.
       if (safeNetworkId === BSC_NETWORK_ID && token.address) {
         const dsChange24h = await fetchDexScreenerChange24h(token.address, safeNetworkId);
-        if (dsChange24h !== null && Math.abs(dsChange24h) <= MAX_REASONABLE_CHANGE_24H) {
+        if (dsChange24h !== null && Math.abs(dsChange24h) <= maxAllowedChange) {
           token.change24h = dsChange24h;
           return token;
         }
@@ -248,7 +252,7 @@ Deno.serve(async (req) => {
 
     const outlierCount = normalizedTokens.filter((t: any) => t && t.change24h === 0).length;
     if (outlierCount > 0) {
-      console.log(`[codex-filter-tokens] Normalized ${outlierCount} outlier change24h values for network ${safeNetworkId}`);
+      console.log(`[codex-filter-tokens] Normalized ${outlierCount} outlier change24h values for network ${safeNetworkId} (threshold=${maxAllowedChange}%)`);
     }
 
     const finalTokens = normalizedTokens.filter((token: any) => token !== null);
