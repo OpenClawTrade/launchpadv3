@@ -203,12 +203,12 @@ Deno.serve(async (req) => {
         name: r.token?.info?.name ?? "Unknown",
         symbol: r.token?.info?.symbol ?? "???",
         imageUrl,
-        marketCap: r.marketCap ? parseFloat(r.marketCap) : 0,
-        volume24h: r.volume24 ? parseFloat(r.volume24) : 0,
-        change24h: r.change24 ? parseFloat(r.change24) : 0,
-        holders: r.holders ?? 0,
-        liquidity: r.liquidity ? parseFloat(r.liquidity) : 0,
-        graduationPercent: r.token?.launchpad?.graduationPercent ?? 0,
+        marketCap: toFiniteNumber(r.marketCap),
+        volume24h: toFiniteNumber(r.volume24),
+        change24h: toFiniteNumber(r.change24),
+        holders: toFiniteNumber(r.holders),
+        liquidity: toFiniteNumber(r.liquidity),
+        graduationPercent: toFiniteNumber(r.token?.launchpad?.graduationPercent),
         poolAddress: r.token?.launchpad?.poolAddress ?? null,
         launchpadName: r.token?.launchpad?.launchpadName ?? (safeNetworkId === BSC_NETWORK_ID ? "PancakeSwap" : "Pump.fun"),
         launchpadIconUrl: r.token?.launchpad?.launchpadIconUrl ?? null,
@@ -222,15 +222,37 @@ Deno.serve(async (req) => {
         telegramUrl: r.token?.socialLinks?.telegram ?? null,
         discordUrl: r.token?.socialLinks?.discord ?? null,
       };
-    }).filter((t: any) => {
-      // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)
-      if (t.marketCap > 1e15) return false;
-      // Clamp absurd change24h values (overflow/sentinel from Codex)
-      if (Math.abs(t.change24h) > 100000) t.change24h = 0;
-      return true;
     });
 
-    return new Response(JSON.stringify({ tokens, column: validColumn, networkId: safeNetworkId }), {
+    const normalizedTokens = await Promise.all(tokens.map(async (token: any) => {
+      // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)
+      if (token.marketCap > 1e15) return null;
+
+      if (Math.abs(token.change24h) <= MAX_REASONABLE_CHANGE_24H) {
+        return token;
+      }
+
+      // BSC outliers are frequently bad upstream values; verify from DexScreener before trusting.
+      if (safeNetworkId === BSC_NETWORK_ID && token.address) {
+        const dsChange24h = await fetchDexScreenerChange24h(token.address, safeNetworkId);
+        if (dsChange24h !== null && Math.abs(dsChange24h) <= MAX_REASONABLE_CHANGE_24H) {
+          token.change24h = dsChange24h;
+          return token;
+        }
+      }
+
+      token.change24h = 0;
+      return token;
+    }));
+
+    const outlierCount = normalizedTokens.filter((t: any) => t && t.change24h === 0).length;
+    if (outlierCount > 0) {
+      console.log(`[codex-filter-tokens] Normalized ${outlierCount} outlier change24h values for network ${safeNetworkId}`);
+    }
+
+    const finalTokens = normalizedTokens.filter((token: any) => token !== null);
+
+    return new Response(JSON.stringify({ tokens: finalTokens, column: validColumn, networkId: safeNetworkId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
