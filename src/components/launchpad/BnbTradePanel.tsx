@@ -98,7 +98,7 @@ export function BnbTradePanel({ tokenAddress, ticker, name, imageUrl }: BnbTrade
           placeholder={isBuy ? "Amount in BNB" : `Amount in ${ticker}`}
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <img src={pancakeswapBunny} alt="BNB" className="h-4 w-4 rounded-full" />
+          <img src={BNB_LOGO} alt="BNB" className="h-4 w-4 rounded-full" />
           <span className="text-[10px] font-mono text-muted-foreground font-semibold">
             {isBuy ? 'BNB' : ticker}
           </span>
