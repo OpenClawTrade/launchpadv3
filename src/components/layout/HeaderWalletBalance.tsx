@@ -43,8 +43,9 @@ function HeaderWalletBalanceInner() {
 
   useEffect(() => {
     if (chain === 'bnb') {
-      // Fetch BNB balance via BSC RPC for EVM wallet
-      if (!evmWallet.isConnected || !evmWallet.address) {
+      // Fetch BNB balance via BSC RPC for EVM wallet (prefer Privy embedded, fallback to wagmi)
+      const bnbAddress = privyEvm.address || evmWallet.address;
+      if (!bnbAddress) {
         setBalance(null);
         return;
       }
