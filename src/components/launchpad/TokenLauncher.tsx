@@ -1903,6 +1903,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                       downloadName={`${realisticToken.ticker || realisticToken.name || "token"}.png`}
                       onClear={() => setRealisticToken(null)}
                     />
+                  </div>
                   <div className="gate-token-preview-info space-y-2">
                     <Input
                       value={realisticToken.name}
