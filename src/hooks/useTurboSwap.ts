@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useFastSwap } from '@/hooks/useFastSwap';
 import type { Token } from '@/hooks/useLaunchpad';
 
 interface TurboSwapResult {
@@ -23,6 +24,7 @@ interface TurboSwapResult {
 export function useTurboSwap() {
   const { user, profileId, solanaAddress } = useAuth();
   const queryClient = useQueryClient();
+  const { executeFastSwap, isLoading: isFastSwapLoading, lastLatencyMs: lastFastLatencyMs } = useFastSwap();
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
@@ -83,17 +85,37 @@ export function useTurboSwap() {
         timings: data.timings,
       };
     } catch (err) {
-      console.error('[TurboSwap] Error:', err);
-      throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      const shouldFallbackToClientSwap =
+        message.includes('Privy signAndSendTransaction failed (401)') ||
+        message.includes('No valid authorization signatures were provided');
+
+      if (!shouldFallbackToClientSwap) {
+        console.error('[TurboSwap] Error:', err);
+        throw err;
+      }
+
+      console.warn('[TurboSwap] Server signing unavailable, falling back to direct swap route');
+      const fallbackStart = performance.now();
+      const fallbackResult = await executeFastSwap(token, amount, isBuy, slippageBps);
+      const fallbackLatency = Math.round(performance.now() - fallbackStart);
+      setLastLatencyMs(fallbackLatency);
+
+      return {
+        success: true,
+        signature: fallbackResult.signature,
+        outputAmount: isBuy ? fallbackResult.tokensOut : fallbackResult.solOut,
+        totalMs: fallbackLatency,
+      };
     } finally {
       setIsLoading(false);
     }
-  }, [user?.privyId, profileId, solanaAddress, queryClient]);
+  }, [user?.privyId, profileId, solanaAddress, queryClient, executeFastSwap]);
 
   return {
     executeTurboSwap,
-    isLoading,
+    isLoading: isLoading || isFastSwapLoading,
     walletAddress: solanaAddress,
-    lastLatencyMs,
+    lastLatencyMs: lastLatencyMs ?? lastFastLatencyMs,
   };
 }

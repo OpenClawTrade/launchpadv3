@@ -133,74 +133,27 @@ async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Prom
   const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
   const authKeyId = normalizeAuthorizationKeyId(rawAuthKeyId);
 
-  const runRequest = async (opts: {
-    authorizationKeyId?: string;
-    includeAuthorizationKeyInPayload?: boolean;
-    label: string;
-  }): Promise<Response> => {
-    const requestHeaders: Record<string, string> = {
-      ...getAuthHeaders(),
-    };
-
-    if (opts.authorizationKeyId) {
-      requestHeaders["privy-authorization-key"] = opts.authorizationKeyId;
-    }
-
-    const authSignature = getAuthorizationSignature(url, bodyObj, {
-      authorizationKeyId: opts.authorizationKeyId,
-      includeAuthorizationKeyInPayload: opts.includeAuthorizationKeyInPayload,
-    });
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        ...requestHeaders,
-        "privy-authorization-signature": authSignature,
-      },
-      body: JSON.stringify(bodyObj),
-    });
-
-    console.log(
-      `[privy-auth] Attempt ${opts.label} → status ${response.status}`,
-    );
-
-    return response;
+  const requestHeaders: Record<string, string> = {
+    ...getAuthHeaders(),
   };
 
-  const attempts: Array<{
-    authorizationKeyId?: string;
-    includeAuthorizationKeyInPayload?: boolean;
-    label: string;
-  }> = [];
-
   if (authKeyId) {
-    // Some integrations expect this header to be part of the signed payload; others don't.
-    attempts.push({
-      authorizationKeyId: authKeyId,
-      includeAuthorizationKeyInPayload: true,
-      label: "key-header+key-in-payload",
-    });
-    attempts.push({
-      authorizationKeyId: authKeyId,
-      includeAuthorizationKeyInPayload: false,
-      label: "key-header+docs-payload",
-    });
+    requestHeaders["privy-authorization-key"] = authKeyId;
   }
 
-  // Docs baseline: sign only app-id (+ idempotency if present), no key header.
-  attempts.push({
-    includeAuthorizationKeyInPayload: false,
-    label: "docs-baseline-no-key-header",
+  const authSignature = getAuthorizationSignature(url, bodyObj);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      ...requestHeaders,
+      "privy-authorization-signature": authSignature,
+    },
+    body: JSON.stringify(bodyObj),
   });
 
-  let last401: Response | null = null;
-  for (const attempt of attempts) {
-    const res = await runRequest(attempt);
-    if (res.status !== 401) return res;
-    last401 = res;
-  }
-
-  return last401 ?? runRequest({ includeAuthorizationKeyInPayload: false, label: "final-fallback" });
+  console.log(`[privy-auth] Attempt docs-canonical+key-header(${authKeyId ? "on" : "off"}) → status ${response.status}`);
+  return response;
 }
 
 async function getWalletAuthDebug(walletId: string): Promise<string> {
