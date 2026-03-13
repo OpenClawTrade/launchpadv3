@@ -160,6 +160,22 @@ function getAuthHeaders(): Record<string, string> {
   };
 }
 
+function normalizeAuthorizationKeyId(rawValue: string): string | null {
+  if (!rawValue) return null;
+
+  const looksLikePrivateKey =
+    rawValue.startsWith("wallet-auth:") ||
+    rawValue.includes("BEGIN PRIVATE KEY") ||
+    rawValue.length > 96;
+
+  if (looksLikePrivateKey) {
+    console.warn("[privy-auth] PRIVY_AUTHORIZATION_KEY_ID appears to be a private key, ignoring header value");
+    return null;
+  }
+
+  return rawValue;
+}
+
 async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Promise<Response> {
   const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
   const authKeyId = normalizeAuthorizationKeyId(rawAuthKeyId);
