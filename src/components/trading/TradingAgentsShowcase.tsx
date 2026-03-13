@@ -18,7 +18,7 @@ const STRATEGIES = [
   },
   {
     id: "balanced",
-    name: "MoonDexo Core",
+    name: "Saturn Core",
     strategy: "Balanced",
     icon: Target,
     color: "text-amber-400",
