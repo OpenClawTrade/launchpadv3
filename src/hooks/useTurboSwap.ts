@@ -6,9 +6,8 @@
  * All execution happens server-side for ~3x speed improvement.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFastSwap } from '@/hooks/useFastSwap';
 import type { Token } from '@/hooks/useLaunchpad';
