@@ -1545,7 +1545,7 @@ export async function processLaunchPost(
         ticker: cleanSymbol,
         description:
           parsed.description ||
-          `${cleanName} - Launched via MoonDexo on ${platform}`,
+          `${cleanName} - Launched via Saturn on ${platform}`,
         imageUrl: finalImageUrl,
         websiteUrl: websiteForOnChain,
         twitterUrl: twitterForOnChain,
