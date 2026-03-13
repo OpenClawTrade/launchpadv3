@@ -2,8 +2,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, ExternalLink, AlertCircle, Copy, Check, LogOut } from 'lucide-react';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
+import { useChain } from '@/contexts/ChainContext';
 import { useState } from 'react';
 import { toast } from 'sonner';
+
+const BNB_LOGO = "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png";
 
 export function EvmWalletCard() {
   const { 
@@ -11,14 +14,24 @@ export function EvmWalletCard() {
     shortAddress, 
     isConnected, 
     balance, 
-    isOnBase, 
+    isOnBase,
+    isOnBnb, 
     switchToBase,
+    switchToBnb,
     connect,
     disconnect,
     isBalanceLoading 
   } = useEvmWallet();
   
+  const { chain } = useChain();
+  const isBnb = chain === 'bnb';
   const [copied, setCopied] = useState(false);
+
+  const isOnCorrectChain = isBnb ? isOnBnb : isOnBase;
+  const chainLabel = isBnb ? 'BNB Chain' : 'Base';
+  const nativeToken = isBnb ? 'BNB' : 'ETH';
+  const explorerBase = isBnb ? 'https://bscscan.com/address/' : 'https://basescan.org/address/';
+  const switchFn = isBnb ? switchToBnb : switchToBase;
 
   const handleCopy = async () => {
     if (!address) return;
@@ -32,19 +45,23 @@ export function EvmWalletCard() {
     <Card className="bg-card/50 backdrop-blur border-border/50">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-blue-400" />
-          Base Wallet
+          {isBnb ? (
+            <img src={BNB_LOGO} alt="BNB" className="h-5 w-5 rounded-full" />
+          ) : (
+            <Wallet className="h-5 w-5 text-blue-400" />
+          )}
+          {chainLabel} Wallet
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!isConnected ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Connect your wallet to launch tokens on Base
+              Connect your wallet to launch tokens on {chainLabel}
             </p>
             <Button 
               onClick={connect}
-              className="w-full bg-blue-500 hover:bg-blue-600"
+              className={`w-full ${isBnb ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : 'bg-blue-500 hover:bg-blue-600'}`}
             >
               <Wallet className="mr-2 h-4 w-4" />
               Connect Wallet
@@ -72,7 +89,7 @@ export function EvmWalletCard() {
                   )}
                 </Button>
                 <a
-                  href={`https://basescan.org/address/${address}`}
+                  href={`${explorerBase}${address}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-muted-foreground hover:text-primary transition-colors p-1"
@@ -83,17 +100,17 @@ export function EvmWalletCard() {
             </div>
 
             {/* Chain Warning */}
-            {!isOnBase && (
+            {!isOnCorrectChain && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                 <span className="text-sm text-destructive">Wrong network</span>
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  onClick={switchToBase}
+                  onClick={switchFn}
                   className="ml-auto text-xs"
                 >
-                  Switch to Base
+                  Switch to {chainLabel}
                 </Button>
               </div>
             )}
@@ -101,12 +118,12 @@ export function EvmWalletCard() {
             {/* Balance */}
             <div className="space-y-2">
               <div className="flex justify-between items-center p-2 bg-secondary/20 rounded">
-                <span className="text-sm text-muted-foreground">ETH Balance</span>
+                <span className="text-sm text-muted-foreground">{nativeToken} Balance</span>
                 <span className="font-mono font-medium">
                   {isBalanceLoading ? (
                     <span className="text-muted-foreground">...</span>
                   ) : (
-                    <span className="text-blue-400">{balance} ETH</span>
+                    <span className={isBnb ? 'text-yellow-400' : 'text-blue-400'}>{balance} {nativeToken}</span>
                   )}
                 </span>
               </div>
