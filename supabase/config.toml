@@ -444,3 +444,6 @@ verify_jwt = false
 
 [functions.wallet-trade-webhook]
 verify_jwt = false
+
+[functions.turbo-trade]
+verify_jwt = false
