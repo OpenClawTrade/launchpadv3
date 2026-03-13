@@ -7,6 +7,7 @@
  */
 
 import canonicalize from "npm:canonicalize@2.0.0";
+import { createPrivateKey, sign as nodeSign } from "node:crypto";
 
 const PRIVY_API_BASE = "https://auth.privy.io";
 
@@ -58,34 +59,31 @@ async function getAuthorizationSignature(url: string, body: Record<string, unkno
   // Strip wallet-auth: prefix (per Privy docs)
   const privateKeyAsString = authKeyRaw.replace("wallet-auth:", "").trim();
 
-  // Decode the base64 PKCS8 DER key
-  const binaryString = atob(privateKeyAsString);
-  const keyBytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    keyBytes[i] = binaryString.charCodeAt(i);
+  let privateKey: ReturnType<typeof createPrivateKey>;
+  try {
+    // Privy docs format: key body can be provided without PEM headers.
+    const privateKeyPem = privateKeyAsString.includes("BEGIN PRIVATE KEY")
+      ? privateKeyAsString
+      : `-----BEGIN PRIVATE KEY-----\n${privateKeyAsString}\n-----END PRIVATE KEY-----`;
+
+    privateKey = createPrivateKey({ key: privateKeyPem, format: "pem" });
+  } catch {
+    // Fallback: some environments store the key as raw base64 PKCS8 DER bytes.
+    const normalized = privateKeyAsString.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const binary = atob(padded);
+    const derBytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) derBytes[i] = binary.charCodeAt(i);
+
+    privateKey = createPrivateKey({
+      key: derBytes,
+      format: "der",
+      type: "pkcs8",
+    });
   }
 
-  // Import as ECDSA P-256 private key using Web Crypto API
-  const privateKey = await crypto.subtle.importKey(
-    "pkcs8",
-    keyBytes,
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"]
-  );
-
-  // Sign with SHA-256 (Web Crypto returns raw IEEE P1363 format)
-  const signatureBuffer = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    privateKey,
-    serializedPayloadBuffer
-  );
-
-  // Convert P1363 (r||s) to DER format as Privy expects DER-encoded signature
-  const derSignature = p1363ToDer(new Uint8Array(signatureBuffer));
-
-  // Convert to base64
-  const signature = btoa(String.fromCharCode(...derSignature));
+  const signatureBuffer = nodeSign("sha256", serializedPayloadBuffer, privateKey);
+  const signature = signatureBuffer.toString("base64");
 
   console.log("[privy-auth] Signature generated, length:", signature.length);
   return signature;
