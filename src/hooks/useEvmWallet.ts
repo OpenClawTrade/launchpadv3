@@ -2,6 +2,7 @@ import { useAccount, useBalance, useDisconnect, useChainId, useSwitchChain } fro
 import { base, bsc } from 'wagmi/chains';
 import { formatEther } from 'viem';
 import { usePrivy } from '@privy-io/react-auth';
+import { useChain } from '@/contexts/ChainContext';
 
 export interface EvmWalletState {
   address: string | undefined;
@@ -19,10 +20,13 @@ export function useEvmWallet() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const { login, logout } = usePrivy();
+  const { chain } = useChain();
+
+  const balanceChainId = chain === 'bnb' ? bsc.id : base.id;
 
   const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
     address,
-    chainId: base.id,
+    chainId: balanceChainId,
   });
 
   const isOnBase = chainId === base.id;
