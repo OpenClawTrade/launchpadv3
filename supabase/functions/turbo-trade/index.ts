@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
     // We don't have the signed tx base64 back from Privy, so we skip parallel broadcast
 
     const totalMs = Math.round(performance.now() - t0);
-    console.log(`[turbo-trade] ✅ Done in ${totalMs}ms | resolve=${timings.resolve} quote=${timings.quote} build=${timings.buildTx} sign=${timings.sign} broadcast=${timings.broadcast} | sig=${signature.slice(0, 12)}...`);
+    console.log(`[turbo-trade] ✅ Done in ${totalMs}ms | resolve=${timings.resolve} quote=${timings.quote} build=${timings.buildTx} signAndSend=${timings.signAndSend} | sig=${signature.slice(0, 12)}...`);
 
     // ── 5. Record trade in DB (non-blocking) ───────────────────────────
     const outputAmount = isBuy
