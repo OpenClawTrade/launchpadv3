@@ -43,10 +43,13 @@ async function getAuthorizationSignature(
     throw new Error("PRIVY_APP_ID must be configured");
   }
 
-  // Build the payload (per Privy docs): include only required/allowed Privy headers
+  // Build the payload (per Privy docs): include Privy-prefixed headers that are on the request.
   const payloadHeaders: Record<string, string> = {
     "privy-app-id": appId,
   };
+  if (options.authorizationKeyId) {
+    payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
+  }
   if (options.idempotencyKey) {
     payloadHeaders["privy-idempotency-key"] = options.idempotencyKey;
   }
