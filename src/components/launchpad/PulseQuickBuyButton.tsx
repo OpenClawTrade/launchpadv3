@@ -1,7 +1,7 @@
 import { memo, useState, useCallback } from "react";
 import { Zap, Loader2, ArrowDownToLine } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useFastSwap } from "@/hooks/useFastSwap";
+import { useTurboSwap } from "@/hooks/useTurboSwap";
 import { useBnbSwap } from "@/hooks/useBnbSwap";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -251,7 +251,7 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
   isCompact?: boolean;
   mintAddress: string | null;
 }) {
-  const { executeFastSwap, isLoading, lastLatencyMs, walletAddress } = useFastSwap();
+  const { executeTurboSwap: executeFastSwap, isLoading, lastLatencyMs, walletAddress } = useTurboSwap();
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
