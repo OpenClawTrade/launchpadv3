@@ -112,19 +112,62 @@ function getAuthHeaders(): Record<string, string> {
   };
 }
 
-function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Promise<Response> {
-  // Generate signature — matches EXACTLY the docs example
-  const authSignature = getAuthorizationSignature(url, bodyObj);
+function normalizeAuthorizationKeyId(rawValue: string): string | null {
+  if (!rawValue) return null;
 
-  // Send request — only privy-authorization-signature header, NO privy-authorization-key
-  return fetch(url, {
-    method: "POST",
-    headers: {
+  const looksLikePrivateKey =
+    rawValue.startsWith("wallet-auth:") ||
+    rawValue.includes("BEGIN PRIVATE KEY") ||
+    rawValue.length > 96;
+
+  if (looksLikePrivateKey) {
+    console.warn("[privy-auth] PRIVY_AUTHORIZATION_KEY_ID appears invalid (looks like a private key), ignoring it");
+    return null;
+  }
+
+  return rawValue;
+}
+
+async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Promise<Response> {
+  const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
+  const authKeyId = normalizeAuthorizationKeyId(rawAuthKeyId);
+
+  const runRequest = async (authorizationKeyId?: string): Promise<Response> => {
+    const requestHeaders: Record<string, string> = {
       ...getAuthHeaders(),
-      "privy-authorization-signature": authSignature,
-    },
-    body: JSON.stringify(bodyObj),
-  });
+    };
+
+    if (authorizationKeyId) {
+      requestHeaders["privy-authorization-key"] = authorizationKeyId;
+    }
+
+    const authSignature = getAuthorizationSignature(url, bodyObj, {
+      authorizationKeyId,
+    });
+
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        ...requestHeaders,
+        "privy-authorization-signature": authSignature,
+      },
+      body: JSON.stringify(bodyObj),
+    });
+  };
+
+  // Primary: include key-id if configured; fallback: retry without key-id on 401 mismatch
+  const primary = await runRequest(authKeyId || undefined);
+  if (primary.status !== 401) return primary;
+
+  if (authKeyId) {
+    const retry = await runRequest(undefined);
+    if (retry.status !== 401) {
+      console.warn("[privy-auth] 401 with key-id, retry without key-id succeeded");
+      return retry;
+    }
+  }
+
+  return primary;
 }
 
 /**
