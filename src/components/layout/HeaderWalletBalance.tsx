@@ -162,9 +162,11 @@ function HeaderWalletBalanceInner() {
         >
           <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_hsl(152_69%_53%/0.6)]" />
           <span className="text-foreground font-mono tracking-wide">
-            {balance !== null
-              ? `${balance.toFixed(3)} ${currencyLabel}`
-              : `${displayAddress.slice(0, 4)}..${displayAddress.slice(-4)}`}
+            {balanceLoading && balance === null
+              ? <span className="inline-block h-3.5 w-16 bg-muted/60 rounded animate-pulse align-middle" />
+              : balance !== null
+                ? `${balance.toFixed(3)} ${currencyLabel}`
+                : `${displayAddress.slice(0, 4)}..${displayAddress.slice(-4)}`}
           </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
         </button>
