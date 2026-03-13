@@ -170,6 +170,31 @@ async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Prom
   return primary;
 }
 
+async function getWalletAuthDebug(walletId: string): Promise<string> {
+  try {
+    const res = await fetch(`https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      return `wallet_lookup_failed status=${res.status} body=${body.slice(0, 300)}`;
+    }
+
+    const data: any = await res.json();
+    return JSON.stringify({
+      wallet_id: data?.id || walletId,
+      owner_id: data?.owner_id || null,
+      policy_ids: Array.isArray(data?.policy_ids) ? data.policy_ids : [],
+      additional_signers: Array.isArray(data?.additional_signers) ? data.additional_signers : [],
+      authorization_threshold: data?.authorization_threshold ?? null,
+    });
+  } catch (err) {
+    return `wallet_lookup_exception ${(err as Error)?.message || String(err)}`;
+  }
+}
+
 /**
  * Look up a Privy user and return their linked accounts.
  */
