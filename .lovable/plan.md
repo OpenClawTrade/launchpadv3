@@ -1,62 +1,35 @@
 
-## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
 
-### What was built:
-1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
-   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
-   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
-   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
-   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
-   - Records trade in DB + alpha_trades (non-blocking)
-   - Returns signature immediately with timing breakdown
+## Plan: Instant Execution Feedback + Immediate Sell Button Switch
 
-2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
-   - Single `supabase.functions.invoke('turbo-trade')` call
-   - No client-side tx building or signing
-   - Background query invalidation after 500ms
-   - Logs client roundtrip vs server execution time
+### Problem
+1. The success toast only appears after the full swap completes (quote → sign → broadcast → confirm), making it feel slow.
+2. After buying, the Quick Buy button doesn't flip to "Sell All" until the balance query refetches (up to 15s delay).
 
-3. **Wired into trade components:**
-   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
-   - `PortfolioModal.tsx` — uses `useTurboSwap`
+### Changes
 
-### Expected latency:
+**`src/components/launchpad/PulseQuickBuyButton.tsx`**
+
+**1. Two-phase toast for instant feedback:**
+- Phase 1 (immediate, before swap call): Show `toast.success("✅ Trade Executed!")` with description "Confirming transaction..." right when the swap is initiated — replacing the current `toast.loading`.
+- Phase 2 (on completion): Update the same toast ID with the TX signature and latency once the promise resolves.
+- On error: Replace the toast with the error message.
+
+This applies to both `handleTriggerClick` (quick-buy path) and `handleBuy` (popover preset path), and the sell flow.
+
+**2. Optimistic button flip to "Sell All":**
+- After a successful buy, immediately call `queryClient.setQueryData(["quick-sell-balance", walletAddress, mintAddress], 1)` to optimistically set a non-zero balance. This makes `hasBalance` become `true` instantly, flipping the button to "Sell 100%".
+- The real balance will be fetched on the next refetch cycle and correct the value.
+- Also reduce `staleTime` from 15s to 5s for faster real balance updates.
+
+### Flow After Changes
 ```
-Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
-After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
+User clicks "0.5 SOL" →
+  Instantly: toast "✅ Trade Executed!" (confirming...) + button stays in loading state
+  ~1-2s later: toast updates with "TX: abc123... · 1200ms" + button flips to "Sell 100%"
+  On error: toast shows "❌ Trade Failed"
 ```
 
----
+### Files Changed
+- `src/components/launchpad/PulseQuickBuyButton.tsx` — both toast flow and optimistic balance update
 
-## 6-Phase Axiom Feature Integration Plan (SAVED)
-
-### Phase 1: Copy Trade Execution
-- New `copy-trade-execute` edge function
-- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
-- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
-- New `copy_trade_log` table
-
-### Phase 2: Limit Orders (SL/TP)
-- Jupiter limit order program integration
-- `limit-order-create` edge function
-- `limit_orders` DB table
-- Limit order tab in trade panel
-
-### Phase 3: Real-Time WebSocket Token Feed
-- Helius WebSocket for sub-1s new pair detection
-- Replace Codex polling (~30s) 
-- Edge function → Supabase Realtime channel
-
-### Phase 4: DCA (Dollar Cost Averaging)
-- `dca_orders` DB table
-- `dca-execute` cron edge function
-- DCA tab in trade panel
-
-### Phase 5: Enhanced Token Safety
-- LP lock status, mint authority, honeypot detection
-- Safety score badge on Pulse cards
-
-### Phase 6: Wallet PnL Analytics
-- `wallet-pnl-calculate` edge function
-- Per-wallet realized/unrealized PnL
-- Rank tracked wallets by performance
