@@ -31,7 +31,7 @@ interface PrivyUser {
 async function getAuthorizationSignature(
   url: string,
   body: Record<string, unknown>,
-  signedPrivyHeaders: Record<string, string> = {},
+  options: { idempotencyKey?: string } = {},
 ): Promise<string> {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
@@ -43,16 +43,20 @@ async function getAuthorizationSignature(
     throw new Error("PRIVY_APP_ID must be configured");
   }
 
-  // Build the payload (per Privy docs)
+  // Build the payload (per Privy docs): include only required/allowed Privy headers
+  const payloadHeaders: Record<string, string> = {
+    "privy-app-id": appId,
+  };
+  if (options.idempotencyKey) {
+    payloadHeaders["privy-idempotency-key"] = options.idempotencyKey;
+  }
+
   const payload = {
     version: 1,
     method: "POST",
     url,
     body,
-    headers: {
-      "privy-app-id": appId,
-      ...signedPrivyHeaders,
-    },
+    headers: payloadHeaders,
   };
 
   // JSON-canonicalize the payload and convert to Uint8Array
@@ -63,8 +67,6 @@ async function getAuthorizationSignature(
 
   // Strip wallet-auth: prefix (per Privy docs)
   const privateKeyAsString = authKeyRaw.replace("wallet-auth:", "").trim();
-
-  console.log("[privy-auth] Key prefix (first 20 chars):", privateKeyAsString.substring(0, 20) + "...");
 
   let privateKey: ReturnType<typeof createPrivateKey>;
   try {
