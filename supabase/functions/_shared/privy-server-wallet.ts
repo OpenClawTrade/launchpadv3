@@ -148,6 +148,40 @@ function getAuthHeaders(): Record<string, string> {
   };
 }
 
+async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Promise<Response> {
+  const authKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
+
+  const attempt = async (includeAuthKeyHeader: boolean): Promise<Response> => {
+    const signedPrivyHeaders: Record<string, string> = {};
+    if (includeAuthKeyHeader && authKeyId) {
+      signedPrivyHeaders["privy-authorization-key"] = authKeyId;
+    }
+
+    const authSignature = await getAuthorizationSignature(url, bodyObj, signedPrivyHeaders);
+
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+        ...signedPrivyHeaders,
+        "privy-authorization-signature": authSignature,
+      },
+      body: JSON.stringify(bodyObj),
+    });
+  };
+
+  let res = await attempt(true);
+
+  // Fallback: if key-id is stale/mismatched, retry once without key-id header
+  if (res.status === 401 && authKeyId) {
+    const firstBody = await res.text();
+    console.warn("[privy-auth] 401 with privy-authorization-key, retrying without key-id header:", firstBody);
+    res = await attempt(false);
+  }
+
+  return res;
+}
+
 /**
  * Look up a Privy user and return their linked accounts.
  */
