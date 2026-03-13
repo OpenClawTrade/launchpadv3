@@ -110,7 +110,7 @@ const DEFAULT_CONFIG: BrandingConfig = {
   telegramUrl: null,
   logoUrl: "/moondexo-logo.png",
   faviconUrl: "/moondexo-logo.png",
-  ogImageUrl: "https://moondexo.com/moondexo-logo.png",
+  ogImageUrl: "https://saturntrade.com/moondexo-logo.png",
   iconEmoji: BRAND.iconEmoji,
   forumName: BRAND.forumName,
   communityPrefix: BRAND.communityPrefix,
