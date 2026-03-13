@@ -292,25 +292,21 @@ Deno.serve(async (req) => {
     }
     timings.buildTx = Math.round(performance.now() - t3);
 
-    // ── 3. Sign via Privy (sign-only, we control broadcast) ────────────
+    // ── 3. Sign & send via Privy (Privy handles broadcast) ───────────────
     const t4 = performance.now();
-    const signedTxBase64 = await signTransaction(resolvedWalletId, swapTransaction);
-    timings.sign = Math.round(performance.now() - t4);
+    const heliusRpcUrl = Deno.env.get("HELIUS_RPC_URL")!;
+    const signature = await signAndSendTransaction(resolvedWalletId, swapTransaction, heliusRpcUrl);
+    timings.signAndSend = Math.round(performance.now() - t4);
 
-    if (!signedTxBase64) {
+    if (!signature) {
       return new Response(
-        JSON.stringify({ error: "Privy sign returned empty" }),
+        JSON.stringify({ error: "Privy signAndSendTransaction returned empty" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ── 4. Extract signature & broadcast to all endpoints ──────────────
-    const t5 = performance.now();
-    const signature = extractSignatureFromBase64Tx(signedTxBase64);
-    
-    // Parallel broadcast to Jito + Helius (fire-and-forget)
-    broadcastToAll(signedTxBase64, heliusRpcUrl);
-    timings.broadcast = Math.round(performance.now() - t5);
+    // Also broadcast to Jito + Helius for faster inclusion (fire-and-forget)
+    // We don't have the signed tx base64 back from Privy, so we skip parallel broadcast
 
     const totalMs = Math.round(performance.now() - t0);
     console.log(`[turbo-trade] ✅ Done in ${totalMs}ms | resolve=${timings.resolve} quote=${timings.quote} build=${timings.buildTx} sign=${timings.sign} broadcast=${timings.broadcast} | sig=${signature.slice(0, 12)}...`);
