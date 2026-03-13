@@ -17,7 +17,7 @@ export function SaturnAgentSection() {
           </div>
           <div className="flex-1">
             <h3 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: "hsl(var(--saturn-text))" }}>
-              Welcome to MoonDexo Agents
+              Welcome to Saturn Agents
             </h3>
             <p className="leading-relaxed mb-4" style={{ color: "hsl(var(--saturn-muted))" }}>
               <span className="font-medium" style={{ color: "hsl(var(--saturn-text))" }}>
