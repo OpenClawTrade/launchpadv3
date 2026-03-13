@@ -482,7 +482,7 @@ export function generateMissingFieldsReply(missingFields: string[], hasImage: bo
   lines.push("symbol: MTK");
   lines.push("[Attach your token image]");
   lines.push("");
-  lines.push("Launch your unique Solana Agent from MoonDexo");
+  lines.push("Launch your unique Solana Agent from Saturn");
   
   return lines.join("\n");
 }
