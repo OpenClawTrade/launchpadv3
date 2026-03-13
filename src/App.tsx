@@ -71,6 +71,7 @@ const WalletTrackerPage = lazyWithRetry(() => import("./pages/WalletTrackerPage"
 const CreateTokenPage = lazyWithRetry(() => import("./pages/CreateTokenPage"));
 const AllTokensPage = lazyWithRetry(() => import("./pages/AllTokensPage"));
 const RewardsPage = lazyWithRetry(() => import("./pages/RewardsPage"));
+const PortfolioPage = lazyWithRetry(() => import("./pages/PortfolioPage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 
