@@ -218,7 +218,7 @@ async function executePancakeSwapBuy(
     to: PANCAKE_ROUTER,
     data: callData,
     value: numberToHex(bnbAmount),
-    gas: numberToHex(350000n),
+    gas_limit: numberToHex(350000n),
   });
 
   return { txHash, estimatedOutput: amountOutMin.toString() };
