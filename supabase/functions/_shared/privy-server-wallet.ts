@@ -30,7 +30,11 @@ interface PrivyUser {
 function getAuthorizationSignature(
   url: string,
   body: Record<string, unknown>,
-  options: { authorizationKeyId?: string; idempotencyKey?: string } = {},
+  options: {
+    idempotencyKey?: string;
+    includeAuthorizationKeyInPayload?: boolean;
+    authorizationKeyId?: string;
+  } = {},
 ): string {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
@@ -42,12 +46,15 @@ function getAuthorizationSignature(
     throw new Error("PRIVY_APP_ID must be configured");
   }
 
-  // Sign all privy-* headers present on request (app-id required; key/idempotency optional)
+  // Keep canonical payload aligned to Privy docs: app-id required, idempotency optional.
+  // We can optionally include authorization-key for compatibility fallback attempts.
   const payloadHeaders: Record<string, string> = {
     "privy-app-id": appId,
   };
-  if (options.authorizationKeyId) payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
   if (options.idempotencyKey) payloadHeaders["privy-idempotency-key"] = options.idempotencyKey;
+  if (options.includeAuthorizationKeyInPayload && options.authorizationKeyId) {
+    payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
+  }
 
   const payload = {
     version: 1,
@@ -132,20 +139,25 @@ async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Prom
   const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
   const authKeyId = normalizeAuthorizationKeyId(rawAuthKeyId);
 
-  const runRequest = async (authorizationKeyId?: string): Promise<Response> => {
+  const runRequest = async (opts: {
+    authorizationKeyId?: string;
+    includeAuthorizationKeyInPayload?: boolean;
+    label: string;
+  }): Promise<Response> => {
     const requestHeaders: Record<string, string> = {
       ...getAuthHeaders(),
     };
 
-    if (authorizationKeyId) {
-      requestHeaders["privy-authorization-key"] = authorizationKeyId;
+    if (opts.authorizationKeyId) {
+      requestHeaders["privy-authorization-key"] = opts.authorizationKeyId;
     }
 
     const authSignature = getAuthorizationSignature(url, bodyObj, {
-      authorizationKeyId,
+      authorizationKeyId: opts.authorizationKeyId,
+      includeAuthorizationKeyInPayload: opts.includeAuthorizationKeyInPayload,
     });
 
-    return fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         ...requestHeaders,
@@ -153,21 +165,48 @@ async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Prom
       },
       body: JSON.stringify(bodyObj),
     });
+
+    console.log(
+      `[privy-auth] Attempt ${opts.label} → status ${response.status}`,
+    );
+
+    return response;
   };
 
-  // Primary: include key-id if configured; fallback: retry without key-id on 401 mismatch
-  const primary = await runRequest(authKeyId || undefined);
-  if (primary.status !== 401) return primary;
+  const attempts: Array<{
+    authorizationKeyId?: string;
+    includeAuthorizationKeyInPayload?: boolean;
+    label: string;
+  }> = [];
 
   if (authKeyId) {
-    const retry = await runRequest(undefined);
-    if (retry.status !== 401) {
-      console.warn("[privy-auth] 401 with key-id, retry without key-id succeeded");
-      return retry;
-    }
+    // Some integrations expect this header to be part of the signed payload; others don't.
+    attempts.push({
+      authorizationKeyId: authKeyId,
+      includeAuthorizationKeyInPayload: true,
+      label: "key-header+key-in-payload",
+    });
+    attempts.push({
+      authorizationKeyId: authKeyId,
+      includeAuthorizationKeyInPayload: false,
+      label: "key-header+docs-payload",
+    });
   }
 
-  return primary;
+  // Docs baseline: sign only app-id (+ idempotency if present), no key header.
+  attempts.push({
+    includeAuthorizationKeyInPayload: false,
+    label: "docs-baseline-no-key-header",
+  });
+
+  let last401: Response | null = null;
+  for (const attempt of attempts) {
+    const res = await runRequest(attempt);
+    if (res.status !== 401) return res;
+    last401 = res;
+  }
+
+  return last401 ?? runRequest({ includeAuthorizationKeyInPayload: false, label: "final-fallback" });
 }
 
 async function getWalletAuthDebug(walletId: string): Promise<string> {
