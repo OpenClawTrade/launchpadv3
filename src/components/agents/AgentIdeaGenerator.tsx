@@ -149,7 +149,7 @@ export function AgentIdeaGenerator() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <img src={clawLogo} alt="MoonDexo" className="w-12 h-12 rounded-full" />
+            <img src={clawLogo} alt="Saturn" className="w-12 h-12 rounded-full" />
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">
               Agent Idea Generator
             </h2>
