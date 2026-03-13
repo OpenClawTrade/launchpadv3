@@ -28,7 +28,11 @@ interface PrivyUser {
 
 // --- Authorization Signature using Web Crypto API ---
 
-async function getAuthorizationSignature(url: string, body: Record<string, unknown>): Promise<string> {
+async function getAuthorizationSignature(
+  url: string,
+  body: Record<string, unknown>,
+  signedPrivyHeaders: Record<string, string> = {},
+): Promise<string> {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
     throw new Error("PRIVY_AUTHORIZATION_KEY must be configured for wallet RPC calls");
@@ -47,6 +51,7 @@ async function getAuthorizationSignature(url: string, body: Record<string, unkno
     body,
     headers: {
       "privy-app-id": appId,
+      ...signedPrivyHeaders,
     },
   };
 
@@ -54,7 +59,7 @@ async function getAuthorizationSignature(url: string, body: Record<string, unkno
   const serializedPayload = canonicalize(payload) as string;
   const serializedPayloadBuffer = new TextEncoder().encode(serializedPayload);
 
-  console.log("[privy-auth] Payload length:", serializedPayload.length, "URL:", url);
+  console.log("[privy-auth] Payload length:", serializedPayload.length, "URL:", url, "signed headers:", Object.keys(payload.headers));
 
   // Strip wallet-auth: prefix (per Privy docs)
   const privateKeyAsString = authKeyRaw.replace("wallet-auth:", "").trim();
