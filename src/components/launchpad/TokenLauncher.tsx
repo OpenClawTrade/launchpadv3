@@ -1778,8 +1778,12 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
               <>
                 <div className="gate-token-preview">
                   <div className="gate-token-preview-avatar">
-                    <img src={describedToken.imageUrl} alt={describedToken.name} className="w-full h-full object-cover" />
-                  </div>
+                    <ImagePreviewOverlay
+                      src={describedToken.imageUrl}
+                      alt={describedToken.name}
+                      downloadName={`${describedToken.ticker || describedToken.name || "token"}.png`}
+                      onClear={() => setDescribedToken(null)}
+                    />
                   <div className="gate-token-preview-info space-y-2">
                     <Input
                       value={describedToken.name}
