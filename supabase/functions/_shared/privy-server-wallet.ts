@@ -59,16 +59,28 @@ async function getAuthorizationSignature(url: string, body: Record<string, unkno
   // Strip wallet-auth: prefix (per Privy docs)
   const privateKeyAsString = authKeyRaw.replace("wallet-auth:", "").trim();
 
-  // Privy docs format: key body can be provided without PEM headers.
-  // Use Node crypto signing flow to match Privy's reference implementation exactly.
-  const privateKeyPem = privateKeyAsString.includes("BEGIN PRIVATE KEY")
-    ? privateKeyAsString
-    : `-----BEGIN PRIVATE KEY-----\n${privateKeyAsString}\n-----END PRIVATE KEY-----`;
+  let privateKey: CryptoKey | ReturnType<typeof createPrivateKey>;
+  try {
+    // Privy docs format: key body can be provided without PEM headers.
+    const privateKeyPem = privateKeyAsString.includes("BEGIN PRIVATE KEY")
+      ? privateKeyAsString
+      : `-----BEGIN PRIVATE KEY-----\n${privateKeyAsString}\n-----END PRIVATE KEY-----`;
 
-  const privateKey = createPrivateKey({
-    key: privateKeyPem,
-    format: "pem",
-  });
+    privateKey = createPrivateKey({ key: privateKeyPem, format: "pem" });
+  } catch {
+    // Fallback: some environments store the key as raw base64 PKCS8 DER bytes.
+    const normalized = privateKeyAsString.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const binary = atob(padded);
+    const derBytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) derBytes[i] = binary.charCodeAt(i);
+
+    privateKey = createPrivateKey({
+      key: derBytes,
+      format: "der",
+      type: "pkcs8",
+    });
+  }
 
   const signatureBuffer = nodeSign("sha256", serializedPayloadBuffer, privateKey);
   const signature = signatureBuffer.toString("base64");
