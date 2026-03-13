@@ -25,7 +25,7 @@ export const BRAND = {
   logoPath: "/saturn-logo.png",
   iconEmoji: "🪐",
   ogImage: "https://saturntrade.com/saturn-logo.png",
-  faviconPath: "/saturn-logo.png",
+  faviconPath: "/favicon.png",
 
   // ── Feature Names ──
   forumName: "Saturn Forum",
