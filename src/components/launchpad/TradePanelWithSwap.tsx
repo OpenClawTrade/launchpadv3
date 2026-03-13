@@ -159,6 +159,9 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
       setAmount('');
       setSelectedPreset(null);
       getBalance().then(setSolBalance).catch(() => {});
+      void refreshTokenBalance();
+      window.setTimeout(() => void refreshTokenBalance(), 1500);
+      window.setTimeout(() => void refreshTokenBalance(), 5000);
 
       // Show profit card modal
       setProfitCardData({
