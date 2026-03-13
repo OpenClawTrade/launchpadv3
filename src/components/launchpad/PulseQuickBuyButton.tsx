@@ -275,8 +275,8 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
       }
     },
     enabled: !!isAuthenticated && !!walletAddress && !!mintAddress,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 5_000,
+    refetchInterval: 15_000,
   });
 
   const handleTriggerClick = useCallback(
