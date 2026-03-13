@@ -7,6 +7,7 @@
  */
 
 import canonicalize from "npm:canonicalize@2.0.0";
+import { createPrivateKey, sign as nodeSign } from "node:crypto";
 
 const PRIVY_API_BASE = "https://auth.privy.io";
 
