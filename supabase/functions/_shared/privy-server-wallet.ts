@@ -31,7 +31,7 @@ interface PrivyUser {
 async function getAuthorizationSignature(
   url: string,
   body: Record<string, unknown>,
-  options: { idempotencyKey?: string } = {},
+  options: { idempotencyKey?: string; authorizationKeyId?: string } = {},
 ): Promise<string> {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
