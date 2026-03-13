@@ -30,7 +30,11 @@ interface PrivyUser {
 function getAuthorizationSignature(
   url: string,
   body: Record<string, unknown>,
-  options: { authorizationKeyId?: string; idempotencyKey?: string } = {},
+  options: {
+    idempotencyKey?: string;
+    includeAuthorizationKeyInPayload?: boolean;
+    authorizationKeyId?: string;
+  } = {},
 ): string {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
@@ -42,12 +46,15 @@ function getAuthorizationSignature(
     throw new Error("PRIVY_APP_ID must be configured");
   }
 
-  // Sign all privy-* headers present on request (app-id required; key/idempotency optional)
+  // Keep canonical payload aligned to Privy docs: app-id required, idempotency optional.
+  // We can optionally include authorization-key for compatibility fallback attempts.
   const payloadHeaders: Record<string, string> = {
     "privy-app-id": appId,
   };
-  if (options.authorizationKeyId) payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
   if (options.idempotencyKey) payloadHeaders["privy-idempotency-key"] = options.idempotencyKey;
+  if (options.includeAuthorizationKeyInPayload && options.authorizationKeyId) {
+    payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
+  }
 
   const payload = {
     version: 1,
