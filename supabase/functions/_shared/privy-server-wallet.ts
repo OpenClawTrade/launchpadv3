@@ -27,7 +27,11 @@ interface PrivyUser {
 
 // --- Authorization Signature (EXACTLY per Privy docs) ---
 
-function getAuthorizationSignature(url: string, body: Record<string, unknown>): string {
+function getAuthorizationSignature(
+  url: string,
+  body: Record<string, unknown>,
+  options: { authorizationKeyId?: string; idempotencyKey?: string } = {},
+): string {
   const authKeyRaw = Deno.env.get("PRIVY_AUTHORIZATION_KEY");
   if (!authKeyRaw) {
     throw new Error("PRIVY_AUTHORIZATION_KEY must be configured");
@@ -38,16 +42,19 @@ function getAuthorizationSignature(url: string, body: Record<string, unknown>): 
     throw new Error("PRIVY_APP_ID must be configured");
   }
 
-  // Payload — EXACTLY as shown in Privy docs
-  // Only privy-app-id in headers. No privy-authorization-key.
+  // Sign all privy-* headers present on request (app-id required; key/idempotency optional)
+  const payloadHeaders: Record<string, string> = {
+    "privy-app-id": appId,
+  };
+  if (options.authorizationKeyId) payloadHeaders["privy-authorization-key"] = options.authorizationKeyId;
+  if (options.idempotencyKey) payloadHeaders["privy-idempotency-key"] = options.idempotencyKey;
+
   const payload = {
     version: 1,
     method: "POST",
     url,
     body,
-    headers: {
-      "privy-app-id": appId,
-    },
+    headers: payloadHeaders,
   };
 
   // JSON-canonicalize the payload and convert to buffer
