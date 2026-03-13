@@ -68,60 +68,47 @@ async function getAuthorizationSignature(
   // Strip wallet-auth: prefix and clean whitespace/newlines
   const privateKeyAsString = authKeyRaw
     .replace("wallet-auth:", "")
-    .replace(/\\n/g, "\n")
+    .replace(/\\n/g, "")
     .replace(/\r/g, "")
+    .replace(/\n/g, "")
     .trim();
 
-  console.log("[privy-auth] Key length after cleanup:", privateKeyAsString.length, "starts with:", privateKeyAsString.substring(0, 15));
+  // Remove any whitespace within the base64 body
+  const cleanBase64 = privateKeyAsString.replace(/\s+/g, "");
+
+  // Format as PEM with proper 64-char line wrapping (required by some runtimes)
+  const lines: string[] = [];
+  for (let i = 0; i < cleanBase64.length; i += 64) {
+    lines.push(cleanBase64.substring(i, i + 64));
+  }
+  const pem = `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----`;
 
   let privateKey: ReturnType<typeof createPrivateKey>;
-
-  // Strategy 1: Already has PEM headers
-  if (privateKeyAsString.includes("BEGIN")) {
+  try {
+    privateKey = createPrivateKey({ key: pem, format: "pem" });
+    console.log("[privy-auth] Key loaded via PEM, type:", privateKey.asymmetricKeyType);
+  } catch (pemErr) {
+    console.log("[privy-auth] PEM failed:", (pemErr as Error).message, "trying DER...");
+    // Fallback: decode base64 to DER bytes
     try {
-      privateKey = createPrivateKey({ key: privateKeyAsString, format: "pem" });
-      console.log("[privy-auth] Key loaded via raw PEM");
-    } catch (e) {
-      throw new Error(`Failed to parse PEM key: ${(e as Error).message}`);
-    }
-  } else {
-    // Strategy 2: Raw base64 body — wrap in PEM headers
-    // Remove any whitespace/newlines within the base64 body
-    const cleanBase64 = privateKeyAsString.replace(/\s+/g, "");
-    const pem = `-----BEGIN PRIVATE KEY-----\n${cleanBase64}\n-----END PRIVATE KEY-----`;
-    try {
-      privateKey = createPrivateKey({ key: pem, format: "pem" });
-      console.log("[privy-auth] Key loaded via wrapped PEM");
-    } catch (pemErr) {
-      console.log("[privy-auth] Wrapped PEM failed:", (pemErr as Error).message, "trying DER...");
-      // Strategy 3: Decode base64 to DER bytes directly
-      try {
-        const normalized = cleanBase64.replace(/-/g, "+").replace(/_/g, "/");
-        const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-        const binary = atob(padded);
-        const derBytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) derBytes[i] = binary.charCodeAt(i);
-
-        privateKey = createPrivateKey({
-          key: derBytes,
-          format: "der",
-          type: "pkcs8",
-        });
-        console.log("[privy-auth] Key loaded via DER");
-      } catch (derErr) {
-        throw new Error(`Failed to parse authorization key in any format. PEM: ${(pemErr as Error).message}, DER: ${(derErr as Error).message}`);
-      }
+      const normalized = cleanBase64.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+      const binary = atob(padded);
+      const derBytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) derBytes[i] = binary.charCodeAt(i);
+      privateKey = createPrivateKey({ key: derBytes, format: "der", type: "pkcs8" });
+      console.log("[privy-auth] Key loaded via DER, type:", privateKey.asymmetricKeyType);
+    } catch (derErr) {
+      throw new Error(`Failed to parse key. PEM: ${(pemErr as Error).message}, DER: ${(derErr as Error).message}`);
     }
   }
 
-  // Explicitly request DER-encoded ECDSA signature (Privy expects DER format)
-  const signatureBuffer = nodeSign("sha256", serializedPayloadBuffer, {
-    key: privateKey,
-    dsaEncoding: "der",
-  });
+  // Sign exactly like Privy docs: crypto.sign('sha256', buffer, privateKey)
+  // Do NOT specify dsaEncoding — use Node.js default (DER for ECDSA)
+  const signatureBuffer = nodeSign("sha256", serializedPayloadBuffer, privateKey);
   const signature = signatureBuffer.toString("base64");
 
-  console.log("[privy-auth] Signature generated, length:", signature.length, "first 20:", signature.substring(0, 20));
+  console.log("[privy-auth] Signature generated, length:", signature.length);
   return signature;
 }
 
