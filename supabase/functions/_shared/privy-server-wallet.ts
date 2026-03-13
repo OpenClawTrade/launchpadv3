@@ -59,7 +59,7 @@ async function getAuthorizationSignature(url: string, body: Record<string, unkno
   // Strip wallet-auth: prefix (per Privy docs)
   const privateKeyAsString = authKeyRaw.replace("wallet-auth:", "").trim();
 
-  let privateKey: CryptoKey | ReturnType<typeof createPrivateKey>;
+  let privateKey: ReturnType<typeof createPrivateKey>;
   try {
     // Privy docs format: key body can be provided without PEM headers.
     const privateKeyPem = privateKeyAsString.includes("BEGIN PRIVATE KEY")
