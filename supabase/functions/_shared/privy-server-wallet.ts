@@ -160,8 +160,25 @@ function getAuthHeaders(): Record<string, string> {
   };
 }
 
+function normalizeAuthorizationKeyId(rawValue: string): string | null {
+  if (!rawValue) return null;
+
+  const looksLikePrivateKey =
+    rawValue.startsWith("wallet-auth:") ||
+    rawValue.includes("BEGIN PRIVATE KEY") ||
+    rawValue.length > 96;
+
+  if (looksLikePrivateKey) {
+    console.warn("[privy-auth] PRIVY_AUTHORIZATION_KEY_ID appears to be a private key, ignoring header value");
+    return null;
+  }
+
+  return rawValue;
+}
+
 async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Promise<Response> {
-  const authKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
+  const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
+  const authKeyId = normalizeAuthorizationKeyId(rawAuthKeyId);
   const requestHeaders: Record<string, string> = {};
 
   if (authKeyId) {
@@ -181,6 +198,37 @@ async function postPrivyRpc(url: string, bodyObj: Record<string, unknown>): Prom
     },
     body: JSON.stringify(bodyObj),
   });
+}
+
+async function getWalletAuthDebug(walletId: string): Promise<string> {
+  try {
+    const res = await fetch(`https://api.privy.io/v1/wallets/${encodeURIComponent(walletId)}`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      return `wallet_lookup_failed status=${res.status} body=${body.slice(0, 300)}`;
+    }
+
+    const data: any = await res.json();
+    const additionalSigners = Array.isArray(data?.additional_signers)
+      ? data.additional_signers.map((signer: any) =>
+          typeof signer === "string" ? signer : signer?.id || "unknown"
+        )
+      : [];
+
+    return JSON.stringify({
+      wallet_id: data?.id || walletId,
+      owner_id: data?.owner_id || null,
+      policy_ids: Array.isArray(data?.policy_ids) ? data.policy_ids : [],
+      additional_signers: additionalSigners,
+      authorization_threshold: data?.authorization_threshold ?? null,
+    });
+  } catch (err) {
+    return `wallet_lookup_exception ${(err as Error)?.message || String(err)}`;
+  }
 }
 
 /**
@@ -268,6 +316,16 @@ export async function signAndSendTransaction(
 
   if (!res.ok) {
     const body = await res.text();
+
+    if (res.status === 401) {
+      const rawAuthKeyId = (Deno.env.get("PRIVY_AUTHORIZATION_KEY_ID") || "").trim();
+      const authKeyIdStatus = normalizeAuthorizationKeyId(rawAuthKeyId) ? "present" : "missing_or_invalid";
+      const walletAuthDebug = await getWalletAuthDebug(walletId);
+      throw new Error(
+        `Privy signAndSendTransaction failed (401): ${body} | auth_key_id_status=${authKeyIdStatus} | wallet_auth=${walletAuthDebug}`
+      );
+    }
+
     throw new Error(`Privy signAndSendTransaction failed (${res.status}): ${body}`);
   }
 
