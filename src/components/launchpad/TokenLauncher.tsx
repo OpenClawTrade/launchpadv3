@@ -110,7 +110,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
   const { walletAddress: privyWalletAddress, isWalletReady: privyWalletReady, getBalance: getPrivyBalance, signAndSendTransaction: privySignAndSend, getConnection: getPrivyConnection, signTransaction: privySignTransaction } = useSolanaWalletWithPrivy();
   
   // Wallet mode for Phantom tab: "phantom" (external) or "privy" (embedded 1-click)
-  const [launchWalletMode, setLaunchWalletMode] = useState<"phantom" | "privy">("phantom");
+  const [launchWalletMode, setLaunchWalletMode] = useState<"phantom" | "privy">("privy");
   const [privyBalance, setPrivyBalance] = useState<number | null>(null);
   const [privyDepositReady, setPrivyDepositReady] = useState(false);
 
