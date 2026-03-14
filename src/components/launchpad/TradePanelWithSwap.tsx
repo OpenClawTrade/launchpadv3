@@ -71,7 +71,7 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
   }, [refreshTokenBalance, isLoading, tradeType]);
 
   useEffect(() => {
-    if (!isAuthenticated || !solanaAddress || !token.mint_address) return;
+    if (!isAuthenticated || !effectiveWallet || !token.mint_address) return;
 
     const interval = window.setInterval(() => {
       void refreshTokenBalance();
@@ -80,14 +80,19 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
     const onFocus = () => {
       void refreshTokenBalance();
     };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshTokenBalance();
+    };
 
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isAuthenticated, solanaAddress, token.mint_address, refreshTokenBalance]);
+  }, [isAuthenticated, effectiveWallet, token.mint_address, refreshTokenBalance]);
 
   const virtualSol = (token.virtual_sol_reserves || 30) + (token.real_sol_reserves || 0);
   const virtualToken = (token.virtual_token_reserves || 1_000_000_000) - (token.real_token_reserves || 0);

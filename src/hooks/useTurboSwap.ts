@@ -79,7 +79,7 @@ export function useTurboSwap() {
   return {
     executeTurboSwap,
     isLoading: isLoading || isFastSwapLoading,
-    walletAddress: solanaAddress,
+    walletAddress: effectiveWallet,
     lastLatencyMs: lastLatencyMs ?? lastFastLatencyMs,
   };
 }
