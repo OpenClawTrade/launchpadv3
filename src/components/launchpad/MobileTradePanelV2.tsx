@@ -347,14 +347,27 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
           </div>
           <div className="relative">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="0.00"
-              value={amount}
-              onChange={(e) => { setAmount(e.target.value); setSelectedPreset(null); }}
-              className="w-full h-11 text-sm font-mono font-bold pl-3 pr-20 sm:pr-24 rounded-lg border border-border/40 bg-secondary/30 text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all"
-              style={{ fontSize: 'max(16px, 0.875rem)' }} /* prevents iOS zoom on focus */
+              value={displayInputValue}
+              onChange={(e) => {
+                // Strip abbreviation suffixes so user can type freely
+                const raw = e.target.value.replace(/[KMBkmb]/g, '');
+                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                  setAmount(raw);
+                  setSelectedPreset(null);
+                }
+              }}
+              className="w-full h-11 text-sm font-mono font-bold pl-3 pr-20 sm:pr-24 rounded-lg border border-border/40 bg-secondary/30 text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ fontSize: 'max(16px, 0.875rem)' }}
             />
+            {/* Show full precision below when abbreviated */}
+            {!isBuy && numericAmount >= 10_000 && (
+              <span className="absolute left-3 -bottom-3.5 text-[8px] font-mono text-muted-foreground/50 truncate max-w-[60%]">
+                {numericAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              </span>
+            )}
             <div className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <button
                 onClick={handleMaxClick}
