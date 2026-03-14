@@ -162,24 +162,26 @@ export default function RewardsPage() {
   // X not linked
   if (!twitterLinked) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto">
-            <XIcon className="h-8 w-8 text-primary" />
+      <LaunchpadLayout>
+        <div className="flex items-center justify-center p-4 min-h-[60vh]">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto">
+              <XIcon className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold font-mono text-foreground">Connect your X account</h1>
+            <p className="text-sm text-muted-foreground">
+              To participate in Social Rewards, you need to authorize your X (Twitter) account.
+            </p>
+            <button
+              onClick={handleLinkTwitter}
+              className="w-full py-3 rounded-xl font-mono text-sm font-bold uppercase tracking-widest bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
+            >
+              <XIcon className="h-4 w-4" />
+              Authorize X Account
+            </button>
           </div>
-          <h1 className="text-2xl font-bold font-mono text-foreground">Connect your X account</h1>
-          <p className="text-sm text-muted-foreground">
-            To participate in Social Rewards, you need to authorize your X (Twitter) account.
-          </p>
-          <button
-            onClick={handleLinkTwitter}
-            className="w-full py-3 rounded-xl font-mono text-sm font-bold uppercase tracking-widest bg-foreground text-background hover:opacity-90 transition-all flex items-center justify-center gap-2"
-          >
-            <XIcon className="h-4 w-4" />
-            Authorize X Account
-          </button>
         </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
