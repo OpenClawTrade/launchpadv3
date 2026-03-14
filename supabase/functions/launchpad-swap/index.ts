@@ -102,11 +102,11 @@ serve(async (req) => {
     let token: any = null;
     let tokenSource = "tokens";
     
-    const { data: legacyToken, error: legacyError } = await supabase
+    const { data: legacyToken } = await supabase
       .from("tokens")
       .select("*")
       .eq("mint_address", mintAddress)
-      .single();
+      .maybeSingle();
 
     if (legacyToken) {
       token = legacyToken;
