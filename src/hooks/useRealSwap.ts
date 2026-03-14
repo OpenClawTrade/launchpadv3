@@ -10,7 +10,7 @@ import type { Token } from '@/hooks/useLaunchpad';
 import { useQueryClient } from '@tanstack/react-query';
 
 const SOL_DECIMALS = 9;
-const TOKEN_DECIMALS = 6; // Meteora DBC tokens typically use 6 decimals
+const DEFAULT_TOKEN_DECIMALS = 6;
 
 interface SwapResult {
   success: boolean;

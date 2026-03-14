@@ -26,7 +26,7 @@ import type { Token } from '@/hooks/useLaunchpad';
 import { useQueryClient } from '@tanstack/react-query';
 
 const SOL_DECIMALS = 9;
-const TOKEN_DECIMALS = 6;
+const DEFAULT_TOKEN_DECIMALS = 6;
 
 interface FastSwapResult {
   success: boolean;
