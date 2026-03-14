@@ -558,16 +558,16 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
       if (data?.meme) {
         setPhantomMeme(data.meme);
         setPhantomToken({
-          name: data.meme.name,
-          ticker: data.meme.ticker,
+          name: "",
+          ticker: "",
           description: data.meme.description || "",
           imageUrl: data.meme.imageUrl,
-          websiteUrl: data.meme.websiteUrl || "",
-          twitterUrl: data.meme.twitterUrl || "",
+          websiteUrl: "",
+          twitterUrl: "",
           telegramUrl: "",
           discordUrl: "",
         });
-        toast({ title: "AI Token Generated! 🤖", description: `${data.meme.name} ready for Phantom launch!` });
+        toast({ title: "AI Image Generated! 🤖", description: "Image ready — enter your token name & ticker!" });
       }
     } catch (error) {
       toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
