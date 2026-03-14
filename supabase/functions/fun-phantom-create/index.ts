@@ -73,8 +73,10 @@ Deno.serve(async (req) => {
       ? Math.max(0, Math.min(MAX_FEE_BPS, Math.round(Number(rawCreatorFeeBps))))
       : Math.max(0, tradingFeeBps - PLATFORM_BASE_BPS);
     
+    // Validate dev buy amount (max 100 SOL)
+    const devBuySol = Math.max(0, Math.min(100, Number(rawDevBuySol) || 0));
     console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "creatorFeeBps:", creatorFeeBps, "from raw:", rawFeeBps);
-    console.log("[fun-phantom-create] Dev buy amount:", rawDevBuySol, "SOL");
+    console.log("[fun-phantom-create] Dev buy amount:", devBuySol, "SOL");
 
     // ===== PHASE 2: Record token after confirmation =====
     if (confirmed === true && confirmedMintAddress && confirmedPoolAddress) {
