@@ -203,7 +203,7 @@ export default function PanelUnifiedDashboard() {
   const { chain, chainConfig } = useChain();
   const { address: evmAddress } = usePrivyEvmWallet();
   const { walletAddress: solWalletAddress, isWalletReady, getBalance } = useSolanaWalletWithPrivy();
-  const { useUserHoldings, useUserTokens, useUserEarnings, claimFees } = useLaunchpad();
+  const { useUserTokens, useUserEarnings, claimFees } = useLaunchpad();
   const { referralCode, referralLink, referralCount } = useReferralCode();
   const { stats: refStats, recentReferrals, recentRewards } = useReferralDashboard();
   const { toast } = useToast();
