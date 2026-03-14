@@ -357,7 +357,7 @@ export default function FunTokenDetailPage() {
   const { bnbPrice } = useBnbPrice();
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('chart');
+  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'info'>('chart');
 
   // Detect if this is a BSC token (0x prefix)
   const isBsc = isEvmAddress(mintAddress || '');
@@ -868,8 +868,8 @@ export default function FunTokenDetailPage() {
           <div className="md:hidden">
             {(() => {
               const tabs = isPunchToken
-                ? (['chart', 'comments'] as const)
-                : (['trade', 'chart', 'comments'] as const);
+                ? (['chart', 'info'] as const)
+                : (['trade', 'chart', 'info'] as const);
               return (
                 <div className={`flex bg-muted/30 rounded-lg p-0.5 border border-border/20`}>
                   {tabs.map(tab => (
@@ -884,7 +884,7 @@ export default function FunTokenDetailPage() {
                     >
                       {tab === 'trade' && <Activity className="h-3 w-3" />}
                       {tab === 'chart' && <BarChart3 className="h-3 w-3" />}
-                      {tab === 'comments' && <MessageCircle className="h-3 w-3" />}
+                      {tab === 'info' && <Shield className="h-3 w-3" />}
                       {tab}
                     </button>
                   ))}
@@ -918,13 +918,12 @@ export default function FunTokenDetailPage() {
                 <TokenDataTabs tokenAddress={token.mint_address || mintAddress || ''} holderCount={codexHolders ?? token.holder_count ?? 0} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={codexPrice || 0} />
               </>
             )}
-            {mobileTab === 'comments' && (
+            {mobileTab === 'info' && (
               <>
                 <TokenDetailsSection />
                 <ContractSection />
                 <DescriptionSection />
                 <PnlSimulator />
-                <CommentsSection />
               </>
             )}
           </div>
@@ -944,7 +943,7 @@ export default function FunTokenDetailPage() {
               <ContractSection />
               <DescriptionSection />
               <PnlSimulator />
-              <CommentsSection />
+              {/* Comments removed for platform tokens */}
             </div>
             {!isPunchToken && (
               <div className="col-span-5 flex flex-col gap-2">
@@ -1005,7 +1004,6 @@ export default function FunTokenDetailPage() {
                 </div>
               )}
               <PnlSimulator />
-              <CommentsSection />
             </div>
           </div>
 
@@ -1014,9 +1012,9 @@ export default function FunTokenDetailPage() {
 
       {/* ──── PHONE ONLY: Bottom-fixed quick action bar ──── */}
       {!isPunchToken && (
-        <div className="md:hidden fixed left-0 right-0 z-50 trade-mobile-bar" style={{ bottom: '40px', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)' }}>
-          <div className="flex items-center gap-2.5 px-4 py-3">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="md:hidden fixed left-0 right-0 z-50 trade-mobile-bar" style={{ bottom: '48px', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 4px)' }}>
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <span className="text-[10px] font-mono text-muted-foreground truncate">
                 {(token.price_sol || 0).toFixed(6)} SOL
               </span>
@@ -1028,13 +1026,13 @@ export default function FunTokenDetailPage() {
             </div>
             <button
               onClick={() => setMobileTab('trade')}
-              className="trade-btn-buy font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95"
+              className="trade-btn-buy font-mono text-xs font-bold min-w-[72px] px-4 py-2 rounded-lg min-h-[40px] active:scale-95"
             >
               BUY
             </button>
             <button
               onClick={() => setMobileTab('trade')}
-              className="trade-btn-sell font-mono text-xs font-bold px-6 py-2.5 rounded-lg min-h-[44px] active:scale-95"
+              className="trade-btn-sell font-mono text-xs font-bold min-w-[72px] px-4 py-2 rounded-lg min-h-[40px] active:scale-95"
             >
               SELL
             </button>

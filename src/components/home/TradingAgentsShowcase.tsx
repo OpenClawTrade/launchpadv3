@@ -140,7 +140,7 @@ export default function TradingAgentsShowcase() {
 
               {/* CTA */}
               <button
-                onClick={() => toast.info("Launching on 14th March")}
+                onClick={() => toast.info("Staking on AI agents will become available soon with the $SATURN and $SOL coins.")}
                 className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-xs font-bold transition-all duration-300
                            bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/40
                            hover:shadow-[0_0_16px_hsl(var(--primary)/0.15)]"

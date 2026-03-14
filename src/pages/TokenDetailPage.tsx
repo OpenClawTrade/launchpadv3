@@ -417,15 +417,12 @@ export default function TokenDetailPage() {
 
         {/* Tabs for Transactions, Holders & Discussion */}
         <Tabs defaultValue="transactions" className="w-full">
-          <TabsList className="w-full grid grid-cols-3">
+          <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="transactions">
               Trades
             </TabsTrigger>
             <TabsTrigger value="holders">
               Holders ({holders.length})
-            </TabsTrigger>
-            <TabsTrigger value="discussion">
-              Discussion
             </TabsTrigger>
           </TabsList>
 
@@ -473,10 +470,6 @@ export default function TokenDetailPage() {
                 <p className="text-center text-muted-foreground py-8">No holders yet</p>
               )}
             </div>
-          </TabsContent>
-
-          <TabsContent value="discussion" className="mt-4">
-            <TokenComments tokenId={token.id} />
           </TabsContent>
         </Tabs>
 

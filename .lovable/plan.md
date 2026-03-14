@@ -1,103 +1,104 @@
 
+## Privy-Powered 1-Click Token Launcher 🚀 PLANNED
 
-## Plan: Fix Multiple UI Issues
+### Problem
+TokenLauncher (3078 lines) uses `usePhantomWallet` — requires Phantom browser extension. 
+Rest of the platform already uses Privy embedded wallet. Users shouldn't need Phantom to launch tokens.
 
-This plan covers 7 distinct fixes across the platform.
+### Architecture
+1. **Replace `usePhantomWallet` with `useSolanaWalletPrivy`** in TokenLauncher
+   - Privy embedded wallet handles all on-chain signing (same as trading)
+   - Users logged in via Privy can launch directly — no Phantom popup
+   - Logged-out users can still generate memes, prompted to login on Launch
 
----
+2. **Simplify the "phantom" mode → "launch" mode**
+   - Remove Phantom-specific naming (`phantomWallet`, `isPhantomLaunching`, etc.)
+   - Rename to generic wallet references since Privy handles everything
+   - Keep all sub-modes (random, describe, realistic, custom)
 
-### 1. Trade Page: Remove Duplicate "Connect Wallet" (EmbeddedWalletCard)
+3. **On-chain flow change:**
+   ```
+   Before: Phantom popup → user signs → broadcast
+   After:  Privy embedded wallet → auto-sign (1-click) → broadcast
+   ```
 
-**Problem**: When not connected, the trade panel shows a "Connect Wallet" button AND the `EmbeddedWalletCard` below it also shows "Connect Wallet" — two connect prompts.
+4. **Auth gate on launch:**
+   - Check `useAuth()` / `usePrivy()` for logged-in state
+   - If not logged in → trigger Privy login modal
+   - If logged in → use embedded wallet address, sign tx via `useSolanaWalletPrivy`
 
-**Fix**: In `EmbeddedWalletCard.tsx`, when user is not authenticated, return `null` instead of showing a second connect button. The trade panels (UniversalTradePanel, TradePanelWithSwap, MobileTradePanelV2) already have their own connect buttons.
+### Files to modify:
+- `src/components/launchpad/TokenLauncher.tsx` — swap wallet hook, remove Phantom refs
+- `src/components/panel/PanelPhantomTab.tsx` — rename, use Privy
+- `src/pages/CreateTokenPage.tsx` — remove `defaultMode="phantom"` refs
+- `src/components/launchpad/CreateTokenModal.tsx` — same
+- `src/pages/FunLauncherPage.tsx` — same
 
-**File**: `src/components/launchpad/EmbeddedWalletCard.tsx` (lines 64-81) — return `null` when `!isAuthenticated`.
-
----
-
-### 2. Mobile Buy/Sell Bottom Bar Button UI Fix
-
-**Problem**: The fixed bottom BUY/SELL bar on mobile (FunTokenDetailPage lines 1015-1042) may clip or not show fully due to `bottom: 40px` and the bar styling.
-
-**Fix**: In `src/pages/FunTokenDetailPage.tsx`, adjust the bottom bar to use proper spacing and ensure buttons have sufficient width. Add `min-w-[72px]` to both BUY and SELL buttons so they don't compress, and verify the bottom offset works with the mobile nav.
-
-**File**: `src/pages/FunTokenDetailPage.tsx` (lines 1015-1042)
-
----
-
-### 3. Fix Metadata: Remove `/t/` Fallback from `create-fun.ts`
-
-**Problem**: `create-fun.ts` still has the broken `/t/` fallback URL (`https://tuna.fun/t/TICKER`) — this was fixed in `create.ts` and `create-phantom.ts` but missed here.
-
-**Fix**: Change line 333-335 to `const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' ? websiteUrl : undefined;`
-
-**File**: `api/pool/create-fun.ts` (lines 330-335)
-
----
-
-### 4. Portfolio Section Overhaul
-
-**Problem**: Portfolio shows all tokens with "0.000000 SOL" values, no pagination, no sell buttons, no PnL. The pie chart and list are oversized and ugly.
-
-**Fix** in `src/components/panel/PanelUnifiedDashboard.tsx`:
-- Add pagination to portfolio holdings (show 5 per page with Previous/Next)
-- Filter out tokens with zero SOL value from display (or show them in a collapsed "dust" section)
-- Add a small "Sell 100%" button on each token card that links to `/trade/:mint`
-- Show PnL placeholder per token (we don't have cost basis data, so show current value)
-- Make the pie chart more compact and the token cards smaller/tighter
-- Cap the visible list to prevent the massive scrolling issue
+### Dependencies:
+- `src/hooks/useSolanaWalletPrivy.ts` (already exists, used by trading)
+- `src/hooks/useAuth.ts` (already exists)
+- Can potentially remove `src/hooks/usePhantomWallet.ts` entirely after migration
 
 ---
 
-### 5. Remove Comments from Platform-Launched Tokens
+## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
 
-**Problem**: User wants to remove the comment/discussion section from tokens launched through the platform's own system (launchpad_type: 'phantom', 'saturn', or fun_tokens).
+### What was built:
+1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
+   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
+   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
+   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
+   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
+   - Records trade in DB + alpha_trades (non-blocking)
+   - Returns signature immediately with timing breakdown
 
-**Fix**: In `FunTokenDetailPage.tsx`, conditionally hide `CommentsSection` and the "comments" mobile tab for platform-launched tokens. Check `(token as any).launchpad_type` — if it's `'phantom'`, `'saturn'`, or if the token comes from `fun_tokens`, skip rendering CommentsSection. Also remove "comments" from the mobile tab array for these tokens.
+2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
+   - Single `supabase.functions.invoke('turbo-trade')` call
+   - No client-side tx building or signing
+   - Background query invalidation after 500ms
+   - Logs client roundtrip vs server execution time
 
-Also in `TokenDetailPage.tsx`, remove the "discussion" tab content for platform tokens.
+3. **Wired into trade components:**
+   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
+   - `PortfolioModal.tsx` — uses `useTurboSwap`
 
-**Files**: `src/pages/FunTokenDetailPage.tsx`, `src/pages/TokenDetailPage.tsx`
-
----
-
-### 6. Staking Text Update
-
-**Problem**: Staking buttons say "Launching on 14th March" — needs updating.
-
-**Fix**: Change the toast message in all 3 files to: "Staking on AI agents will become available soon with the $SATURN and $SOL coins."
-
-**Files**:
-- `src/components/home/TradingAgentsShowcase.tsx` (line 143)
-- `src/pages/SaturnForumPage.tsx` (line 183)
-- `src/components/trading/TradingAgentsShowcase.tsx` (line 127)
-
----
-
-### 7. Leverage Trading — Assessment & Status
-
-**Current state**: The leverage page uses Aster DEX via server-side API keys (`ASTER_API_KEY`, `ASTER_API_SECRET`) proxied through the `aster-trade` edge function. It does NOT currently support Privy wallet deposits to Aster. Trading is done via Aster's centralized API (not on-chain wallet signing). Users cannot deposit from their Privy wallet to Aster's supported currencies.
-
-**Fix**: This is a complex integration that requires:
-- Understanding Aster DEX's deposit API (if they have one)
-- Bridging funds from Privy embedded wallet to Aster's custody
-- This is NOT a quick fix — will note it as a future task and leave the current state as-is for now
-
-No code changes for this item — will document the limitation.
+### Expected latency:
+```
+Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
+After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
+```
 
 ---
 
-### Summary of Files to Edit
+## 6-Phase Axiom Feature Integration Plan (SAVED)
 
-| File | Change |
-|------|--------|
-| `src/components/launchpad/EmbeddedWalletCard.tsx` | Return null when not authenticated |
-| `src/pages/FunTokenDetailPage.tsx` | Fix mobile bottom bar buttons, remove CommentsSection for platform tokens |
-| `src/pages/TokenDetailPage.tsx` | Remove discussion tab for platform tokens |
-| `api/pool/create-fun.ts` | Remove `/t/` fallback URL |
-| `src/components/panel/PanelUnifiedDashboard.tsx` | Portfolio pagination, sell buttons, compact design, filter dust |
-| `src/components/home/TradingAgentsShowcase.tsx` | Update staking text |
-| `src/pages/SaturnForumPage.tsx` | Update staking text |
-| `src/components/trading/TradingAgentsShowcase.tsx` | Update staking text |
+### Phase 1: Copy Trade Execution
+- New `copy-trade-execute` edge function
+- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
+- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
+- New `copy_trade_log` table
 
+### Phase 2: Limit Orders (SL/TP)
+- Jupiter limit order program integration
+- `limit-order-create` edge function
+- `limit_orders` DB table
+- Limit order tab in trade panel
+
+### Phase 3: Real-Time WebSocket Token Feed
+- Helius WebSocket for sub-1s new pair detection
+- Replace Codex polling (~30s) 
+- Edge function → Supabase Realtime channel
+
+### Phase 4: DCA (Dollar Cost Averaging)
+- `dca_orders` DB table
+- `dca-execute` cron edge function
+- DCA tab in trade panel
+
+### Phase 5: Enhanced Token Safety
+- LP lock status, mint authority, honeypot detection
+- Safety score badge on Pulse cards
+
+### Phase 6: Wallet PnL Analytics
+- `wallet-pnl-calculate` edge function
+- Per-wallet realized/unrealized PnL
+- Rank tracked wallets by performance
