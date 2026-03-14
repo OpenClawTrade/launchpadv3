@@ -64,11 +64,16 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       <nav className={cn("flex-1 flex flex-col items-center gap-0.5 py-2", isMobile && "items-stretch px-2")}>
         {NAV_LINKS.map((navItem) => {
-          const { to, label, icon: Icon, exact } = navItem;
+          const { to, label, icon: Icon, exact, neonGreen } = navItem;
           const active = isActive(to, exact);
           
           const iconEl = Icon ? (
-            <Icon className={cn("h-4 w-4 flex-shrink-0 transition-colors", active && "text-primary")} />
+            <Icon className={cn(
+              "h-4 w-4 flex-shrink-0 transition-colors",
+              neonGreen
+                ? "text-[hsl(72_100%_50%)] drop-shadow-[0_0_6px_hsl(72_100%_50%/0.5)]"
+                : active ? "text-primary" : ""
+            )} strokeWidth={neonGreen ? 2.5 : undefined} />
           ) : null;
 
           if (isMobile) {
