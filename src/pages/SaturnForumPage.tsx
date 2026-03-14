@@ -180,7 +180,7 @@ function FeaturedAgentCard({ strategy, agentData }: {
 
       {/* CTA */}
       <button
-        onClick={() => toast.info("Launching on 14th March")}
+        onClick={() => toast.info("Staking on AI agents will become available soon with the $SATURN and $SOL coins.")}
         className={cn(
           "flex items-center justify-center gap-2 w-full py-2.5 rounded-lg font-bold text-xs transition-all",
           "bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"

@@ -1004,7 +1004,6 @@ export default function FunTokenDetailPage() {
                 </div>
               )}
               <PnlSimulator />
-              <CommentsSection />
             </div>
           </div>
 

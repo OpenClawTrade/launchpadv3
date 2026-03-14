@@ -327,12 +327,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // === FIX: Always auto-populate SubTuna URL for ALL launches ===
-    // Every token gets a SubTuna community page at /t/:ticker
+    // === FIX: Don't use broken fallback URLs ===
     const { agentId } = req.body;
-    const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' 
-      ? websiteUrl 
-      : `https://tuna.fun/t/${ticker.toUpperCase()}`;
+    const finalWebsiteUrl = websiteUrl && websiteUrl.trim() !== '' ? websiteUrl : undefined;
     
     // === FIX: Validate Twitter URL format - reject broken /i/status/ format ===
     // Valid format: https://x.com/{username}/status/{id}

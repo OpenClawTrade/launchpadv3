@@ -62,23 +62,7 @@ export function EmbeddedWalletCard({ className = "" }: EmbeddedWalletCardProps) 
   }
 
   if (!isAuthenticated) {
-    return (
-      <Card className={`gate-card p-4 ${className}`}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Wallet className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold">Embedded Wallet</h3>
-            <p className="text-xs text-muted-foreground">Connect to trade</p>
-          </div>
-        </div>
-        <Button onClick={login} className="w-full bg-green-500 hover:bg-green-600 text-white">
-          <LogIn className="h-4 w-4 mr-2" />
-          Connect Wallet
-        </Button>
-      </Card>
-    );
+    return null;
   }
 
   return <EmbeddedWalletCardInner className={className} />;
