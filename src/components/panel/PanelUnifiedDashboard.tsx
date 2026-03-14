@@ -301,6 +301,7 @@ export default function PanelUnifiedDashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSecurityOpen, setAccountSecurityOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [hasSeenDepositPrompt, setHasSeenDepositPrompt] = useState(false);
   const [launchPage, setLaunchPage] = useState(1);
   const [portfolioPage, setPortfolioPage] = useState(1);
   const PORTFOLIO_PER_PAGE = 5;
@@ -345,6 +346,17 @@ export default function PanelUnifiedDashboard() {
     const interval = setInterval(fetchBal, 15_000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [isWalletReady, walletAddr, isSolana, isBnb, evmAddress, getBalance]);
+
+  // Auto-open deposit dialog when balance is 0 on first panel load
+  useEffect(() => {
+    if (balance === null || balance > 0) return;
+    if (hasSeenDepositPrompt) return;
+    const timer = setTimeout(() => {
+      setDepositOpen(true);
+      setHasSeenDepositPrompt(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [balance, hasSeenDepositPrompt]);
 
   // Portfolio stats
   const portfolioStats = useMemo(() => {
@@ -485,10 +497,15 @@ export default function PanelUnifiedDashboard() {
         <div className="relative z-10 flex flex-wrap gap-2 mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <button
             onClick={() => setDepositOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-mono font-medium text-muted-foreground hover:text-foreground transition-colors"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-mono font-bold transition-all animate-pulse hover:animate-none"
+            style={{
+              background: `linear-gradient(135deg, ${NEON_LIME}20, ${EMERALD}15)`,
+              border: `1px solid ${NEON_LIME}50`,
+              color: NEON_LIME,
+              boxShadow: `0 0 12px ${NEON_LIME}15, 0 0 4px ${NEON_LIME}10`,
+            }}
           >
-            <ArrowDownToLine className="h-3 w-3" /> Deposit
+            <ArrowDownToLine className="h-3.5 w-3.5" /> Deposit to Trade
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
@@ -731,7 +748,6 @@ export default function PanelUnifiedDashboard() {
                   color={NEON_LIME_GLOW}
                 />
               </div>
-
 
 
               {/* Recent claims */}
@@ -1145,6 +1161,22 @@ export default function PanelUnifiedDashboard() {
         chain={isBnb ? "bnb" : "solana"}
         getBalance={isSolana ? getBalance : undefined}
       />
+
+      {/* Floating mobile deposit CTA — always visible on mobile when balance is low */}
+      {(balance === null || balance < 0.01) && (
+        <button
+          onClick={() => setDepositOpen(true)}
+          className="md:hidden fixed bottom-20 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-full font-mono font-bold text-xs shadow-2xl animate-bounce hover:animate-none transition-all"
+          style={{
+            background: `linear-gradient(135deg, ${NEON_LIME}, ${EMERALD})`,
+            color: "#000",
+            boxShadow: `0 0 20px ${NEON_LIME}40, 0 4px 16px rgba(0,0,0,0.4)`,
+          }}
+        >
+          <ArrowDownToLine className="h-4 w-4" />
+          Deposit to Trade
+        </button>
+      )}
     </div>
   );
 }
