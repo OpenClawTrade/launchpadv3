@@ -83,14 +83,6 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
         ),
       });
 
-      showTradeSuccess({
-        type: 'buy',
-        ticker: token.ticker,
-        amount: `${solAmount} SOL`,
-        signature: result.signature,
-        tokenImageUrl: token.image_url ?? undefined,
-      });
-
       if (result.graduated) {
         toast({
           title: "🎓 Token Graduated!",
