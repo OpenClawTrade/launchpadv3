@@ -334,7 +334,7 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
         </div>
 
         {/* ── Amount Input ── */}
-        <div className="space-y-1">
+        <div className="space-y-1 mb-1">
           <div className="flex justify-between items-center px-0.5 min-w-0">
             <span className="text-[10px] sm:text-[11px] font-mono text-muted-foreground truncate">
               {isBuy ? "You pay" : "You sell"}
