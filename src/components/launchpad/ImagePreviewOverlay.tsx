@@ -32,7 +32,7 @@ export function ImagePreviewOverlay({ src, alt = "Generated", onClear, downloadN
       )}
       <button
         onClick={handleDownload}
-        className="absolute bottom-1 right-1 p-1.5 rounded-md bg-background/80 border border-border opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute bottom-1 right-1 p-1.5 rounded-md bg-background/80 border border-border transition-opacity md:opacity-0 md:group-hover:opacity-100"
         title="Download image"
       >
         <Download className="h-3.5 w-3.5 text-foreground" />
