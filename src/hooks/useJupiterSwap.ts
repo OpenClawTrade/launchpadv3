@@ -42,12 +42,12 @@ async function parseJupiterError(response: Response): Promise<string> {
 function buildJupiterEndpoints(hasApiKey: boolean): JupiterEndpoint[] {
   if (hasApiKey) {
     return [
-      { baseUrl: JUPITER_PRO_API, includeApiKey: true, name: 'pro' },
-      { baseUrl: JUPITER_LITE_API, includeApiKey: false, name: 'lite' },
+      { baseUrl: JUPITER_API, includeApiKey: true, name: 'pro' },
+      { baseUrl: JUPITER_API, includeApiKey: false, name: 'free' },
     ];
   }
 
-  return [{ baseUrl: JUPITER_LITE_API, includeApiKey: false, name: 'lite' }];
+  return [{ baseUrl: JUPITER_API, includeApiKey: false, name: 'free' }];
 }
 
 async function requestJupiterWithFallback(
