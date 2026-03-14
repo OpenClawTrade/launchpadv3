@@ -157,11 +157,11 @@ Deno.serve(async (req) => {
       const fallbackMetadata = {
         name: 'New Token',
         symbol: 'TOKEN',
-        description: 'Token launching on CLAW #CLAW',
+        description: 'Token launching on Saturn #STRN',
         image: '',
-        tags: ['Meme', 'CLAW'],
+        tags: ['Meme', 'STRN'],
         attributes: [
-          { trait_type: 'Platform', value: 'CLAW' },
+          { trait_type: 'Platform', value: 'Saturn' },
           { trait_type: 'Status', value: 'launching' },
         ],
         properties: {
