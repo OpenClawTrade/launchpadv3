@@ -24,18 +24,18 @@ export function ImagePreviewOverlay({ src, alt = "Generated", onClear, downloadN
       {onClear && (
         <button
           onClick={onClear}
-          className="absolute top-1 right-1 p-1 rounded-md bg-background/90 border border-border hover:bg-destructive/20 transition-colors z-10"
+          className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/70 backdrop-blur-sm border border-white/20 hover:bg-destructive/80 transition-colors z-10"
           title="Remove image"
         >
-          <X className="h-3.5 w-3.5 text-foreground" />
+          <X className="h-4 w-4 text-white" />
         </button>
       )}
       <button
         onClick={handleDownload}
-        className="absolute bottom-1 right-1 p-1.5 rounded-md bg-background/80 border border-border hover:bg-primary/20 transition-colors"
+        className="absolute bottom-1.5 right-1.5 p-2 rounded-lg bg-black/70 backdrop-blur-sm border border-white/20 hover:bg-primary/80 transition-colors z-10"
         title="Download image"
       >
-        <Download className="h-3.5 w-3.5 text-foreground" />
+        <Download className="h-4 w-4 text-white" />
       </button>
     </div>
   );
