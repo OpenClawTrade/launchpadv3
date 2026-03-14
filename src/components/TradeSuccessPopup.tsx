@@ -180,6 +180,28 @@ export function TradeSuccessPopup() {
                     </span>
                   </div>
                 )}
+
+                {/* PnL (sell only) */}
+                {isSell && data.pnlSol != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">PnL</span>
+                    <span className={`flex items-center gap-1.5 text-xs font-mono font-semibold ${
+                      data.pnlSol >= 0 ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {data.pnlSol >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {data.pnlSol >= 0 ? '+' : ''}{data.pnlSol.toFixed(4)} SOL
+                      {data.pnlPercent != null && (
+                        <span className="text-[10px] opacity-70">
+                          ({data.pnlPercent >= 0 ? '+' : ''}{data.pnlPercent.toFixed(1)}%)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* View TX button */}
