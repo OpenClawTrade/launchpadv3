@@ -37,7 +37,7 @@ export function useTurboSwap() {
     isBuy: boolean,
     slippageBps: number = 500,
   ): Promise<TurboSwapResult> => {
-    if (!user?.privyId && !profileId && !solanaAddress) {
+    if (!user?.privyId && !profileId && !effectiveWallet) {
       throw new Error('Not authenticated');
     }
 
