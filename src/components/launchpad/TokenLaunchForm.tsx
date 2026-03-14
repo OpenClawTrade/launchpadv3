@@ -8,6 +8,8 @@ import {
   Twitter,
   MessageCircle,
   Bot,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 
 interface TokenData {
@@ -29,6 +31,12 @@ interface TokenLaunchFormProps {
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClearImage: () => void;
 }
+
+const IconBox = ({ children }: { children: React.ReactNode }) => (
+  <div className="w-9 h-9 rounded-lg bg-primary/[0.06] border border-primary/20 flex items-center justify-center flex-shrink-0">
+    {children}
+  </div>
+);
 
 export function TokenLaunchForm({
   token,
@@ -91,7 +99,7 @@ export function TokenLaunchForm({
       {hasImage && (
         <button
           onClick={handleDownload}
-          className="w-full h-9 rounded-lg bg-green-600/15 hover:bg-green-600/25 border border-green-600/30 text-green-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          className="w-full h-9 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
         >
           <Download className="h-3.5 w-3.5" />
           Download Image
@@ -102,9 +110,9 @@ export function TokenLaunchForm({
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-white/30 pl-1">Token Name</label>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-            <Bot className="h-4 w-4 text-white/30" />
-          </div>
+          <IconBox>
+            <Bot className="h-4 w-4 text-primary/60" />
+          </IconBox>
           <Input
             value={token.name}
             onChange={(e) => setToken({ ...token, name: e.target.value.slice(0, 32) })}
@@ -118,12 +126,14 @@ export function TokenLaunchForm({
       {/* Ticker */}
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-white/30 pl-1">Ticker</label>
-        <div className="flex items-center gap-3 pl-12">
-          <span className="text-primary text-sm font-bold">$</span>
+        <div className="flex items-center gap-3">
+          <IconBox>
+            <DollarSign className="h-4 w-4 text-primary/60" />
+          </IconBox>
           <Input
             value={token.ticker}
             onChange={(e) => setToken({ ...token, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
-            className="phantom-glass-input h-9 w-36 font-mono rounded-lg"
+            className="phantom-glass-input h-10 rounded-xl flex-1 font-mono"
             placeholder="PEPE"
             maxLength={10}
           />
@@ -133,47 +143,60 @@ export function TokenLaunchForm({
       {/* Description */}
       <div className="space-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-white/30 pl-1">Description</label>
-        <Textarea
-          value={token.description}
-          onChange={(e) => setToken({ ...token, description: e.target.value })}
-          placeholder="What's your token about?"
-          className="phantom-glass-textarea rounded-xl min-h-[70px]"
-          maxLength={500}
-        />
-        {token.description.length > 0 && (
-          <p className="text-right text-[9px] text-white/20 font-mono pr-1">{token.description.length}/500</p>
-        )}
+        <div className="flex gap-3">
+          <IconBox>
+            <FileText className="h-4 w-4 text-primary/60" />
+          </IconBox>
+          <div className="flex-1">
+            <Textarea
+              value={token.description}
+              onChange={(e) => setToken({ ...token, description: e.target.value })}
+              placeholder="What's your token about?"
+              className="phantom-glass-textarea rounded-xl min-h-[70px]"
+              maxLength={500}
+            />
+            {token.description.length > 0 && (
+              <p className="text-right text-[9px] text-white/20 font-mono pr-1 mt-0.5">{token.description.length}/500</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Social Links - always visible */}
       <div className="space-y-2">
         <label className="text-[10px] font-semibold uppercase tracking-wider text-white/30 pl-1">Social Links</label>
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-white/20 flex-shrink-0" />
+          <div className="flex items-center gap-3">
+            <IconBox>
+              <Globe className="h-4 w-4 text-primary/60" />
+            </IconBox>
             <Input
               placeholder="https://yourwebsite.com"
               value={token.websiteUrl || ""}
               onChange={(e) => setToken({ ...token, websiteUrl: e.target.value })}
-              className="phantom-glass-input text-sm rounded-lg h-9"
+              className="phantom-glass-input text-sm rounded-xl h-10 flex-1"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Twitter className="h-4 w-4 text-white/20 flex-shrink-0" />
+          <div className="flex items-center gap-3">
+            <IconBox>
+              <Twitter className="h-4 w-4 text-primary/60" />
+            </IconBox>
             <Input
               placeholder="https://x.com/yourtoken"
               value={token.twitterUrl || ""}
               onChange={(e) => setToken({ ...token, twitterUrl: e.target.value })}
-              className="phantom-glass-input text-sm rounded-lg h-9"
+              className="phantom-glass-input text-sm rounded-xl h-10 flex-1"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-white/20 flex-shrink-0" />
+          <div className="flex items-center gap-3">
+            <IconBox>
+              <MessageCircle className="h-4 w-4 text-primary/60" />
+            </IconBox>
             <Input
               placeholder="https://t.me/yourgroup"
               value={token.telegramUrl || ""}
               onChange={(e) => setToken({ ...token, telegramUrl: e.target.value })}
-              className="phantom-glass-input text-sm rounded-lg h-9"
+              className="phantom-glass-input text-sm rounded-xl h-10 flex-1"
             />
           </div>
         </div>
