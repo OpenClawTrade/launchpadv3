@@ -7,6 +7,7 @@ import { AxiomTokenRow } from "./AxiomTokenRow";
 import { CodexPairRow } from "./CodexPairRow";
 import { PulseColumnHeaderBar } from "./PulseColumnHeaderBar";
 import { PulseFiltersDialog } from "./PulseFiltersDialog";
+import { LaunchedTokensMarquee } from "./LaunchedTokensMarquee";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Flame, CheckCircle2, Radio } from "lucide-react";
 import { usePulseFilters, ColumnId } from "@/hooks/usePulseFilters";
