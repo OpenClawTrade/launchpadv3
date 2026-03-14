@@ -162,6 +162,7 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
         showTradeSuccess({
           type: 'buy',
           ticker,
+          tokenName: ticker,
           amount: `${amount} BNB`,
           signature: result.txHash,
           tokenImageUrl,
@@ -316,6 +317,7 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
               showTradeSuccess({
                 type: 'buy',
                 ticker,
+                tokenName: funToken?.name ?? codexToken?.name ?? ticker,
                 amount: `${quickBuyAmount} SOL`,
                 signature: result.signature,
                 executionMs: result.totalMs || lastLatencyMs || undefined,
@@ -363,6 +365,7 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
           showTradeSuccess({
             type: 'buy',
             ticker,
+            tokenName: funToken?.name ?? codexToken?.name ?? ticker,
             amount: `${amount} SOL`,
             signature: result.signature,
             executionMs: result.totalMs || lastLatencyMs || undefined,
@@ -440,6 +443,7 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
           showTradeSuccess({
             type: 'sell',
             ticker,
+            tokenName: name || ticker,
             amount: '100%',
             signature: result.signature,
             executionMs: result.totalMs || lastLatencyMs || undefined,
