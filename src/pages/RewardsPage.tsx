@@ -137,23 +137,25 @@ export default function RewardsPage() {
   // Not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto">
-            <Gift className="h-8 w-8 text-primary" />
+      <LaunchpadLayout>
+        <div className="flex items-center justify-center p-4 min-h-[60vh]">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto">
+              <Gift className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-2xl font-bold font-mono text-foreground">Social Rewards</h1>
+            <p className="text-sm text-muted-foreground">
+              Earn points by mentioning <span className="text-primary font-bold">$SATURN</span> or tagging <span className="text-primary font-bold">@saturnterminal</span> in your posts on X.
+            </p>
+            <button
+              onClick={() => login()}
+              className="w-full py-3 rounded-xl font-mono text-sm font-bold uppercase tracking-widest bg-primary/15 text-primary border border-primary/20 hover:bg-primary/25 transition-all"
+            >
+              Login to get started
+            </button>
           </div>
-          <h1 className="text-2xl font-bold font-mono text-foreground">Social Rewards</h1>
-          <p className="text-sm text-muted-foreground">
-            Earn points by mentioning <span className="text-primary font-bold">$SATURN</span> or tagging <span className="text-primary font-bold">@saturnterminal</span> in your posts on X.
-          </p>
-          <button
-            onClick={() => login()}
-            className="w-full py-3 rounded-xl font-mono text-sm font-bold uppercase tracking-widest bg-primary/15 text-primary border border-primary/20 hover:bg-primary/25 transition-all"
-          >
-            Login to get started
-          </button>
         </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
