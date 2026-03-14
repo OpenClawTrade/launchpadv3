@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     // Rate limiting removed per user request
 
     const body = await req.json();
-    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, feeMode, devBuySol: rawDevBuySol, specificVanityId } = body;
+    const { name, ticker, description, imageUrl, websiteUrl, twitterUrl, telegramUrl, discordUrl, phantomWallet, confirmed, mintAddress: confirmedMintAddress, dbcPoolAddress: confirmedPoolAddress, tradingFeeBps: rawFeeBps, creatorFeeBps: rawCreatorFeeBps, feeMode, devBuySol: rawDevBuySol, specificVanityId } = body;
     
     // Validate and constrain trading fee to valid range (10-1000 bps = 0.1%-10%)
     const MIN_FEE_BPS = 10;
@@ -66,9 +66,16 @@ Deno.serve(async (req) => {
     const DEFAULT_FEE_BPS = 200;
     const tradingFeeBps = Math.max(MIN_FEE_BPS, Math.min(MAX_FEE_BPS, Math.round(Number(rawFeeBps) || DEFAULT_FEE_BPS)));
     
-    // Validate dev buy amount (max 10 SOL to prevent abuse)
+    // Creator fee = total fee minus 1% platform base (100 bps)
+    // If explicitly provided, use it; otherwise derive from total
+    const PLATFORM_BASE_BPS = 100;
+    const creatorFeeBps = rawCreatorFeeBps != null 
+      ? Math.max(0, Math.min(MAX_FEE_BPS, Math.round(Number(rawCreatorFeeBps))))
+      : Math.max(0, tradingFeeBps - PLATFORM_BASE_BPS);
+    
+    // Validate dev buy amount (max 100 SOL)
     const devBuySol = Math.max(0, Math.min(100, Number(rawDevBuySol) || 0));
-    console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "from raw:", rawFeeBps);
+    console.log("[fun-phantom-create] Validated tradingFeeBps:", tradingFeeBps, "creatorFeeBps:", creatorFeeBps, "from raw:", rawFeeBps);
     console.log("[fun-phantom-create] Dev buy amount:", devBuySol, "SOL");
 
     // ===== PHASE 2: Record token after confirmation =====
@@ -123,6 +130,8 @@ Deno.serve(async (req) => {
           telegram_url: telegramUrl || null,
           discord_url: discordUrl || null,
           fee_mode: tokenFeeMode,
+          trading_fee_bps: tradingFeeBps, // Total on-chain fee (creator + platform base)
+          creator_fee_bps: creatorFeeBps, // Creator's portion only
           launchpad_type: 'phantom', // Tag Phantom-launched tokens
         })
         .select()

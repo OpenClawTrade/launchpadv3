@@ -130,7 +130,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
 
   // Phantom specific state
   const [isPhantomLaunching, setIsPhantomLaunching] = useState(false);
-  const [phantomTradingFee, setPhantomTradingFee] = useState(200);
+  const [phantomTradingFee, setPhantomTradingFee] = useState(100); // 100 bps = 1% creator fee default
   const [phantomDevBuySolInput, setPhantomDevBuySolInput] = useState<string>(""); // Optional dev buy amount in SOL (raw input)
   const phantomDevBuySol = parseDevBuySol(phantomDevBuySolInput);
   const [phantomSubMode, setPhantomSubMode] = useState<"random" | "describe" | "realistic" | "custom">("random");
@@ -776,7 +776,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
           telegramUrl: holdersToken.telegramUrl || "",
           discordUrl: holdersToken.discordUrl || "",
           phantomWallet: phantomWallet.address,
-          tradingFeeBps: 200, // Fixed 2% for holders mode
+          tradingFeeBps: 300, // 2% creator + 1% platform = 3% total for holders mode
+          creatorFeeBps: 200, // 2% creator portion
           feeMode: 'holders',
         },
       });
@@ -901,7 +902,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             telegramUrl: holdersToken.telegramUrl || "",
             discordUrl: holdersToken.discordUrl || "",
             phantomWallet: phantomWallet.address,
-            tradingFeeBps: 200,
+            tradingFeeBps: 300, // 2% creator + 1% platform
+            creatorFeeBps: 200,
             confirmed: true,
             mintAddress: data.mintAddress,
             dbcPoolAddress: data.dbcPoolAddress,
@@ -1055,7 +1057,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             telegramUrl: phantomToken.telegramUrl || "",
             discordUrl: phantomToken.discordUrl || "",
             phantomWallet: phantomWallet.address,
-            tradingFeeBps: phantomTradingFee,
+            tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
+            creatorFeeBps: phantomTradingFee, // creator portion only
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
             // No specificVanityId — let backend pick dynamically (pnch first, then claw)
@@ -1293,7 +1296,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             telegramUrl: phantomToken.telegramUrl || "",
             discordUrl: phantomToken.discordUrl || "",
             phantomWallet: phantomWallet.address,
-            tradingFeeBps: phantomTradingFee,
+            tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
+            creatorFeeBps: phantomTradingFee, // creator portion only
             confirmed: true,
             mintAddress: data.mintAddress,
             dbcPoolAddress: data.dbcPoolAddress,
@@ -2128,7 +2132,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                 {/* Trading Fee */}
                 <div className="space-y-3 phantom-slider">
                   <div className="flex items-center justify-between">
-                    <span className="text-white/45 uppercase tracking-wider font-semibold text-[10px]">Trading Fee</span>
+                    <span className="text-white/45 uppercase tracking-wider font-semibold text-[10px]">Creator Fee</span>
                     <span
                       className={`font-bold text-base font-mono ${
                         phantomTradingFee >= 900
@@ -2181,6 +2185,9 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                   <div className="flex justify-between text-[10px] text-white/20 font-mono">
                     <span>0.1%</span>
                     <span>10%</span>
+                  </div>
+                  <div className="text-[10px] text-white/30 text-center">
+                    Total on-chain fee: <span className="text-white/50 font-medium">{((phantomTradingFee + 100) / 100).toFixed(1)}%</span> <span className="text-white/20">(incl. 1% platform)</span>
                   </div>
 
                   {phantomTradingFee >= 600 && (

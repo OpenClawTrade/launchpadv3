@@ -165,7 +165,7 @@ export default function ClaudeLauncherPage() {
   const [isPhantomGenerating, setIsPhantomGenerating] = useState(false);
   const [phantomDescribePrompt, setPhantomDescribePrompt] = useState("");
   const [phantomInputMode, setPhantomInputMode] = useState<"random" | "describe" | "custom">("random");
-  const [phantomTradingFee, setPhantomTradingFee] = useState(200); // 200 bps = 2% default
+  const [phantomTradingFee, setPhantomTradingFee] = useState(100); // 100 bps = 1% creator fee default
   
   const { 
     generateBanner, 
@@ -558,7 +558,8 @@ export default function ClaudeLauncherPage() {
           telegramUrl: tokenData.telegramUrl,
           discordUrl: tokenData.discordUrl,
           phantomWallet: phantomWallet.address,
-          tradingFeeBps: phantomTradingFee,
+          tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
+          creatorFeeBps: phantomTradingFee, // creator portion only
         },
       });
 
@@ -1220,8 +1221,8 @@ export default function ClaudeLauncherPage() {
                       {/* Trading Fee */}
                       <div className="mb-3">
                         <div className="flex items-center justify-between text-[10px] text-[hsl(220,10%,45%)] mb-1">
-                          <span>Fee: <span className="text-purple-400 font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span></span>
-                          <span className="text-[9px]">0.1-10%</span>
+                          <span>Creator Fee: <span className="text-purple-400 font-semibold">{(phantomTradingFee / 100).toFixed(1)}%</span></span>
+                          <span className="text-[9px]">Total: {((phantomTradingFee + 100) / 100).toFixed(1)}% (incl. 1% platform)</span>
                         </div>
                         <Slider value={[phantomTradingFee]} onValueChange={(v) => setPhantomTradingFee(v[0])} min={10} max={1000} step={10} className="w-full" />
                       </div>
