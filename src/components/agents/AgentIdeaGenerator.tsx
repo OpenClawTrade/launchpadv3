@@ -155,8 +155,8 @@ export function AgentIdeaGenerator() {
             </h2>
           </div>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Generate viral Claw-themed meme concepts for your AI agent. 
-            Each meme features our iconic lobster mascot with unique variations!
+            Generate viral Saturn-themed meme concepts for your AI agent. 
+            Each meme features our iconic mascot with unique variations!
           </p>
         </div>
 
