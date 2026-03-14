@@ -251,6 +251,20 @@ function SuccessResult({
         )}
       </div>
 
+      {/* Check Earnings */}
+      <button
+        onClick={() => navigate("/panel?tab=earnings")}
+        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] duration-200"
+        style={{
+          color: "hsl(142, 71%, 45%)",
+          background: "hsl(142 71% 45% / 0.08)",
+          border: "1px solid hsl(142 71% 45% / 0.2)",
+        }}
+      >
+        <TrendingUp className="w-4 h-4" />
+        Check my Earnings
+      </button>
+
       {/* Bottom buttons */}
       <div className="flex gap-3 pt-2">
         <button
