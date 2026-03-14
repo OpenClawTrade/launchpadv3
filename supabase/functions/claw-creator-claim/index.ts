@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
 
     try {
       // Re-verify after lock
-      const verifiedCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds);
+      const verifiedCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds, tokenBpsMap);
       
       if (verifiedCalc.claimable < MIN_CLAIM_SOL) {
         console.log(`[saturn-creator-claim] ⚠️ Post-lock: claimable=${verifiedCalc.claimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);

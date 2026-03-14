@@ -201,7 +201,8 @@ Deno.serve(async (req) => {
     // Helper to compute token info with correct fee calculations
     const computeTokenInfo = (t: any): TokenInfo => {
       const totalCollected = tokenEarnedMap.get(t.id) || 0;
-      const creatorEarned = totalCollected * CREATOR_SHARE;
+      const ratio = getCreatorRatio(t.creator_fee_bps, t.trading_fee_bps);
+      const creatorEarned = Math.floor(totalCollected * ratio * 1e9) / 1e9;
       const creatorPaid = tokenPaidMap.get(t.id) || 0;
       const unclaimed = Math.max(0, creatorEarned - creatorPaid);
 
