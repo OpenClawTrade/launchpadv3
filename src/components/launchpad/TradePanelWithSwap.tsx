@@ -166,6 +166,20 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
     try {
       const result = await executeRealSwap(token, tradeAmount, isBuy, slippage * 100);
 
+      // Record to alpha tracker
+      if (result.signature) {
+        await recordAlphaTrade({
+          walletAddress: solanaAddress!,
+          tokenMint: token.mint_address,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          tradeType: isBuy ? 'buy' : 'sell',
+          amountSol: tradeAmount,
+          txHash: result.signature,
+          chain: 'solana',
+        });
+      }
+
       setAmount('');
       setSelectedPreset(null);
       getBalance().then(setSolBalance).catch(() => {});

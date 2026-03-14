@@ -217,8 +217,8 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
         }
 
         if (signature) {
-          // Client-side direct insert — ironclad fallback
-          recordAlphaTrade({
+          // Client-side direct insert — awaited
+          await recordAlphaTrade({
             walletAddress: solanaAddress!,
             tokenMint: mintAddress,
             tokenName: tokenInfo.name,
