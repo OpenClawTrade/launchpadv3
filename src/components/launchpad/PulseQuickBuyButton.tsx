@@ -268,8 +268,13 @@ const SolanaQuickBuy = memo(function SolanaQuickBuy({
         const owner = new PublicKey(walletAddress);
         const mint = new PublicKey(mintAddress);
         const resp = await connection.getParsedTokenAccountsByOwner(owner, { mint });
-        const account = resp.value[0];
-        return account?.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+        // Sum ALL token accounts for this mint (ATA + auxiliary)
+        const total = resp.value.reduce((sum, acc) => {
+          const ta = acc.account?.data?.parsed?.info?.tokenAmount;
+          const v = typeof ta?.uiAmount === 'number' ? ta.uiAmount : (ta?.uiAmountString ? parseFloat(ta.uiAmountString) : 0);
+          return sum + (isFinite(v) ? v : 0);
+        }, 0);
+        return total;
       } catch {
         return 0;
       }
