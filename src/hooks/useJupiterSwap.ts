@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
+import { supabase } from '@/integrations/supabase/client';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const JUPITER_API = 'https://api.jup.ag/swap/v1';
 
 interface QuoteResponse {
   inputMint: string;
@@ -21,72 +21,23 @@ interface SwapResult {
   priceImpact: number;
 }
 
-interface JupiterEndpoint {
-  baseUrl: string;
-  includeApiKey: boolean;
-  name: 'pro' | 'free';
-}
+async function jupiterRequest(action: 'quote' | 'swap', payload: Record<string, any>): Promise<any> {
+  const { data, error } = await supabase.functions.invoke('jupiter-proxy', {
+    body: { action, ...payload },
+  });
 
-async function parseJupiterError(response: Response): Promise<string> {
-  try {
-    const data = await response.json();
-    if (typeof data?.error === 'string') return data.error;
-    if (typeof data?.message === 'string') return data.message;
-    return JSON.stringify(data);
-  } catch {
-    const text = await response.text();
-    return text || response.statusText || 'Unknown Jupiter error';
-  }
-}
-
-function buildJupiterEndpoints(hasApiKey: boolean): JupiterEndpoint[] {
-  if (hasApiKey) {
-    return [
-      { baseUrl: JUPITER_API, includeApiKey: true, name: 'pro' },
-      { baseUrl: JUPITER_API, includeApiKey: false, name: 'free' },
-    ];
+  if (error) {
+    console.error(`[Jupiter proxy] ${action} error:`, error);
+    throw new Error(`Jupiter ${action} failed: ${error.message}`);
   }
 
-  return [{ baseUrl: JUPITER_API, includeApiKey: false, name: 'free' }];
-}
-
-async function requestJupiterWithFallback(
-  path: string,
-  init: RequestInit,
-  jupApiKey?: string,
-): Promise<Response> {
-  const endpoints = buildJupiterEndpoints(Boolean(jupApiKey));
-  let lastErrorMessage = 'Jupiter request failed';
-
-  for (let i = 0; i < endpoints.length; i += 1) {
-    const endpoint = endpoints[i];
-    const headers = new Headers(init.headers ?? {});
-
-    if (endpoint.includeApiKey && jupApiKey) {
-      headers.set('x-api-key', jupApiKey);
-    }
-
-    const response = await fetch(`${endpoint.baseUrl}${path}`, {
-      ...init,
-      headers,
-    });
-
-    if (response.ok) {
-      if (i > 0) {
-        console.warn(`[Jupiter] Recovered via ${endpoint.name} endpoint fallback.`);
-      }
-      return response;
-    }
-
-    const endpointError = await parseJupiterError(response);
-    lastErrorMessage = `[${endpoint.name}] ${endpointError} (${response.status})`;
-
-    if (i < endpoints.length - 1) {
-      console.warn(`[Jupiter] ${endpoint.name} request failed (${response.status}), trying fallback...`);
-    }
+  if (data?.error) {
+    console.error(`[Jupiter proxy] ${action} API error:`, data.error);
+    const msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+    throw new Error(`Jupiter ${action} failed: ${msg}`);
   }
 
-  throw new Error(lastErrorMessage);
+  return data;
 }
 
 export function useJupiterSwap() {
@@ -101,17 +52,14 @@ export function useJupiterSwap() {
   ): Promise<QuoteResponse | null> => {
     try {
       const amountLamports = Math.floor(amount * (10 ** inputDecimals));
-      const params = new URLSearchParams({
-        inputMint,
-        outputMint,
-        amount: amountLamports.toString(),
-        slippageBps: slippageBps.toString(),
+      return await jupiterRequest('quote', {
+        params: {
+          inputMint,
+          outputMint,
+          amount: amountLamports.toString(),
+          slippageBps: slippageBps.toString(),
+        },
       });
-
-      const jupApiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
-      const response = await requestJupiterWithFallback(`/quote?${params}`, { method: 'GET' }, jupApiKey);
-
-      return await response.json();
     } catch (error) {
       console.error('Jupiter quote error:', error);
       return null;
@@ -135,24 +83,17 @@ export function useJupiterSwap() {
         throw new Error('Failed to get swap quote');
       }
 
-      const jupApiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
-      const swapResponse = await requestJupiterWithFallback(
-        '/swap',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            quoteResponse: quote,
-            userPublicKey: userWallet,
-            wrapAndUnwrapSol: true,
-            dynamicComputeUnitLimit: true,
-            prioritizationFeeLamports: 'auto',
-          }),
+      const swapData = await jupiterRequest('swap', {
+        body: {
+          quoteResponse: quote,
+          userPublicKey: userWallet,
+          wrapAndUnwrapSol: true,
+          dynamicComputeUnitLimit: true,
+          prioritizationFeeLamports: 'auto',
         },
-        jupApiKey,
-      );
+      });
 
-      const { swapTransaction } = await swapResponse.json();
+      const { swapTransaction } = swapData;
 
       const txBytes = Uint8Array.from(atob(swapTransaction), (c) => c.charCodeAt(0));
       const transaction = VersionedTransaction.deserialize(txBytes);
