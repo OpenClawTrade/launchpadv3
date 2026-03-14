@@ -159,7 +159,11 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
 
   const handleQuickAmount = (value: number, index: number) => {
     if (isBuy) setAmount(value.toString());
-    else setAmount(((userTokenBalance * value) / 100).toString());
+    else {
+      // Store full precision internally but display is handled by formatAmount
+      const sellAmt = (userTokenBalance * value) / 100;
+      setAmount(sellAmt.toString());
+    }
     setSelectedPreset(index);
   };
 
@@ -169,11 +173,27 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
     setSelectedPreset(null);
   };
 
+  /** Abbreviate large numbers: 975982.97 → "975.98K", 1234567 → "1.23M" */
   const formatAmount = (amt: number) => {
+    if (amt >= 1_000_000_000) return `${(amt / 1_000_000_000).toFixed(2)}B`;
     if (amt >= 1_000_000) return `${(amt / 1_000_000).toFixed(2)}M`;
+    if (amt >= 10_000) return `${(amt / 1_000).toFixed(1)}K`;
     if (amt >= 1_000) return `${(amt / 1_000).toFixed(2)}K`;
-    return amt.toFixed(4);
+    if (amt >= 1) return amt.toFixed(4);
+    if (amt >= 0.001) return amt.toFixed(6);
+    return amt.toFixed(9);
   };
+
+  /** Format the amount input value for display — abbreviate if selling huge token amounts */
+  const displayInputValue = (() => {
+    if (!amount) return '';
+    const num = parseFloat(amount);
+    if (!isFinite(num)) return amount;
+    // For sell side with large token amounts, show abbreviated in the input
+    if (!isBuy && num >= 10_000) return formatAmount(num);
+    // For buy side or small amounts, show as-is (user typed it)
+    return amount;
+  })();
 
   const handleTrade = async () => {
     if (!numericAmount || numericAmount <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
