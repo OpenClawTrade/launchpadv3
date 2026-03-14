@@ -11,6 +11,7 @@ interface DepositDialogProps {
   address: string;
   chain: "solana" | "bnb";
   getBalance?: () => Promise<number>;
+  onDepositDetected?: () => void;
 }
 
 import { fetchBnbBalance } from "@/lib/bscRpc";
