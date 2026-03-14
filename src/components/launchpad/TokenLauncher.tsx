@@ -1034,7 +1034,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
       let currentBalance: number | null = null;
       
       // Single Helius balance check — paid RPC, no need for multi-endpoint racing
-      const walletPubkey = new PublicKey(phantomWallet.address!);
+      const walletPubkey = new PublicKey(activeWalletAddress!);
       try {
         const balanceLamports = await connection.getBalance(walletPubkey);
         currentBalance = balanceLamports / 1e9;
