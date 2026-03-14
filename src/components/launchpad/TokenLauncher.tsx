@@ -2229,6 +2229,125 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                         }}
                       />
                     )}
+
+                    {/* When Privy is ready, show form + 1-click launch */}
+                    {(privyDepositReady || (privyBalance !== null && privyBalance >= 0.05)) && (
+                      <>
+                        {/* Trading Fee */}
+                        <div className="space-y-3 phantom-slider">
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/45 uppercase tracking-wider font-semibold text-[10px]">Creator Fee</span>
+                            <span className={`font-bold text-base font-mono ${phantomTradingFee >= 600 ? "text-destructive" : "text-primary"}`}>
+                              {(phantomTradingFee / 100).toFixed(1)}%
+                            </span>
+                          </div>
+                          <Slider value={[phantomTradingFee]} onValueChange={(v) => setPhantomTradingFee(v[0])} min={10} max={1000} step={10} className="phantom-slider-thick" />
+                        </div>
+
+                        {/* Dev Buy */}
+                        <div className="space-y-3 p-5 rounded-xl phantom-devbuy-card">
+                          <div className="flex items-center justify-between">
+                            <span className="text-white/45 uppercase tracking-wider font-semibold text-[10px]">Dev Buy (optional)</span>
+                            <span className="font-bold text-base font-mono text-primary">{phantomDevBuySol} SOL</span>
+                          </div>
+                          <Input type="text" inputMode="decimal" autoComplete="off" spellCheck={false} placeholder="0.00"
+                            value={phantomDevBuySolInput}
+                            onChange={(e) => { let next = e.target.value; if (next.startsWith('.')) next = '0' + next; if (next === "" || DEV_BUY_INPUT_RE.test(next)) setPhantomDevBuySolInput(next); }}
+                            onBlur={() => setPhantomDevBuySolInput(formatDevBuySolInput(parseDevBuySol(phantomDevBuySolInput)))}
+                            className="h-11 rounded-xl text-sm font-medium font-mono phantom-glass-input" />
+                        </div>
+
+                        {/* Sub-mode tabs */}
+                        <div className="flex gap-1 p-1.5 rounded-xl phantom-mode-tabs">
+                          {[
+                            { id: "random" as const, label: "Random", icon: Shuffle },
+                            { id: "describe" as const, label: "Describe", icon: Sparkles },
+                            { id: "realistic" as const, label: "Realistic", icon: Camera },
+                            { id: "custom" as const, label: "Custom", icon: Pencil },
+                          ].map((subMode) => (
+                            <button key={subMode.id} onClick={() => setPhantomSubMode(subMode.id)}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 text-xs rounded-lg cursor-pointer phantom-mode-tab ${phantomSubMode === subMode.id ? "phantom-mode-tab-active" : "text-white/30"}`}>
+                              <subMode.icon className="h-3 w-3" />{subMode.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {phantomSubMode === "random" && (
+                          <button onClick={handlePhantomRandomize} disabled={isPhantomGenerating}
+                            className="w-full h-11 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer phantom-secondary-btn">
+                            {isPhantomGenerating ? <><RefreshCw className="h-4 w-4 animate-spin" /> Generating...</> : <><Shuffle className="h-4 w-4" /> AI Randomize</>}
+                          </button>
+                        )}
+
+                        {phantomSubMode === "describe" && (
+                          <>
+                            <textarea value={phantomDescribePrompt} onChange={(e) => setPhantomDescribePrompt(e.target.value)}
+                              placeholder="Describe your meme character..." maxLength={500}
+                              className="w-full min-h-[90px] rounded-xl p-4 text-sm resize-none phantom-glass-textarea" />
+                            <button onClick={handlePhantomDescribeGenerate} disabled={isPhantomGenerating || !phantomDescribePrompt.trim()}
+                              className="w-full h-11 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer phantom-secondary-btn">
+                              {isPhantomGenerating ? <><Sparkles className="h-4 w-4 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4" /> Generate</>}
+                            </button>
+                          </>
+                        )}
+
+                        {phantomSubMode === "realistic" && (
+                          <>
+                            <textarea value={phantomRealisticPrompt} onChange={(e) => setPhantomRealisticPrompt(e.target.value)}
+                              placeholder="Describe what you want..." maxLength={500}
+                              className="w-full min-h-[90px] rounded-xl p-4 text-sm resize-none phantom-glass-textarea" />
+                            <button onClick={handlePhantomRealisticGenerate} disabled={isPhantomGenerating || !phantomRealisticPrompt.trim()}
+                              className="w-full h-11 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer phantom-secondary-btn">
+                              {isPhantomGenerating ? <><Camera className="h-4 w-4 animate-spin" /> Generating...</> : <><Camera className="h-4 w-4" /> Generate</>}
+                            </button>
+                          </>
+                        )}
+
+                        {/* Token Preview & Form */}
+                        {!isPhantomGenerating && (phantomSubMode === "custom" || phantomMeme || phantomToken.name) && (
+                          <>
+                            <div className="phantom-image-upload-area">
+                              {phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl ? (
+                                <div className="relative w-full h-full group">
+                                  <img src={phantomImagePreview || phantomMeme?.imageUrl || phantomToken.imageUrl} alt="Token" className="w-full h-full object-cover rounded-xl" />
+                                  <button onClick={() => { setPhantomImageFile(null); setPhantomImagePreview(null); if (phantomMeme) setPhantomMeme({ ...phantomMeme, imageUrl: "" }); setPhantomToken({ ...phantomToken, imageUrl: "" }); }}
+                                    className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-destructive hover:bg-destructive/80 flex items-center justify-center transition-colors z-10 shadow-lg">
+                                    <X className="h-3.5 w-3.5 text-destructive-foreground" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer group">
+                                  <Image className="h-5 w-5 text-muted-foreground/40" />
+                                  <p className="text-[11px] text-muted-foreground/50">Upload PNG/JPG/SVG</p>
+                                  <input type="file" accept="image/*" onChange={handlePhantomImageChange} className="hidden" />
+                                </label>
+                              )}
+                            </div>
+
+                            <div className="space-y-3">
+                              <Input value={phantomToken.name} onChange={(e) => setPhantomToken({ ...phantomToken, name: e.target.value.slice(0, 32) })}
+                                className="phantom-glass-input h-10 rounded-xl" placeholder="Token name" maxLength={32} />
+                              <div className="flex items-center gap-3 pl-2">
+                                <span className="text-primary text-sm font-bold">$</span>
+                                <Input value={phantomToken.ticker} onChange={(e) => setPhantomToken({ ...phantomToken, ticker: e.target.value.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10) })}
+                                  className="phantom-glass-input h-9 w-32 font-mono rounded-lg" placeholder="TICKER" maxLength={10} />
+                              </div>
+                            </div>
+
+                            <Textarea value={phantomToken.description} onChange={(e) => setPhantomToken({ ...phantomToken, description: e.target.value })}
+                              placeholder="Description (optional)" className="phantom-glass-textarea rounded-xl min-h-[80px]" maxLength={500} />
+
+                            {/* 1-Click Launch Button */}
+                            <button onClick={() => handlePhantomLaunch()}
+                              disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl)}
+                              className="w-full h-13 rounded-xl text-sm tracking-wide flex items-center justify-center gap-2 cursor-pointer phantom-action-btn">
+                              {isPhantomLaunching ? <><Rocket className="h-4 w-4 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4" /> 1-Click Launch 🚀</>}
+                            </button>
+                            <p className="text-[10px] text-center text-muted-foreground/60">No popups — auto-signed via your embedded wallet</p>
+                          </>
+                        )}
+                      </>
+                    )}
                   </>
                 )}
               </>
