@@ -12,6 +12,7 @@ import { AdvancedSettingsSheet } from "./AdvancedSettingsSheet";
 import { ProfitCardModal, type ProfitCardData } from "./ProfitCardModal";
 import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
 import { supabase } from "@/integrations/supabase/client";
+import { recordAlphaTrade } from "@/lib/recordAlphaTrade";
 import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 
 const HELIUS_RPC = import.meta.env.VITE_HELIUS_RPC_URL || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : "https://mainnet.helius-rpc.com");
@@ -202,6 +203,20 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
         }
 
         if (signature) {
+          // Client-side direct insert — ironclad fallback
+          recordAlphaTrade({
+            walletAddress: solanaAddress!,
+            tokenMint: mintAddress,
+            tokenName: tokenInfo.name,
+            tokenTicker: tokenInfo.ticker,
+            tradeType: isBuy ? 'buy' : 'sell',
+            amountSol: numericAmount,
+            amountTokens: resultOutputAmount ?? undefined,
+            txHash: signature,
+            chain: 'solana',
+          });
+
+          // Edge function (secondary, non-blocking)
           supabase.functions.invoke("launchpad-swap", {
             body: { mintAddress, userWallet: solanaAddress, amount: numericAmount, isBuy, profileId: profileId || undefined, signature, outputAmount: resultOutputAmount ?? null, tokenName: tokenInfo.name, tokenTicker: tokenInfo.ticker, mode: "alpha_only" },
           }).catch(() => {});
