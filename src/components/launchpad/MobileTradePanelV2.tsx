@@ -160,8 +160,11 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
     if (isBondingMode && bondingToken && numericAmount > 0) {
       const virtualSol = (bondingToken.virtual_sol_reserves || 30) + (bondingToken.real_sol_reserves || 0);
       const virtualToken = (bondingToken.virtual_token_reserves || 1_000_000_000) - (bondingToken.real_token_reserves || 0);
-      const q = isBuy ? calculateBuyQuote(numericAmount, virtualSol, virtualToken) : calculateSellQuote(numericAmount, virtualSol, virtualToken);
-      return q.priceImpact;
+      if (isBuy) {
+        return calculateBuyQuote(numericAmount, virtualSol, virtualToken).priceImpact;
+      } else {
+        return calculateSellQuote(numericAmount, virtualSol, virtualToken).priceImpact;
+      }
     }
     return quote ? parseFloat(quote.priceImpactPct) : 0;
   })();
