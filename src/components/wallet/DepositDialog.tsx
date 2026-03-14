@@ -11,11 +11,12 @@ interface DepositDialogProps {
   address: string;
   chain: "solana" | "bnb";
   getBalance?: () => Promise<number>;
+  onDepositDetected?: () => void;
 }
 
 import { fetchBnbBalance } from "@/lib/bscRpc";
 
-export function DepositDialog({ open, onOpenChange, address, chain, getBalance }: DepositDialogProps) {
+export function DepositDialog({ open, onOpenChange, address, chain, getBalance, onDepositDetected }: DepositDialogProps) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [depositDetected, setDepositDetected] = useState(false);
@@ -44,11 +45,12 @@ export function DepositDialog({ open, onOpenChange, address, chain, getBalance }
         openingBalance.current = bal;
       } else if (bal > openingBalance.current + 0.0001) {
         setDepositDetected(true);
+        onDepositDetected?.();
       }
     } catch {
       // ignore polling errors
     }
-  }, [address, isBnb, getBalance]);
+  }, [address, isBnb, getBalance, onDepositDetected]);
 
   useEffect(() => {
     if (!open || !address) return;
