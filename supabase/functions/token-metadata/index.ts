@@ -228,11 +228,11 @@ Deno.serve(async (req) => {
 
     // Build Metaplex-standard metadata JSON
     // See: https://docs.metaplex.com/programs/token-metadata/token-standard
-    // Append #CLAW hashtag for Solscan visibility
+    // Append #STRN hashtag for Solscan visibility
     const baseDescription = token.description || `${token.name} token`;
-    const descriptionWithTag = baseDescription.includes('#CLAW') 
+    const descriptionWithTag = baseDescription.includes('#STRN') 
       ? baseDescription 
-      : `${baseDescription} #CLAW`;
+      : `${baseDescription} #STRN`;
 
     // IMPORTANT: if socials are blank, keep them blank (no defaults)
     const website = typeof token.website_url === 'string' ? token.website_url.trim() : '';
