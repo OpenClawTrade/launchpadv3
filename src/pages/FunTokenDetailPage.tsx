@@ -868,8 +868,8 @@ export default function FunTokenDetailPage() {
           <div className="md:hidden">
             {(() => {
               const tabs = isPunchToken
-                ? (['chart', 'comments'] as const)
-                : (['trade', 'chart', 'comments'] as const);
+                ? (['chart', 'info'] as const)
+                : (['trade', 'chart', 'info'] as const);
               return (
                 <div className={`flex bg-muted/30 rounded-lg p-0.5 border border-border/20`}>
                   {tabs.map(tab => (
@@ -884,7 +884,7 @@ export default function FunTokenDetailPage() {
                     >
                       {tab === 'trade' && <Activity className="h-3 w-3" />}
                       {tab === 'chart' && <BarChart3 className="h-3 w-3" />}
-                      {tab === 'comments' && <MessageCircle className="h-3 w-3" />}
+                      {tab === 'info' && <Shield className="h-3 w-3" />}
                       {tab}
                     </button>
                   ))}
