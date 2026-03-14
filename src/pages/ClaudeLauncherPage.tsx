@@ -649,10 +649,10 @@ export default function ClaudeLauncherPage() {
           ticker: tokenData.ticker,
           description: tokenData.description,
           imageUrl: storedImageUrl || tokenData.imageUrl,
-          websiteUrl: tokenData.websiteUrl,
-          twitterUrl: tokenData.twitterUrl,
-          telegramUrl: tokenData.telegramUrl,
-          discordUrl: tokenData.discordUrl,
+          websiteUrl: tokenData.websiteUrl?.trim() || undefined,
+          twitterUrl: tokenData.twitterUrl?.trim() || undefined,
+          telegramUrl: tokenData.telegramUrl?.trim() || undefined,
+          discordUrl: tokenData.discordUrl?.trim() || undefined,
           phantomWallet: phantomWallet.address,
         },
       });
@@ -670,7 +670,7 @@ export default function ClaudeLauncherPage() {
         imageUrl: tokenData.imageUrl,
         onChainSuccess: true,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
-        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress}?chain=sol`,
+        tradeUrl: mintAddress ? `/trade/${mintAddress}` : undefined,
         message: "Token launched with your Phantom wallet!",
       });
       setShowResultModal(true);

@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
         vanityKeypairId,
         onChainSuccess: false,
         solscanUrl: `https://solscan.io/token/${mintAddress}`,
-        tradeUrl: `https://axiom.trade/meme/${dbcPoolAddress || mintAddress}`,
+        tradeUrl: `/trade/${mintAddress}`,
         message: "Ready for Phantom signature.",
       }),
       {

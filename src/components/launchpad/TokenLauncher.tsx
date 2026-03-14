@@ -793,10 +793,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
           ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
           description: holdersToken.description || "",
           imageUrl,
-          websiteUrl: holdersToken.websiteUrl || "",
-          twitterUrl: holdersToken.twitterUrl || "",
-          telegramUrl: holdersToken.telegramUrl || "",
-          discordUrl: holdersToken.discordUrl || "",
+          websiteUrl: holdersToken.websiteUrl?.trim() || undefined,
+          twitterUrl: holdersToken.twitterUrl?.trim() || undefined,
+          telegramUrl: holdersToken.telegramUrl?.trim() || undefined,
+          discordUrl: holdersToken.discordUrl?.trim() || undefined,
           phantomWallet: phantomWallet.address,
           tradingFeeBps: 300, // 2% creator + 1% platform = 3% total for holders mode
           creatorFeeBps: 200, // 2% creator portion
@@ -919,10 +919,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             ticker: holdersToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: holdersToken.description || "",
             imageUrl,
-            websiteUrl: holdersToken.websiteUrl || "",
-            twitterUrl: holdersToken.twitterUrl || "",
-            telegramUrl: holdersToken.telegramUrl || "",
-            discordUrl: holdersToken.discordUrl || "",
+            websiteUrl: holdersToken.websiteUrl?.trim() || undefined,
+            twitterUrl: holdersToken.twitterUrl?.trim() || undefined,
+            telegramUrl: holdersToken.telegramUrl?.trim() || undefined,
+            discordUrl: holdersToken.discordUrl?.trim() || undefined,
             phantomWallet: phantomWallet.address,
             tradingFeeBps: 300, // 2% creator + 1% platform
             creatorFeeBps: 200,
@@ -949,9 +949,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
         imageUrl,
         onChainSuccess: true,
         solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
-        tradeUrl: data.dbcPoolAddress 
-          ? `https://axiom.trade/meme/${data.dbcPoolAddress}` 
-          : (data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined),
+        tradeUrl: data.mintAddress ? `/trade/${data.mintAddress}` : undefined,
         message: "Holder Rewards Token launched successfully!",
       });
 
@@ -1081,10 +1079,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: phantomToken.description || "",
             imageUrl,
-            websiteUrl: phantomToken.websiteUrl || "",
-            twitterUrl: phantomToken.twitterUrl || "",
-            telegramUrl: phantomToken.telegramUrl || "",
-            discordUrl: phantomToken.discordUrl || "",
+            websiteUrl: phantomToken.websiteUrl?.trim() || undefined,
+            twitterUrl: phantomToken.twitterUrl?.trim() || undefined,
+            telegramUrl: phantomToken.telegramUrl?.trim() || undefined,
+            discordUrl: phantomToken.discordUrl?.trim() || undefined,
             phantomWallet: activeWalletAddress,
             tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
             creatorFeeBps: phantomTradingFee, // creator portion only
@@ -1326,10 +1324,10 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             ticker: phantomToken.ticker.toUpperCase().replace(/[^A-Z0-9.]/g, "").slice(0, 10),
             description: phantomToken.description || "",
             imageUrl,
-            websiteUrl: phantomToken.websiteUrl || "",
-            twitterUrl: phantomToken.twitterUrl || "",
-            telegramUrl: phantomToken.telegramUrl || "",
-            discordUrl: phantomToken.discordUrl || "",
+            websiteUrl: phantomToken.websiteUrl?.trim() || undefined,
+            twitterUrl: phantomToken.twitterUrl?.trim() || undefined,
+            telegramUrl: phantomToken.telegramUrl?.trim() || undefined,
+            discordUrl: phantomToken.discordUrl?.trim() || undefined,
             phantomWallet: activeWalletAddress,
             tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
             creatorFeeBps: phantomTradingFee, // creator portion only
@@ -1357,9 +1355,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
         imageUrl,
         onChainSuccess: true,
         solscanUrl: lastSig ? `https://solscan.io/tx/${lastSig}` : undefined,
-        tradeUrl: data.dbcPoolAddress 
-          ? `https://axiom.trade/meme/${data.dbcPoolAddress}` 
-          : (data.mintAddress ? `https://jup.ag/swap/SOL-${data.mintAddress}` : undefined),
+        tradeUrl: data.mintAddress ? `/trade/${data.mintAddress}` : undefined,
         message: "Token launched successfully via Phantom!",
       });
 
