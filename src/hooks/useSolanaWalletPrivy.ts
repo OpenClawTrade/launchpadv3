@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useWallets, useSignAndSendTransaction as usePrivySolanaSignAndSend } from "@privy-io/react-auth/solana";
+import { useWallets, useSignAndSendTransaction as usePrivySolanaSignAndSend, useSignTransaction as usePrivySolanaSign } from "@privy-io/react-auth/solana";
 import { Connection, Transaction, VersionedTransaction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { getRpcUrl } from "./useSolanaWallet";
 import { getCachedBlockhash } from "@/lib/blockhashCache";
@@ -13,6 +13,7 @@ export function useSolanaWalletWithPrivy() {
   const { authenticated, user, ready } = usePrivy();
   const { wallets } = useWallets();
   const privySolana = usePrivySolanaSignAndSend();
+  const privySign = usePrivySolanaSign();
   const [isConnecting, setIsConnecting] = useState(false);
 
   const rpcData = getRpcUrl();
