@@ -84,10 +84,15 @@ export function useAlphaTrades(limit = 50) {
   const positions = useMemo(() => computePositions(trades), [trades]);
 
   const enrichedTrades = useMemo(() => {
-    return trades.map((t) => ({
-      ...t,
-      token_image_url: tokenImages.get(t.token_mint) || null,
-    }));
+    return trades.map((t) => {
+      const dbImage = tokenImages.get(t.token_mint);
+      const chain = t.chain === 'bnb' ? 'bsc' : 'solana';
+      const dexScreenerFallback = `https://dd.dexscreener.com/ds-data/tokens/${chain}/${t.token_mint}.png`;
+      return {
+        ...t,
+        token_image_url: dbImage || dexScreenerFallback,
+      };
+    });
   }, [trades, tokenImages]);
 
   return { trades: enrichedTrades, loading, positions };
