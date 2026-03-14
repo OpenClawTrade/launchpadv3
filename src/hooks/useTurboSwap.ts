@@ -57,7 +57,7 @@ export function useTurboSwap() {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['launchpad-token', token.mint_address] });
         queryClient.invalidateQueries({ queryKey: ['launchpad-tokens'] });
-        queryClient.invalidateQueries({ queryKey: ['user-holdings', solanaAddress] });
+        queryClient.invalidateQueries({ queryKey: ['user-holdings', effectiveWallet] });
         queryClient.invalidateQueries({ queryKey: ['launchpad-transactions'] });
         queryClient.invalidateQueries({ queryKey: ['launchpad-holders'] });
       }, 500);
