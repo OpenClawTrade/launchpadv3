@@ -196,7 +196,7 @@ export function useFastSwap() {
     }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
 
     return { success: true, signature, graduated: false };
-  }, [walletAddress, getConnection, signAndSendTransaction, profileId]);
+  }, [walletAddress, getConnection, signAndSendTransaction, profileId, recordTradeForAlphaTracker]);
 
   /**
    * Fast graduated token swap via Jupiter
