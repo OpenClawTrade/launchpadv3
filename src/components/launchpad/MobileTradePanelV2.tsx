@@ -159,7 +159,11 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
 
   const handleQuickAmount = (value: number, index: number) => {
     if (isBuy) setAmount(value.toString());
-    else setAmount(((userTokenBalance * value) / 100).toString());
+    else {
+      // Store full precision internally but display is handled by formatAmount
+      const sellAmt = (userTokenBalance * value) / 100;
+      setAmount(sellAmt.toString());
+    }
     setSelectedPreset(index);
   };
 
@@ -169,11 +173,27 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
     setSelectedPreset(null);
   };
 
+  /** Abbreviate large numbers: 975982.97 → "975.98K", 1234567 → "1.23M" */
   const formatAmount = (amt: number) => {
+    if (amt >= 1_000_000_000) return `${(amt / 1_000_000_000).toFixed(2)}B`;
     if (amt >= 1_000_000) return `${(amt / 1_000_000).toFixed(2)}M`;
+    if (amt >= 10_000) return `${(amt / 1_000).toFixed(1)}K`;
     if (amt >= 1_000) return `${(amt / 1_000).toFixed(2)}K`;
-    return amt.toFixed(4);
+    if (amt >= 1) return amt.toFixed(4);
+    if (amt >= 0.001) return amt.toFixed(6);
+    return amt.toFixed(9);
   };
+
+  /** Format the amount input value for display — abbreviate if selling huge token amounts */
+  const displayInputValue = (() => {
+    if (!amount) return '';
+    const num = parseFloat(amount);
+    if (!isFinite(num)) return amount;
+    // For sell side with large token amounts, show abbreviated in the input
+    if (!isBuy && num >= 10_000) return formatAmount(num);
+    // For buy side or small amounts, show as-is (user typed it)
+    return amount;
+  })();
 
   const handleTrade = async () => {
     if (!numericAmount || numericAmount <= 0) { toast({ title: "Invalid amount", variant: "destructive" }); return; }
@@ -314,7 +334,7 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
         </div>
 
         {/* ── Amount Input ── */}
-        <div className="space-y-1">
+        <div className="space-y-1 mb-1">
           <div className="flex justify-between items-center px-0.5 min-w-0">
             <span className="text-[10px] sm:text-[11px] font-mono text-muted-foreground truncate">
               {isBuy ? "You pay" : "You sell"}
@@ -327,14 +347,27 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
           </div>
           <div className="relative">
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="0.00"
-              value={amount}
-              onChange={(e) => { setAmount(e.target.value); setSelectedPreset(null); }}
-              className="w-full h-11 text-sm font-mono font-bold pl-3 pr-20 sm:pr-24 rounded-lg border border-border/40 bg-secondary/30 text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all"
-              style={{ fontSize: 'max(16px, 0.875rem)' }} /* prevents iOS zoom on focus */
+              value={displayInputValue}
+              onChange={(e) => {
+                // Strip abbreviation suffixes so user can type freely
+                const raw = e.target.value.replace(/[KMBkmb]/g, '');
+                if (raw === '' || /^\d*\.?\d*$/.test(raw)) {
+                  setAmount(raw);
+                  setSelectedPreset(null);
+                }
+              }}
+              className="w-full h-11 text-sm font-mono font-bold pl-3 pr-20 sm:pr-24 rounded-lg border border-border/40 bg-secondary/30 text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              style={{ fontSize: 'max(16px, 0.875rem)' }}
             />
+            {/* Show full precision below when abbreviated */}
+            {!isBuy && numericAmount >= 10_000 && (
+              <span className="absolute left-3 -bottom-3.5 text-[8px] font-mono text-muted-foreground/50 truncate max-w-[60%]">
+                {numericAmount.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              </span>
+            )}
             <div className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               <button
                 onClick={handleMaxClick}
