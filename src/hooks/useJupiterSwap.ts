@@ -49,7 +49,14 @@ export function useJupiterSwap() {
       const jupApiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
       if (jupApiKey) headers['x-api-key'] = jupApiKey;
 
-      const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      let response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      
+      // If 401 (API key issue), retry without the key (free tier)
+      if (response.status === 401 && headers['x-api-key']) {
+        console.warn('[Jupiter] API key rejected (401), retrying without key...');
+        delete headers['x-api-key'];
+        response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      }
       
       if (!response.ok) {
         const error = await response.json();
@@ -88,7 +95,7 @@ export function useJupiterSwap() {
       const jupKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
       if (jupKey) swapHeaders['x-api-key'] = jupKey;
 
-      const swapResponse = await fetch(`${JUPITER_QUOTE_API}/swap`, {
+      let swapResponse = await fetch(`${JUPITER_QUOTE_API}/swap`, {
         method: 'POST',
         headers: swapHeaders,
         body: JSON.stringify({
@@ -99,6 +106,23 @@ export function useJupiterSwap() {
           prioritizationFeeLamports: 'auto',
         }),
       });
+
+      // If 401, retry without API key
+      if (swapResponse.status === 401 && swapHeaders['x-api-key']) {
+        console.warn('[Jupiter] Swap API key rejected (401), retrying without key...');
+        delete swapHeaders['x-api-key'];
+        swapResponse = await fetch(`${JUPITER_QUOTE_API}/swap`, {
+          method: 'POST',
+          headers: swapHeaders,
+          body: JSON.stringify({
+            quoteResponse: quote,
+            userPublicKey: userWallet,
+            wrapAndUnwrapSol: true,
+            dynamicComputeUnitLimit: true,
+            prioritizationFeeLamports: 'auto',
+          }),
+        });
+      }
 
       if (!swapResponse.ok) {
         const error = await swapResponse.json();

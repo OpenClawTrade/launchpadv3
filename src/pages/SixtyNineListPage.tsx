@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Crown, Trophy, TrendingUp, Shield, Gem, ExternalLink, RefreshCw, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight } from "lucide-react";
+import { Crown, Trophy, TrendingUp, Shield, Gem, ExternalLink, RefreshCw, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -161,10 +161,13 @@ function HolderRow({ holder, rank, animDelay }: { holder: HolderEntry; rank: num
   );
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function SixtyNineListPage() {
   const { data, isLoading, refetch, isFetching } = useTop69Holders();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sortBy, setSortBy] = useState<"holdings" | "sol">("holdings");
+  const [currentPage, setCurrentPage] = useState(1);
   const countdown = useCountdown();
 
   const sortedHolders = useMemo(() => {
@@ -173,9 +176,17 @@ export default function SixtyNineListPage() {
     if (sortBy === "sol") {
       copy.sort((a: HolderEntry, b: HolderEntry) => b.solBalance - a.solBalance);
     }
-    // "holdings" is already default sorted
     return copy;
   }, [data?.holders, sortBy]);
+
+  const totalPages = Math.ceil(sortedHolders.length / ITEMS_PER_PAGE);
+  const paginatedHolders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedHolders.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedHolders, currentPage]);
+
+  // Reset page when sort changes
+  useEffect(() => { setCurrentPage(1); }, [sortBy]);
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -346,22 +357,60 @@ export default function SixtyNineListPage() {
               {/* Rows */}
               <div className="space-y-1.5">
                 {isLoading ? (
-                  Array.from({ length: 15 }).map((_, i) => (
+                  Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                     <div key={i} className="px-3 py-3 rounded-lg bg-card/20 border border-border/10">
                       <Skeleton className="h-6 w-full" />
                     </div>
                   ))
                 ) : (
-                  sortedHolders.map((h: HolderEntry, i: number) => (
-                    <HolderRow
-                      key={h.address}
-                      holder={h}
-                      rank={i + 1}
-                      animDelay={Math.min(i * 30, 600)}
-                    />
-                  ))
+                  paginatedHolders.map((h: HolderEntry, i: number) => {
+                    const globalRank = (currentPage - 1) * ITEMS_PER_PAGE + i + 1;
+                    return (
+                      <HolderRow
+                        key={h.address}
+                        holder={h}
+                        rank={globalRank}
+                        animDelay={Math.min(i * 30, 300)}
+                      />
+                    );
+                  })
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-border/20">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[36px] h-9 rounded-lg text-xs font-bold transition-all ${
+                        page === currentPage
+                          ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
+                          : "border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* ────── Sidebar Column ────── */}
