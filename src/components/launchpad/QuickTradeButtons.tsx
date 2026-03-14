@@ -55,6 +55,20 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
     try {
       const result = await executeRealSwap(token, solAmount, true);
 
+      // Record to alpha tracker
+      if (result.signature) {
+        await recordAlphaTrade({
+          walletAddress: solanaAddress!,
+          tokenMint: token.mint_address,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          tradeType: 'buy',
+          amountSol: solAmount,
+          txHash: result.signature,
+          chain: 'solana',
+        });
+      }
+
       toast({
         title: "Buy successful!",
         description: (
