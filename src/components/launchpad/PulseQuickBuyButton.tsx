@@ -123,19 +123,22 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
 const BnbQuickBuy = memo(function BnbQuickBuy({
   mintAddress,
   ticker,
+  tokenName,
   quickBuyAmount,
   isCompact,
   tokenImageUrl,
 }: {
   mintAddress: string;
   ticker: string;
+  tokenName: string;
   quickBuyAmount?: number;
   isCompact?: boolean;
   tokenImageUrl?: string;
 }) {
   const { executeBnbSwap, isLoading } = useBnbSwap();
-  const { isAuthenticated, solanaAddress } = useAuth();
-  const userWallet = solanaAddress || "unknown";
+  const { isAuthenticated } = useAuth();
+  const { address: evmAddress } = usePrivyEvmWallet();
+  const userWallet = evmAddress || "unknown";
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
