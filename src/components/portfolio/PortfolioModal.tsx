@@ -116,7 +116,7 @@ export function PortfolioModal({ open, onClose }: PortfolioModalProps) {
         toast({ title: `Failed to sell ${token.ticker}`, description: e?.message?.slice(0, 80) || "Unknown error", variant: "destructive" });
       }
     },
-    [executeFastSwap, toast, getTokenBalance],
+    [executeFastSwap, toast, getTokenBalanceRaw],
   );
 
   const sellAll = useCallback(async () => {
