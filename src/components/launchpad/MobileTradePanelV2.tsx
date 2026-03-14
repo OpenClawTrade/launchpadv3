@@ -141,8 +141,13 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
     if (isBondingMode && bondingToken) {
       const virtualSol = (bondingToken.virtual_sol_reserves || 30) + (bondingToken.real_sol_reserves || 0);
       const virtualToken = (bondingToken.virtual_token_reserves || 1_000_000_000) - (bondingToken.real_token_reserves || 0);
-      const q = isBuy ? calculateBuyQuote(numericAmount, virtualSol, virtualToken) : calculateSellQuote(numericAmount, virtualSol, virtualToken);
-      return isBuy ? q.tokensOut : q.solOut;
+      if (isBuy) {
+        const q = calculateBuyQuote(numericAmount, virtualSol, virtualToken);
+        return q.tokensOut;
+      } else {
+        const q = calculateSellQuote(numericAmount, virtualSol, virtualToken);
+        return q.solOut;
+      }
     }
     if (useJupiterRoute && quote) return parseInt(quote.outAmount) / 10 ** (isBuy ? tokenDecimals : 9);
     if (!useJupiterRoute && numericAmount > 0 && tokenInfo.price_sol && tokenInfo.price_sol > 0) {
