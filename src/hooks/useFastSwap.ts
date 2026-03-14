@@ -55,6 +55,56 @@ export function useFastSwap() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
+  const recordTradeForAlphaTracker = useCallback(async (
+    token: Token,
+    amount: number,
+    isBuy: boolean,
+    signature: string,
+    outputAmount?: number,
+  ) => {
+    if (!walletAddress || !signature) return;
+
+    const amountSolForInsert = isBuy ? amount : (outputAmount ?? 0);
+    const amountTokensForInsert = isBuy ? (outputAmount ?? 0) : amount;
+
+    // Path 1: direct client upsert (existing behavior)
+    await recordAlphaTrade({
+      walletAddress,
+      tokenMint: token.mint_address,
+      tokenName: token.name,
+      tokenTicker: token.ticker,
+      tradeType: isBuy ? 'buy' : 'sell',
+      amountSol: amountSolForInsert,
+      amountTokens: amountTokensForInsert,
+      txHash: signature,
+      chain: 'solana',
+    });
+
+    // Path 2: service-role alpha_only fallback (critical for unindexed tokens)
+    try {
+      const { error } = await supabase.functions.invoke('launchpad-swap', {
+        body: {
+          mintAddress: token.mint_address,
+          userWallet: walletAddress,
+          amount,
+          isBuy,
+          profileId: profileId || undefined,
+          signature,
+          outputAmount: outputAmount ?? null,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          mode: 'alpha_only',
+        },
+      });
+
+      if (error) {
+        console.warn('[FastSwap] alpha_only record failed:', error.message);
+      }
+    } catch (err) {
+      console.warn('[FastSwap] alpha_only invoke failed:', err);
+    }
+  }, [walletAddress, profileId]);
+
   // Start blockhash poller on mount
   useEffect(() => {
     startBlockhashPoller();
@@ -130,18 +180,8 @@ export function useFastSwap() {
     const { signature } = await signAndSendTransaction(swapTx);
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
-    // ── Record trade (triple path: client-side direct + edge function record + alpha_only) ──
-    // Client-side direct insert — awaited to prevent silent loss
-    await recordAlphaTrade({
-      walletAddress: walletAddress,
-      tokenMint: token.mint_address,
-      tokenName: token.name,
-      tokenTicker: token.ticker,
-      tradeType: isBuy ? 'buy' : 'sell',
-      amountSol: amount,
-      txHash: signature,
-      chain: 'solana',
-    });
+    // ── Record trade (direct + service-role alpha_only fallback) ──
+    await recordTradeForAlphaTracker(token, amount, isBuy, signature);
 
     // Edge function record mode (non-blocking, secondary)
     supabase.functions.invoke('launchpad-swap', {
@@ -159,7 +199,7 @@ export function useFastSwap() {
     }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
 
     return { success: true, signature, graduated: false };
-  }, [walletAddress, getConnection, signAndSendTransaction, profileId]);
+  }, [walletAddress, getConnection, signAndSendTransaction, profileId, recordTradeForAlphaTracker]);
 
   /**
    * Fast graduated token swap via Jupiter
@@ -211,18 +251,13 @@ export function useFastSwap() {
       if (token.status === 'graduated') {
         result = await swapGraduated(token, amount, isBuy, slippageBps);
 
-        // Client-side direct insert — awaited to prevent silent loss
-        await recordAlphaTrade({
-          walletAddress: walletAddress!,
-          tokenMint: token.mint_address,
-          tokenName: token.name,
-          tokenTicker: token.ticker,
-          tradeType: isBuy ? 'buy' : 'sell',
-          amountSol: amount,
-          amountTokens: isBuy ? result.tokensOut : undefined,
-          txHash: result.signature,
-          chain: 'solana',
-        });
+        await recordTradeForAlphaTracker(
+          token,
+          amount,
+          isBuy,
+          result.signature,
+          isBuy ? result.tokensOut : result.solOut,
+        );
 
         // Edge function record (non-blocking, secondary)
         supabase.functions.invoke('launchpad-swap', {
@@ -257,7 +292,7 @@ export function useFastSwap() {
     } finally {
       setIsLoading(false);
     }
-  }, [swapBondingCurve, swapGraduated, queryClient, walletAddress]);
+  }, [swapBondingCurve, swapGraduated, queryClient, walletAddress, recordTradeForAlphaTracker, profileId]);
 
   return {
     executeFastSwap,
