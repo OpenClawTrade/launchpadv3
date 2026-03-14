@@ -222,7 +222,7 @@ export default function PanelMyLaunchesTab() {
             Link Your X Account
           </h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-            Connect your X (Twitter) account to see tokens you've launched via !clawmode and claim your trading fees.
+            Connect your X (Twitter) account to see tokens you've launched and claim your trading fees.
           </p>
           <LinkXButton />
         </div>
