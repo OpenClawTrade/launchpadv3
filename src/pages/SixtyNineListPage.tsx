@@ -411,6 +411,7 @@ export default function SixtyNineListPage() {
                   </button>
                 </div>
               )}
+            </div>
 
             {/* ────── Sidebar Column ────── */}
             <div className="w-full lg:w-[280px] flex-shrink-0 space-y-4 lg:sticky lg:top-20 lg:self-start">
