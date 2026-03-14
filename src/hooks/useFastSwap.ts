@@ -48,7 +48,7 @@ function getOrCreateDbcClient(connection: Connection, rpcUrl: string): DynamicBo
 }
 
 export function useFastSwap() {
-  const { signAndSendTransaction, walletAddress, getConnection } = useSolanaWalletWithPrivy();
+  const { signAndSendTransaction, walletAddress, getConnection, getTokenBalanceRaw } = useSolanaWalletWithPrivy();
   const { buyToken, sellToken } = useJupiterSwap();
   const { profileId, solanaAddress } = useAuth();
   const queryClient = useQueryClient();
