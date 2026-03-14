@@ -12,6 +12,7 @@ import { useBnbPrice } from "@/hooks/useBnbPrice";
 import { SOLANA_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
 import { UniversalTradePanel } from "@/components/launchpad/UniversalTradePanel";
+import { MobileTradePanelV2 } from "@/components/launchpad/MobileTradePanelV2";
 import { BnbTradePanel } from "@/components/launchpad/BnbTradePanel";
 import { EmbeddedWalletCard } from "@/components/launchpad/EmbeddedWalletCard";
 import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
@@ -238,7 +239,10 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 {privyAvailable && (
                   isBsc
                     ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
-                    : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                    : <MobileTradePanelV2
+                        externalToken={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }}
+                        userTokenBalance={0}
+                      />
                 )}
                 <EmbeddedWalletCard />
               </>
@@ -898,7 +902,11 @@ export default function FunTokenDetailPage() {
           <div className="md:hidden flex flex-col gap-2">
             {mobileTab === 'trade' && !isPunchToken && (
               <>
-                <TradeSection />
+                <MobileTradePanelV2
+                  bondingToken={isBonding ? tokenForTradePanel : undefined}
+                  externalToken={isGraduated && token.mint_address ? { mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9, price_sol: token.price_sol || 0, imageUrl: token.image_url || undefined } : undefined}
+                  userTokenBalance={0}
+                />
                 <EmbeddedWalletCard />
               </>
             )}

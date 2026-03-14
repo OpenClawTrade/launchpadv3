@@ -3,7 +3,9 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BondingCurveProgress, TransactionHistory, TokenComments, QuickTradeButtons, AdvancedOrderForm, PendingOrders } from "@/components/launchpad";
 import { TradePanelWithSwap } from "@/components/launchpad/TradePanelWithSwap";
+import { MobileTradePanelV2 } from "@/components/launchpad/MobileTradePanelV2";
 import { WalletSettingsModal } from "@/components/launchpad/WalletSettingsModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { usePoolState } from "@/hooks/usePoolState";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +40,7 @@ export default function TokenDetailPage() {
   const { useToken, useTokenTransactions, useTokenHolders, useUserHoldings } = useLaunchpad();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const { data: token, isLoading: isLoadingToken, refetch: refetchToken } = useToken(mintAddress || '');
   const { data: transactions = [], isLoading: isLoadingTxs, refetch: refetchTxs } = useTokenTransactions(token?.id || '');
@@ -393,11 +396,18 @@ export default function TokenDetailPage() {
           }}
         />
 
-        {/* Trade Panel */}
-        <TradePanelWithSwap
-          token={token}
-          userBalance={userBalance}
-        />
+        {/* Trade Panel — mobile-optimized on small screens */}
+        {isMobile ? (
+          <MobileTradePanelV2
+            bondingToken={token}
+            userTokenBalance={userBalance}
+          />
+        ) : (
+          <TradePanelWithSwap
+            token={token}
+            userBalance={userBalance}
+          />
+        )}
 
         {/* Advanced Orders - Now with "Available Soon" overlay */}
         <AdvancedOrderForm token={token} userBalance={userBalance} />

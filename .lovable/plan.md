@@ -1,61 +1,62 @@
 
+## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
 
-## Plan: Mobile-First Trade Screen Redesign
+### What was built:
+1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
+   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
+   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
+   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
+   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
+   - Records trade in DB + alpha_trades (non-blocking)
+   - Returns signature immediately with timing breakdown
 
-### Problem
-The current mobile trade view (`/trade/:mint`) crams too many elements into a small screen: tiny 8-10px fonts, slippage presets always visible, MEV/safety indicators cluttering the main flow, advanced settings open by default, and small touch targets. This makes trading slow and confusing on mobile.
+2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
+   - Single `supabase.functions.invoke('turbo-trade')` call
+   - No client-side tx building or signing
+   - Background query invalidation after 500ms
+   - Logs client roundtrip vs server execution time
 
-### Approach
-Create a new `MobileTradePanelV2` component used exclusively on mobile (< 768px), keeping the existing desktop/tablet panels untouched. Redesign the mobile layout in `FunTokenDetailPage` to follow a clean vertical flow with large touch targets.
+3. **Wired into trade components:**
+   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
+   - `PortfolioModal.tsx` — uses `useTurboSwap`
 
-### Architecture
+### Expected latency:
+```
+Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
+After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
+```
 
-**New file: `src/components/launchpad/MobileTradePanelV2.tsx`**
-A mobile-optimized trade panel that wraps the existing swap logic (reuses `useRealSwap`, `useJupiterSwap`, `usePumpFunSwap`) with a completely new UI:
+---
 
-- **Large segmented BUY/SELL toggle** (min 48px tall, full-width, green/red tint backgrounds)
-- **Amount input** with big 24px font, clear balance display (16px), prominent MAX button
-- **Large preset chips** (0.1 / 0.5 / 1 / 5 SOL) — 48px tall rounded pills with SOL icon, evenly spaced
-- **Live preview card** below input: "You get ≈ X,XXX EGG" + price impact + fee — always visible when amount > 0
-- **Hidden advanced settings**: slippage (default 1%), MEV protection (default ON), safety checks — all behind a small gear icon that opens a bottom sheet (`Sheet` component)
-- **Giant action button** at bottom: full-width, 56px tall, BUY or SELL with token icon
+## 6-Phase Axiom Feature Integration Plan (SAVED)
 
-**Modified file: `src/pages/FunTokenDetailPage.tsx`** (mobile section only)
-Restructure the `md:hidden` mobile layout:
+### Phase 1: Copy Trade Execution
+- New `copy-trade-execute` edge function
+- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
+- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
+- New `copy_trade_log` table
 
-1. **Sticky header** — token avatar + name + ticker + live price + 24h change badge (compact, one line)
-2. **Stats row** — 3 compact cards (MCAP / VOL / HOLDERS) in a horizontal grid, 14px values
-3. **Bonding curve bar** — full-width gradient bar with percentage, smooth animation
-4. **Swipeable tabs**: Trade | Chart (larger 48px touch targets)
-5. **Trade tab** → renders `MobileTradePanelV2`
-6. **Chart tab** → full-height CodexChart
-7. **Fixed bottom bar** — price + BUY/SELL buttons (kept but enlarged to 48px min-height)
+### Phase 2: Limit Orders (SL/TP)
+- Jupiter limit order program integration
+- `limit-order-create` edge function
+- `limit_orders` DB table
+- Limit order tab in trade panel
 
-**New file: `src/components/launchpad/AdvancedSettingsSheet.tsx`**
-A `Sheet` (bottom drawer) containing:
-- Slippage presets (0.5 / 1 / 2 / 5 / 10 / custom)
-- Jito MEV Protection toggle (default ON)
-- Anti-sandwich toggle (default ON)
-- Safety checks grid (RugCheck data)
-- Share PNL button
+### Phase 3: Real-Time WebSocket Token Feed
+- Helius WebSocket for sub-1s new pair detection
+- Replace Codex polling (~30s) 
+- Edge function → Supabase Realtime channel
 
-### Key Design Specs
-- Font sizes: headers 20-24px, body 16px, labels 12-13px (no sub-10px text on mobile)
-- Touch targets: all buttons min 48×48px
-- Colors: buy = `#84cc16` (lime), sell = `#ef4444` (red), background cosmic dark
-- Border radius: 16px cards, 12px buttons, 24px pills
-- Spacing: 16-20px gaps between sections
-- Typography: `font-mono` for prices/numbers, `font-sans` for labels
+### Phase 4: DCA (Dollar Cost Averaging)
+- `dca_orders` DB table
+- `dca-execute` cron edge function
+- DCA tab in trade panel
 
-### Files Changed
-1. **New**: `src/components/launchpad/MobileTradePanelV2.tsx` — mobile-optimized trade panel
-2. **New**: `src/components/launchpad/AdvancedSettingsSheet.tsx` — bottom sheet for settings
-3. **Modified**: `src/pages/FunTokenDetailPage.tsx` — swap mobile section to use new components
-4. **Modified**: `src/pages/TokenDetailPage.tsx` — same mobile treatment for bonding tokens
+### Phase 5: Enhanced Token Safety
+- LP lock status, mint authority, honeypot detection
+- Safety score badge on Pulse cards
 
-### What Stays the Same
-- All swap/trade logic (hooks, RPC calls, balance fetching)
-- Desktop and tablet layouts
-- `TradePanelWithSwap` and `UniversalTradePanel` remain for desktop/tablet
-- All existing functionality (PNL cards, safety checks, etc.)
-
+### Phase 6: Wallet PnL Analytics
+- `wallet-pnl-calculate` edge function
+- Per-wallet realized/unrealized PnL
+- Rank tracked wallets by performance
