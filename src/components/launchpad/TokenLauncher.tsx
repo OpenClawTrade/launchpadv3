@@ -1055,7 +1055,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             telegramUrl: phantomToken.telegramUrl || "",
             discordUrl: phantomToken.discordUrl || "",
             phantomWallet: phantomWallet.address,
-            tradingFeeBps: phantomTradingFee,
+            tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
+            creatorFeeBps: phantomTradingFee, // creator portion only
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
             feeMode: feeMode || 'standard',
             // No specificVanityId — let backend pick dynamically (pnch first, then claw)
