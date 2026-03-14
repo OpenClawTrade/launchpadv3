@@ -333,7 +333,7 @@ export default function CareersPage() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl">Beta Testers Wanted</CardTitle>
-                  <p className="text-muted-foreground">Help shape the future of MoonDexo</p>
+                  <p className="text-muted-foreground">Help shape the future of {BRAND.name}</p>
                 </div>
               </div>
             </CardHeader>
