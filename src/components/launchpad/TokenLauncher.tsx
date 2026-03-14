@@ -105,6 +105,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
   const { toast } = useToast();
   const phantomWallet = usePhantomWallet();
   const { solPrice } = useSolPrice();
+  const { user, isAuthenticated, login: privyLogin } = useAuth();
+  const { walletAddress: privyWalletAddress, isWalletReady: privyWalletReady, getBalance: getPrivyBalance, signAndSendTransaction: privySignAndSend, getConnection: getPrivyConnection } = useSolanaWallet();
+  
+  // Wallet mode for Phantom tab: "phantom" (external) or "privy" (embedded 1-click)
+  const [launchWalletMode, setLaunchWalletMode] = useState<"phantom" | "privy">("phantom");
+  const [privyBalance, setPrivyBalance] = useState<number | null>(null);
+  const [privyDepositReady, setPrivyDepositReady] = useState(false);
 
   // Idempotency key to prevent duplicate launches - regenerated on successful launch or ticker change
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
