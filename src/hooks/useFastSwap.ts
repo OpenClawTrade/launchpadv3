@@ -168,7 +168,7 @@ export function useFastSwap() {
       console.log(`[FastSwap] Pool fetch: ${Math.round(performance.now() - t2)}ms`);
       if (poolState) {
         virtualSolReserves = Number(poolState.quoteReserve) / 10 ** SOL_DECIMALS;
-        virtualTokenReserves = Number(poolState.baseReserve) / 10 ** TOKEN_DECIMALS;
+        virtualTokenReserves = Number(poolState.baseReserve) / 10 ** resolvedDecimals;
       }
     } catch (e) {
       console.log(`[FastSwap] Pool fetch failed: ${Math.round(performance.now() - t2)}ms`);
