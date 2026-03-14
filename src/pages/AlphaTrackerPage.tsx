@@ -251,7 +251,7 @@ export default function AlphaTrackerPage() {
 
                   {/* Time */}
                   <span className="text-[9px] font-mono text-right text-muted-foreground/50 tabular-nums" title={format(new Date(trade.created_at), "MMM d, h:mm:ss a")}>
-                    {timeAgo(trade.created_at)}
+                    {liveTimeAgo(trade.created_at, tick)}
                   </span>
 
                   {/* TX */}
