@@ -216,7 +216,7 @@ export function AgentIdeaGenerator() {
                   {/* Saturn watermark */}
                   <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
                     <img src={clawLogo} alt="" className="w-4 h-4 rounded-full" />
-                    <span className="text-xs font-medium text-foreground">CLAW</span>
+                    <span className="text-xs font-medium text-foreground">SATURN</span>
                   </div>
                 </div>
                 
