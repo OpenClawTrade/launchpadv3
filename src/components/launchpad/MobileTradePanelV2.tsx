@@ -12,6 +12,7 @@ import { AdvancedSettingsSheet } from "./AdvancedSettingsSheet";
 import { ProfitCardModal, type ProfitCardData } from "./ProfitCardModal";
 import { VersionedTransaction, Connection, PublicKey } from "@solana/web3.js";
 import { supabase } from "@/integrations/supabase/client";
+import { recordAlphaTrade } from "@/lib/recordAlphaTrade";
 import { Token, calculateBuyQuote, calculateSellQuote, formatTokenAmount, formatSolAmount } from "@/hooks/useLaunchpad";
 
 const HELIUS_RPC = import.meta.env.VITE_HELIUS_RPC_URL || (import.meta.env.VITE_HELIUS_API_KEY ? `https://mainnet.helius-rpc.com/?api-key=${import.meta.env.VITE_HELIUS_API_KEY}` : "https://mainnet.helius-rpc.com");
