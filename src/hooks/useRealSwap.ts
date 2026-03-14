@@ -130,10 +130,22 @@ export function useRealSwap() {
     amount: number,
     isBuy: boolean,
     slippageBps: number = 500,
+    tokenDecimals?: number,
   ): Promise<SwapResult> => {
     if (!walletAddress) throw new Error('Wallet not connected');
 
-    console.log('[useRealSwap] Jupiter swap:', { mint: token.mint_address, amount, isBuy });
+    // Resolve decimals dynamically for sells
+    let resolvedDecimals = tokenDecimals ?? DEFAULT_TOKEN_DECIMALS;
+    if (!isBuy && !tokenDecimals) {
+      try {
+        const raw = await getTokenBalanceRaw(token.mint_address);
+        resolvedDecimals = raw.decimals;
+      } catch (e) {
+        console.warn('[useRealSwap] Failed to resolve decimals for graduated sell:', e);
+      }
+    }
+
+    console.log('[useRealSwap] Jupiter swap:', { mint: token.mint_address, amount, isBuy, decimals: resolvedDecimals });
 
     let result;
     if (isBuy) {
@@ -148,7 +160,7 @@ export function useRealSwap() {
       result = await sellToken(
         token.mint_address,
         amount,
-        TOKEN_DECIMALS,
+        resolvedDecimals,
         walletAddress,
         signAndSendTransaction as any,
         slippageBps,
@@ -161,7 +173,7 @@ export function useRealSwap() {
       tokensOut: isBuy ? result.outputAmount : undefined,
       solOut: !isBuy ? result.outputAmount : undefined,
     };
-  }, [walletAddress, signAndSendTransaction, buyToken, sellToken]);
+  }, [walletAddress, signAndSendTransaction, buyToken, sellToken, getTokenBalanceRaw]);
 
   /**
    * Main swap function - routes to correct implementation based on token status
