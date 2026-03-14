@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
 import { toast } from "sonner";
+import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import type { Token } from "@/hooks/useLaunchpad";
 import type { FunToken } from "@/hooks/useFunTokensPaginated";
