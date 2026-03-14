@@ -709,16 +709,16 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
       if (data?.meme) {
         setHoldersMeme(data.meme);
         setHoldersToken({
-          name: data.meme.name,
-          ticker: data.meme.ticker,
+          name: "",
+          ticker: "",
           description: data.meme.description || "",
           imageUrl: data.meme.imageUrl,
-          websiteUrl: data.meme.websiteUrl || "",
-          twitterUrl: data.meme.twitterUrl || "",
+          websiteUrl: "",
+          twitterUrl: "",
           telegramUrl: "",
           discordUrl: "",
         });
-        toast({ title: "Meme Generated! 🎨", description: `${data.meme.name} created from your description!` });
+        toast({ title: "Image Generated! 🎨", description: "Image ready — enter your token name & ticker!" });
       }
     } catch (error) {
       toast({ title: "Generation failed", description: error instanceof Error ? error.message : "Failed", variant: "destructive" });
