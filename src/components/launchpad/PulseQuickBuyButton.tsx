@@ -122,11 +122,13 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
   ticker,
   quickBuyAmount,
   isCompact,
+  tokenImageUrl,
 }: {
   mintAddress: string;
   ticker: string;
   quickBuyAmount?: number;
   isCompact?: boolean;
+  tokenImageUrl?: string;
 }) {
   const { executeBnbSwap, isLoading } = useBnbSwap();
   const { isAuthenticated, solanaAddress } = useAuth();
