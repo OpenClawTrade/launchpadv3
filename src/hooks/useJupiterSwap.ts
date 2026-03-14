@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
-import { supabase } from '@/integrations/supabase/client';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const JUPITER_API = 'https://api.jup.ag/swap/v1';
 
 interface QuoteResponse {
   inputMint: string;
@@ -21,23 +21,13 @@ interface SwapResult {
   priceImpact: number;
 }
 
-async function jupiterRequest(action: 'quote' | 'swap', payload: Record<string, any>): Promise<any> {
-  const { data, error } = await supabase.functions.invoke('jupiter-proxy', {
-    body: { action, ...payload },
-  });
-
-  if (error) {
-    console.error(`[Jupiter proxy] ${action} error:`, error);
-    throw new Error(`Jupiter ${action} failed: ${error.message}`);
+function getJupiterHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const apiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
+  if (apiKey) {
+    headers['x-api-key'] = apiKey;
   }
-
-  if (data?.error) {
-    console.error(`[Jupiter proxy] ${action} API error:`, data.error);
-    const msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-    throw new Error(`Jupiter ${action} failed: ${msg}`);
-  }
-
-  return data;
+  return headers;
 }
 
 export function useJupiterSwap() {
@@ -52,14 +42,22 @@ export function useJupiterSwap() {
   ): Promise<QuoteResponse | null> => {
     try {
       const amountLamports = Math.floor(amount * (10 ** inputDecimals));
-      return await jupiterRequest('quote', {
-        params: {
-          inputMint,
-          outputMint,
-          amount: amountLamports.toString(),
-          slippageBps: slippageBps.toString(),
-        },
+      const params = new URLSearchParams({
+        inputMint,
+        outputMint,
+        amount: amountLamports.toString(),
+        slippageBps: slippageBps.toString(),
       });
+      const res = await fetch(`${JUPITER_API}/quote?${params}`, {
+        method: 'GET',
+        headers: getJupiterHeaders(),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('[Jupiter] Quote error:', res.status, errData);
+        throw new Error(`Jupiter quote failed (${res.status})`);
+      }
+      return await res.json();
     } catch (error) {
       console.error('Jupiter quote error:', error);
       return null;
@@ -83,16 +81,25 @@ export function useJupiterSwap() {
         throw new Error('Failed to get swap quote');
       }
 
-      const swapData = await jupiterRequest('swap', {
-        body: {
+      const res = await fetch(`${JUPITER_API}/swap`, {
+        method: 'POST',
+        headers: getJupiterHeaders(),
+        body: JSON.stringify({
           quoteResponse: quote,
           userPublicKey: userWallet,
           wrapAndUnwrapSol: true,
           dynamicComputeUnitLimit: true,
           prioritizationFeeLamports: 'auto',
-        },
+        }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('[Jupiter] Swap error:', res.status, errData);
+        throw new Error(`Jupiter swap failed (${res.status})`);
+      }
+
+      const swapData = await res.json();
       const { swapTransaction } = swapData;
 
       const txBytes = Uint8Array.from(atob(swapTransaction), (c) => c.charCodeAt(0));
