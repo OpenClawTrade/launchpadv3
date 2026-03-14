@@ -1380,7 +1380,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
        window.clearTimeout(stillWorkingTimer);
        setIsPhantomLaunching(false);
      }
-  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomDevBuySol, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult, launchWalletMode, privyWalletAddress, isAuthenticated, privyWalletReady, privyBalance]);
+  }, [phantomWallet, phantomToken, phantomMeme, phantomImagePreview, phantomTradingFee, phantomDevBuySol, toast, uploadPhantomImageIfNeeded, onLaunchSuccess, onShowResult, launchWalletMode, privyWalletAddress, isAuthenticated, privyWalletReady, privyBalance, privySignTransaction]);
 
   // FUN mode handlers
   const uploadFunImageIfNeeded = useCallback(async (): Promise<string> => {
