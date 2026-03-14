@@ -7,6 +7,7 @@ import { Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealSwap } from "@/hooks/useRealSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { recordAlphaTrade } from "@/lib/recordAlphaTrade";
 
 interface QuickTradeButtonsProps {
   token: Token;
