@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useWalletTransactions, WalletTransaction } from "@/hooks/useWalletTransactions";
 import { ArrowUpRight, ArrowDownLeft, Repeat, HelpCircle, ExternalLink, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   walletAddress: string | null;
+  pageSize?: number;
 }
 
 const typeConfig: Record<string, { icon: typeof ArrowUpRight; label: string; color: string }> = {
