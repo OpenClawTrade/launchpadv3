@@ -617,73 +617,7 @@ export default function PanelUnifiedDashboard() {
                 />
               </div>
 
-              {/* Earnings breakdown */}
-              <div>
-                <h3 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Your Tokens</h3>
-                {loadingEarnings ? (
-                  Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl mb-2" />)
-                ) : earningsData?.earnings?.length === 0 ? (
-                  <div
-                    className="rounded-xl p-8 text-center"
-                    style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
-                  >
-                    <p className="text-sm text-muted-foreground mb-3">You haven't created any tokens yet</p>
-                    <Link to="/">
-                      <Button
-                        className="gap-2 font-mono text-xs"
-                        style={{ background: `linear-gradient(135deg, ${NEON_LIME}, ${EMERALD})`, color: "#000" }}
-                      >
-                        <Rocket className="h-3.5 w-3.5" />
-                        Launch Your First Token
-                      </Button>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {earningsData?.earnings?.map((earning: any) => (
-                      <div
-                        key={earning.id}
-                        className="p-3 flex items-center gap-3 rounded-xl transition-all duration-200"
-                        style={{
-                          background: "rgba(255,255,255,0.02)",
-                          border: "1px solid rgba(255,255,255,0.05)",
-                        }}
-                      >
-                        <Avatar className="h-9 w-9 rounded-lg ring-1 ring-white/10 shrink-0">
-                          <AvatarImage src={earning.tokens?.image_url || undefined} />
-                          <AvatarFallback className="rounded-lg text-[10px] font-bold bg-white/5">
-                            {earning.tokens?.ticker?.slice(0, 2) || "??"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{earning.tokens?.name || "Unknown"}</p>
-                          <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                            <span>Earned: <span className="font-mono" style={{ color: EMERALD }}>{formatSolAmount(earning.total_earned_sol || 0)}</span></span>
-                            <span>Claimable: <span className="font-mono" style={{ color: NEON_LIME_GLOW }}>{formatSolAmount(earning.unclaimed_sol || 0)}</span></span>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="h-7 text-[10px] font-mono uppercase shrink-0"
-                          style={{
-                            background: earning.unclaimed_sol >= MIN_CLAIM_SOL
-                              ? `linear-gradient(135deg, ${NEON_LIME}, ${EMERALD})`
-                              : undefined,
-                            color: earning.unclaimed_sol >= MIN_CLAIM_SOL ? "#000" : undefined,
-                          }}
-                          variant={earning.unclaimed_sol >= MIN_CLAIM_SOL ? "default" : "outline"}
-                          disabled={!earning.unclaimed_sol || earning.unclaimed_sol < MIN_CLAIM_SOL || claimingTokenId === earning.token_id}
-                          onClick={() => handleClaim(earning.token_id)}
-                        >
-                          {claimingTokenId === earning.token_id
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : earning.unclaimed_sol < MIN_CLAIM_SOL ? "Min 0.05" : "Claim"}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+
 
               {/* Recent claims */}
               {earningsData?.claims?.length > 0 && (
