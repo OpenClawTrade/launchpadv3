@@ -31,7 +31,7 @@ export default function WhitepaperPage() {
               <p className="text-base sm:text-lg text-muted-foreground max-w-[90%] mx-auto">
                 Multi-Chain AI Trading Terminal — Solana &amp; BNB Chain
               </p>
-              <p className="text-sm text-muted-foreground mt-2">Token: <strong className="text-success">$MOON</strong> · Version 2.0 · March 2026</p>
+              <p className="text-sm text-muted-foreground mt-2">Token: <strong className="text-success">$SATURN</strong> · Version 2.1 · March 2026</p>
             </div>
 
             {/* Table of Contents */}
@@ -47,8 +47,10 @@ export default function WhitepaperPage() {
                   { id: "alpha-tracker", title: "6. Alpha Tracker" },
                   { id: "x-tracker", title: "7. X Tracker" },
                   { id: "leverage", title: "8. Leverage Trading" },
-                  { id: "fee-architecture", title: "9. Fee Architecture" },
-                  { id: "infrastructure", title: "10. Infrastructure & Security" },
+                  { id: "portfolio", title: "9. Portfolio & PnL Cards" },
+                  { id: "staking", title: "10. Staking (Coming Soon)" },
+                  { id: "fee-architecture", title: "11. Fee Architecture" },
+                  { id: "infrastructure", title: "12. Infrastructure & Security" },
                 ].map((item) => (
                   <a
                     key={item.id}
@@ -73,7 +75,7 @@ export default function WhitepaperPage() {
                   {BRAND.name} is a multi-chain AI trading terminal operating on <strong className="text-foreground">Solana</strong> and <strong className="text-foreground">BNB Chain</strong>. It combines real-time market data, autonomous AI trading agents, a dual-chain token launchpad, smart-money tracking, and KOL monitoring into a single high-performance interface built for speed and precision.
                 </p>
                  <p className="text-muted-foreground leading-relaxed mb-4">
-                   The platform token is <strong className="text-success">$MOON</strong>, which powers governance, fee distribution, and ecosystem incentives.
+                   The platform token is <strong className="text-success">$SATURN</strong>, which powers governance, fee distribution, and ecosystem incentives.
                  </p>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Core Features</h3>
@@ -85,7 +87,8 @@ export default function WhitepaperPage() {
                   <li><strong className="text-foreground">Alpha Tracker:</strong> Track smart-money wallets and copy-trade winning positions in real-time</li>
                   <li><strong className="text-foreground">X Tracker:</strong> Monitor KOL mentions and sentiment from Twitter/X for early signals</li>
                   <li><strong className="text-foreground">Leverage Trading:</strong> Amplified exposure on BNB Chain via our partnership with AsterDEX, backed by deep liquidity pool guarantees</li>
-                  
+                  <li><strong className="text-foreground">Portfolio & PnL Cards:</strong> Real-time portfolio dashboard with pie chart, dust filtering, paginated holdings, Sell 100% quick actions, and shareable PnL trade cards</li>
+                  <li><strong className="text-foreground">Staking:</strong> Upcoming staking on AI agents with $SATURN and $SOL coins</li>
                 </ul>
               </section>
 
@@ -348,10 +351,79 @@ export default function WhitepaperPage() {
                 </div>
               </section>
 
-              {/* Section 9 — Fee Architecture */}
+              {/* Section 9 — Portfolio & PnL Cards */}
+              <section id="portfolio">
+                <h2 className="text-2xl font-bold text-foreground border-b border-border pb-3 mb-6">
+                  9. Portfolio &amp; PnL Cards
+                </h2>
+
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  The {BRAND.name} portfolio panel provides a real-time overview of all token holdings in the connected wallet. It features a compact pie chart, paginated token list, dust filtering, quick-sell actions, and shareable PnL trade cards.
+                </p>
+
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Portfolio Features</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { feature: "Pie Chart Breakdown", desc: "Visual allocation of holdings by SOL value — only tokens above the dust threshold are displayed" },
+                    { feature: "Dust Filtering", desc: "Tokens worth less than 0.0001 SOL are hidden from the main view to keep the portfolio clean" },
+                    { feature: "Paginated Holdings", desc: "Holdings are displayed 5 per page with Previous/Next navigation to prevent excessive scrolling" },
+                    { feature: "Sell 100% Quick Action", desc: "Each token card includes a one-click Sell button that routes directly to the trade page with the token pre-selected" },
+                  ].map((item) => (
+                    <Card key={item.feature} className="p-4 bg-card/50">
+                      <h4 className="font-semibold text-foreground text-sm">{item.feature}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </Card>
+                  ))}
+                </div>
+
+                <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">PnL Trade Cards</h3>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  After every buy or sell trade, {BRAND.name} generates a shareable PnL card showing the trade action, SOL amount received or spent, token details, and a QR code linking to the token page. Cards can be saved as images or shared directly to X/Twitter with one click.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { feature: "Trade Summary", desc: "Shows BUY/SELL action, token name, ticker, and SOL value in a visually rich card" },
+                    { feature: "QR Code", desc: "Auto-generated QR code linking to the token's trade page for instant sharing" },
+                    { feature: "X/Twitter Share", desc: "One-click share to X with pre-formatted trade details and platform branding" },
+                    { feature: "Image Export", desc: "Download the PnL card as a high-resolution image for social media posting" },
+                  ].map((item) => (
+                    <Card key={item.feature} className="p-4 bg-card/50">
+                      <h4 className="font-semibold text-foreground text-sm">{item.feature}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+
+              {/* Section 10 — Staking */}
+              <section id="staking">
+                <h2 className="text-2xl font-bold text-foreground border-b border-border pb-3 mb-6">
+                  10. Staking (Coming Soon)
+                </h2>
+
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  Staking on AI agents will become available soon with the <strong className="text-success">$SATURN</strong> and <strong className="text-success">$SOL</strong> coins. Users will be able to stake tokens on specific AI trading agents to earn a share of the agent's trading fees and participate in governance decisions.
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {[
+                    { feature: "Agent Staking", desc: "Stake $SATURN or $SOL on your preferred AI trading agents to earn fee share rewards" },
+                    { feature: "Fee Distribution", desc: "Stakers receive proportional rewards from the agent's accumulated trading fees" },
+                    { feature: "Governance", desc: "Staked tokens provide voting power on platform decisions and agent strategy parameters" },
+                    { feature: "Flexible Lock", desc: "Multiple staking durations with tiered reward multipliers" },
+                  ].map((item) => (
+                    <Card key={item.feature} className="p-4 bg-card/50">
+                      <h4 className="font-semibold text-foreground text-sm">{item.feature}</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+
+              {/* Section 11 — Fee Architecture */}
               <section id="fee-architecture">
                 <h2 className="text-2xl font-bold text-foreground border-b border-border pb-3 mb-6">
-                  9. Fee Architecture
+                  11. Fee Architecture
                 </h2>
 
                 <p className="text-muted-foreground leading-relaxed mb-6">
@@ -395,7 +467,7 @@ export default function WhitepaperPage() {
               {/* Section 10 — Infrastructure & Security */}
               <section id="infrastructure">
                 <h2 className="text-2xl font-bold text-foreground border-b border-border pb-3 mb-6">
-                  10. Infrastructure &amp; Security
+                  12. Infrastructure &amp; Security
                 </h2>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Dual-Chain Tech Stack</h3>
