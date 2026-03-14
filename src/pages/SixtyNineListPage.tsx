@@ -278,6 +278,7 @@ export default function SixtyNineListPage() {
           </a>
         </div>
       </div>
+      </div>
     </div>
   );
 }
