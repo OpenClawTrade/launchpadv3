@@ -357,7 +357,7 @@ export default function FunTokenDetailPage() {
   const { bnbPrice } = useBnbPrice();
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'comments'>('chart');
+  const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'info'>('chart');
 
   // Detect if this is a BSC token (0x prefix)
   const isBsc = isEvmAddress(mintAddress || '');
