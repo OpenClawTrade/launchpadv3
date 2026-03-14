@@ -930,7 +930,7 @@ export default function PanelUnifiedDashboard() {
 
               <div>
                 <h3 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-3">Recent Activity</h3>
-                <WalletTransactionHistory walletAddress={walletAddr} />
+                <WalletTransactionHistory walletAddress={walletAddr} pageSize={5} />
               </div>
             </div>
           </CollapsibleContent>
