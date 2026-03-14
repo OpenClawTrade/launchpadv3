@@ -24,7 +24,7 @@ interface SwapResult {
 interface JupiterEndpoint {
   baseUrl: string;
   includeApiKey: boolean;
-  name: 'pro' | 'lite';
+  name: 'pro' | 'free';
 }
 
 async function parseJupiterError(response: Response): Promise<string> {
