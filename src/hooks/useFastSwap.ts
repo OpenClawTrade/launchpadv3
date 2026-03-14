@@ -289,7 +289,7 @@ export function useFastSwap() {
     } finally {
       setIsLoading(false);
     }
-  }, [swapBondingCurve, swapGraduated, queryClient, walletAddress]);
+  }, [swapBondingCurve, swapGraduated, queryClient, walletAddress, recordTradeForAlphaTracker, profileId]);
 
   return {
     executeFastSwap,
