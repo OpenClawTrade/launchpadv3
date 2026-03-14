@@ -161,10 +161,13 @@ function HolderRow({ holder, rank, animDelay }: { holder: HolderEntry; rank: num
   );
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function SixtyNineListPage() {
   const { data, isLoading, refetch, isFetching } = useTop69Holders();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sortBy, setSortBy] = useState<"holdings" | "sol">("holdings");
+  const [currentPage, setCurrentPage] = useState(1);
   const countdown = useCountdown();
 
   const sortedHolders = useMemo(() => {
@@ -173,9 +176,17 @@ export default function SixtyNineListPage() {
     if (sortBy === "sol") {
       copy.sort((a: HolderEntry, b: HolderEntry) => b.solBalance - a.solBalance);
     }
-    // "holdings" is already default sorted
     return copy;
   }, [data?.holders, sortBy]);
+
+  const totalPages = Math.ceil(sortedHolders.length / ITEMS_PER_PAGE);
+  const paginatedHolders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedHolders.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedHolders, currentPage]);
+
+  // Reset page when sort changes
+  useEffect(() => { setCurrentPage(1); }, [sortBy]);
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">

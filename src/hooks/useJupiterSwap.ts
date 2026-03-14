@@ -49,7 +49,14 @@ export function useJupiterSwap() {
       const jupApiKey = (import.meta as any).env?.VITE_JUPITER_API_KEY;
       if (jupApiKey) headers['x-api-key'] = jupApiKey;
 
-      const response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      let response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      
+      // If 401 (API key issue), retry without the key (free tier)
+      if (response.status === 401 && headers['x-api-key']) {
+        console.warn('[Jupiter] API key rejected (401), retrying without key...');
+        delete headers['x-api-key'];
+        response = await fetch(`${JUPITER_QUOTE_API}/quote?${params}`, { headers });
+      }
       
       if (!response.ok) {
         const error = await response.json();
