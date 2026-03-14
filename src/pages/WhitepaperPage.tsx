@@ -87,7 +87,8 @@ export default function WhitepaperPage() {
                   <li><strong className="text-foreground">Alpha Tracker:</strong> Track smart-money wallets and copy-trade winning positions in real-time</li>
                   <li><strong className="text-foreground">X Tracker:</strong> Monitor KOL mentions and sentiment from Twitter/X for early signals</li>
                   <li><strong className="text-foreground">Leverage Trading:</strong> Amplified exposure on BNB Chain via our partnership with AsterDEX, backed by deep liquidity pool guarantees</li>
-                  
+                  <li><strong className="text-foreground">Portfolio & PnL Cards:</strong> Real-time portfolio dashboard with pie chart, dust filtering, paginated holdings, Sell 100% quick actions, and shareable PnL trade cards</li>
+                  <li><strong className="text-foreground">Staking:</strong> Upcoming staking on AI agents with $SATURN and $SOL coins</li>
                 </ul>
               </section>
 
