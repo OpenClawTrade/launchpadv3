@@ -23,8 +23,11 @@ interface TurboSwapResult {
 
 export function useTurboSwap() {
   const { user, profileId, solanaAddress } = useAuth();
+  const { walletAddress: embeddedWalletAddress } = useSolanaWalletWithPrivy();
   const queryClient = useQueryClient();
   const { executeFastSwap, isLoading: isFastSwapLoading, lastLatencyMs: lastFastLatencyMs } = useFastSwap();
+  // Prefer embedded wallet address (actual signer) over auth address
+  const effectiveWallet = embeddedWalletAddress || solanaAddress;
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
