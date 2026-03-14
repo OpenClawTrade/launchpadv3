@@ -88,8 +88,8 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "phone-case",
-    name: "MoonDexo Phone Case",
-    description: "Slim protective case with MoonDexo design",
+    name: `${BRAND.shortName} Phone Case`,
+    description: `Slim protective case with ${BRAND.shortName} design`,
     priceSol: 0.12,
     category: "accessory",
     bgGradient: "bg-gradient-to-br from-violet-900/30 to-zinc-900",
