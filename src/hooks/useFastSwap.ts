@@ -177,18 +177,8 @@ export function useFastSwap() {
     const { signature } = await signAndSendTransaction(swapTx);
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
-    // ── Record trade (triple path: client-side direct + edge function record + alpha_only) ──
-    // Client-side direct insert — awaited to prevent silent loss
-    await recordAlphaTrade({
-      walletAddress: walletAddress,
-      tokenMint: token.mint_address,
-      tokenName: token.name,
-      tokenTicker: token.ticker,
-      tradeType: isBuy ? 'buy' : 'sell',
-      amountSol: amount,
-      txHash: signature,
-      chain: 'solana',
-    });
+    // ── Record trade (direct + service-role alpha_only fallback) ──
+    await recordTradeForAlphaTracker(token, amount, isBuy, signature);
 
     // Edge function record mode (non-blocking, secondary)
     supabase.functions.invoke('launchpad-swap', {
