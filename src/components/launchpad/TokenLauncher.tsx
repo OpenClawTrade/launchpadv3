@@ -2161,7 +2161,81 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
         {/* Phantom Mode */}
         {generatorMode === "phantom" && (
           <div className="space-y-6">
-            {!phantomWallet.isConnected ? (
+            {/* Wallet Mode Toggle: Phantom vs Privy */}
+            <div className="flex gap-1 p-1 rounded-xl bg-muted/30 border border-border/50">
+              <button
+                onClick={() => setLaunchWalletMode("phantom")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 text-xs rounded-lg transition-all ${
+                  launchWalletMode === "phantom"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                Phantom
+              </button>
+              <button
+                onClick={() => setLaunchWalletMode("privy")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 text-xs rounded-lg transition-all ${
+                  launchWalletMode === "privy"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Rocket className="h-3.5 w-3.5" />
+                1-Click (Privy)
+              </button>
+            </div>
+
+            {/* ═══ PRIVY WALLET MODE ═══ */}
+            {launchWalletMode === "privy" && (
+              <>
+                {!isAuthenticated ? (
+                  <button
+                    onClick={privyLogin}
+                    className="w-full h-12 rounded-xl text-sm tracking-wide flex items-center justify-center gap-2 cursor-pointer phantom-connect-btn"
+                  >
+                    <Wallet className="h-4 w-4" /> Connect Wallet
+                  </button>
+                ) : !privyWalletReady ? (
+                  <div className="p-4 rounded-xl border border-border bg-muted/30 text-center">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary mb-2" />
+                    <p className="text-xs text-muted-foreground">Setting up your wallet...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Privy Wallet Pill */}
+                    <div className="flex items-center justify-between p-4 rounded-xl phantom-wallet-pill">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: "hsl(var(--primary))", boxShadow: "0 0 10px hsl(var(--primary) / 0.5)" }} />
+                        <span className="text-sm font-mono font-semibold tracking-tight text-white/90">
+                          {privyWalletAddress?.slice(0, 4)}...{privyWalletAddress?.slice(-4)}
+                        </span>
+                        {privyBalance !== null && (
+                          <span className="text-xs font-mono text-white/35">{privyBalance.toFixed(3)} SOL</span>
+                        )}
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-semibold bg-primary/20 text-primary">1-CLICK</span>
+                    </div>
+
+                    {/* Deposit prompt if balance too low */}
+                    {privyWalletAddress && (privyBalance === null || privyBalance < 0.05) && !privyDepositReady && (
+                      <LaunchpadDepositPrompt
+                        walletAddress={privyWalletAddress}
+                        minSol={0.05}
+                        onReady={() => {
+                          setPrivyDepositReady(true);
+                          getPrivyBalance().then(b => setPrivyBalance(b));
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ═══ PHANTOM WALLET MODE (original) ═══ */}
+            {launchWalletMode === "phantom" && !phantomWallet.isConnected ? (
               <button
                 onClick={phantomWallet.connect}
                 disabled={phantomWallet.isConnecting}
@@ -2169,7 +2243,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
               >
                 {phantomWallet.isConnecting ? "Connecting..." : <><Wallet className="h-4 w-4" /> Connect Phantom</>}
               </button>
-            ) : (
+            ) : launchWalletMode === "phantom" ? (
               <>
                 {/* Wallet Pill */}
                 <div className="flex items-center justify-between p-4 rounded-xl phantom-wallet-pill">
