@@ -151,7 +151,8 @@ Deno.serve(async (req) => {
         .from("fun_tokens")
         .select(`
           id, name, ticker, mint_address, image_url, created_at,
-          volume_24h_sol, market_cap_sol, price_sol, holder_count, dbc_pool_address, creator_wallet, agent_id
+          volume_24h_sol, market_cap_sol, price_sol, holder_count, dbc_pool_address, creator_wallet, agent_id,
+          creator_fee_bps, trading_fee_bps
         `)
         .in("id", socialTokenIds);
       socialTokenDetails = tokens || [];
