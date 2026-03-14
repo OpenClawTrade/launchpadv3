@@ -5,7 +5,7 @@ import { Connection, Transaction, VersionedTransaction, PublicKey, LAMPORTS_PER_
 import { getRpcUrl } from "./useSolanaWallet";
 import { getCachedBlockhash } from "@/lib/blockhashCache";
 import bs58 from "bs58";
-import { sendRawToAllEndpoints } from "@/lib/jitoBundle";
+
 
 // Hook that uses Privy - MUST only be called inside PrivyProvider when privyAvailable is true
 // IMPORTANT: This project uses EMBEDDED wallets only. External wallets are intentionally ignored.
