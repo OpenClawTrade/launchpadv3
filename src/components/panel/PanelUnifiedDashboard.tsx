@@ -1161,6 +1161,22 @@ export default function PanelUnifiedDashboard() {
         chain={isBnb ? "bnb" : "solana"}
         getBalance={isSolana ? getBalance : undefined}
       />
+
+      {/* Floating mobile deposit CTA — always visible on mobile when balance is low */}
+      {(balance === null || balance < 0.01) && (
+        <button
+          onClick={() => setDepositOpen(true)}
+          className="md:hidden fixed bottom-20 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-full font-mono font-bold text-xs shadow-2xl animate-bounce hover:animate-none transition-all"
+          style={{
+            background: `linear-gradient(135deg, ${NEON_LIME}, ${EMERALD})`,
+            color: "#000",
+            boxShadow: `0 0 20px ${NEON_LIME}40, 0 4px 16px rgba(0,0,0,0.4)`,
+          }}
+        >
+          <ArrowDownToLine className="h-4 w-4" />
+          Deposit to Trade
+        </button>
+      )}
     </div>
   );
 }
