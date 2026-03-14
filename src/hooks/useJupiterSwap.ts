@@ -2,8 +2,7 @@ import { useState, useCallback } from 'react';
 import { VersionedTransaction } from '@solana/web3.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const JUPITER_PRO_API = 'https://api.jup.ag/swap/v1';
-const JUPITER_LITE_API = 'https://lite-api.jup.ag/swap/v1';
+const JUPITER_API = 'https://api.jup.ag/swap/v1';
 
 interface QuoteResponse {
   inputMint: string;
@@ -25,7 +24,7 @@ interface SwapResult {
 interface JupiterEndpoint {
   baseUrl: string;
   includeApiKey: boolean;
-  name: 'pro' | 'lite';
+  name: 'pro' | 'free';
 }
 
 async function parseJupiterError(response: Response): Promise<string> {
@@ -43,12 +42,12 @@ async function parseJupiterError(response: Response): Promise<string> {
 function buildJupiterEndpoints(hasApiKey: boolean): JupiterEndpoint[] {
   if (hasApiKey) {
     return [
-      { baseUrl: JUPITER_PRO_API, includeApiKey: true, name: 'pro' },
-      { baseUrl: JUPITER_LITE_API, includeApiKey: false, name: 'lite' },
+      { baseUrl: JUPITER_API, includeApiKey: true, name: 'pro' },
+      { baseUrl: JUPITER_API, includeApiKey: false, name: 'free' },
     ];
   }
 
-  return [{ baseUrl: JUPITER_LITE_API, includeApiKey: false, name: 'lite' }];
+  return [{ baseUrl: JUPITER_API, includeApiKey: false, name: 'free' }];
 }
 
 async function requestJupiterWithFallback(
