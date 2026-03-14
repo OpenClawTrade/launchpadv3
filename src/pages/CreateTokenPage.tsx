@@ -128,7 +128,7 @@ export default function CreateTokenPage() {
 
               {/* My Tokens link */}
               <Link to="/panel?tab=earnings">
-                <Button variant="outline" size="sm" className="mt-2 rounded-md text-xs">
+                <Button size="sm" className="mt-2 rounded-md text-xs bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold shadow-[0_0_12px_hsl(142_71%_45%/0.3)]">
                   <Coins className="w-3.5 h-3.5 mr-1.5" />
                   My Tokens
                 </Button>
