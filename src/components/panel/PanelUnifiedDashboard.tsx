@@ -343,7 +343,7 @@ export default function PanelUnifiedDashboard() {
       } catch { /* ignore */ }
     };
     fetchBal();
-    const interval = setInterval(fetchBal, 15_000);
+    const interval = setInterval(fetchBal, 5_000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [isWalletReady, walletAddr, isSolana, isBnb, evmAddress, getBalance]);
 
