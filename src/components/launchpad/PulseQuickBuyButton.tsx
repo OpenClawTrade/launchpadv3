@@ -164,7 +164,7 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
           ticker,
           amount: `${amount} BNB`,
           signature: result.txHash,
-          tokenImageUrl: funToken?.image_url ?? codexToken?.imageUrl ?? undefined,
+          tokenImageUrl,
         });
       } else {
         toast.error("❌ BNB Trade Failed", { id: toastId, description: result.error?.slice(0, 80) });
