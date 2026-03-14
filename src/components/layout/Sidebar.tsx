@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Zap, Bot, TrendingUp, Plus, FileText, Monitor, Crosshair, LayoutDashboard, ShoppingBag, CandlestickChart, Radar, Rocket, Coins } from "lucide-react";
+import { Home, Zap, Bot, TrendingUp, Plus, FileText, Monitor, Crosshair, LayoutDashboard, ShoppingBag, CandlestickChart, Radar, Rocket, Coins, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -11,10 +11,11 @@ import { BRAND } from "@/config/branding";
 
 const LOGO_SRC = saturnLogo;
 
-const NAV_LINKS = [
+const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
   { to: "/trade", label: "Pulse", icon: Zap },
   { to: "/tokens", label: "Tokens", icon: Coins },
+  { to: "/69", label: "69 List", icon: Crown, neonGreen: true },
   { to: "/launchpad", label: "Launchpad", icon: Rocket },
   { to: "/discover", label: "Discover", icon: TrendingUp },
   { to: "/alpha-tracker", label: "Alpha", icon: Crosshair },
@@ -63,11 +64,16 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       <nav className={cn("flex-1 flex flex-col items-center gap-0.5 py-2", isMobile && "items-stretch px-2")}>
         {NAV_LINKS.map((navItem) => {
-          const { to, label, icon: Icon, exact } = navItem;
+          const { to, label, icon: Icon, exact, neonGreen } = navItem;
           const active = isActive(to, exact);
           
           const iconEl = Icon ? (
-            <Icon className={cn("h-4 w-4 flex-shrink-0 transition-colors", active && "text-primary")} />
+            <Icon className={cn(
+              "h-4 w-4 flex-shrink-0 transition-colors",
+              neonGreen
+                ? "text-[hsl(72_100%_50%)] drop-shadow-[0_0_6px_hsl(72_100%_50%/0.5)]"
+                : active ? "text-primary" : ""
+            )} strokeWidth={neonGreen ? 2.5 : undefined} />
           ) : null;
 
           if (isMobile) {
@@ -76,7 +82,9 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
               "flex items-center gap-3 px-4 py-2.5 rounded-sm text-[13px] font-medium transition-all duration-200 w-full border-l-2",
               active
                 ? "text-foreground bg-surface-hover border-primary"
-                : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
+                : neonGreen
+                  ? "text-[hsl(72_100%_50%)] font-bold hover:text-foreground hover:bg-surface-hover/50 border-transparent"
+                  : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
             );
 
             return (

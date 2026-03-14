@@ -70,6 +70,7 @@ const PunchTokenDetailPage = lazyWithRetry(() => import("./pages/PunchTokenDetai
 const ReferralRedirectPage = lazyWithRetry(() => import("./pages/ReferralRedirectPage"));
 const WalletTrackerPage = lazyWithRetry(() => import("./pages/WalletTrackerPage"));
 const CreateTokenPage = lazyWithRetry(() => import("./pages/CreateTokenPage"));
+const SixtyNineListPage = lazyWithRetry(() => import("./pages/SixtyNineListPage"));
 const AllTokensPage = lazyWithRetry(() => import("./pages/AllTokensPage"));
 const RewardsPage = lazyWithRetry(() => import("./pages/RewardsPage"));
 const PortfolioPage = lazyWithRetry(() => import("./pages/PortfolioPage"));
@@ -129,6 +130,7 @@ const App = () => (
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
                     <Route path="/tokens" element={<AllTokensPage />} />
+                    <Route path="/69" element={<SixtyNineListPage />} />
                     <Route path="/launchpad" element={<CreateTokenPage />} />
                     <Route path="/launchpad/create" element={<CreateTokenPage />} />
                     <Route path="/terminal" element={<FunLauncherPage />} />
