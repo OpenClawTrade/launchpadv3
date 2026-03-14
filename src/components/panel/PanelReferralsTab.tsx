@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BRAND } from "@/config/branding";
 import { useReferralCode, useReferralDashboard } from "@/hooks/useReferral";
 import { Copy, CheckCircle, Users, DollarSign, TrendingUp, ExternalLink, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";

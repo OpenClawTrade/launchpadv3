@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BRAND } from "@/config/branding";
 import { Rocket, Upload, Link as LinkIcon, Twitter, Globe, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
