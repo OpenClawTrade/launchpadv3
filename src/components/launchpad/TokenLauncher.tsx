@@ -2995,6 +2995,24 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                             placeholder="TICKER"
                             maxLength={10}
                           />
+                          {(funImagePreview || funToken.imageUrl) && (
+                            <button
+                              onClick={() => {
+                                const imageUrl = funImagePreview || funToken.imageUrl;
+                                if (!imageUrl) return;
+                                const a = document.createElement("a");
+                                a.href = imageUrl;
+                                a.download = `${(funToken.ticker || "token").toLowerCase()}.png`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }}
+                              className="ml-1 px-2 py-1 rounded-md bg-green-600 hover:bg-green-700 text-white text-[10px] font-semibold flex items-center gap-1 transition-colors whitespace-nowrap"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download Generated img
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
