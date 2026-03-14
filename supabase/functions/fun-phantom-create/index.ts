@@ -130,6 +130,8 @@ Deno.serve(async (req) => {
           telegram_url: telegramUrl || null,
           discord_url: discordUrl || null,
           fee_mode: tokenFeeMode,
+          trading_fee_bps: tradingFeeBps, // Total on-chain fee (creator + platform base)
+          creator_fee_bps: creatorFeeBps, // Creator's portion only
           launchpad_type: 'phantom', // Tag Phantom-launched tokens
         })
         .select()
