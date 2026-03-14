@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const { count: availableCount, error: countError } = await supabase
       .from('vanity_keypairs')
       .select('*', { count: 'exact', head: true })
-      .eq('suffix', TARGET_SUFFIX.toLowerCase())
+      .eq('suffix', TARGET_SUFFIX)
       .eq('status', 'available');
     
     if (countError) {
