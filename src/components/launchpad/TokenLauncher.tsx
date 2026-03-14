@@ -2611,7 +2611,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                       disabled={isPhantomLaunching || !phantomToken.name.trim() || !phantomToken.ticker.trim() || (!phantomImagePreview && !phantomMeme?.imageUrl && !phantomToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)}
                       className="w-full h-13 rounded-xl text-sm tracking-wide flex items-center justify-center gap-2 cursor-pointer phantom-action-btn"
                     >
-                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4" /> Launch (~0.02 SOL)</>}
+                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 animate-bounce" /> Launching...</> : <><Rocket className="h-4 w-4" /> Launch</>}
                     </button>
 
                     {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
