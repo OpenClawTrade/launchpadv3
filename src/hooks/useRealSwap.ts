@@ -120,7 +120,7 @@ export function useRealSwap() {
       signature,
       graduated: false,
     };
-  }, [walletAddress, getConnection, signAndSendTransaction, profileId]);
+  }, [walletAddress, getConnection, signAndSendTransaction, profileId, getTokenBalanceRaw]);
 
   /**
    * Execute a real on-chain swap for graduated tokens via Jupiter
