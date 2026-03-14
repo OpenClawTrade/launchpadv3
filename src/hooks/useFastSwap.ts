@@ -55,6 +55,53 @@ export function useFastSwap() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
+  const recordTradeForAlphaTracker = useCallback(async (
+    token: Token,
+    amount: number,
+    isBuy: boolean,
+    signature: string,
+    outputAmount?: number,
+  ) => {
+    if (!walletAddress || !signature) return;
+
+    // Path 1: direct client upsert (existing behavior)
+    await recordAlphaTrade({
+      walletAddress,
+      tokenMint: token.mint_address,
+      tokenName: token.name,
+      tokenTicker: token.ticker,
+      tradeType: isBuy ? 'buy' : 'sell',
+      amountSol: amount,
+      amountTokens: isBuy ? outputAmount : undefined,
+      txHash: signature,
+      chain: 'solana',
+    });
+
+    // Path 2: service-role alpha_only fallback (critical for unindexed tokens)
+    try {
+      const { error } = await supabase.functions.invoke('launchpad-swap', {
+        body: {
+          mintAddress: token.mint_address,
+          userWallet: walletAddress,
+          amount,
+          isBuy,
+          profileId: profileId || undefined,
+          signature,
+          outputAmount: outputAmount ?? null,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          mode: 'alpha_only',
+        },
+      });
+
+      if (error) {
+        console.warn('[FastSwap] alpha_only record failed:', error.message);
+      }
+    } catch (err) {
+      console.warn('[FastSwap] alpha_only invoke failed:', err);
+    }
+  }, [walletAddress, profileId]);
+
   // Start blockhash poller on mount
   useEffect(() => {
     startBlockhashPoller();
