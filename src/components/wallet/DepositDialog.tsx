@@ -50,7 +50,7 @@ export function DepositDialog({ open, onOpenChange, address, chain, getBalance, 
     } catch {
       // ignore polling errors
     }
-  }, [address, isBnb, getBalance]);
+  }, [address, isBnb, getBalance, onDepositDetected]);
 
   useEffect(() => {
     if (!open || !address) return;
