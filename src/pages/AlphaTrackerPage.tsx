@@ -4,8 +4,18 @@ import { useChain } from "@/contexts/ChainContext";
 import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { useState, useMemo } from "react";
-import { timeAgo, formatTokenAmt, formatMcap } from "@/lib/tradeUtils";
+import { useState, useMemo, useEffect } from "react";
+import { formatTokenAmt, formatMcap } from "@/lib/tradeUtils";
+
+/** Live-updating time ago — re-renders driven by parent tick */
+function liveTimeAgo(dateStr: string, _tick: number) {
+  const s = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (s < 0) return "now";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
 
 function StatusPill({ status }: { status: PositionSummary["status"] }) {
   const c = {
@@ -32,6 +42,13 @@ export default function AlphaTrackerPage() {
   const [tradeTypeFilter, setTradeTypeFilter] = useState<TradeTypeFilter>("all");
   const [holdingFilter, setHoldingFilter] = useState<HoldingFilter>("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  // Re-render every second to update relative timestamps
+  useEffect(() => {
+    const iv = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   const hasActiveFilters = searchToken || searchWallet || tradeTypeFilter !== "all" || holdingFilter !== "all";
 
@@ -234,7 +251,7 @@ export default function AlphaTrackerPage() {
 
                   {/* Time */}
                   <span className="text-[9px] font-mono text-right text-muted-foreground/50 tabular-nums" title={format(new Date(trade.created_at), "MMM d, h:mm:ss a")}>
-                    {timeAgo(trade.created_at)}
+                    {liveTimeAgo(trade.created_at, tick)}
                   </span>
 
                   {/* TX */}
