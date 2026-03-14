@@ -229,8 +229,20 @@ export function useFastSwap() {
     amount: number,
     isBuy: boolean,
     slippageBps: number = 500,
+    tokenDecimals?: number,
   ): Promise<FastSwapResult> => {
     if (!walletAddress) throw new Error('Wallet not connected');
+
+    // Resolve decimals dynamically for sells
+    let resolvedDecimals = tokenDecimals ?? DEFAULT_TOKEN_DECIMALS;
+    if (!isBuy && !tokenDecimals) {
+      try {
+        const raw = await getTokenBalanceRaw(token.mint_address);
+        resolvedDecimals = raw.decimals;
+      } catch (e) {
+        console.warn('[FastSwap] Failed to resolve decimals for graduated sell:', e);
+      }
+    }
 
     let result;
     if (isBuy) {
@@ -240,7 +252,7 @@ export function useFastSwap() {
       );
     } else {
       result = await sellToken(
-        token.mint_address, amount, TOKEN_DECIMALS, walletAddress,
+        token.mint_address, amount, resolvedDecimals, walletAddress,
         signAndSendTransaction as any, slippageBps,
       );
     }
