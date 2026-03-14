@@ -196,12 +196,23 @@ export function useFastSwap() {
     });
     console.log(`[FastSwap] Build tx: ${Math.round(performance.now() - t3)}ms`);
 
+    // Estimate output for PnL display using constant-product formula
+    let estimatedSolOut: number | undefined;
+    let estimatedTokensOut: number | undefined;
+    if (!isBuy && virtualSolReserves && virtualTokenReserves) {
+      const amtTokens = amount; // human-readable token count
+      estimatedSolOut = (amtTokens * virtualSolReserves) / (virtualTokenReserves + amtTokens);
+      console.log(`[FastSwap] Estimated solOut: ${estimatedSolOut}`);
+    } else if (isBuy && virtualSolReserves && virtualTokenReserves) {
+      estimatedTokensOut = (amount * virtualTokenReserves) / (virtualSolReserves + amount);
+    }
+
     const t4 = performance.now();
     const { signature } = await signAndSendTransaction(swapTx);
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
     // ── Record trade (direct + service-role alpha_only fallback) ──
-    await recordTradeForAlphaTracker(token, amount, isBuy, signature);
+    await recordTradeForAlphaTracker(token, amount, isBuy, signature, isBuy ? estimatedTokensOut : estimatedSolOut);
 
     // Edge function record mode (non-blocking, secondary)
     supabase.functions.invoke('launchpad-swap', {
@@ -218,7 +229,7 @@ export function useFastSwap() {
       },
     }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
 
-    return { success: true, signature, graduated: false };
+    return { success: true, signature, graduated: false, solOut: estimatedSolOut, tokensOut: estimatedTokensOut };
   }, [walletAddress, getConnection, signAndSendTransaction, profileId, recordTradeForAlphaTracker, getTokenBalanceRaw]);
 
   /**
