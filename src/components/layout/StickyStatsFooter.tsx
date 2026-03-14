@@ -496,7 +496,7 @@ export function StickyStatsFooter() {
 }
 
 function FooterCryptoPrices() {
-  const [prices, setPrices] = useState<{ btc: number; eth: number; bnb: number } | null>(null);
+  const [prices, setPrices] = useState<Record<string, { price: number; change24h: number }> | null>(null);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -511,32 +511,43 @@ function FooterCryptoPrices() {
   }, []);
 
   const formatPrice = (p: number) => p >= 1000 ? `$${p.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : `$${p.toFixed(2)}`;
+  const formatChange = (c: number) => `${c >= 0 ? "+" : ""}${c.toFixed(1)}%`;
 
   const coins = [
-    { symbol: "BTC", price: prices?.btc, icon: (
+    { symbol: "BTC", data: prices?.btc, icon: (
       <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#F7931A"/><path d="M22.5 14.2c.3-2-1.2-3.1-3.3-3.8l.7-2.7-1.6-.4-.7 2.7c-.4-.1-.9-.2-1.3-.3l.7-2.7-1.6-.4-.7 2.7c-.3-.1-.7-.2-1-.2v0l-2.2-.6-.4 1.7s1.2.3 1.2.3c.7.2.8.6.8 1l-.8 3.2c0 0 .1 0 .2.1h-.2l-1.1 4.5c-.1.2-.3.5-.8.4 0 0-1.2-.3-1.2-.3l-.8 1.8 2.1.5c.4.1.8.2 1.2.3l-.7 2.8 1.6.4.7-2.8c.4.1.9.2 1.3.3l-.7 2.7 1.6.4.7-2.8c2.9.6 5.1.3 6-2.3.7-2.1 0-3.3-1.5-4 1.1-.3 1.9-1 2.1-2.5zm-3.8 5.3c-.5 2.1-4.1 1-5.3.7l.9-3.8c1.2.3 4.9.9 4.4 3.1zm.5-5.4c-.5 1.9-3.5.9-4.4.7l.8-3.4c1 .2 4.1.7 3.6 2.7z" fill="white"/></svg>
     )},
-    { symbol: "ETH", price: prices?.eth, icon: (
+    { symbol: "ETH", data: prices?.eth, icon: (
       <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#627EEA"/><path d="M16.5 4v8.9l7.5 3.3L16.5 4z" fill="white" fillOpacity="0.6"/><path d="M16.5 4L9 16.2l7.5-3.3V4z" fill="white"/><path d="M16.5 21.9v6.1l7.5-10.4-7.5 4.3z" fill="white" fillOpacity="0.6"/><path d="M16.5 28v-6.1L9 17.6l7.5 10.4z" fill="white"/><path d="M16.5 20.6l7.5-4.4-7.5-3.3v7.7z" fill="white" fillOpacity="0.2"/><path d="M9 16.2l7.5 4.4v-7.7L9 16.2z" fill="white" fillOpacity="0.6"/></svg>
     )},
-    { symbol: "BNB", price: prices?.bnb, icon: (
+    { symbol: "BNB", data: prices?.bnb, icon: (
       <svg width="12" height="12" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path d="M16 6l3.2 3.2L12.8 15.6 16 18.8l6.4-6.4L16 6zm-6.4 6.4L6.4 15.6l3.2 3.2 3.2-3.2-3.2-3.2zm12.8 0l-3.2 3.2 3.2 3.2 3.2-3.2-3.2-3.2zM16 18.8l-6.4-6.4L6.4 15.6 16 25.2l9.6-9.6-3.2-3.2L16 18.8z" fill="white"/></svg>
     )},
   ];
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-      {coins.map((coin) => (
-        <div key={coin.symbol} style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-          {coin.icon}
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", fontWeight: 500, color: "rgba(255,255,255,0.45)" }}>
-            {coin.symbol}
-          </span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
-            {coin.price ? formatPrice(coin.price) : "—"}
-          </span>
-        </div>
-      ))}
+    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+      {coins.map((coin) => {
+        const change = coin.data?.change24h ?? 0;
+        const isPositive = change >= 0;
+        const changeColor = isPositive ? "hsl(142, 71%, 45%)" : "hsl(0, 84%, 60%)";
+        return (
+          <div key={coin.symbol} style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+            {coin.icon}
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", fontWeight: 500, color: "rgba(255,255,255,0.45)" }}>
+              {coin.symbol}
+            </span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>
+              {coin.data?.price ? formatPrice(coin.data.price) : "—"}
+            </span>
+            {coin.data?.price ? (
+              <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", fontWeight: 600, color: changeColor }}>
+                {formatChange(change)}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
