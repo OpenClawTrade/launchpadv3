@@ -1,6 +1,6 @@
 /**
  * Client-side direct insert into alpha_trades with retry logic.
- * MUST be awaited to prevent silent failures from navigation/GC.
+ * Exposes blocking and non-blocking helpers.
  */
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,40 +25,74 @@ async function sleep(ms: number) {
 }
 
 export async function recordAlphaTrade(trade: AlphaTradeRecord): Promise<void> {
+  let lastError: unknown = null;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const { error } = await (supabase as any)
         .from("alpha_trades")
-        .upsert({
-          wallet_address: trade.walletAddress,
-          token_mint: trade.tokenMint,
-          token_name: trade.tokenName || null,
-          token_ticker: trade.tokenTicker || null,
-          trade_type: trade.tradeType,
-          amount_sol: trade.amountSol,
-          amount_tokens: trade.amountTokens || 0,
-          price_sol: trade.priceSol || null,
-          price_usd: null,
-          tx_hash: trade.txHash,
-          chain: trade.chain || "solana",
-        }, { onConflict: "tx_hash" });
+        .upsert(
+          {
+            wallet_address: trade.walletAddress,
+            token_mint: trade.tokenMint,
+            token_name: trade.tokenName || null,
+            token_ticker: trade.tokenTicker || null,
+            trade_type: trade.tradeType,
+            amount_sol: trade.amountSol,
+            amount_tokens: trade.amountTokens || 0,
+            price_sol: trade.priceSol || null,
+            price_usd: null,
+            tx_hash: trade.txHash,
+            chain: trade.chain || "solana",
+          },
+          { onConflict: "tx_hash" }
+        );
 
-      if (error) {
-        console.warn(`[recordAlphaTrade] attempt ${attempt + 1} failed:`, error.message);
-        if (attempt < MAX_RETRIES) {
-          await sleep(RETRY_DELAY_MS);
-          continue;
-        }
-      } else {
-        console.log("[recordAlphaTrade] ✅ Trade recorded:", trade.txHash.slice(0, 12));
+      if (!error) {
         return;
       }
+
+      lastError = error;
+      console.warn(`[recordAlphaTrade] attempt ${attempt + 1} failed:`, error.message);
+      if (attempt < MAX_RETRIES) {
+        await sleep(RETRY_DELAY_MS);
+      }
     } catch (err) {
+      lastError = err;
       console.warn(`[recordAlphaTrade] attempt ${attempt + 1} exception:`, err);
       if (attempt < MAX_RETRIES) {
         await sleep(RETRY_DELAY_MS);
-        continue;
       }
     }
   }
+
+  // Solana fallback via backend recorder (best-effort)
+  if ((trade.chain || "solana") === "solana") {
+    try {
+      const { error } = await supabase.functions.invoke("launchpad-swap", {
+        body: {
+          mintAddress: trade.tokenMint,
+          userWallet: trade.walletAddress,
+          amount: trade.tradeType === "buy" ? trade.amountSol : trade.amountTokens || 0,
+          isBuy: trade.tradeType === "buy",
+          signature: trade.txHash,
+          outputAmount: trade.tradeType === "buy" ? trade.amountTokens ?? null : trade.amountSol,
+          tokenName: trade.tokenName || null,
+          tokenTicker: trade.tokenTicker || null,
+          mode: "alpha_only",
+        },
+      });
+
+      if (!error) return;
+      lastError = error;
+    } catch (fallbackErr) {
+      lastError = fallbackErr;
+    }
+  }
+
+  console.warn("[recordAlphaTrade] final failure for tx:", trade.txHash, lastError);
+}
+
+export function recordAlphaTradeInBackground(trade: AlphaTradeRecord): void {
+  void recordAlphaTrade(trade);
 }

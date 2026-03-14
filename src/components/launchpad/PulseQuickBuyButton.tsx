@@ -4,12 +4,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useTurboSwap } from "@/hooks/useTurboSwap";
 import { useBnbSwap } from "@/hooks/useBnbSwap";
 import { useAuth } from "@/hooks/useAuth";
+import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getRpcUrl } from "@/hooks/useSolanaWallet";
 import { toast } from "sonner";
 import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
+import { recordAlphaTradeInBackground } from "@/lib/recordAlphaTrade";
 import type { Token } from "@/hooks/useLaunchpad";
 import type { FunToken } from "@/hooks/useFunTokensPaginated";
 import type { CodexPairToken } from "@/hooks/useCodexNewPairs";
@@ -109,7 +111,8 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
   // For BNB tokens, use the BNB quick buy flow
   if (isBnb && mintAddress) {
     const imageUrl = funToken?.image_url ?? codexToken?.imageUrl ?? undefined;
-    return <BnbQuickBuy mintAddress={mintAddress} ticker={funToken?.ticker ?? codexToken?.symbol ?? ''} quickBuyAmount={quickBuyAmount} isCompact={isCompact} tokenImageUrl={imageUrl} />;
+    const tokenName = funToken?.name ?? codexToken?.name ?? funToken?.ticker ?? codexToken?.symbol ?? '';
+    return <BnbQuickBuy mintAddress={mintAddress} ticker={funToken?.ticker ?? codexToken?.symbol ?? ''} tokenName={tokenName} quickBuyAmount={quickBuyAmount} isCompact={isCompact} tokenImageUrl={imageUrl} />;
   }
 
   // Solana swap path
@@ -120,19 +123,22 @@ export const PulseQuickBuyButton = memo(function PulseQuickBuyButton({
 const BnbQuickBuy = memo(function BnbQuickBuy({
   mintAddress,
   ticker,
+  tokenName,
   quickBuyAmount,
   isCompact,
   tokenImageUrl,
 }: {
   mintAddress: string;
   ticker: string;
+  tokenName: string;
   quickBuyAmount?: number;
   isCompact?: boolean;
   tokenImageUrl?: string;
 }) {
   const { executeBnbSwap, isLoading } = useBnbSwap();
-  const { isAuthenticated, solanaAddress } = useAuth();
-  const userWallet = solanaAddress || "unknown";
+  const { isAuthenticated } = useAuth();
+  const { address: evmAddress } = usePrivyEvmWallet();
+  const userWallet = evmAddress || "unknown";
   const [open, setOpen] = useState(false);
   const [buyingAmount, setBuyingAmount] = useState<number | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -162,11 +168,25 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
         showTradeSuccess({
           type: 'buy',
           ticker,
-          tokenName: ticker,
+          tokenName,
           amount: `${amount} BNB`,
           signature: result.txHash,
           tokenImageUrl,
         });
+
+        if (result.txHash) {
+          recordAlphaTradeInBackground({
+            walletAddress: userWallet,
+            tokenMint: mintAddress,
+            tokenName,
+            tokenTicker: ticker,
+            tradeType: 'buy',
+            amountSol: amount,
+            amountTokens: result.estimatedOutput ? Number(result.estimatedOutput) : 0,
+            txHash: result.txHash,
+            chain: 'bnb',
+          });
+        }
       } else {
         toast.error("❌ BNB Trade Failed", { id: toastId, description: result.error?.slice(0, 80) });
       }
@@ -176,7 +196,7 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
       setBuyingAmount(null);
       setOpen(false);
     }
-  }, [isAuthenticated, userWallet, mintAddress, ticker, executeBnbSwap]);
+  }, [isAuthenticated, userWallet, mintAddress, ticker, tokenName, tokenImageUrl, executeBnbSwap]);
 
   const handleTriggerClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
