@@ -41,6 +41,7 @@ import {
   Camera,
   PartyPopper,
   Lock,
+  X,
 } from "lucide-react";
 
 interface MemeToken {
