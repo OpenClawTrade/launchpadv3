@@ -53,8 +53,8 @@ const PRODUCTS: Product[] = [
   },
   {
     id: "hat-beanie",
-    name: "MoonDexo Beanie",
-    description: "Knit beanie with woven MoonDexo patch",
+    name: `${BRAND.shortName} Beanie`,
+    description: `Knit beanie with woven ${BRAND.shortName} patch`,
     priceSol: 0.12,
     category: "accessory",
     colors: [
