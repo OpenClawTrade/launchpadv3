@@ -396,11 +396,18 @@ export default function TokenDetailPage() {
           }}
         />
 
-        {/* Trade Panel */}
-        <TradePanelWithSwap
-          token={token}
-          userBalance={userBalance}
-        />
+        {/* Trade Panel — mobile-optimized on small screens */}
+        {isMobile ? (
+          <MobileTradePanelV2
+            bondingToken={token}
+            userTokenBalance={userBalance}
+          />
+        ) : (
+          <TradePanelWithSwap
+            token={token}
+            userBalance={userBalance}
+          />
+        )}
 
         {/* Advanced Orders - Now with "Available Soon" overlay */}
         <AdvancedOrderForm token={token} userBalance={userBalance} />
