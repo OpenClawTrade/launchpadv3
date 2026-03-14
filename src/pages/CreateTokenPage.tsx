@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { BnbLauncher } from "@/components/launchpad/BnbLauncher";
 import { Rocket, ExternalLink, CheckCircle2, ArrowLeft, Shield, Zap, Coins, Copy, Check, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 import { useChain } from "@/contexts/ChainContext";
 import { useToast } from "@/hooks/use-toast";
