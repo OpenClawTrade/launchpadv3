@@ -467,7 +467,7 @@ export default function WhitepaperPage() {
               {/* Section 10 — Infrastructure & Security */}
               <section id="infrastructure">
                 <h2 className="text-2xl font-bold text-foreground border-b border-border pb-3 mb-6">
-                  10. Infrastructure &amp; Security
+                  12. Infrastructure &amp; Security
                 </h2>
 
                 <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">Dual-Chain Tech Stack</h3>
