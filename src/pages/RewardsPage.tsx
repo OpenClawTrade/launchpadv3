@@ -233,96 +233,98 @@ export default function RewardsPage() {
 
   // Main dashboard
   return (
-    <div className="min-h-screen p-4 pt-20 md:pt-24 max-w-2xl mx-auto space-y-6">
-      {/* Profile card */}
-      <div className="rounded-2xl border border-border/40 bg-card/20 backdrop-blur-sm p-6">
-        <div className="flex items-center gap-4">
-          {reward.twitter_avatar_url && (
-            <img src={reward.twitter_avatar_url} alt="" className="h-16 w-16 rounded-full border-2 border-primary/30" />
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold font-mono text-foreground truncate">
-              {reward.twitter_name || `@${reward.twitter_username}`}
-            </h2>
-            <a
-              href={`https://x.com/${reward.twitter_username}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <XIcon className="h-3 w-3" />
-              @{reward.twitter_username}
-              <ExternalLink className="h-2.5 w-2.5" />
-            </a>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-black font-mono text-primary">{reward.points}</div>
-            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Points</div>
+    <LaunchpadLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Profile card */}
+        <div className="rounded-2xl border border-border/40 bg-card/20 backdrop-blur-sm p-6">
+          <div className="flex items-center gap-4">
+            {reward.twitter_avatar_url && (
+              <img src={reward.twitter_avatar_url} alt="" className="h-16 w-16 rounded-full border-2 border-primary/30" />
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold font-mono text-foreground truncate">
+                {reward.twitter_name || `@${reward.twitter_username}`}
+              </h2>
+              <a
+                href={`https://x.com/${reward.twitter_username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+              >
+                <XIcon className="h-3 w-3" />
+                @{reward.twitter_username}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-black font-mono text-primary">{reward.points}</div>
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Points</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
-          <Users className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-lg font-bold font-mono text-foreground">{totalUsers}</div>
-          <div className="text-[9px] font-mono text-muted-foreground uppercase">Total Users</div>
-        </div>
-        <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
-          <Clock className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-xs font-bold font-mono text-foreground">
-            {new Date(reward.joined_at).toLocaleDateString()}
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
+            <Users className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+            <div className="text-lg font-bold font-mono text-foreground">{totalUsers}</div>
+            <div className="text-[9px] font-mono text-muted-foreground uppercase">Total Users</div>
           </div>
-          <div className="text-[9px] font-mono text-muted-foreground uppercase">Joined</div>
-        </div>
-        <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
-          <Trophy className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-          <div className="text-lg font-bold font-mono text-foreground">{events.length}</div>
-          <div className="text-[9px] font-mono text-muted-foreground uppercase">Rewards</div>
-        </div>
-      </div>
-
-      {/* Point System */}
-      <PointSystemCard />
-
-      {/* Recent reward events */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-mono font-bold text-foreground uppercase tracking-wider">Recent Rewards</h3>
-        {events.length === 0 ? (
-          <div className="rounded-xl border border-border/20 bg-card/10 p-6 text-center">
-            <p className="text-xs text-muted-foreground font-mono">
-              No rewards yet. Start posting about $SATURN or @saturnterminal on X!
-            </p>
+          <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
+            <Clock className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+            <div className="text-xs font-bold font-mono text-foreground">
+              {new Date(reward.joined_at).toLocaleDateString()}
+            </div>
+            <div className="text-[9px] font-mono text-muted-foreground uppercase">Joined</div>
           </div>
-        ) : (
-          <div className="space-y-1.5">
-            {events.map((event) => {
-              const info = REWARD_TYPE_MAP[event.reward_type] || { label: event.reward_type, icon: Star };
-              const Icon = info.icon;
-              return (
-                <div key={event.id} className="flex items-center gap-3 rounded-lg border border-border/20 bg-card/10 px-3 py-2">
-                  <Icon className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-[11px] font-mono text-foreground">
-                      +{event.points} pts — {info.label}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/50 ml-2">
-                      {new Date(event.created_at).toLocaleDateString()}
-                    </span>
+          <div className="rounded-xl border border-border/30 bg-card/15 p-3 text-center">
+            <Trophy className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+            <div className="text-lg font-bold font-mono text-foreground">{events.length}</div>
+            <div className="text-[9px] font-mono text-muted-foreground uppercase">Rewards</div>
+          </div>
+        </div>
+
+        {/* Point System */}
+        <PointSystemCard />
+
+        {/* Recent reward events */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-mono font-bold text-foreground uppercase tracking-wider">Recent Rewards</h3>
+          {events.length === 0 ? (
+            <div className="rounded-xl border border-border/20 bg-card/10 p-6 text-center">
+              <p className="text-xs text-muted-foreground font-mono">
+                No rewards yet. Start posting about $SATURN or @saturnterminal on X!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {events.map((event) => {
+                const info = REWARD_TYPE_MAP[event.reward_type] || { label: event.reward_type, icon: Star };
+                const Icon = info.icon;
+                return (
+                  <div key={event.id} className="flex items-center gap-3 rounded-lg border border-border/20 bg-card/10 px-3 py-2">
+                    <Icon className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-mono text-foreground">
+                        +{event.points} pts — {info.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/50 ml-2">
+                        {new Date(event.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {event.post_url && (
+                      <a href={event.post_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </div>
-                  {event.post_url && (
-                    <a href={event.post_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </LaunchpadLayout>
   );
 }
 
