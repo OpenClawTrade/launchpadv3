@@ -265,7 +265,8 @@ export function MobileTradePanelV2({ bondingToken, externalToken, userTokenBalan
       window.setTimeout(() => void refreshTokenBalance(), 1500);
       window.setTimeout(() => void refreshTokenBalance(), 5000);
 
-      setProfitCardData({ action: isBuy ? "buy" : "sell", amountSol: numericAmount, tokenTicker: tokenInfo.ticker, tokenName: tokenInfo.name, outputAmount: resultOutputAmount, signature });
+      const solValue = !isBuy ? (resultOutputAmount ?? numericAmount * (tokenInfo.price_sol || 0)) : numericAmount;
+      setProfitCardData({ action: isBuy ? "buy" : "sell", amountSol: solValue, tokenTicker: tokenInfo.ticker, tokenName: tokenInfo.name, outputAmount: resultOutputAmount, signature, tokenImageUrl: tokenInfo.imageUrl });
       setShowProfitCard(true);
 
       toast({

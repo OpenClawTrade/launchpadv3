@@ -34,8 +34,9 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
   if (!data) return null;
 
   const isBuy = data.action === "buy";
+  const hasPnl = data.pnlPercent !== undefined && data.pnlPercent !== null;
   const pnl = data.pnlPercent ?? 0;
-  const isPositive = pnl >= 0;
+  const isPositive = isBuy || pnl >= 0;
   const qrLink = referralLink || "https://saturn.trade/";
   const truncatedWallet = solanaAddress
     ? `${solanaAddress.slice(0, 4)}...${solanaAddress.slice(-4)}`
@@ -66,7 +67,8 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
   };
 
   const handleShareX = async () => {
-    const text = `${isPositive ? "🟢" : "🔴"} ${isBuy ? "Bought" : "Sold"} $${data.tokenTicker} | P&L: ${isPositive ? "+" : ""}${pnl.toFixed(2)}% | ${data.amountSol.toFixed(4)} SOL\n\nTrade on ${BRAND.twitterHandle} 🪐\n${qrLink}`;
+    const pnlText = hasPnl ? ` | P&L: ${isPositive ? "+" : ""}${pnl.toFixed(2)}%` : "";
+    const text = `${isBuy ? "🟢 Bought" : "🔴 Sold"} $${data.tokenTicker}${pnlText} | ${data.amountSol.toFixed(4)} SOL\n\nTrade on ${BRAND.twitterHandle} 🪐\n${qrLink}`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank"
@@ -152,29 +154,46 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
               <div className="px-5 py-5 relative z-10">
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">Profit & Loss</div>
-                    <div
-                      className="text-4xl font-bold font-mono"
-                      style={{
-                        color: isPositive ? "#c8ff00" : "#ff5252",
-                        textShadow: isPositive
-                          ? "0 0 20px rgba(200,255,0,0.4), 0 0 40px rgba(200,255,0,0.15)"
-                          : "0 0 20px rgba(255,82,82,0.4), 0 0 40px rgba(255,82,82,0.15)",
-                      }}
-                    >
-                      {isPositive ? "+" : ""}{pnl.toFixed(2)}%
+                    <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">
+                      {hasPnl ? 'Profit & Loss' : (isBuy ? 'Invested' : 'Received')}
                     </div>
+                    {hasPnl ? (
+                      <div
+                        className="text-4xl font-bold font-mono"
+                        style={{
+                          color: isPositive ? "#c8ff00" : "#ff5252",
+                          textShadow: isPositive
+                            ? "0 0 20px rgba(200,255,0,0.4), 0 0 40px rgba(200,255,0,0.15)"
+                            : "0 0 20px rgba(255,82,82,0.4), 0 0 40px rgba(255,82,82,0.15)",
+                        }}
+                      >
+                        {isPositive ? "+" : ""}{pnl.toFixed(2)}%
+                      </div>
+                    ) : (
+                      <div
+                        className="text-3xl font-bold font-mono"
+                        style={{
+                          color: isBuy ? "#c8ff00" : "#22c55e",
+                          textShadow: "0 0 20px rgba(200,255,0,0.3)",
+                        }}
+                      >
+                        {data.amountSol.toFixed(4)}
+                        <span className="text-lg ml-1 text-white/40">SOL</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">Amount</div>
-                    <div
-                      className="text-2xl font-bold font-mono"
-                      style={{ color: isPositive ? "#c8ff00" : "#ff5252" }}
-                    >
-                      {isPositive ? "+" : ""}{data.amountSol.toFixed(4)}
+                  {hasPnl && (
+                    <div className="text-right">
+                      <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">Amount</div>
+                      <div
+                        className="text-2xl font-bold font-mono"
+                        style={{ color: isPositive ? "#c8ff00" : "#ff5252" }}
+                      >
+                        {isPositive ? "+" : ""}{data.amountSol.toFixed(4)}
+                      </div>
+                      <div className="text-white/30 text-xs font-mono mt-0.5">SOL</div>
                     </div>
-                    <div className="text-white/30 text-xs font-mono mt-0.5">SOL</div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Token info row */}
