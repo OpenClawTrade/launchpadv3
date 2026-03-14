@@ -103,9 +103,9 @@ export function DepositDialog({ open, onOpenChange, address, chain, getBalance, 
 
         <div className="flex flex-col items-center gap-5 py-4">
           {depositDetected && (
-            <div className="w-full rounded-xl bg-green-500/10 border border-green-500/30 p-4 text-center animate-in fade-in slide-in-from-top-2">
-              <Check className="w-6 h-6 text-green-400 mx-auto mb-1" />
-              <p className="text-sm font-bold text-green-400">Deposit received!</p>
+            <div className="w-full rounded-xl bg-success/10 border border-success/30 p-4 text-center animate-in fade-in slide-in-from-top-2">
+              <Check className="w-6 h-6 text-success mx-auto mb-1" />
+              <p className="text-sm font-bold text-success">Deposit received!</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Balance: {currentBalance?.toFixed(6)} {currencyLabel}
               </p>
