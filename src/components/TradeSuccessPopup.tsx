@@ -28,6 +28,7 @@ function truncateSig(sig: string, chars = 6) {
 
 export function TradeSuccessPopup() {
   const { isVisible, data, hide } = useTradeSuccessStore();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [showProfitCard, setShowProfitCard] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
