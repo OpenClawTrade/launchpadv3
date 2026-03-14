@@ -182,18 +182,18 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
                       </div>
                     )}
                   </div>
-                  {hasPnl && (
-                    <div className="text-right">
-                      <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">Amount</div>
-                      <div
-                        className="text-2xl font-bold font-mono"
-                        style={{ color: isPositive ? "#c8ff00" : "#ff5252" }}
-                      >
-                        {isPositive ? "+" : ""}{data.amountSol.toFixed(4)}
-                      </div>
-                      <div className="text-white/30 text-xs font-mono mt-0.5">SOL</div>
+                  <div className="text-right">
+                    <div className="text-white/35 text-[9px] font-mono uppercase tracking-[0.25em] mb-2">
+                      {hasPnl ? 'Amount' : (isBuy ? 'Spent' : 'Received')}
                     </div>
-                  )}
+                    <div
+                      className="text-2xl font-bold font-mono"
+                      style={{ color: isPositive ? "#c8ff00" : "#ff5252" }}
+                    >
+                      {isBuy ? "-" : "+"}{data.amountSol.toFixed(4)}
+                    </div>
+                    <div className="text-white/30 text-xs font-mono mt-0.5">SOL</div>
+                  </div>
                 </div>
 
                 {/* Token info row */}

@@ -5,7 +5,7 @@ import { Connection, Transaction, VersionedTransaction, PublicKey, LAMPORTS_PER_
 import { getRpcUrl } from "./useSolanaWallet";
 import { getCachedBlockhash } from "@/lib/blockhashCache";
 import bs58 from "bs58";
-import { sendRawToAllEndpoints } from "@/lib/jitoBundle";
+
 
 // Hook that uses Privy - MUST only be called inside PrivyProvider when privyAvailable is true
 // IMPORTANT: This project uses EMBEDDED wallets only. External wallets are intentionally ignored.
@@ -101,12 +101,8 @@ export function useSolanaWalletWithPrivy() {
 
         console.log("[useSolanaWalletPrivy] Tx sent, signature:", signature);
 
-        // Parallel submit to ALL Jito endpoints + Helius for maximum speed (fire-and-forget)
-        try {
-          sendRawToAllEndpoints(serializedTx);
-        } catch {
-          // Non-fatal: parallel submission is best-effort
-        }
+        // Skip Jito fan-out: Privy's signAndSendTransaction already submitted the tx.
+        // Resubmitting causes 400 errors (duplicate signature / stale blockhash).
 
         // Optimistic: don't block on confirmation. Poll in background.
         connection.confirmTransaction(
