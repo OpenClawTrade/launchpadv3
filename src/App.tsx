@@ -130,6 +130,7 @@ const App = () => (
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
                     <Route path="/tokens" element={<AllTokensPage />} />
+                    <Route path="/69" element={<SixtyNineListPage />} />
                     <Route path="/launchpad" element={<CreateTokenPage />} />
                     <Route path="/launchpad/create" element={<CreateTokenPage />} />
                     <Route path="/terminal" element={<FunLauncherPage />} />
