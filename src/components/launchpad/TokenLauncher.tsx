@@ -203,12 +203,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
   const [isEditingBannerText, setIsEditingBannerText] = useState(false);
   const [bannerImageUrl, setBannerImageUrl] = useState("");
 
-  // Fetch Privy balance when wallet is ready
-  useState(() => {
-    if (privyWalletReady && privyWalletAddress) {
-      getPrivyBalance().then(b => setPrivyBalance(b));
-    }
-  });
+  // Fetch Privy balance when wallet is ready  
+  // (inline import to avoid adding useEffect import if missing)
+  const privyBalanceFetchedRef = useState(() => false);
+  if (!privyBalanceFetchedRef[0] && privyWalletReady && privyWalletAddress) {
+    privyBalanceFetchedRef[1](true);
+    getPrivyBalance().then(b => setPrivyBalance(b));
+  }
 
   const isValidSolanaAddress = (address: string) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
 
