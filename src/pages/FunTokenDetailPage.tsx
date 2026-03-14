@@ -869,20 +869,20 @@ export default function FunTokenDetailPage() {
                 ? (['chart', 'comments'] as const)
                 : (['trade', 'chart', 'comments'] as const);
               return (
-                <div className={`grid gap-1.5 ${isPunchToken ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                <div className={`grid gap-1 ${isPunchToken ? 'grid-cols-2' : 'grid-cols-3'}`}>
                   {tabs.map(tab => (
                     <button
                       key={tab}
                       onClick={() => setMobileTab(tab as any)}
-                      className={`py-3 text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 min-h-[48px] rounded-lg ${
+                      className={`py-2 text-[11px] font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1 min-h-[36px] rounded-lg ${
                         mobileTab === tab
                           ? 'trade-tab-active'
                           : 'trade-glass-panel text-muted-foreground hover:text-foreground active:bg-card/40'
                       }`}
                     >
-                      {tab === 'trade' && <Activity className="h-4 w-4" />}
-                      {tab === 'chart' && <BarChart3 className="h-4 w-4" />}
-                      {tab === 'comments' && <MessageCircle className="h-4 w-4" />}
+                      {tab === 'trade' && <Activity className="h-3.5 w-3.5" />}
+                      {tab === 'chart' && <BarChart3 className="h-3.5 w-3.5" />}
+                      {tab === 'comments' && <MessageCircle className="h-3.5 w-3.5" />}
                       {tab}
                     </button>
                   ))}
