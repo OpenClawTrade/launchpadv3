@@ -86,7 +86,10 @@ export function useAlphaTrades(limit = 50) {
   const enrichedTrades = useMemo(() => {
     return trades.map((t) => ({
       ...t,
-      token_image_url: tokenImages.get(t.token_mint) || null,
+      token_image_url:
+        tokenImages.get(t.token_mint) ||
+        `https://dd.dexscreener.com/ds-data/tokens/solana/${t.token_mint}.png` ||
+        null,
     }));
   }, [trades, tokenImages]);
 
