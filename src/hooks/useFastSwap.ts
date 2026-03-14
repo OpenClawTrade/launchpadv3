@@ -50,7 +50,7 @@ function getOrCreateDbcClient(connection: Connection, rpcUrl: string): DynamicBo
 export function useFastSwap() {
   const { signAndSendTransaction, walletAddress, getConnection } = useSolanaWalletWithPrivy();
   const { buyToken, sellToken } = useJupiterSwap();
-  const { profileId } = useAuth();
+  const { profileId, solanaAddress } = useAuth();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
@@ -62,14 +62,22 @@ export function useFastSwap() {
     signature: string,
     outputAmount?: number,
   ) => {
-    if (!walletAddress || !signature) return;
+    const resolvedWallet = walletAddress || solanaAddress;
+
+    if (!signature) return;
+    if (!resolvedWallet) {
+      console.warn('[FastSwap] Missing wallet for alpha tracker recording; skipping', {
+        signature: signature.slice(0, 12),
+      });
+      return;
+    }
 
     const amountSolForInsert = isBuy ? amount : (outputAmount ?? 0);
     const amountTokensForInsert = isBuy ? (outputAmount ?? 0) : amount;
 
-    // Path 1: direct client upsert (existing behavior)
+    // Path 1: direct client upsert
     await recordAlphaTrade({
-      walletAddress,
+      walletAddress: resolvedWallet,
       tokenMint: token.mint_address,
       tokenName: token.name,
       tokenTicker: token.ticker,
@@ -85,7 +93,7 @@ export function useFastSwap() {
       const { error } = await supabase.functions.invoke('launchpad-swap', {
         body: {
           mintAddress: token.mint_address,
-          userWallet: walletAddress,
+          userWallet: resolvedWallet,
           amount,
           isBuy,
           profileId: profileId || undefined,
@@ -103,7 +111,7 @@ export function useFastSwap() {
     } catch (err) {
       console.warn('[FastSwap] alpha_only invoke failed:', err);
     }
-  }, [walletAddress, profileId]);
+  }, [walletAddress, solanaAddress, profileId]);
 
   // Start blockhash poller on mount
   useEffect(() => {
