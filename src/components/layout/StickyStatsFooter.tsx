@@ -66,7 +66,7 @@ export function StickyStatsFooter() {
   const { data: launchpadStats, refetch: refetchLaunchpads } = useLaunchpadStats();
   const isMobile = useIsMobile();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [platformUsers, setPlatformUsers] = useState<number | null>(null);
+  
   const { pathname } = useLocation();
   const [selectedRegion, setSelectedRegion] = useState("EU-E");
   const [regionOpen, setRegionOpen] = useState(false);
