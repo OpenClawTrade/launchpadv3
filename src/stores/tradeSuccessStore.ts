@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export interface TradeSuccessData {
   type: 'buy' | 'sell';
   ticker: string;
+  tokenName?: string;
   amount?: string; // e.g. "0.5 SOL" or "100%"
   signature?: string;
   executionMs?: number;
