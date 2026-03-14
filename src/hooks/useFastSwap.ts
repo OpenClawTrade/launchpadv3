@@ -130,7 +130,20 @@ export function useFastSwap() {
     const { signature } = await signAndSendTransaction(swapTx);
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
-    // Record in DB (non-blocking) — dual path: record + alpha_only fallback
+    // ── Record trade (triple path: client-side direct + edge function record + alpha_only) ──
+    // Client-side direct insert — ironclad fallback that never silently fails
+    recordAlphaTrade({
+      walletAddress: walletAddress,
+      tokenMint: token.mint_address,
+      tokenName: token.name,
+      tokenTicker: token.ticker,
+      tradeType: isBuy ? 'buy' : 'sell',
+      amountSol: amount,
+      txHash: signature,
+      chain: 'solana',
+    });
+
+    // Edge function record mode (non-blocking, secondary)
     supabase.functions.invoke('launchpad-swap', {
       body: {
         mintAddress: token.mint_address,
@@ -144,21 +157,6 @@ export function useFastSwap() {
         onChainVirtualToken: virtualTokenReserves,
       },
     }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
-
-    // Alpha-only fallback — ensures trade shows in Alpha Tracker even if record mode fails
-    supabase.functions.invoke('launchpad-swap', {
-      body: {
-        mintAddress: token.mint_address,
-        userWallet: walletAddress,
-        amount,
-        isBuy,
-        profileId: profileId || undefined,
-        signature,
-        tokenName: token.name,
-        tokenTicker: token.ticker,
-        mode: 'alpha_only',
-      },
-    }).catch(() => {});
 
     return { success: true, signature, graduated: false };
   }, [walletAddress, getConnection, signAndSendTransaction, profileId]);
