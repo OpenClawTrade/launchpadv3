@@ -62,15 +62,15 @@ export function useFastSwap() {
     signature: string,
     outputAmount?: number,
   ) => {
-    if (!walletAddress || !signature) return;
+    const resolvedWallet = walletAddress || solanaAddress;
+
+    if (!signature) return;
+    if (!resolvedWallet) {
+      console.warn('[FastSwap] Missing wallet for alpha tracker recording; skipping', { signature: signature.slice(0, 12) });
+      return;
+    }
 
     const amountSolForInsert = isBuy ? amount : (outputAmount ?? 0);
-    const amountTokensForInsert = isBuy ? (outputAmount ?? 0) : amount;
-
-    // Path 1: direct client upsert (existing behavior)
-    await recordAlphaTrade({
-      walletAddress,
-      tokenMint: token.mint_address,
       tokenName: token.name,
       tokenTicker: token.ticker,
       tradeType: isBuy ? 'buy' : 'sell',
