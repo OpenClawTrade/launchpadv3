@@ -5,6 +5,8 @@ import { useChain } from "@/contexts/ChainContext";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { useLaunchpad, formatSolAmount, formatTokenAmount, Token } from "@/hooks/useLaunchpad";
+import { useWalletHoldings, TokenHolding as OnChainHolding } from "@/hooks/useWalletHoldings";
+import { useTokenMetadata } from "@/hooks/useTokenMetadata";
 import { useReferralCode, useReferralDashboard } from "@/hooks/useReferral";
 import { useExportWallet } from "@privy-io/react-auth/solana";
 import { usePrivy } from "@privy-io/react-auth";
