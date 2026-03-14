@@ -34,7 +34,12 @@ export function useAlphaTrades(limit = 50) {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (!error && data) {
+    if (error) {
+      console.error("[useAlphaTrades] Query failed:", error.message);
+      setLoading(false);
+      return;
+    }
+    if (data) {
       const tradesData = data as AlphaTrade[];
       setTrades(tradesData);
 
