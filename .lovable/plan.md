@@ -1,104 +1,51 @@
 
-## Privy-Powered 1-Click Token Launcher 🚀 PLANNED
 
-### Problem
-TokenLauncher (3078 lines) uses `usePhantomWallet` — requires Phantom browser extension. 
-Rest of the platform already uses Privy embedded wallet. Users shouldn't need Phantom to launch tokens.
+## Problem Analysis
 
-### Architecture
-1. **Replace `usePhantomWallet` with `useSolanaWalletPrivy`** in TokenLauncher
-   - Privy embedded wallet handles all on-chain signing (same as trading)
-   - Users logged in via Privy can launch directly — no Phantom popup
-   - Logged-out users can still generate memes, prompted to login on Launch
+After deep investigation, the trade from the screenshot (TX: `4TvsEJhh...`) exists **nowhere** in the database — not in `alpha_trades`, not in `wallet_trades`, not in `launchpad_transactions`. The recording is silently failing across ALL layers.
 
-2. **Simplify the "phantom" mode → "launch" mode**
-   - Remove Phantom-specific naming (`phantomWallet`, `isPhantomLaunching`, etc.)
-   - Rename to generic wallet references since Privy handles everything
-   - Keep all sub-modes (random, describe, realistic, custom)
+**Root causes identified:**
 
-3. **On-chain flow change:**
-   ```
-   Before: Phantom popup → user signs → broadcast
-   After:  Privy embedded wallet → auto-sign (1-click) → broadcast
-   ```
+1. **`recordAlphaTrade()` is fire-and-forget** — called without `await`, errors silently swallowed. If the browser navigates or garbage-collects before the HTTP request completes, the insert is lost.
 
-4. **Auth gate on launch:**
-   - Check `useAuth()` / `usePrivy()` for logged-in state
-   - If not logged in → trigger Privy login modal
-   - If logged in → use embedded wallet address, sign tx via `useSolanaWalletPrivy`
+2. **Edge function `launchpad-swap` alpha_only mode also fire-and-forget** — `.catch(() => {})` discards all errors.
 
-### Files to modify:
-- `src/components/launchpad/TokenLauncher.tsx` — swap wallet hook, remove Phantom refs
-- `src/components/panel/PanelPhantomTab.tsx` — rename, use Privy
-- `src/pages/CreateTokenPage.tsx` — remove `defaultMode="phantom"` refs
-- `src/components/launchpad/CreateTokenModal.tsx` — same
-- `src/pages/FunLauncherPage.tsx` — same
+3. **Missing trade paths** — Several components that execute trades do NOT call `recordAlphaTrade` at all:
+   - `QuickTradeButtons.tsx` — has buy/sell but no alpha recording
+   - `TradePanelWithSwap.tsx` — has buy/sell but no alpha recording
+   - `BnbTradePanel.tsx` — relies solely on the edge function
+   - `MobileTradePanelV2.tsx` — only records for non-bonding mode trades (bonding curve path skips recording)
 
-### Dependencies:
-- `src/hooks/useSolanaWalletPrivy.ts` (already exists, used by trading)
-- `src/hooks/useAuth.ts` (already exists)
-- Can potentially remove `src/hooks/usePhantomWallet.ts` entirely after migration
+4. **`fetch-wallet-transactions` sync misses trades** — The Helius enhanced API classifies many DeFi swaps as "receive" or "unknown" (as confirmed by the live API response showing only transfers). The `syncSwapsToAlphaTracker` function only processes `type === "swap"`, so most trades are never synced.
 
----
+## Plan
 
-## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
+### 1. Make `recordAlphaTrade` robust and awaited
+**File: `src/lib/recordAlphaTrade.ts`**
+- Add retry logic (2 attempts with 1s delay)
+- Add more descriptive error logging
+- Export as a reliable async function
 
-### What was built:
-1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
-   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
-   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
-   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
-   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
-   - Records trade in DB + alpha_trades (non-blocking)
-   - Returns signature immediately with timing breakdown
+### 2. Await `recordAlphaTrade` in all swap hooks
+**Files: `src/hooks/useFastSwap.ts`**
+- `await` the `recordAlphaTrade()` call in both `swapBondingCurve` and `executeFastSwap` graduated path
+- This ensures the insert completes before the function returns
 
-2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
-   - Single `supabase.functions.invoke('turbo-trade')` call
-   - No client-side tx building or signing
-   - Background query invalidation after 500ms
-   - Logs client roundtrip vs server execution time
+### 3. Add `recordAlphaTrade` to missing trade paths
+**File: `src/components/launchpad/QuickTradeButtons.tsx`** — Add recording after successful buy/sell
+**File: `src/components/launchpad/TradePanelWithSwap.tsx`** — Add recording after successful trade
+**File: `src/components/launchpad/MobileTradePanelV2.tsx`** — Add recording in the bonding curve path (currently skipped when `isBondingMode` is true)
 
-3. **Wired into trade components:**
-   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
-   - `PortfolioModal.tsx` — uses `useTurboSwap`
+### 4. Fix `MobileTradePanelV2` bonding mode gap
+**File: `src/components/launchpad/MobileTradePanelV2.tsx`**
+- Currently, when `isBondingMode && bondingToken`, the trade executes via `executeRealSwap` but the `recordAlphaTrade` block is inside an `else` that only runs for non-bonding trades
+- Move `recordAlphaTrade` call to run for ALL successful trades regardless of mode
 
-### Expected latency:
-```
-Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
-After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
-```
+### 5. Improve `fetch-wallet-transactions` swap detection
+**File: `supabase/functions/fetch-wallet-transactions/index.ts`**
+- Expand swap detection beyond just `type === "swap"` — also check for token transfers with corresponding SOL transfers (the DeFi swap pattern that Helius often classifies as "unknown")
+- This acts as a secondary catch-all when the user opens their Panel
 
----
+### 6. Backfill today's missing trades
+**Database migration** — One-time query to sync any trades from `wallet_trades` that are missing from `alpha_trades` (the trigger should handle new ones, but existing gaps need filling)
 
-## 6-Phase Axiom Feature Integration Plan (SAVED)
-
-### Phase 1: Copy Trade Execution
-- New `copy-trade-execute` edge function
-- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
-- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
-- New `copy_trade_log` table
-
-### Phase 2: Limit Orders (SL/TP)
-- Jupiter limit order program integration
-- `limit-order-create` edge function
-- `limit_orders` DB table
-- Limit order tab in trade panel
-
-### Phase 3: Real-Time WebSocket Token Feed
-- Helius WebSocket for sub-1s new pair detection
-- Replace Codex polling (~30s) 
-- Edge function → Supabase Realtime channel
-
-### Phase 4: DCA (Dollar Cost Averaging)
-- `dca_orders` DB table
-- `dca-execute` cron edge function
-- DCA tab in trade panel
-
-### Phase 5: Enhanced Token Safety
-- LP lock status, mint authority, honeypot detection
-- Safety score badge on Pulse cards
-
-### Phase 6: Wallet PnL Analytics
-- `wallet-pnl-calculate` edge function
-- Per-wallet realized/unrealized PnL
-- Rank tracked wallets by performance
