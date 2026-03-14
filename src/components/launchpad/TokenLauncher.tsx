@@ -1637,7 +1637,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
     { id: "describe" as const, label: "Describe", icon: Sparkles },
     { id: "realistic" as const, label: "Realistic", icon: Camera },
     { id: "custom" as const, label: "Custom", icon: Pencil },
-    { id: "phantom" as const, label: "Phantom", icon: Wallet },
+    { id: "phantom" as const, label: "1-Click Launch", icon: Rocket },
     { id: "holders" as const, label: "Holders", icon: Users },
     ...(funModeUnlocked ? [{ id: "fun" as const, label: "FUN", icon: PartyPopper }] : []),
   ];
