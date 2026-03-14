@@ -232,7 +232,7 @@ export default function CareersPage() {
             </span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Join the team building MoonDexo — the world's first AI agent operating system for autonomous trading and token launches on Solana.
+            Join the team building {BRAND.name} — the world's first AI agent operating system for autonomous trading and token launches on Solana.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border">
