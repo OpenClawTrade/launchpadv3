@@ -211,6 +211,8 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
 
   return (
     <div className="w-full">
+      {/* Scrolling launched token cards */}
+      <LaunchedTokensMarquee />
       {/* Filters Dialog */}
       <PulseFiltersDialog
         open={filtersOpen}
