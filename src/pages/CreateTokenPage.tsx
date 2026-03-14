@@ -126,12 +126,11 @@ export default function CreateTokenPage() {
               </div>
 
               {/* My Tokens link */}
-              <Link
-                to="/panel?tab=earnings"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors mt-2"
-              >
-                <Coins className="w-3.5 h-3.5" />
-                My Tokens & Earnings
+              <Link to="/panel?tab=earnings">
+                <Button variant="outline" size="sm" className="mt-2 rounded-md text-xs">
+                  <Coins className="w-3.5 h-3.5 mr-1.5" />
+                  My Tokens
+                </Button>
               </Link>
             </div>
           </div>
