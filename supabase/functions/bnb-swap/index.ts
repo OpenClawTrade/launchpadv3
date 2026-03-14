@@ -660,7 +660,43 @@ Deno.serve(async (req) => {
 
     // Record trade
     try {
-      await supabase.from("alpha_trades").insert({
+      // Fetch token name/ticker from fun_tokens or claw_tokens if available
+      let bnbTokenName: string | null = null;
+      let bnbTokenTicker: string | null = null;
+      const { data: funToken } = await supabase
+        .from("fun_tokens")
+        .select("name, ticker")
+        .eq("evm_token_address", body.tokenAddress)
+        .single();
+      if (funToken) {
+        bnbTokenName = funToken.name;
+        bnbTokenTicker = funToken.ticker;
+      } else {
+        const { data: clawToken } = await supabase
+          .from("claw_tokens")
+          .select("name, ticker")
+          .ilike("mint_address", body.tokenAddress)
+          .single();
+        if (clawToken) {
+          bnbTokenName = clawToken.name;
+          bnbTokenTicker = clawToken.ticker;
+        }
+      }
+
+      // Fetch trader profile info if privyUserId is available
+      let bnbTraderName: string | null = null;
+      let bnbTraderAvatar: string | null = null;
+      const { data: traderProfile } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("wallet_address", walletAddress)
+        .single();
+      if (traderProfile) {
+        bnbTraderName = traderProfile.display_name;
+        bnbTraderAvatar = traderProfile.avatar_url;
+      }
+
+      await supabase.from("alpha_trades").upsert({
         token_mint: body.tokenAddress,
         wallet_address: walletAddress,
         trade_type: body.action,
@@ -668,7 +704,11 @@ Deno.serve(async (req) => {
         amount_tokens: parseFloat(estimatedOutput) || 0,
         tx_hash: txHash!,
         chain: "bnb",
-      });
+        token_name: bnbTokenName,
+        token_ticker: bnbTokenTicker,
+        trader_display_name: bnbTraderName,
+        trader_avatar_url: bnbTraderAvatar,
+      }, { onConflict: "tx_hash" });
     } catch (recordErr) {
       console.error("[bnb-swap] Failed to record trade:", recordErr);
     }
