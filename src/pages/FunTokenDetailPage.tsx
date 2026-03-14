@@ -899,7 +899,11 @@ export default function FunTokenDetailPage() {
           <div className="md:hidden flex flex-col gap-2">
             {mobileTab === 'trade' && !isPunchToken && (
               <>
-                <TradeSection />
+                <MobileTradePanelV2
+                  bondingToken={isBonding ? tokenForTradePanel : undefined}
+                  externalToken={isGraduated && token.mint_address ? { mint_address: token.mint_address, ticker: token.ticker, name: token.name, decimals: 9, price_sol: token.price_sol || 0, imageUrl: token.image_url || undefined } : undefined}
+                  userTokenBalance={0}
+                />
                 <EmbeddedWalletCard />
               </>
             )}
