@@ -776,7 +776,8 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
           telegramUrl: holdersToken.telegramUrl || "",
           discordUrl: holdersToken.discordUrl || "",
           phantomWallet: phantomWallet.address,
-          tradingFeeBps: 200, // Fixed 2% for holders mode
+          tradingFeeBps: 300, // 2% creator + 1% platform = 3% total for holders mode
+          creatorFeeBps: 200, // 2% creator portion
           feeMode: 'holders',
         },
       });
