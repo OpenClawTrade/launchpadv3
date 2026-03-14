@@ -113,11 +113,11 @@ serve(async (req) => {
       tokenSource = "tokens";
     } else {
       // Fallback to fun_tokens table
-      const { data: funToken, error: funError } = await supabase
+      const { data: funToken } = await supabase
         .from("fun_tokens")
         .select("*")
         .eq("mint_address", mintAddress)
-        .single();
+        .maybeSingle();
 
       if (funToken) {
         token = {
