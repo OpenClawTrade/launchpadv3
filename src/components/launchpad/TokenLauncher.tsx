@@ -963,8 +963,13 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
   }, [phantomWallet, holdersToken, holdersMeme, holdersImagePreview, toast, uploadHoldersImageIfNeeded, onLaunchSuccess, onShowResult]);
 
   const handlePhantomLaunch = useCallback(async (feeMode?: 'standard' | 'holders') => {
-    if (!phantomWallet.isConnected || !phantomWallet.address) {
-      toast({ title: "Wallet not connected", description: "Connect Phantom first", variant: "destructive" });
+    // Determine which wallet to use based on launchWalletMode
+    const usePrivy = launchWalletMode === "privy";
+    const activeWalletAddress = usePrivy ? privyWalletAddress : phantomWallet.address;
+    const isWalletConnected = usePrivy ? (isAuthenticated && privyWalletReady && !!privyWalletAddress) : (phantomWallet.isConnected && !!phantomWallet.address);
+    
+    if (!isWalletConnected || !activeWalletAddress) {
+      toast({ title: "Wallet not connected", description: usePrivy ? "Login with Privy first" : "Connect Phantom first", variant: "destructive" });
       return;
     }
     if (!phantomToken.name.trim() || !phantomToken.ticker.trim()) {
