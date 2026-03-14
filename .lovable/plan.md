@@ -1,104 +1,43 @@
 
-## Privy-Powered 1-Click Token Launcher 🚀 PLANNED
 
-### Problem
-TokenLauncher (3078 lines) uses `usePhantomWallet` — requires Phantom browser extension. 
-Rest of the platform already uses Privy embedded wallet. Users shouldn't need Phantom to launch tokens.
+# Status Check: Previous Requests
 
-### Architecture
-1. **Replace `usePhantomWallet` with `useSolanaWalletPrivy`** in TokenLauncher
-   - Privy embedded wallet handles all on-chain signing (same as trading)
-   - Users logged in via Privy can launch directly — no Phantom popup
-   - Logged-out users can still generate memes, prompted to login on Launch
+## What's been done so far
+1. **Download button fix** — Done. Green "Download Generated img" button next to ticker, red X on images.
+2. **Privy 1-Click Launcher plan** — Written to `.lovable/plan.md` but **NOT implemented**. TokenLauncher still uses `usePhantomWallet` (confirmed — 10 references still in `TokenLauncher.tsx`).
+3. **Scrolling launched token cards above Pulse columns** — **NOT implemented**. No horizontal scrolling token card strip exists anywhere.
 
-2. **Simplify the "phantom" mode → "launch" mode**
-   - Remove Phantom-specific naming (`phantomWallet`, `isPhantomLaunching`, etc.)
-   - Rename to generic wallet references since Privy handles everything
-   - Keep all sub-modes (random, describe, realistic, custom)
+## What needs to be built (2 features)
 
-3. **On-chain flow change:**
-   ```
-   Before: Phantom popup → user signs → broadcast
-   After:  Privy embedded wallet → auto-sign (1-click) → broadcast
-   ```
+### Feature 1: Privy Wallet Option in Token Launcher
+**Current state:** TokenLauncher exclusively uses `usePhantomWallet`. No Privy integration.
 
-4. **Auth gate on launch:**
-   - Check `useAuth()` / `usePrivy()` for logged-in state
-   - If not logged in → trigger Privy login modal
-   - If logged in → use embedded wallet address, sign tx via `useSolanaWalletPrivy`
+**Plan:**
+- Add a wallet selector toggle at the top of the launcher: **Phantom** | **Privy** (keep both during testing)
+- When **Privy** is selected:
+  - If not logged in → show "Connect Wallet" button that triggers Privy login modal
+  - After login → show the embedded wallet address + balance
+  - If balance is insufficient → show deposit flow: "Send SOL to this address" with the embedded wallet address, plus a fast balance poller (Alchemy/Helius RPC, 2-3s interval) that detects incoming SOL and shows "Ready to launch!"
+  - If balance is sufficient → 1-click launch: metadata submission + token creation + dev buy all happen via Privy embedded wallet auto-sign (no popups, same as turbo-trade pattern)
+- When **Phantom** is selected → existing flow unchanged
 
-### Files to modify:
-- `src/components/launchpad/TokenLauncher.tsx` — swap wallet hook, remove Phantom refs
-- `src/components/panel/PanelPhantomTab.tsx` — rename, use Privy
-- `src/pages/CreateTokenPage.tsx` — remove `defaultMode="phantom"` refs
-- `src/components/launchpad/CreateTokenModal.tsx` — same
-- `src/pages/FunLauncherPage.tsx` — same
+**Files to modify:**
+- `TokenLauncher.tsx` — add wallet mode toggle, import `useSolanaWalletPrivy` + `useAuth`, conditional signing logic
+- `useTokenLaunch.ts` — accept either Phantom or Privy signer
+- New component: `LaunchpadDepositPrompt.tsx` — deposit address display + balance poller with "Ready to launch" state
 
-### Dependencies:
-- `src/hooks/useSolanaWalletPrivy.ts` (already exists, used by trading)
-- `src/hooks/useAuth.ts` (already exists)
-- Can potentially remove `src/hooks/usePhantomWallet.ts` entirely after migration
+### Feature 2: Scrolling Launched Token Cards Above Pulse
+**What:** A horizontal auto-scrolling marquee strip of recently launched token cards, placed above the 3 Pulse columns (New Pairs / Final Stretch / Migrated).
 
----
+**Plan:**
+- New component: `LaunchedTokensMarquee.tsx`
+  - Query `fun_tokens` table for recently launched tokens (last 50, ordered by `created_at DESC`)
+  - Render small token cards (image, ticker, market cap) in a CSS marquee/horizontal scroll animation
+  - Infinite scroll illusion by duplicating the list
+- Place it inside `AxiomTerminalGrid.tsx` at the top, before the column headers
+- Compact card design: token image (24px), ticker, and mcap in a pill-shaped card
 
-## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
+**Files to modify:**
+- New: `src/components/launchpad/LaunchedTokensMarquee.tsx`
+- `src/components/launchpad/AxiomTerminalGrid.tsx` — render marquee above columns
 
-### What was built:
-1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
-   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
-   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
-   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
-   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
-   - Records trade in DB + alpha_trades (non-blocking)
-   - Returns signature immediately with timing breakdown
-
-2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
-   - Single `supabase.functions.invoke('turbo-trade')` call
-   - No client-side tx building or signing
-   - Background query invalidation after 500ms
-   - Logs client roundtrip vs server execution time
-
-3. **Wired into trade components:**
-   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
-   - `PortfolioModal.tsx` — uses `useTurboSwap`
-
-### Expected latency:
-```
-Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
-After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
-```
-
----
-
-## 6-Phase Axiom Feature Integration Plan (SAVED)
-
-### Phase 1: Copy Trade Execution
-- New `copy-trade-execute` edge function
-- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
-- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
-- New `copy_trade_log` table
-
-### Phase 2: Limit Orders (SL/TP)
-- Jupiter limit order program integration
-- `limit-order-create` edge function
-- `limit_orders` DB table
-- Limit order tab in trade panel
-
-### Phase 3: Real-Time WebSocket Token Feed
-- Helius WebSocket for sub-1s new pair detection
-- Replace Codex polling (~30s) 
-- Edge function → Supabase Realtime channel
-
-### Phase 4: DCA (Dollar Cost Averaging)
-- `dca_orders` DB table
-- `dca-execute` cron edge function
-- DCA tab in trade panel
-
-### Phase 5: Enhanced Token Safety
-- LP lock status, mint authority, honeypot detection
-- Safety score badge on Pulse cards
-
-### Phase 6: Wallet PnL Analytics
-- `wallet-pnl-calculate` edge function
-- Per-wallet realized/unrealized PnL
-- Rank tracked wallets by performance
