@@ -1074,7 +1074,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
             twitterUrl: phantomToken.twitterUrl || "",
             telegramUrl: phantomToken.telegramUrl || "",
             discordUrl: phantomToken.discordUrl || "",
-            phantomWallet: phantomWallet.address,
+            phantomWallet: activeWalletAddress,
             tradingFeeBps: phantomTradingFee + 100, // creator fee + 1% platform base
             creatorFeeBps: phantomTradingFee, // creator portion only
             devBuySol: phantomDevBuySol, // Dev buy amount - atomic with pool creation
