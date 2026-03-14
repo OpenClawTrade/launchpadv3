@@ -4,7 +4,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
 import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { BnbLauncher } from "@/components/launchpad/BnbLauncher";
-import { Rocket, ExternalLink, CheckCircle2, ArrowLeft, Shield, Zap, Coins, Copy, Check } from "lucide-react";
+import { Rocket, ExternalLink, CheckCircle2, ArrowLeft, Shield, Zap, Coins, Copy, Check, TrendingUp } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useChain } from "@/contexts/ChainContext";
 import { useToast } from "@/hooks/use-toast";
