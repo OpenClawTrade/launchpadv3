@@ -262,14 +262,19 @@ export function UniversalTradePanel({ token, userTokenBalance: externalTokenBala
 
       setAmount(''); setQuote(null); setSelectedPreset(null);
 
-      // Show profit card modal
+      // Show profit card modal with live PnL data
+      const solReceived = !isBuy ? (result.outputAmount ?? outputAmount) : undefined;
+      const solSpent = isBuy ? numericAmount : undefined;
+      // For sells, compute PnL: compare SOL received vs what was paid (estimated from current price)
+      // Since we don't have cost basis, show the SOL value received
       setProfitCardData({
         action: isBuy ? 'buy' : 'sell',
-        amountSol: numericAmount,
+        amountSol: isBuy ? numericAmount : (solReceived ?? numericAmount * (token.price_sol || 0)),
         tokenTicker: token.ticker,
         tokenName: token.name,
         outputAmount: result.outputAmount,
         signature: result.signature,
+        tokenImageUrl: token.imageUrl,
       });
       setShowProfitCard(true);
 
