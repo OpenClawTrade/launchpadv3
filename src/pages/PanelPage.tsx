@@ -30,6 +30,7 @@ export default function PanelPage() {
   const { isAdmin } = useIsAdmin(solanaAddress);
   const { chain, chainConfig } = useChain();
   const evmWallet = useEvmWallet();
+  const { walletAddress: embeddedSolAddress } = useSolanaWalletWithPrivy();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [adminTab, setAdminTab] = useState<string | null>(null);
