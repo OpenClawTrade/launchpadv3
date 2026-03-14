@@ -248,11 +248,11 @@ Deno.serve(async (req) => {
       // NOTE: JSON.stringify omits undefined values, so this disappears when website is blank.
       external_url: website || undefined,
       // Tags array for Solscan tag chips
-      tags: ['Meme', 'CLAW'],
+      tags: ['Meme', 'STRN'],
       attributes: [
         {
           trait_type: 'Platform',
-          value: 'CLAW',
+          value: 'Saturn',
         },
         {
           trait_type: 'Status',

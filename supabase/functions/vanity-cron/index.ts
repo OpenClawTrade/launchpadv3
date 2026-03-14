@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
           const { error: insertError } = await supabase
             .from('vanity_keypairs')
             .insert({
-              suffix: TARGET_SUFFIX.toLowerCase(),
+              suffix: TARGET_SUFFIX,
               public_key: keypair.address,
               secret_key_encrypted: encryptedSecretKey,
               status: 'available',
