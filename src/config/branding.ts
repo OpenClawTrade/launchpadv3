@@ -12,7 +12,7 @@ export const BRAND = {
   // ── Core Identity ──
   name: "Saturn",
   shortName: "Saturn",
-  tagline: "The fastest AI-powered trading terminal on Solana",
+  tagline: "The fastest trading terminal on Solana",
   description: "Autonomous AI agents that launch tokens and trade on Solana.",
 
   // ── Domain & URLs ──
