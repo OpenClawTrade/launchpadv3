@@ -129,7 +129,7 @@ export function useFastSwap() {
     const { signature } = await signAndSendTransaction(swapTx);
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
-    // Record in DB (non-blocking)
+    // Record in DB (non-blocking) — dual path: record + alpha_only fallback
     supabase.functions.invoke('launchpad-swap', {
       body: {
         mintAddress: token.mint_address,
@@ -143,6 +143,21 @@ export function useFastSwap() {
         onChainVirtualToken: virtualTokenReserves,
       },
     }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
+
+    // Alpha-only fallback — ensures trade shows in Alpha Tracker even if record mode fails
+    supabase.functions.invoke('launchpad-swap', {
+      body: {
+        mintAddress: token.mint_address,
+        userWallet: walletAddress,
+        amount,
+        isBuy,
+        profileId: profileId || undefined,
+        signature,
+        tokenName: token.name,
+        tokenTicker: token.ticker,
+        mode: 'alpha_only',
+      },
+    }).catch(() => {});
 
     return { success: true, signature, graduated: false };
   }, [walletAddress, getConnection, signAndSendTransaction, profileId]);
@@ -197,7 +212,7 @@ export function useFastSwap() {
       if (token.status === 'graduated') {
         result = await swapGraduated(token, amount, isBuy, slippageBps);
 
-        // Record graduated/Jupiter swap in DB (non-blocking) — same pattern as bonding curve
+        // Record graduated/Jupiter swap in DB (non-blocking)
         supabase.functions.invoke('launchpad-swap', {
           body: {
             mintAddress: token.mint_address,
@@ -209,6 +224,22 @@ export function useFastSwap() {
             mode: 'record',
           },
         }).catch(err => console.warn('[FastSwap] DB record for graduated swap failed (non-fatal):', err));
+
+        // Alpha-only fallback — ensures trade shows in Alpha Tracker even if token not in DB
+        supabase.functions.invoke('launchpad-swap', {
+          body: {
+            mintAddress: token.mint_address,
+            userWallet: walletAddress,
+            amount,
+            isBuy,
+            profileId: profileId || undefined,
+            signature: result.signature,
+            outputAmount: isBuy ? result.tokensOut : result.solOut,
+            tokenName: token.name,
+            tokenTicker: token.ticker,
+            mode: 'alpha_only',
+          },
+        }).catch(() => {});
       } else {
         result = await swapBondingCurve(token, amount, isBuy, slippageBps);
       }

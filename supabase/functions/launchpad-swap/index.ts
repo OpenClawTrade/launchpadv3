@@ -72,7 +72,7 @@ serve(async (req) => {
         const solAmount = isBuy ? amount : (outputAmount || 0);
         const tokensAmount = isBuy ? (outputAmount || 0) : amount;
 
-        await supabase.from("alpha_trades").insert({
+        await supabase.from("alpha_trades").upsert({
           wallet_address: userWallet,
           token_mint: mintAddress,
           token_name: tokenName || null,
@@ -86,7 +86,7 @@ serve(async (req) => {
           trader_display_name: traderDisplayName,
           trader_avatar_url: traderAvatarUrl,
           chain: 'solana',
-        });
+        }, { onConflict: "tx_hash" });
         console.log("[launchpad-swap] Alpha-only trade recorded successfully");
       } catch (alphaErr) {
         console.warn("[launchpad-swap] alpha_trades insert failed:", alphaErr);
@@ -254,7 +254,7 @@ serve(async (req) => {
             traderAvatarUrl = profile.avatar_url;
           }
         }
-        await supabase.from("alpha_trades").insert({
+        await supabase.from("alpha_trades").upsert({
           wallet_address: userWallet,
           token_mint: token.mint_address,
           token_name: token.name,
@@ -268,7 +268,7 @@ serve(async (req) => {
           trader_display_name: traderDisplayName,
           trader_avatar_url: traderAvatarUrl,
           chain: 'solana',
-        });
+        }, { onConflict: "tx_hash" });
       } catch (alphaErr) {
         console.warn("[launchpad-swap] alpha_trades insert failed (non-fatal):", alphaErr);
       }
@@ -554,7 +554,7 @@ serve(async (req) => {
           traderAvatarUrl = profile.avatar_url;
         }
       }
-      await supabase.from("alpha_trades").insert({
+      await supabase.from("alpha_trades").upsert({
         wallet_address: userWallet,
         token_mint: token.mint_address,
         token_name: token.name,
@@ -568,7 +568,7 @@ serve(async (req) => {
         trader_display_name: traderDisplayName,
         trader_avatar_url: traderAvatarUrl,
         chain: 'solana',
-      });
+      }, { onConflict: "tx_hash" });
     } catch (alphaErr) {
       console.warn("[launchpad-swap] alpha_trades insert failed (non-fatal):", alphaErr);
     }
