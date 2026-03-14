@@ -218,14 +218,16 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
 
           {/* Phone tab switcher */}
           <div className="md:hidden">
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="flex bg-muted/30 rounded-lg p-0.5 border border-border/20">
               {(['trade', 'chart'] as const).map(tab => (
                 <button key={tab} onClick={() => setMobileTab(tab)}
-                  className={`py-3 text-xs font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 min-h-[48px] rounded-lg ${
-                    mobileTab === tab ? 'trade-tab-active' : 'trade-glass-panel text-muted-foreground hover:text-foreground active:bg-card/40'
+                  className={`flex-1 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-all flex items-center justify-center gap-1 rounded-md ${
+                    mobileTab === tab
+                      ? 'bg-secondary/80 text-foreground font-semibold border-b-2 border-primary shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}>
-                  {tab === 'trade' && <Activity className="h-4 w-4" />}
-                  {tab === 'chart' && <BarChart3 className="h-4 w-4" />}
+                  {tab === 'trade' && <Activity className="h-3 w-3" />}
+                  {tab === 'chart' && <BarChart3 className="h-3 w-3" />}
                   {tab}
                 </button>
               ))}
