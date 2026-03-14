@@ -7,6 +7,7 @@ import { Loader2, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealSwap } from "@/hooks/useRealSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { recordAlphaTrade } from "@/lib/recordAlphaTrade";
 
 interface QuickTradeButtonsProps {
   token: Token;
@@ -53,6 +54,20 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
     setLoadingIndex(index);
     try {
       const result = await executeRealSwap(token, solAmount, true);
+
+      // Record to alpha tracker
+      if (result.signature) {
+        await recordAlphaTrade({
+          walletAddress: solanaAddress!,
+          tokenMint: token.mint_address,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          tradeType: 'buy',
+          amountSol: solAmount,
+          txHash: result.signature,
+          chain: 'solana',
+        });
+      }
 
       toast({
         title: "Buy successful!",
@@ -120,6 +135,20 @@ export function QuickTradeButtons({ token, userBalance = 0, onTradeComplete }: Q
         return;
       }
       const result = await executeRealSwap(token, tokenAmount, false);
+
+      // Record to alpha tracker
+      if (result.signature) {
+        await recordAlphaTrade({
+          walletAddress: solanaAddress!,
+          tokenMint: token.mint_address,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          tradeType: 'sell',
+          amountSol: tokenAmount,
+          txHash: result.signature,
+          chain: 'solana',
+        });
+      }
 
       toast({
         title: "Sell successful!",

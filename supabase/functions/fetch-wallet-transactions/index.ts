@@ -160,8 +160,32 @@ function inferTxType(tx: any, wallet: string): "send" | "receive" | "swap" | "un
 }
 
 /**
+ * Detect if a transaction looks like a DeFi swap even if Helius classified it
+ * as "unknown", "receive", or "send". Pattern: wallet sends SOL AND receives
+ * tokens (buy), or wallet sends tokens AND receives SOL (sell).
+ */
+function isLikelySwap(tx: any, wallet: string): boolean {
+  const nativeTransfers = tx.nativeTransfers || [];
+  const tokenTransfers = tx.tokenTransfers || [];
+  const WSOL = "So11111111111111111111111111111111111111112";
+
+  const solOut = nativeTransfers.some((t: any) => t.fromUserAccount === wallet && t.amount > 10000);
+  const solIn = nativeTransfers.some((t: any) => t.toUserAccount === wallet && t.amount > 10000);
+  const tokenIn = tokenTransfers.some((t: any) => t.toUserAccount === wallet && t.mint !== WSOL);
+  const tokenOut = tokenTransfers.some((t: any) => t.fromUserAccount === wallet && t.mint !== WSOL);
+
+  // Buy pattern: SOL out + token in
+  if (solOut && tokenIn) return true;
+  // Sell pattern: token out + SOL in
+  if (tokenOut && solIn) return true;
+
+  return false;
+}
+
+/**
  * Sync swap transactions from Helius enhanced data into alpha_trades.
  * Uses service role to bypass RLS. Upserts on tx_hash to prevent duplicates.
+ * Now detects swaps that Helius misclassifies as unknown/receive/send.
  */
 async function syncSwapsToAlphaTracker(
   walletAddress: string,
@@ -173,20 +197,21 @@ async function syncSwapsToAlphaTracker(
   if (!supabaseUrl || !serviceKey) return;
 
   const sb = createClient(supabaseUrl, serviceKey);
-
-  // Only sync successful swaps
+  const WSOL = "So11111111111111111111111111111111111111112";
   const swapRows: any[] = [];
 
   for (let i = 0; i < parsedTxs.length; i++) {
     const parsed = parsedTxs[i];
     const raw = enhancedTxs[i];
-    if (parsed.type !== "swap" || parsed.status !== "success") continue;
+    if (parsed.status !== "success") continue;
 
-    // Extract token info from enhanced tx
+    // Accept explicit swaps OR likely-swap heuristic
+    const isSwap = parsed.type === "swap" || isLikelySwap(raw, walletAddress);
+    if (!isSwap) continue;
+
     const tokenTransfers = raw?.tokenTransfers || [];
     const nativeTransfers = raw?.nativeTransfers || [];
 
-    // Determine if buy or sell by checking SOL flow
     const solOut = nativeTransfers
       .filter((t: any) => t.fromUserAccount === walletAddress)
       .reduce((sum: number, t: any) => sum + (t.amount || 0), 0) / 1e9;
@@ -197,11 +222,8 @@ async function syncSwapsToAlphaTracker(
     const isBuy = solOut > solIn;
     const solAmount = Math.abs(isBuy ? solOut - solIn : solIn - solOut);
 
-    // Skip dust / negligible amounts
     if (solAmount < 0.0001) continue;
 
-    // Find the non-SOL token involved
-    const WSOL = "So11111111111111111111111111111111111111112";
     const nonSolTransfer = tokenTransfers.find((t: any) => t.mint !== WSOL);
     const tokenMint = nonSolTransfer?.mint || parsed.token || "unknown";
     const tokenAmount = nonSolTransfer?.tokenAmount || parsed.amount || 0;

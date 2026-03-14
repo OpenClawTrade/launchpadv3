@@ -131,8 +131,8 @@ export function useFastSwap() {
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
     // ── Record trade (triple path: client-side direct + edge function record + alpha_only) ──
-    // Client-side direct insert — ironclad fallback that never silently fails
-    recordAlphaTrade({
+    // Client-side direct insert — awaited to prevent silent loss
+    await recordAlphaTrade({
       walletAddress: walletAddress,
       tokenMint: token.mint_address,
       tokenName: token.name,
@@ -211,8 +211,8 @@ export function useFastSwap() {
       if (token.status === 'graduated') {
         result = await swapGraduated(token, amount, isBuy, slippageBps);
 
-        // Client-side direct insert — ironclad fallback
-        recordAlphaTrade({
+        // Client-side direct insert — awaited to prevent silent loss
+        await recordAlphaTrade({
           walletAddress: walletAddress!,
           tokenMint: token.mint_address,
           tokenName: token.name,

@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRealSwap } from "@/hooks/useRealSwap";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { ProfitCardModal, type ProfitCardData } from "@/components/launchpad/ProfitCardModal";
+import { recordAlphaTrade } from "@/lib/recordAlphaTrade";
 
 interface TradePanelWithSwapProps {
   token: Token;
@@ -164,6 +165,20 @@ export function TradePanelWithSwap({ token, userBalance = 0 }: TradePanelWithSwa
     setIsLoading(true);
     try {
       const result = await executeRealSwap(token, tradeAmount, isBuy, slippage * 100);
+
+      // Record to alpha tracker
+      if (result.signature) {
+        await recordAlphaTrade({
+          walletAddress: solanaAddress!,
+          tokenMint: token.mint_address,
+          tokenName: token.name,
+          tokenTicker: token.ticker,
+          tradeType: isBuy ? 'buy' : 'sell',
+          amountSol: tradeAmount,
+          txHash: result.signature,
+          chain: 'solana',
+        });
+      }
 
       setAmount('');
       setSelectedPreset(null);
