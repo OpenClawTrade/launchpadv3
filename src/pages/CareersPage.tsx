@@ -209,7 +209,7 @@ export default function CareersPage() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to MoonDexo</span>
+            <span className="text-sm">Back to {BRAND.name}</span>
           </Link>
           <Button onClick={handleApplyClick} className="bg-primary hover:bg-primary/90 gap-2">
             <XLogo className="h-4 w-4" weight="fill" />
