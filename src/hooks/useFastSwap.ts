@@ -263,7 +263,7 @@ export function useFastSwap() {
       tokensOut: isBuy ? result.outputAmount : undefined,
       solOut: !isBuy ? result.outputAmount : undefined,
     };
-  }, [walletAddress, signAndSendTransaction, buyToken, sellToken]);
+  }, [walletAddress, signAndSendTransaction, buyToken, sellToken, getTokenBalanceRaw]);
 
   /**
    * Main fast swap — routes based on token status, optimistic UI

@@ -290,6 +290,7 @@ export function useSolanaWalletWithPrivy() {
     getBalance,
     getBalanceStrict,
     getTokenBalance,
+    getTokenBalanceRaw,
     signAndSendTransaction,
     signTransaction,
     getSolanaWallet,
