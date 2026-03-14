@@ -337,8 +337,8 @@ serve(async (req) => {
       if (isHolderRewards) {
         // HOLDER REWARDS MODE: Route 50% to holder_reward_pool instead of creator
         // The fun-holder-distribute cron will distribute to holders every 5 minutes
-        const holderAmount = claimedSol * CREATOR_FEE_SHARE; // 50% goes to holder pool
-        let platformAmount = claimedSol * (1 - CREATOR_FEE_SHARE); // 50% platform
+        const { creatorSol: holderAmount, platformSol: holderPlatformAmount } = calculateCreatorShare(claimedSol, token.creator_fee_bps, token.trading_fee_bps);
+        let platformAmount = holderPlatformAmount;
         
         // Partner split from platform share
         if (isTokenEligibleForPartnerSplit(token.created_at)) {
