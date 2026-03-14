@@ -2891,7 +2891,7 @@ export function TokenLauncher({ onLaunchSuccess, onShowResult, bare = false, def
                       disabled={isPhantomLaunching || !holdersToken.name.trim() || !holdersToken.ticker.trim() || (!holdersImagePreview && !holdersMeme?.imageUrl && !holdersToken.imageUrl) || (phantomWallet.balance !== null && phantomWallet.balance < 0.02)}
                       className="gate-btn gate-btn-primary w-full"
                     >
-                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Users className="h-4 w-4 mr-2" /> Launch Holder Rewards Token (~0.02 SOL)</>}
+                      {isPhantomLaunching ? <><Rocket className="h-4 w-4 mr-2 animate-bounce" /> Launching...</> : <><Users className="h-4 w-4 mr-2" /> Launch Holder Rewards Token</>}
                     </Button>
 
                     {phantomWallet.balance !== null && phantomWallet.balance < 0.02 && (
