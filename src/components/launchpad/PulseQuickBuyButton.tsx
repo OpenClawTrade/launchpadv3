@@ -155,12 +155,12 @@ const BnbQuickBuy = memo(function BnbQuickBuy({
     try {
       const result = await executeBnbSwap(mintAddress, "buy", amount, userWallet);
       if (result.success) {
-        toast.success("✅ BNB Trade Executed!", {
-          id: toastId,
-          description: `TX: ${result.txHash?.slice(0, 10)}... · via ${result.route === 'openocean' ? 'OpenOcean' : 'Portal'}`,
-          action: result.explorerUrl
-            ? { label: "View TX", onClick: () => window.open(result.explorerUrl, "_blank") }
-            : undefined,
+        toast.dismiss(toastId);
+        showTradeSuccess({
+          type: 'buy',
+          ticker,
+          amount: `${amount} BNB`,
+          signature: result.txHash,
         });
       } else {
         toast.error("❌ BNB Trade Failed", { id: toastId, description: result.error?.slice(0, 80) });
