@@ -1,7 +1,10 @@
 import { useMemo, useEffect, useState } from "react";
 import { useWallets, useCreateWallet, usePrivy } from "@privy-io/react-auth";
+import { usePrivyAvailable } from "@/providers/PrivyProviderWrapper";
 
-export function usePrivyEvmWallet() {
+const FALLBACK = { address: undefined, isReady: true, wallet: null } as const;
+
+function usePrivyEvmWalletInner() {
   const { wallets } = useWallets();
   const { ready, authenticated } = usePrivy();
   const { createWallet } = useCreateWallet();
@@ -9,7 +12,6 @@ export function usePrivyEvmWallet() {
 
   const evmWallet = useMemo(() => {
     if (!wallets || wallets.length === 0) return null;
-    // Privy embedded EVM wallet
     return wallets.find(
       (w) => w.walletClientType === "privy" && w.address?.startsWith("0x")
     ) || wallets.find(
@@ -19,7 +21,6 @@ export function usePrivyEvmWallet() {
 
   const address = evmWallet?.address || undefined;
 
-  // Auto-create EVM wallet for logged-in users who don't have one
   useEffect(() => {
     if (!ready || !authenticated || evmWallet || creatingWallet) return;
 
@@ -29,7 +30,6 @@ export function usePrivyEvmWallet() {
         console.log("[usePrivyEvmWallet] Created EVM wallet:", wallet?.address);
       })
       .catch((err: any) => {
-        // "already has an embedded wallet" is expected
         console.warn("[usePrivyEvmWallet] Create wallet:", err?.message || err);
       })
       .finally(() => setCreatingWallet(false));
@@ -40,4 +40,11 @@ export function usePrivyEvmWallet() {
     isReady: ready && !creatingWallet,
     wallet: evmWallet,
   };
+}
+
+export function usePrivyEvmWallet() {
+  const privyAvailable = usePrivyAvailable();
+  if (!privyAvailable) return FALLBACK;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return usePrivyEvmWalletInner();
 }

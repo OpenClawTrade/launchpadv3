@@ -26,7 +26,17 @@ export interface UseAuthReturn {
   logout: () => Promise<void>;
 }
 
-// Real auth using Privy
+const FALLBACK: UseAuthReturn = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  solanaAddress: null,
+  profileId: null,
+  login: () => console.warn("Privy not available - check PRIVY_APP_ID secret"),
+  logout: async () => {},
+};
+
+// Real auth using Privy — ONLY safe to call inside PrivyProvider
 function useAuthPrivy(): UseAuthReturn {
   const { ready, authenticated, user, login, logout } = usePrivy();
   const { wallets } = useWallets();
@@ -42,19 +52,14 @@ function useAuthPrivy(): UseAuthReturn {
   }, [user?.id]);
 
   const solanaAddress = useMemo(() => {
-    // Check linked wallet on user object
     if (user?.wallet?.address) return user.wallet.address;
-
-    // Check connected wallets
-    const solanaWallet = wallets.find((w) => w.address?.length > 30);
+    const solanaWallet = wallets?.find((w) => w.address?.length > 30);
     if (solanaWallet?.address) return solanaWallet.address;
-
     return null;
   }, [wallets, user?.wallet?.address]);
 
   const authUser = useMemo<AuthUser | null>(() => {
     if (!user) return null;
-
     return {
       id: user.id,
       privyId: user.id,
@@ -65,14 +70,10 @@ function useAuthPrivy(): UseAuthReturn {
         "Anonymous",
       avatarUrl: user.twitter?.profilePictureUrl || null,
       twitter: user.twitter
-        ? {
-            username: user.twitter.username,
-          }
+        ? { username: user.twitter.username }
         : undefined,
       wallet: solanaAddress
-        ? {
-            address: solanaAddress,
-          }
+        ? { address: solanaAddress }
         : undefined,
     };
   }, [user, solanaAddress]);
@@ -93,18 +94,12 @@ export function useAuth(): UseAuthReturn {
   const privyAvailable = usePrivyAvailable();
 
   // When Privy is not available, return fallback immediately
+  // This is safe because hook count is constant per component instance —
+  // privyAvailable never changes after mount (context value is static per provider tree).
   if (!privyAvailable) {
-    return {
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      solanaAddress: null,
-      profileId: null,
-      login: () => console.warn("Privy not available - check PRIVY_APP_ID secret"),
-      logout: async () => {},
-    };
+    return FALLBACK;
   }
 
-  // When Privy IS available, use the real hooks
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   return useAuthPrivy();
 }
