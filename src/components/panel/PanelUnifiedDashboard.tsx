@@ -213,6 +213,8 @@ export default function PanelUnifiedDashboard() {
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
   const queryClient = useQueryClient();
+  const { executeTurboSwap } = useTurboSwap();
+  const [sellingMint, setSellingMint] = useState<string | null>(null);
 
   const isBnb = chain === 'bnb';
   const isSolana = chain === 'solana';
