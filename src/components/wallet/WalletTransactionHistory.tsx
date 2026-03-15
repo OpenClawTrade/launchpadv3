@@ -68,9 +68,13 @@ export default function WalletTransactionHistory({ walletAddress, pageSize }: Pr
               <Icon className="h-3.5 w-3.5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground">{cfg.label}</p>
+              <p className="text-xs font-medium text-foreground">
+                {tx.label || cfg.label}
+              </p>
               <p className="text-[10px] text-muted-foreground truncate">
-                {tx.description?.slice(0, 60) || tx.signature.slice(0, 16) + "…"}
+                {tx.tokenName
+                  ? `${tx.tokenName}`
+                  : tx.description?.slice(0, 60) || tx.signature.slice(0, 16) + "…"}
               </p>
             </div>
             <div className="text-right flex items-center gap-1.5">
