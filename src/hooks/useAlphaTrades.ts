@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { computePositions, PositionSummary } from "@/lib/tradeUtils";
+import { BSC_NETWORK_ID, SOLANA_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 
 export type { PositionSummary } from "@/lib/tradeUtils";
 
@@ -22,10 +23,13 @@ export interface AlphaTrade {
   chain?: string | null;
   token_image_url?: string | null;
   token_image_fallbacks?: string[];
+  token_market_cap_sol?: number | null;
+  token_market_cap_usd?: number | null;
 }
 
 // Persistent cross-render cache so polling doesn't re-fetch known mints
 const imageCache = new Map<string, { primary: string; fallbacks: string[] }>();
+const marketCapCache = new Map<string, { sol?: number; usd?: number }>();
 
 function buildFallbacks(mint: string, chain?: string | null): string[] {
   const c = chain === "bnb" ? "bsc" : "solana";
@@ -44,7 +48,10 @@ export function useAlphaTrades(limit = 50) {
   const [loading, setLoading] = useState(true);
   const [tokenImages, setTokenImages] = useState<Map<string, string>>(new Map());
   const [metadataImages, setMetadataImages] = useState<Map<string, string>>(new Map());
+  const [marketCapSolMap, setMarketCapSolMap] = useState<Map<string, number>>(new Map());
+  const [marketCapUsdMap, setMarketCapUsdMap] = useState<Map<string, number>>(new Map());
   const pendingMetadata = useRef<Set<string>>(new Set());
+  const pendingMarketCaps = useRef<Set<string>>(new Set());
 
   const fetchTrades = useCallback(async () => {
     const { data, error } = await (supabase as any)
@@ -144,6 +151,125 @@ export function useAlphaTrades(limit = 50) {
             solanaMints.forEach((m) => pendingMetadata.current.delete(m));
           }
         }
+
+        // Build market cap maps from cache + DB tables first
+        const nextMarketCapSol = new Map<string, number>();
+        const nextMarketCapUsd = new Map<string, number>();
+
+        for (const mint of mints) {
+          const cached = marketCapCache.get(mint);
+          if (!cached) continue;
+          if (typeof cached.sol === "number" && cached.sol > 0) nextMarketCapSol.set(mint, cached.sol);
+          if (typeof cached.usd === "number" && cached.usd > 0) nextMarketCapUsd.set(mint, cached.usd);
+        }
+
+        const unresolvedForTokenTable = mints.filter((m) => !nextMarketCapSol.has(m));
+        if (unresolvedForTokenTable.length > 0) {
+          const { data: tokenCaps } = await supabase
+            .from("tokens")
+            .select("mint_address, market_cap_sol")
+            .in("mint_address", unresolvedForTokenTable);
+
+          if (tokenCaps) {
+            for (const row of tokenCaps) {
+              const mcapSol = Number(row.market_cap_sol ?? 0);
+              if (!Number.isFinite(mcapSol) || mcapSol <= 0) continue;
+              nextMarketCapSol.set(row.mint_address, mcapSol);
+              const cached = marketCapCache.get(row.mint_address) ?? {};
+              marketCapCache.set(row.mint_address, { ...cached, sol: mcapSol });
+            }
+          }
+        }
+
+        const unresolvedForFunTable = mints.filter((m) => !nextMarketCapSol.has(m));
+        if (unresolvedForFunTable.length > 0) {
+          const { data: funCaps } = await supabase
+            .from("fun_tokens")
+            .select("mint_address, market_cap_sol")
+            .in("mint_address", unresolvedForFunTable);
+
+          if (funCaps) {
+            for (const row of funCaps) {
+              if (!row.mint_address) continue;
+              const mcapSol = Number(row.market_cap_sol ?? 0);
+              if (!Number.isFinite(mcapSol) || mcapSol <= 0) continue;
+              nextMarketCapSol.set(row.mint_address, mcapSol);
+              const cached = marketCapCache.get(row.mint_address) ?? {};
+              marketCapCache.set(row.mint_address, { ...cached, sol: mcapSol });
+            }
+          }
+        }
+
+        const unresolvedForClawTable = mints.filter((m) => !nextMarketCapSol.has(m));
+        if (unresolvedForClawTable.length > 0) {
+          const { data: clawCaps } = await supabase
+            .from("claw_tokens")
+            .select("mint_address, market_cap_sol")
+            .in("mint_address", unresolvedForClawTable);
+
+          if (clawCaps) {
+            for (const row of clawCaps) {
+              if (!row.mint_address) continue;
+              const mcapSol = Number(row.market_cap_sol ?? 0);
+              if (!Number.isFinite(mcapSol) || mcapSol <= 0) continue;
+              nextMarketCapSol.set(row.mint_address, mcapSol);
+              const cached = marketCapCache.get(row.mint_address) ?? {};
+              marketCapCache.set(row.mint_address, { ...cached, sol: mcapSol });
+            }
+          }
+        }
+
+        setMarketCapSolMap(nextMarketCapSol);
+        setMarketCapUsdMap(nextMarketCapUsd);
+
+        // External fallback for mints not present in local tables
+        const unresolvedExternal = mints.filter(
+          (m) => !nextMarketCapSol.has(m) && !nextMarketCapUsd.has(m) && !pendingMarketCaps.current.has(m)
+        );
+
+        if (unresolvedExternal.length > 0) {
+          unresolvedExternal.forEach((m) => pendingMarketCaps.current.add(m));
+          try {
+            const results = await Promise.allSettled(
+              unresolvedExternal.map(async (mint) => {
+                const trade = tradesData.find((t) => t.token_mint === mint);
+                const networkId = trade?.chain === "bnb" ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+                const { data: external, error: externalError } = await supabase.functions.invoke("codex-token-info", {
+                  body: { address: mint, networkId },
+                });
+
+                if (externalError) throw externalError;
+
+                const marketCapUsd = Number(external?.token?.marketCapUsd ?? 0);
+                if (!Number.isFinite(marketCapUsd) || marketCapUsd <= 0) return null;
+                return { mint, marketCapUsd };
+              })
+            );
+
+            const freshUsd = new Map<string, number>();
+            for (const result of results) {
+              if (result.status !== "fulfilled" || !result.value) continue;
+              freshUsd.set(result.value.mint, result.value.marketCapUsd);
+            }
+
+            if (freshUsd.size > 0) {
+              setMarketCapUsdMap((prev) => {
+                const next = new Map(prev);
+                freshUsd.forEach((value, mint) => next.set(mint, value));
+                return next;
+              });
+
+              freshUsd.forEach((value, mint) => {
+                const cached = marketCapCache.get(mint) ?? {};
+                marketCapCache.set(mint, { ...cached, usd: value });
+              });
+            }
+          } catch (err) {
+            console.error("[useAlphaTrades] External market cap fetch failed:", err);
+          } finally {
+            unresolvedExternal.forEach((m) => pendingMarketCaps.current.delete(m));
+          }
+        }
       }
     }
     setLoading(false);
@@ -200,9 +326,11 @@ export function useAlphaTrades(limit = 50) {
         ...t,
         token_image_url: primary,
         token_image_fallbacks: uniqueFallbacks,
+        token_market_cap_sol: marketCapSolMap.get(t.token_mint) ?? null,
+        token_market_cap_usd: marketCapUsdMap.get(t.token_mint) ?? null,
       };
     });
-  }, [trades, tokenImages, metadataImages]);
+  }, [trades, tokenImages, metadataImages, marketCapSolMap, marketCapUsdMap]);
 
   return { trades: enrichedTrades, loading, positions };
 }
