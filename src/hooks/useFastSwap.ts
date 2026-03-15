@@ -305,7 +305,7 @@ export function useFastSwap() {
       if (token.status === 'graduated') {
         result = await swapGraduated(token, amount, isBuy, slippageBps);
 
-        await recordTradeForAlphaTracker(
+        recordTradeForAlphaTracker(
           token,
           amount,
           isBuy,
@@ -313,18 +313,29 @@ export function useFastSwap() {
           isBuy ? result.tokensOut : result.solOut,
         );
 
-        // Edge function record (non-blocking, secondary)
-        supabase.functions.invoke('launchpad-swap', {
-          body: {
-            mintAddress: token.mint_address,
-            userWallet: walletAddress,
-            amount,
-            isBuy,
-            profileId: profileId || undefined,
-            signature: result.signature,
-            mode: 'record',
-          },
-        }).catch(err => console.warn('[FastSwap] DB record for graduated swap failed (non-fatal):', err));
+        // Optional DB record (best-effort only for indexed tokens)
+        if (token.id) {
+          void (async () => {
+            try {
+              const { error } = await supabase.functions.invoke('launchpad-swap', {
+                body: {
+                  mintAddress: token.mint_address,
+                  userWallet: walletAddress,
+                  amount,
+                  isBuy,
+                  profileId: profileId || undefined,
+                  signature: result.signature,
+                  mode: 'record',
+                },
+              });
+              if (error) {
+                console.warn('[FastSwap] DB record for graduated swap failed (non-fatal):', error.message);
+              }
+            } catch (err) {
+              console.warn('[FastSwap] DB record invoke for graduated swap failed (non-fatal):', err);
+            }
+          })();
+        }
       } else {
         result = await swapBondingCurve(token, amount, isBuy, slippageBps);
       }
