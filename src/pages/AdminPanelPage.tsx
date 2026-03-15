@@ -69,7 +69,7 @@ export default function AdminPanelPage() {
     setError("");
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
-      localStorage.setItem("admin_panel_auth", "true");
+      localStorage.setItem("admin_panel_auth_v2", "true");
       localStorage.setItem("treasury_admin_auth", "true");
     } else {
       setError("Incorrect password");
