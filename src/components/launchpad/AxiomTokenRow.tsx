@@ -70,7 +70,6 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
   const vol = formatVolume(token.volume_24h_sol, solPrice);
   const fees = formatUsd(token.total_fees_earned, solPrice);
   const holders = token.holder_count ?? 0;
-  const age = formatAge(token.created_at);
   const shortAddr = token.mint_address ? `${token.mint_address.slice(0, 4)}...${token.mint_address.slice(-4)}` : "";
   const priceChange = token.price_change_24h ?? 0;
 

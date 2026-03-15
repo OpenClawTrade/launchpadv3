@@ -9,6 +9,7 @@ import { SparklineCanvas } from "@/components/launchpad/SparklineCanvas";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { LiveAge } from "@/components/ui/LiveAge";
 import {
   Zap, Rocket, ArrowRight, Crosshair, Radar, CandlestickChart,
   ArrowUpRight, ArrowDownRight, Shield, Users, Bot, ChevronLeft, ChevronRight
