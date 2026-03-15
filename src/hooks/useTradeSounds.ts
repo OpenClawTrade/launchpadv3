@@ -60,6 +60,7 @@ const TONE_PRESETS: Record<string, { buy: [number, number, number, OscillatorTyp
 // Place your .mp3 or .wav files in /public/sounds/ and update paths here:
 const CUSTOM_BUY_SOUND = "/sounds/buy.mp3";
 const CUSTOM_SELL_SOUND = "/sounds/sell.mp3";
+const CUSTOM_LAUNCH_SOUND = "/sounds/launch.mp3";
 
 function playTone(freqStart: number, freqEnd: number, duration: number, waveType: OscillatorType = "square") {
   try {
