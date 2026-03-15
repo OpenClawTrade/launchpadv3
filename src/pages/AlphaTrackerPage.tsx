@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
 import { formatTokenAmt, formatMcap } from "@/lib/tradeUtils";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 
 /** Live-updating time ago — re-renders driven by parent tick */
 function liveTimeAgo(dateStr: string, _tick: number) {
