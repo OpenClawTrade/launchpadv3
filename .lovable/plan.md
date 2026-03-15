@@ -1,58 +1,104 @@
 
-
-## Fix Token Holdings: Add Sell 100%, Trade Button & USD Values
+## Privy-Powered 1-Click Token Launcher 🚀 PLANNED
 
 ### Problem
-The wallet section in `/panel` shows token holdings with only the raw balance. Missing:
-1. **"Sell 100%"** button — inline on each token row
-2. **"Trade"** button — to navigate to the token's trade page
-3. **USD value** — current dollar value of each holding
+TokenLauncher (3078 lines) uses `usePhantomWallet` — requires Phantom browser extension. 
+Rest of the platform already uses Privy embedded wallet. Users shouldn't need Phantom to launch tokens.
 
-### Approach
+### Architecture
+1. **Replace `usePhantomWallet` with `useSolanaWalletPrivy`** in TokenLauncher
+   - Privy embedded wallet handles all on-chain signing (same as trading)
+   - Users logged in via Privy can launch directly — no Phantom popup
+   - Logged-out users can still generate memes, prompted to login on Launch
 
-**`src/components/wallet/TokenHoldingsList.tsx`** — Major update:
+2. **Simplify the "phantom" mode → "launch" mode**
+   - Remove Phantom-specific naming (`phantomWallet`, `isPhantomLaunching`, etc.)
+   - Rename to generic wallet references since Privy handles everything
+   - Keep all sub-modes (random, describe, realistic, custom)
 
-1. **Add USD values**: Import `useSolPrice` hook. The `useTokenMetadata` doesn't return prices, so we need token prices. Two options:
-   - For platform tokens (in `fun_tokens`/`tokens` tables): use `market_cap_sol` / `total_supply` to get price per token
-   - For all tokens: use a lightweight price lookup via Codex/Jupiter
+3. **On-chain flow change:**
+   ```
+   Before: Phantom popup → user signs → broadcast
+   After:  Privy embedded wallet → auto-sign (1-click) → broadcast
+   ```
 
-   Best approach: Extend the existing `fetch-token-metadata` edge function to also return `price_usd` per mint (via Jupiter Price API which is free), OR create a new `useTokenPrices` hook that batch-fetches prices. Jupiter Price API v2 supports batch mint lookups.
+4. **Auth gate on launch:**
+   - Check `useAuth()` / `usePrivy()` for logged-in state
+   - If not logged in → trigger Privy login modal
+   - If logged in → use embedded wallet address, sign tx via `useSolanaWalletPrivy`
 
-   **Simpler approach**: Use SOL price × token-price-in-SOL. We can get token prices from Jupiter Price API in a new edge function or extend `fetch-token-metadata`.
+### Files to modify:
+- `src/components/launchpad/TokenLauncher.tsx` — swap wallet hook, remove Phantom refs
+- `src/components/panel/PanelPhantomTab.tsx` — rename, use Privy
+- `src/pages/CreateTokenPage.tsx` — remove `defaultMode="phantom"` refs
+- `src/components/launchpad/CreateTokenModal.tsx` — same
+- `src/pages/FunLauncherPage.tsx` — same
 
-2. **Add "Sell 100%" button**: Use `useTurboSwap` hook (already used in Portfolio page for the same purpose). Each token row gets a red "Sell 100%" button that executes a full sell via the turbo swap pipeline.
+### Dependencies:
+- `src/hooks/useSolanaWalletPrivy.ts` (already exists, used by trading)
+- `src/hooks/useAuth.ts` (already exists)
+- Can potentially remove `src/hooks/usePhantomWallet.ts` entirely after migration
 
-3. **Add "Trade" button**: Navigate to `/token/{mintAddress}` using `useNavigate`.
+---
 
-4. **Layout change**: Remove the expand-to-see-actions pattern. Instead, show buttons inline on each row:
-   - Left: icon + name/symbol
-   - Middle: balance + USD value below
-   - Right: "Trade" and "Sell 100%" buttons side by side (compact on mobile)
+## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
 
-### New props needed on `TokenHoldingsList`:
-- No new props needed — `useTurboSwap`, `useSolPrice`, and `useNavigate` can be imported directly
+### What was built:
+1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
+   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
+   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
+   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
+   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
+   - Records trade in DB + alpha_trades (non-blocking)
+   - Returns signature immediately with timing breakdown
 
-### New edge function or hook for token USD prices:
-Create **`src/hooks/useTokenPrices.ts`** — batch-fetches USD prices for a list of mints from Jupiter Price API v2 via a lightweight edge function **`fetch-token-prices`** (to avoid CORS). Cached with 30s stale time.
+2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
+   - Single `supabase.functions.invoke('turbo-trade')` call
+   - No client-side tx building or signing
+   - Background query invalidation after 500ms
+   - Logs client roundtrip vs server execution time
 
-### Files to create/modify
+3. **Wired into trade components:**
+   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
+   - `PortfolioModal.tsx` — uses `useTurboSwap`
 
-| File | Change |
-|------|--------|
-| `supabase/functions/fetch-token-prices/index.ts` | New — batch Jupiter Price API v2 lookup for mint addresses, returns `{ prices: { [mint]: number } }` |
-| `src/hooks/useTokenPrices.ts` | New — hook wrapping the edge function with react-query |
-| `src/components/wallet/TokenHoldingsList.tsx` | Add inline Sell 100% + Trade buttons, show USD values, use `useTurboSwap` for sells |
-
-### UI Layout per token row (no expand needed)
-```text
-[icon] Name        balance     [$USD]   [Trade] [Sell 100%]
-       SYMBOL
+### Expected latency:
 ```
-On mobile, buttons stack or shrink to icons. SOL row gets no Sell button (just Trade → navigates to SOL swap).
+Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
+After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
+```
 
-### Sell 100% flow
-- Uses `useTurboSwap.executeTurboSwap()` with the token's full balance
-- Shows loading spinner on the button during execution
-- Toast on success/failure
-- Auto-refetches holdings after sell
+---
 
+## 6-Phase Axiom Feature Integration Plan (SAVED)
+
+### Phase 1: Copy Trade Execution
+- New `copy-trade-execute` edge function
+- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
+- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
+- New `copy_trade_log` table
+
+### Phase 2: Limit Orders (SL/TP)
+- Jupiter limit order program integration
+- `limit-order-create` edge function
+- `limit_orders` DB table
+- Limit order tab in trade panel
+
+### Phase 3: Real-Time WebSocket Token Feed
+- Helius WebSocket for sub-1s new pair detection
+- Replace Codex polling (~30s) 
+- Edge function → Supabase Realtime channel
+
+### Phase 4: DCA (Dollar Cost Averaging)
+- `dca_orders` DB table
+- `dca-execute` cron edge function
+- DCA tab in trade panel
+
+### Phase 5: Enhanced Token Safety
+- LP lock status, mint authority, honeypot detection
+- Safety score badge on Pulse cards
+
+### Phase 6: Wallet PnL Analytics
+- `wallet-pnl-calculate` edge function
+- Per-wallet realized/unrealized PnL
+- Rank tracked wallets by performance
