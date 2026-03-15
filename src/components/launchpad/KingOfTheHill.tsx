@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check, Zap, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -442,13 +442,31 @@ function KingCardSkeleton() {
 /* ── export ── */
 export function KingOfTheHill() {
   const { tokens, isLoading } = useKingOfTheHill();
-  const [quickBuyAmount] = useState(() => {
+  const [quickBuyAmount, setQuickBuyAmount] = useState(() => {
     try {
       const v = localStorage.getItem("pulse-quick-buy-amount");
       if (v) { const n = parseFloat(v); if (n > 0 && isFinite(n)) return n; }
     } catch {}
     return 0.5;
   });
+  const [editingQuickBuy, setEditingQuickBuy] = useState(false);
+  const [quickBuyInput, setQuickBuyInput] = useState(String(quickBuyAmount));
+  const quickBuyInputRef = useRef<HTMLInputElement>(null);
+
+  const commitQuickBuy = () => {
+    const n = parseFloat(quickBuyInput);
+    if (n > 0 && isFinite(n)) {
+      setQuickBuyAmount(n);
+      try { localStorage.setItem("pulse-quick-buy-amount", String(n)); } catch {}
+    } else {
+      setQuickBuyInput(String(quickBuyAmount));
+    }
+    setEditingQuickBuy(false);
+  };
+
+  useEffect(() => {
+    if (editingQuickBuy) quickBuyInputRef.current?.focus();
+  }, [editingQuickBuy]);
 
   const sparklineAddresses = useMemo(
     () => (tokens ?? []).map(t => t.mint_address).filter(Boolean) as string[],
@@ -499,6 +517,30 @@ export function KingOfTheHill() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* Editable quick-buy amount */}
+          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-muted/30 border border-border/30">
+            <Zap className="w-2.5 h-2.5 text-amber-400" />
+            {editingQuickBuy ? (
+              <input
+                ref={quickBuyInputRef}
+                type="text"
+                inputMode="decimal"
+                value={quickBuyInput}
+                onChange={(e) => setQuickBuyInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                onBlur={commitQuickBuy}
+                onKeyDown={(e) => { if (e.key === "Enter") commitQuickBuy(); if (e.key === "Escape") { setQuickBuyInput(String(quickBuyAmount)); setEditingQuickBuy(false); } }}
+                className="w-12 bg-transparent text-[10px] font-mono font-bold text-foreground outline-none border-b border-primary/40"
+              />
+            ) : (
+              <button
+                onClick={() => { setQuickBuyInput(String(quickBuyAmount)); setEditingQuickBuy(true); }}
+                className="flex items-center gap-0.5 text-[10px] font-mono font-bold text-foreground/80 hover:text-foreground transition-colors"
+              >
+                {quickBuyAmount} SOL
+                <Pencil className="w-2.5 h-2.5 text-muted-foreground/50" />
+              </button>
+            )}
+          </div>
           <Link to="/agents/leaderboard" className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] md:text-[10px] font-semibold text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/15 transition-all whitespace-nowrap">
             View Full Leaderboard
             <ArrowUpRight className="w-2.5 h-2.5" />
