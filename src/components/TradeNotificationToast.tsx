@@ -167,19 +167,34 @@ export function showTradeNotification(data: TradeToastData) {
   );
 }
 
-/** Image with cascading onError fallbacks */
-function TokenImg({ src, fallbacks, alt, className }: { src: string; fallbacks: string[]; alt: string; className?: string }) {
+/** Image with index-based cascading fallbacks */
+function TokenImg({ sources, alt, className }: { sources: string[]; alt: string; className?: string }) {
+  const fallbackIndex = { current: 0 };
+  return (
+    <img
+      src={sources[0] || ""}
+      alt={alt}
+      className={className}
+      onError={(e) => {
+        fallbackIndex.current += 1;
+        const img = e.target as HTMLImageElement;
+        if (fallbackIndex.current < sources.length) {
+          img.src = sources[fallbackIndex.current];
+        }
+      }}
+    />
+  );
+}
+
+/** Avatar with fallback to default */
+function AvatarImg({ src, alt, className }: { src: string; alt: string; className?: string }) {
   return (
     <img
       src={src}
       alt={alt}
       className={className}
       onError={(e) => {
-        const img = e.target as HTMLImageElement;
-        const nextFallback = fallbacks.shift();
-        if (nextFallback) {
-          img.src = nextFallback;
-        }
+        (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
       }}
     />
   );
