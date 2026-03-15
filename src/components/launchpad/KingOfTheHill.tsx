@@ -442,13 +442,31 @@ function KingCardSkeleton() {
 /* ── export ── */
 export function KingOfTheHill() {
   const { tokens, isLoading } = useKingOfTheHill();
-  const [quickBuyAmount] = useState(() => {
+  const [quickBuyAmount, setQuickBuyAmount] = useState(() => {
     try {
       const v = localStorage.getItem("pulse-quick-buy-amount");
       if (v) { const n = parseFloat(v); if (n > 0 && isFinite(n)) return n; }
     } catch {}
     return 0.5;
   });
+  const [editingQuickBuy, setEditingQuickBuy] = useState(false);
+  const [quickBuyInput, setQuickBuyInput] = useState(String(quickBuyAmount));
+  const quickBuyInputRef = useRef<HTMLInputElement>(null);
+
+  const commitQuickBuy = () => {
+    const n = parseFloat(quickBuyInput);
+    if (n > 0 && isFinite(n)) {
+      setQuickBuyAmount(n);
+      try { localStorage.setItem("pulse-quick-buy-amount", String(n)); } catch {}
+    } else {
+      setQuickBuyInput(String(quickBuyAmount));
+    }
+    setEditingQuickBuy(false);
+  };
+
+  useEffect(() => {
+    if (editingQuickBuy) quickBuyInputRef.current?.focus();
+  }, [editingQuickBuy]);
 
   const sparklineAddresses = useMemo(
     () => (tokens ?? []).map(t => t.mint_address).filter(Boolean) as string[],
