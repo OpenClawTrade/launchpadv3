@@ -869,7 +869,7 @@ Deno.serve(async (req) => {
       // Generate Claw's viral take on a launched token
       async function generateClawViralTake(tokenName: string, tokenSymbol: string, tweetText: string): Promise<string> {
         const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-        if (!LOVABLE_API_KEY) return "🦞 Snip snip. Trade it on saturntrade.com";
+        if (!LOVABLE_API_KEY) return "🪐 Trade it on saturn.trade";
 
         try {
           const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
