@@ -107,6 +107,17 @@ function playSellSound() {
   }
 }
 
+function playLaunchSound() {
+  if (ACTIVE_PRESET === "custom-file") {
+    playAudioFile(CUSTOM_LAUNCH_SOUND);
+  } else {
+    const [f1, f2, dur, wave] = TONE_PRESETS[ACTIVE_PRESET]?.launch ?? TONE_PRESETS.arcade.launch;
+    // Play a two-tone fanfare for launches
+    playTone(f1, f2, dur, wave);
+    setTimeout(() => playTone(f2, f2 + 200, dur * 0.8, wave), dur * 1000 + 30);
+  }
+}
+
 export function useTradeSounds() {
   const enabledRef = useRef(getSoundsEnabled());
 
