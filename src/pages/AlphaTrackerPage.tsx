@@ -237,7 +237,7 @@ export default function AlphaTrackerPage() {
                   <div className="text-right">
                     {mcap != null ? (
                       <span className="text-[10px] font-mono text-foreground/50 tabular-nums">
-                        {formatMcap(mcap)} {nativeSymbol}
+                        {mcapIsUsd ? '$' : ''}{formatMcap(mcap)}{!mcapIsUsd ? ` ${nativeSymbol}` : ''}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/30">—</span>
