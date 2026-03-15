@@ -212,22 +212,33 @@ export function useFastSwap() {
     console.log(`[FastSwap] Sign+send: ${Math.round(performance.now() - t4)}ms`);
 
     // ── Record trade (direct + service-role alpha_only fallback) ──
-    await recordTradeForAlphaTracker(token, amount, isBuy, signature, isBuy ? estimatedTokensOut : estimatedSolOut);
+    recordTradeForAlphaTracker(token, amount, isBuy, signature, isBuy ? estimatedTokensOut : estimatedSolOut);
 
-    // Edge function record mode (non-blocking, secondary)
-    supabase.functions.invoke('launchpad-swap', {
-      body: {
-        mintAddress: token.mint_address,
-        userWallet: walletAddress,
-        amount,
-        isBuy,
-        profileId: profileId || undefined,
-        signature,
-        mode: 'record',
-        onChainVirtualSol: virtualSolReserves,
-        onChainVirtualToken: virtualTokenReserves,
-      },
-    }).catch(err => console.warn('[FastSwap] DB record failed (non-fatal):', err));
+    // Optional DB record mode (best-effort only for indexed tokens)
+    if (token.id) {
+      void (async () => {
+        try {
+          const { error } = await supabase.functions.invoke('launchpad-swap', {
+            body: {
+              mintAddress: token.mint_address,
+              userWallet: walletAddress,
+              amount,
+              isBuy,
+              profileId: profileId || undefined,
+              signature,
+              mode: 'record',
+              onChainVirtualSol: virtualSolReserves,
+              onChainVirtualToken: virtualTokenReserves,
+            },
+          });
+          if (error) {
+            console.warn('[FastSwap] DB record failed (non-fatal):', error.message);
+          }
+        } catch (err) {
+          console.warn('[FastSwap] DB record invoke failed (non-fatal):', err);
+        }
+      })();
+    }
 
     return { success: true, signature, graduated: false, solOut: estimatedSolOut, tokensOut: estimatedTokensOut };
   }, [walletAddress, getConnection, signAndSendTransaction, profileId, recordTradeForAlphaTracker, getTokenBalanceRaw]);
