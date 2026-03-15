@@ -340,7 +340,7 @@ export default function HomePage() {
           {/* ── Flanking Product Screenshots — VISIBLE teasers ── */}
           {/* Left: Trading Terminal */}
           <div
-            className="absolute left-[-2%] top-[0%] w-[46%] max-w-[660px] pointer-events-none hidden lg:block"
+            className="absolute left-[-2%] top-[-5%] bottom-0 w-[46%] max-w-[660px] pointer-events-none hidden lg:block"
             style={{
               transform: "perspective(1200px) rotateY(15deg) rotateX(-2deg)",
               opacity: 0.62,
