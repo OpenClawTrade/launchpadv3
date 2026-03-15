@@ -51,15 +51,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use Lovable AI proxy
-    const response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("LOVABLE_API_KEY")}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: SATURN_STYLE_PROMPT },
           { role: "user", content: text },
@@ -68,6 +75,15 @@ Deno.serve(async (req) => {
         max_tokens: 500,
       }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[x-post-restyle] AI gateway error:", response.status, errText);
+      return new Response(JSON.stringify({ error: `AI error (${response.status})` }), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const data = await response.json();
     const restyled = data.choices?.[0]?.message?.content?.trim();
