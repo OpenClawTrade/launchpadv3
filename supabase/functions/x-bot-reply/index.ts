@@ -179,13 +179,13 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get pending queue items (oldest first, limit batch)
+    // Get pending queue items (oldest first, limit to 5 per invocation)
     const { data: queueItems, error: queueError } = await supabase
       .from("x_bot_account_queue")
       .select("*")
       .eq("status", "pending")
       .order("created_at", { ascending: true })
-      .limit(10);
+      .limit(5);
 
     if (queueError) throw queueError;
     if (!queueItems || queueItems.length === 0) {
@@ -222,10 +222,24 @@ Deno.serve(async (req) => {
     for (const item of queueItems) {
       const account = accountMap.get(item.account_id);
       if (!account) {
-        // Account disabled or deleted, skip
         await supabase.from("x_bot_account_queue")
           .update({ status: "skipped", processed_at: new Date().toISOString() })
           .eq("id", item.id);
+        continue;
+      }
+
+      // ── Rate limit: max 1 reply per minute per account ──
+      const oneMinAgo = new Date(Date.now() - 60_000).toISOString();
+      const { count: recentCount } = await supabase
+        .from("x_bot_account_replies")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", account.id)
+        .eq("status", "sent")
+        .gte("created_at", oneMinAgo);
+
+      if ((recentCount ?? 0) >= 1) {
+        console.log(`[x-bot-reply] ⏳ Rate limited ${account.username} — already posted within 1 min, skipping`);
+        // Leave as pending so it gets picked up next invocation
         continue;
       }
 
