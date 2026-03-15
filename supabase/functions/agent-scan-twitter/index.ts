@@ -905,7 +905,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
 
           if (!response.ok) {
             console.error("[agent-scan-twitter] AI viral take error:", response.status);
-            return "🦞 Snip snip. Trade it on saturntrade.com";
+            return "🪐 Trade it on saturn.trade";
           }
 
           const data = await response.json();
