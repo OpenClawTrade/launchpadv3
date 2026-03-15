@@ -12,11 +12,13 @@ const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens default
  * Sounds are ON by default — no opt-in needed.
  */
 export function GlobalTradeNotifier() {
-  const { playBuy, playSell } = useTradeSounds();
+  const { playBuy, playSell, playLaunch } = useTradeSounds();
   const playBuyRef = useRef(playBuy);
   const playSellRef = useRef(playSell);
+  const playLaunchRef = useRef(playLaunch);
   playBuyRef.current = playBuy;
   playSellRef.current = playSell;
+  playLaunchRef.current = playLaunch;
 
   // Cached SOL price for market cap calculation
   const solPriceRef = useRef<number>(0);
@@ -28,7 +30,6 @@ export function GlobalTradeNotifier() {
         if (parsed?.price) solPriceRef.current = parsed.price;
       }
     } catch {}
-    // Refresh every 30s from cache
     const iv = setInterval(() => {
       try {
         const cached = localStorage.getItem("sol_price_cache");
@@ -41,7 +42,7 @@ export function GlobalTradeNotifier() {
     return () => clearInterval(iv);
   }, []);
 
-  // Auto-unlock AudioContext on first user interaction (click/touch/key)
+  // Auto-unlock AudioContext on first user interaction
   useEffect(() => {
     const unlock = () => {
       try {
@@ -63,6 +64,7 @@ export function GlobalTradeNotifier() {
     };
   }, []);
 
+  // Subscribe to alpha_trades
   useEffect(() => {
     console.log("[GlobalTradeNotifier] Subscribing to alpha_trades...");
 
@@ -78,7 +80,6 @@ export function GlobalTradeNotifier() {
 
           const isBuy = trade.trade_type === "buy";
 
-          // Play sound
           try {
             if (isBuy) playBuyRef.current();
             else playSellRef.current();
@@ -86,7 +87,6 @@ export function GlobalTradeNotifier() {
             console.warn("[GlobalTradeNotifier] Sound error:", e);
           }
 
-          // Calculate market cap from price_sol if available
           let marketCapUsd: number | null = null;
           if (trade.price_sol && trade.price_sol > 0 && solPriceRef.current > 0) {
             marketCapUsd = trade.price_sol * TOTAL_SUPPLY * solPriceRef.current;
@@ -107,7 +107,60 @@ export function GlobalTradeNotifier() {
         }
       )
       .subscribe((status) => {
-        console.log("[GlobalTradeNotifier] Status:", status);
+        console.log("[GlobalTradeNotifier] Trades status:", status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Subscribe to fun_tokens for new coin launches
+  useEffect(() => {
+    console.log("[GlobalTradeNotifier] Subscribing to fun_tokens launches...");
+
+    const channel = supabase
+      .channel("global-launch-notifier-v1")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "fun_tokens" },
+        (payload) => {
+          const token = payload.new as any;
+          if (!token) return;
+
+          // Skip punch tokens
+          if (token.launchpad_type === "punch") return;
+
+          console.log("[GlobalTradeNotifier] New launch:", token.ticker, token.name);
+
+          try {
+            playLaunchRef.current();
+          } catch (e) {
+            console.warn("[GlobalTradeNotifier] Launch sound error:", e);
+          }
+
+          let marketCapUsd: number | null = null;
+          if (token.market_cap_sol && token.market_cap_sol > 0 && solPriceRef.current > 0) {
+            marketCapUsd = token.market_cap_sol * solPriceRef.current;
+          }
+
+          const chain = token.chain === "bsc" ? "bnb" : "solana";
+
+          showTradeNotification({
+            traderName: shortenAddr(token.creator_wallet),
+            traderAvatar: null,
+            tokenTicker: token.ticker || token.name || "???",
+            tokenMint: token.mint_address || "",
+            tradeType: "launch",
+            amountSol: 0,
+            marketCapUsd,
+            chain,
+            tokenImageUrl: token.image_url || null,
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log("[GlobalTradeNotifier] Launches status:", status);
       });
 
     return () => {
