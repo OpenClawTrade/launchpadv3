@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLaunchpad, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useChain } from "@/contexts/ChainContext";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,13 +13,14 @@ import { Link } from "react-router-dom";
 
 export default function PanelEarningsTab() {
   const { walletAddress: embeddedWallet } = useSolanaWalletWithPrivy();
+  const { solanaAddress } = useAuth();
   const { chainConfig } = useChain();
   const { useUserEarnings } = useLaunchpad();
   const { toast } = useToast();
   const [claimingTokenId, setClaimingTokenId] = useState<string | null>(null);
   const MIN_CLAIM_SOL = 0.01;
 
-  const activeAddress = embeddedWallet;
+  const activeAddress = embeddedWallet || solanaAddress;
   const currencySymbol = chainConfig.nativeCurrency.symbol;
   const explorerUrl = chainConfig.explorerUrl;
 
