@@ -64,7 +64,6 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
   const mcap = formatUsdCompact(token.marketCap);
   const vol = formatUsdCompact(token.volume24h);
   const liq = formatUsdCompact(token.liquidity);
-  const age = formatAge(token.createdAt);
   const xUsername = extractXUsername(token.twitterUrl);
   const isBnb = chain === 'bnb';
   const shortAddr = token.address
