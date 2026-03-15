@@ -347,6 +347,24 @@ Deno.serve(async (req) => {
       // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)
       if (token.marketCap > 1e15) return null;
 
+      // Solana + Pump.fun: if Codex/Dex image is missing or unreliable, fetch image directly from Pump.fun.
+      if (safeNetworkId === SOLANA_NETWORK_ID && token.address) {
+        const launchpad = String(token.launchpadName ?? "").toLowerCase();
+        const currentImage = String(token.imageUrl ?? "").toLowerCase();
+        const needsPumpImage =
+          !token.imageUrl ||
+          currentImage.includes("dd.dexscreener.com") ||
+          currentImage.includes("dicebear.com");
+
+        if (launchpad.includes("pump") && needsPumpImage) {
+          const pumpImage = await fetchPumpFunImageUri(token.address);
+          if (pumpImage && pumpImage !== token.imageUrl) {
+            token.fallbackImageUrl = token.imageUrl || token.fallbackImageUrl || null;
+            token.imageUrl = pumpImage;
+          }
+        }
+      }
+
       if (Math.abs(token.change24h) <= maxAllowedChange) {
         return token;
       }
