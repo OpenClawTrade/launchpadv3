@@ -24,7 +24,7 @@ export const BRAND = {
   // ── Assets ──
   logoPath: "/saturn-logo.png",
   iconEmoji: "🪐",
-  ogImage: "https://saturntrade.com/saturn-logo.png",
+  ogImage: "https://saturn.trade/og-image.png",
   faviconPath: "/favicon.png",
 
   // ── Feature Names ──
