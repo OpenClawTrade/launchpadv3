@@ -44,21 +44,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
     return `$${usd.toFixed(0)}`;
   };
 
-  const formatAge = (createdAt: string | null) => {
-    if (!createdAt) return "-";
-    const dist = formatDistanceToNow(new Date(createdAt), { addSuffix: false });
-    // Shorten: "about 24 hours" → "24h", "5 minutes" → "5m"
-    return dist
-      .replace("about ", "")
-      .replace(" hours", "h")
-      .replace(" hour", "h")
-      .replace(" minutes", "m")
-      .replace(" minute", "m")
-      .replace(" days", "d")
-      .replace(" day", "d")
-      .replace(" months", "mo")
-      .replace(" month", "mo");
-  };
+  const formatAge = (_createdAt: string | null) => null; // replaced by LiveAge
 
   // Segment tokens into 3 columns by bonding progress
   const newPairs = tokens.filter(t => (t.bonding_progress ?? 0) < 30);
