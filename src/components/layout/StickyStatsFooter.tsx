@@ -4,7 +4,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useLaunchpadStats } from "@/hooks/useLaunchpadStats";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, Server, RefreshCw, Layers, Wallet, Rocket } from "lucide-react";
+import { ChevronDown, Server, RefreshCw, Layers, Wallet, Rocket, FileText, TrendingUp, Coins, Activity } from "lucide-react";
+import { Link } from "react-router-dom";
 import { MarketLighthouse } from "./MarketLighthouse";
 import { WalletTrackerPanel } from "./WalletTrackerPanel";
 import { NewPairsPanel } from "./NewPairsPanel";
@@ -309,8 +310,48 @@ export function StickyStatsFooter() {
               {isOnline ? "Stable" : "Offline"}
             </span>
           </div>
-        </div>
-
+          {/* Desktop-only quick nav icons */}
+          {!isMobile && (
+            <>
+              <Link to="/docs" style={{
+                display: "flex", alignItems: "center", gap: "4px", padding: "2px 7px", borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+                fontSize: "10px", fontWeight: 500, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap",
+                textDecoration: "none", transition: "all 0.15s",
+              }}>
+                <FileText style={{ width: "11px", height: "11px" }} />
+                <span>Docs</span>
+              </Link>
+              <Link to="/leverage" style={{
+                display: "flex", alignItems: "center", gap: "4px", padding: "2px 7px", borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+                fontSize: "10px", fontWeight: 500, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap",
+                textDecoration: "none", transition: "all 0.15s",
+              }}>
+                <TrendingUp style={{ width: "11px", height: "11px" }} />
+                <span>Leverage</span>
+              </Link>
+              <Link to="/launch" style={{
+                display: "flex", alignItems: "center", gap: "4px", padding: "2px 7px", borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+                fontSize: "10px", fontWeight: 500, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap",
+                textDecoration: "none", transition: "all 0.15s",
+              }}>
+                <Coins style={{ width: "11px", height: "11px" }} />
+                <span>Launch</span>
+              </Link>
+              <Link to="/tokens" style={{
+                display: "flex", alignItems: "center", gap: "4px", padding: "2px 7px", borderRadius: "4px",
+                border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)",
+                fontSize: "10px", fontWeight: 500, color: "rgba(255,255,255,0.6)", whiteSpace: "nowrap",
+                textDecoration: "none", transition: "all 0.15s",
+              }}>
+                <Activity style={{ width: "11px", height: "11px" }} />
+                <span>Pulse</span>
+              </Link>
+            </>
+          )}
+          </div>
         {/* CENTER: Crypto Prices — hidden on mobile */}
         {!isMobile && (
           <div style={{
