@@ -189,10 +189,8 @@ const App = () => (
                      <Route path="/banner-maker" element={<BannerMakerPage />} />
                      <Route path="/portfolio" element={<PortfolioPage />} />
                      <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
-                     <Route path="/punch" element={<PunchPage />} />
-                     <Route path="/punch-test" element={<PunchTestPage />} />
-                     <Route path="/punch/token/:mintAddress" element={<PunchTokenDetailPage />} />
-                     <Route path="/punch-games" element={<PunchGamesPage />} />
+                     <Route path="/punch" element={<Navigate to="/" replace />} />
+                     <Route path="/punch-test" element={<Navigate to="/" replace />} />
                      <Route path="/link/:code" element={<ReferralRedirectPage />} />
                      <Route path="/wallet-tracker" element={<WalletTrackerPage />} />
                      <Route path="/rewards" element={<RewardsPage />} />
