@@ -261,16 +261,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ===== Rate limit check — by twitter_username =====
-    const { data: lastClaim } = await supabase
+    // ===== Rate limit check — by wallet or twitter_username =====
+    let rateLimitQuery = supabase
       .from("claw_distributions")
       .select("created_at")
-      .eq("twitter_username", normalizedUsername)
       .in("distribution_type", ["creator_claim", "creator"])
       .in("status", ["completed", "pending"])
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (isWalletBased) {
+      rateLimitQuery = rateLimitQuery.eq("creator_wallet", creatorWallet);
+    } else {
+      rateLimitQuery = rateLimitQuery.eq("twitter_username", normalizedUsername);
+    }
+
+    const { data: lastClaim } = await rateLimitQuery.maybeSingle();
 
     const now = Date.now();
     let canClaim = true;
@@ -287,9 +293,11 @@ Deno.serve(async (req) => {
     }
 
     // Calculate claimable
-    const initialCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds, tokenBpsMap);
+    const lookupKey = normalizedUsername || creatorWallet;
+    const initialCalc = await calculateClaimable(supabase, lookupKey, targetTokenIds, funTokenIds, clawTokenIds, tokenBpsMap);
 
-    console.log(`[saturn-creator-claim] @${normalizedUsername}: earned=${initialCalc.totalCreatorEarned.toFixed(6)}, paid=${initialCalc.totalCreatorPaid.toFixed(6)}, claimable=${initialCalc.claimable.toFixed(6)}, tokens=${targetTokenIds.length}`);
+    const who = isWalletBased ? `wallet:${creatorWallet?.slice(0,8)}` : `@${normalizedUsername}`;
+    console.log(`[saturn-creator-claim] ${who}: earned=${initialCalc.totalCreatorEarned.toFixed(6)}, paid=${initialCalc.totalCreatorPaid.toFixed(6)}, claimable=${initialCalc.claimable.toFixed(6)}, tokens=${targetTokenIds.length}`);
 
     if (checkOnly) {
       return new Response(JSON.stringify({
