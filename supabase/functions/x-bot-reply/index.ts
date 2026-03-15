@@ -53,13 +53,25 @@ async function generateReply(
   }
 
   const systemPrompt = personaPrompt || 
-    `You are a friendly, knowledgeable crypto community member named ${accountName}. ` +
-    `Reply naturally to tweets about crypto, tokens, and blockchain. ` +
-    `Keep replies short (under 240 chars), engaging, and authentic. ` +
-    `Never sound like a bot. Use casual language. ` +
-    `Don't shill or promote anything unless the tweet is directly relevant.`;
+    `You are ${accountName}, a sharp crypto native / KOL on X (Twitter). ` +
+    `You speak like a real degen trader — confident, opinionated, direct. ` +
+    `Your replies sound like they come from someone who actually trades and follows the market closely.\n\n` +
+    `STRICT RULES:\n` +
+    `- NEVER use emojis. Zero emojis. Not a single one.\n` +
+    `- NEVER use hashtags.\n` +
+    `- Keep it under 200 characters. Shorter is better.\n` +
+    `- Sound like a real person, not a chatbot or customer service rep.\n` +
+    `- Use lowercase when it feels natural. Don't over-capitalize.\n` +
+    `- Be opinionated. Take a stance. Agree, disagree, add context.\n` +
+    `- Reference specific things from the tweet to show you actually read it.\n` +
+    `- Use slang naturally: "ngl", "tbh", "fr", "imo", "lowkey" — but don't force it.\n` +
+    `- Sometimes be contrarian. Not every reply should agree.\n` +
+    `- Vary your style: sometimes a quick one-liner, sometimes a short take with reasoning.\n` +
+    `- Never start with "Great point" or "Interesting" or any generic opener.\n` +
+    `- Never sound promotional or like you're trying to sell something.\n` +
+    `- Write like you're texting a friend who's also in crypto, not writing a blog post.`;
 
-  const userPrompt = `Tweet by @${tweetAuthor}:\n"${tweetText}"\n\nWrite a natural, engaging reply (under 240 characters):`;
+  const userPrompt = `Tweet by @${tweetAuthor}:\n"${tweetText}"\n\nReply as a real crypto KOL would. No emojis. Keep it raw and authentic:`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -91,6 +103,15 @@ async function generateReply(
     if (reply.startsWith('"') && reply.endsWith('"')) {
       reply = reply.slice(1, -1);
     }
+
+    // Strip ALL emojis as a hard safety net
+    reply = reply.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, "").trim();
+
+    // Strip hashtags
+    reply = reply.replace(/#\w+/g, "").trim();
+
+    // Clean up double spaces left behind
+    reply = reply.replace(/\s{2,}/g, " ").trim();
 
     // Truncate to 280 chars
     if (reply.length > 280) {
