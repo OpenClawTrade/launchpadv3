@@ -288,6 +288,7 @@ export function useAlphaTrades(limit = 50, onNewTrade?: (trade: AlphaTrade) => v
         (payload) => {
           const newTrade = payload.new as AlphaTrade;
           setTrades((prev) => [newTrade, ...prev].slice(0, limit));
+          onNewTradeRef.current?.(newTrade);
         }
       )
       .subscribe();

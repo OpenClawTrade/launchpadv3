@@ -1,13 +1,14 @@
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
-import { useAlphaTrades, PositionSummary } from "@/hooks/useAlphaTrades";
+import { useAlphaTrades, PositionSummary, AlphaTrade } from "@/hooks/useAlphaTrades";
 import { useChain } from "@/contexts/ChainContext";
-import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter } from "lucide-react";
+import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter, Volume2, VolumeX } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { formatTokenAmt, formatMcap } from "@/lib/tradeUtils";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
+import { useTradeSounds } from "@/hooks/useTradeSounds";
 
 /** Live-updating time ago — re-renders driven by parent tick */
 function liveTimeAgo(dateStr: string, _tick: number) {
