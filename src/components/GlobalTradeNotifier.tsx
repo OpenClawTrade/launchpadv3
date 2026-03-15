@@ -1,12 +1,14 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { useTradeSounds } from "@/hooks/useTradeSounds";
+import { showTradeNotification } from "@/components/TradeNotificationToast";
+
+const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens default
 
 /**
  * Global trade notifier — mounted once at App root.
  * Listens to alpha_trades realtime inserts via WebSocket (~50-200ms latency).
- * Fires toast + audio on EVERY page for ALL visitors.
+ * Fires custom toast + audio on EVERY page for ALL visitors.
  * Sounds are ON by default — no opt-in needed.
  */
 export function GlobalTradeNotifier() {
@@ -16,11 +18,33 @@ export function GlobalTradeNotifier() {
   playBuyRef.current = playBuy;
   playSellRef.current = playSell;
 
+  // Cached SOL price for market cap calculation
+  const solPriceRef = useRef<number>(0);
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("sol_price_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.price) solPriceRef.current = parsed.price;
+      }
+    } catch {}
+    // Refresh every 30s from cache
+    const iv = setInterval(() => {
+      try {
+        const cached = localStorage.getItem("sol_price_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.price) solPriceRef.current = parsed.price;
+        }
+      } catch {}
+    }, 30_000);
+    return () => clearInterval(iv);
+  }, []);
+
   // Auto-unlock AudioContext on first user interaction (click/touch/key)
   useEffect(() => {
     const unlock = () => {
       try {
-        // Attempt to create/resume AudioContext on any gesture
         const ctx = new AudioContext();
         if (ctx.state === "suspended") ctx.resume();
         ctx.close();
@@ -43,7 +67,7 @@ export function GlobalTradeNotifier() {
     console.log("[GlobalTradeNotifier] Subscribing to alpha_trades...");
 
     const channel = supabase
-      .channel("global-trade-notifier-v3")
+      .channel("global-trade-notifier-v4")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "alpha_trades" },
@@ -53,10 +77,6 @@ export function GlobalTradeNotifier() {
           console.log("[GlobalTradeNotifier] Trade received:", trade.trade_type, trade.token_ticker);
 
           const isBuy = trade.trade_type === "buy";
-          const name = trade.trader_display_name || shortenAddr(trade.wallet_address);
-          const ticker = trade.token_ticker || trade.token_name || shortenAddr(trade.token_mint);
-          const amount = formatAmount(trade.amount_sol);
-          const chain = trade.chain === "bnb" ? "BNB" : "SOL";
 
           // Play sound
           try {
@@ -66,16 +86,24 @@ export function GlobalTradeNotifier() {
             console.warn("[GlobalTradeNotifier] Sound error:", e);
           }
 
-          // Show toast
-          toast(
-            `${name} ${isBuy ? "bought" : "sold"} $${ticker}`,
-            {
-              description: `${amount} ${chain}`,
-              duration: 4000,
-              icon: isBuy ? "🟢" : "🔴",
-              position: "bottom-right",
-            }
-          );
+          // Calculate market cap from price_sol if available
+          let marketCapUsd: number | null = null;
+          if (trade.price_sol && trade.price_sol > 0 && solPriceRef.current > 0) {
+            marketCapUsd = trade.price_sol * TOTAL_SUPPLY * solPriceRef.current;
+          } else if (trade.price_usd && trade.price_usd > 0) {
+            marketCapUsd = trade.price_usd * TOTAL_SUPPLY;
+          }
+
+          showTradeNotification({
+            traderName: trade.trader_display_name || shortenAddr(trade.wallet_address),
+            traderAvatar: trade.trader_avatar_url || null,
+            tokenTicker: trade.token_ticker || trade.token_name || shortenAddr(trade.token_mint),
+            tokenMint: trade.token_mint,
+            tradeType: isBuy ? "buy" : "sell",
+            amountSol: trade.amount_sol || 0,
+            marketCapUsd,
+            chain: trade.chain || "solana",
+          });
         }
       )
       .subscribe((status) => {
