@@ -101,7 +101,6 @@ export default function AlphaTrackerPage() {
             </button>
           </div>
         </div>
-  const { solPrice } = useSolPrice();
 
         {/* Filters */}
         {showFilters && (
