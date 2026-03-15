@@ -208,6 +208,7 @@ export default function PanelUnifiedDashboard() {
   const { referralCode, referralLink, referralCount } = useReferralCode();
   const { stats: refStats, recentReferrals, recentRewards } = useReferralDashboard();
   const { toast } = useToast();
+  const { solPrice } = useSolPrice();
   const queryClient = useQueryClient();
 
   const isBnb = chain === 'bnb';
