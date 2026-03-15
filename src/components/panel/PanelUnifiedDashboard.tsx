@@ -7,6 +7,7 @@ import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
 import { useLaunchpad, formatSolAmount, formatTokenAmount, Token } from "@/hooks/useLaunchpad";
 import { useWalletHoldings, TokenHolding as OnChainHolding } from "@/hooks/useWalletHoldings";
 import { useTokenMetadata } from "@/hooks/useTokenMetadata";
+import { useJupiterPrices } from "@/hooks/useJupiterPrices";
 import { useReferralCode, useReferralDashboard } from "@/hooks/useReferral";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useExportWallet } from "@privy-io/react-auth/solana";
