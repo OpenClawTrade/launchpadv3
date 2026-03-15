@@ -1,104 +1,59 @@
 
-## Privy-Powered 1-Click Token Launcher 🚀 PLANNED
+
+## Enrich Creator Fee Payouts in Recent Activity
 
 ### Problem
-TokenLauncher (3078 lines) uses `usePhantomWallet` — requires Phantom browser extension. 
-Rest of the platform already uses Privy embedded wallet. Users shouldn't need Phantom to launch tokens.
+When the treasury wallet sends creator earnings, it shows as a generic "Received" with the raw treasury address (see screenshot). Users can't tell this is a fee payout or which token it's from.
 
-### Architecture
-1. **Replace `usePhantomWallet` with `useSolanaWalletPrivy`** in TokenLauncher
-   - Privy embedded wallet handles all on-chain signing (same as trading)
-   - Users logged in via Privy can launch directly — no Phantom popup
-   - Logged-out users can still generate memes, prompted to login on Launch
+### Solution
+Enrich transactions in `fetch-wallet-transactions` edge function: when a "receive" comes from the treasury wallet, cross-reference with `fun_distributions` / `claw_distributions` tables to find the matching token name, and update the description and type label.
 
-2. **Simplify the "phantom" mode → "launch" mode**
-   - Remove Phantom-specific naming (`phantomWallet`, `isPhantomLaunching`, etc.)
-   - Rename to generic wallet references since Privy handles everything
-   - Keep all sub-modes (random, describe, realistic, custom)
+### Changes
 
-3. **On-chain flow change:**
-   ```
-   Before: Phantom popup → user signs → broadcast
-   After:  Privy embedded wallet → auto-sign (1-click) → broadcast
-   ```
+#### 1. `supabase/functions/fetch-wallet-transactions/index.ts`
+After parsing transactions, add an enrichment step:
+- Identify "receive" transactions where `counterparty === TREASURY_WALLET`
+- For those, query `fun_distributions` and `claw_distributions` by signature to find the associated `fun_token_id`
+- Join with `fun_tokens` to get token name/ticker
+- Update the transaction's `description` to e.g. `"Creator fee payout · TokenName ($TICKER)"` and add a new field like `label: "Fee Payout"` or keep type as `"receive"` but with enriched description
 
-4. **Auth gate on launch:**
-   - Check `useAuth()` / `usePrivy()` for logged-in state
-   - If not logged in → trigger Privy login modal
-   - If logged in → use embedded wallet address, sign tx via `useSolanaWalletPrivy`
+#### 2. `src/components/wallet/WalletTransactionHistory.tsx`
+- Add a new type config entry for `"fee_payout"` with a distinct icon (e.g. coins/banknote icon) and gold/yellow color
+- When rendering, detect fee payouts via the enriched data and display the token name instead of a truncated address
 
-### Files to modify:
-- `src/components/launchpad/TokenLauncher.tsx` — swap wallet hook, remove Phantom refs
-- `src/components/panel/PanelPhantomTab.tsx` — rename, use Privy
-- `src/pages/CreateTokenPage.tsx` — remove `defaultMode="phantom"` refs
-- `src/components/launchpad/CreateTokenModal.tsx` — same
-- `src/pages/FunLauncherPage.tsx` — same
+#### 3. `src/hooks/useWalletTransactions.ts`
+- Add optional `label` and `tokenName` fields to the `WalletTransaction` interface
 
-### Dependencies:
-- `src/hooks/useSolanaWalletPrivy.ts` (already exists, used by trading)
-- `src/hooks/useAuth.ts` (already exists)
-- Can potentially remove `src/hooks/usePhantomWallet.ts` entirely after migration
+### Detail
 
----
+In the edge function, after building the `transactions` array (line ~124), add:
 
-## Turbo Trade — Server-Side Execution Pipeline ✅ IMPLEMENTED
+```typescript
+const TREASURY_WALLET = "B85zVUNhN6bzyjEVkn7qwMVYTYodKUdWAfBHztpWxWvc";
 
-### What was built:
-1. **`supabase/functions/turbo-trade/index.ts`** — Server-side swap pipeline:
-   - Resolves wallet from DB cache (skips Privy API when `privy_wallet_id` cached)
-   - Builds swap tx via Jupiter Quote + Swap API (works for all tokens)
-   - Signs via Privy `signTransaction` (sign-only, ~300ms vs ~1000ms for signAndSend)
-   - Broadcasts signed tx in parallel to all 5 Jito regions + Helius RPC
-   - Records trade in DB + alpha_trades (non-blocking)
-   - Returns signature immediately with timing breakdown
+// Find receive txs from treasury
+const treasuryReceives = transactions.filter(
+  t => t.type === "receive" && t.counterparty === TREASURY_WALLET
+);
 
-2. **`src/hooks/useTurboSwap.ts`** — Minimal client hook:
-   - Single `supabase.functions.invoke('turbo-trade')` call
-   - No client-side tx building or signing
-   - Background query invalidation after 500ms
-   - Logs client roundtrip vs server execution time
-
-3. **Wired into trade components:**
-   - `PulseQuickBuyButton.tsx` — uses `useTurboSwap` 
-   - `PortfolioModal.tsx` — uses `useTurboSwap`
-
-### Expected latency:
-```
-Before: Client build (~200ms) + Privy sign (~1000ms) + Privy send (~400ms) = ~1600ms
-After:  Edge invoke (~100ms) + Jupiter quote+build (~150ms) + Privy sign-only (~300ms) + broadcast (~1ms) = ~550ms
+if (treasuryReceives.length > 0) {
+  // Look up distributions by signature to find token info
+  const sigs = treasuryReceives.map(t => t.signature);
+  const { data: dists } = await sb
+    .from("fun_distributions")
+    .select("signature, fun_token_id, fun_tokens(name, ticker)")
+    .in("signature", sigs);
+  // Also check claw_distributions
+  // Build a sig→tokenInfo map and enrich each transaction
+}
 ```
 
----
+On the frontend, `WalletTransactionHistory` will check for the new `label` field and render a gold "Fee Payout" badge with the token name, replacing the generic "Received" + address display.
 
-## 6-Phase Axiom Feature Integration Plan (SAVED)
+### Files to modify
+| File | Change |
+|------|--------|
+| `supabase/functions/fetch-wallet-transactions/index.ts` | Enrich treasury receives with distribution/token data |
+| `src/hooks/useWalletTransactions.ts` | Add `label` and `tokenName` optional fields to interface |
+| `src/components/wallet/WalletTransactionHistory.tsx` | Add `fee_payout` type with gold icon, show token name |
 
-### Phase 1: Copy Trade Execution
-- New `copy-trade-execute` edge function
-- Wire into `wallet-trade-webhook` when `is_copy_trading_enabled = true`
-- Add `max_copy_amount_sol`, `copy_slippage_bps`, `cooldown_seconds` to tracked_wallets
-- New `copy_trade_log` table
-
-### Phase 2: Limit Orders (SL/TP)
-- Jupiter limit order program integration
-- `limit-order-create` edge function
-- `limit_orders` DB table
-- Limit order tab in trade panel
-
-### Phase 3: Real-Time WebSocket Token Feed
-- Helius WebSocket for sub-1s new pair detection
-- Replace Codex polling (~30s) 
-- Edge function → Supabase Realtime channel
-
-### Phase 4: DCA (Dollar Cost Averaging)
-- `dca_orders` DB table
-- `dca-execute` cron edge function
-- DCA tab in trade panel
-
-### Phase 5: Enhanced Token Safety
-- LP lock status, mint authority, honeypot detection
-- Safety score badge on Pulse cards
-
-### Phase 6: Wallet PnL Analytics
-- `wallet-pnl-calculate` edge function
-- Per-wallet realized/unrealized PnL
-- Rank tracked wallets by performance
