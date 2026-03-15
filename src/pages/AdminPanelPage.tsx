@@ -205,6 +205,12 @@ export default function AdminPanelPage() {
               <PartnerFeesPage />
             </Suspense>
           </TabsContent>
+
+          <TabsContent value="x-restyler" className="mt-6">
+            <Suspense fallback={<TabLoader />}>
+              <XPostRestylerPage />
+            </Suspense>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
