@@ -114,6 +114,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
           <div className="pulse-avatar">
             <OptimizedTokenImage
               src={token.image_url}
+              fallbackSrc={imageFallbacks}
               fallbackText={token.ticker}
               size={48}
               loading="eager"
