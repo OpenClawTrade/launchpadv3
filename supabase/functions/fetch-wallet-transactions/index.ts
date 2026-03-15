@@ -127,6 +127,9 @@ Deno.serve(async (req) => {
       };
     });
 
+    // ── Enrich treasury fee payouts ──
+    await enrichTreasuryPayouts(walletAddress, transactions);
+
     // ── Sync swap transactions to alpha_trades (non-blocking) ──
     syncSwapsToAlphaTracker(walletAddress, enhancedTxs || [], transactions).catch((err) =>
       console.warn("[fetch-wallet-transactions] alpha sync failed (non-fatal):", err)
