@@ -38,18 +38,21 @@ type SoundPreset = "arcade" | "subtle" | "cash-register" | "custom-file";
 const ACTIVE_PRESET: SoundPreset = "arcade";
 
 // ─── Tone presets (WebAudio oscillator) ───
-const TONE_PRESETS: Record<string, { buy: [number, number, number, OscillatorType]; sell: [number, number, number, OscillatorType] }> = {
+const TONE_PRESETS: Record<string, { buy: [number, number, number, OscillatorType]; sell: [number, number, number, OscillatorType]; launch: [number, number, number, OscillatorType] }> = {
   arcade: {
     buy:  [600, 900, 0.1, "square"],   // ascending chirp
     sell: [500, 300, 0.1, "square"],   // descending chirp
+    launch: [400, 1200, 0.15, "sine"],  // rising fanfare
   },
   subtle: {
     buy:  [800, 1000, 0.06, "sine"],
     sell: [600, 400, 0.06, "sine"],
+    launch: [500, 1000, 0.1, "sine"],
   },
   "cash-register": {
     buy:  [1200, 1600, 0.05, "triangle"],
     sell: [800, 500, 0.05, "triangle"],
+    launch: [600, 1400, 0.08, "triangle"],
   },
 };
 
