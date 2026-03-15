@@ -74,13 +74,7 @@ const PortfolioPage = lazyWithRetry(() => import("./pages/PortfolioPage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 
-// Domain-aware root: render PunchTestPage on punchlaunch.fun, HomePage otherwise
 function DomainRoot() {
-  const hostname = window.location.hostname;
-  const isPunch = hostname === "punchlaunch.fun" || hostname === "www.punchlaunch.fun";
-  if (isPunch) {
-    return <Suspense fallback={<RouteLoader />}><PunchTestPage /></Suspense>;
-  }
   return <Suspense fallback={<RouteLoader />}><HomePage /></Suspense>;
 }
 
