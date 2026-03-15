@@ -60,7 +60,7 @@ export default function AdminPanelPage() {
   const activeTab = searchParams.get("tab") || "treasury";
 
   useEffect(() => {
-    if (localStorage.getItem("admin_panel_auth") === "true") {
+    if (localStorage.getItem("admin_panel_auth_v2") === "true") {
       setIsAuthenticated(true);
     }
   }, []);
@@ -69,7 +69,7 @@ export default function AdminPanelPage() {
     setError("");
     if (password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
-      localStorage.setItem("admin_panel_auth", "true");
+      localStorage.setItem("admin_panel_auth_v2", "true");
       localStorage.setItem("treasury_admin_auth", "true");
     } else {
       setError("Incorrect password");
@@ -78,7 +78,7 @@ export default function AdminPanelPage() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem("admin_panel_auth");
+    localStorage.removeItem("admin_panel_auth_v2");
     localStorage.removeItem("treasury_admin_auth");
   };
 
