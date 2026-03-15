@@ -2,6 +2,7 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useAlphaTrades, PositionSummary } from "@/hooks/useAlphaTrades";
 import { useChain } from "@/contexts/ChainContext";
 import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter } from "lucide-react";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
@@ -36,7 +37,8 @@ type HoldingFilter = "all" | "HOLDING" | "PARTIAL" | "SOLD";
 
 export default function AlphaTrackerPage() {
   const { chain, chainConfig } = useChain();
-  
+  const { solPrice } = useSolPrice();
+
   const { trades, loading, positions } = useAlphaTrades(100);
   const [searchToken, setSearchToken] = useState("");
   const [searchWallet, setSearchWallet] = useState("");
@@ -99,7 +101,6 @@ export default function AlphaTrackerPage() {
             </button>
           </div>
         </div>
-
 
         {/* Filters */}
         {showFilters && (
@@ -173,8 +174,8 @@ export default function AlphaTrackerPage() {
               const isBuy = trade.trade_type === "buy";
               const posKey = `${trade.wallet_address}::${trade.token_mint}`;
               const position = positions.get(posKey);
-              const mcap = trade.price_usd != null ? trade.price_usd * 1_000_000_000 : (trade.price_sol != null ? trade.price_sol * 1_000_000_000 : null);
-              const mcapIsUsd = trade.price_usd != null;
+              const mcapSol = trade.price_sol != null ? trade.price_sol * 1_000_000_000 : null;
+              const mcapUsd = trade.price_usd != null ? trade.price_usd * 1_000_000_000 : (mcapSol != null && solPrice ? mcapSol * solPrice : null);
               const nativeSymbol = trade.chain === 'bnb' ? 'BNB' : 'SOL';
 
               return (
@@ -235,9 +236,9 @@ export default function AlphaTrackerPage() {
 
                   {/* MCap */}
                   <div className="text-right">
-                    {mcap != null ? (
+                    {mcapUsd != null ? (
                       <span className="text-[10px] font-mono text-foreground/50 tabular-nums">
-                        {mcapIsUsd ? '$' : ''}{formatMcap(mcap)}{!mcapIsUsd ? ` ${nativeSymbol}` : ''}
+                        ${formatMcap(mcapUsd)}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/30">—</span>
