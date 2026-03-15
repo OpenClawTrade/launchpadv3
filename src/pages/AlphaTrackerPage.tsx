@@ -39,8 +39,15 @@ type HoldingFilter = "all" | "HOLDING" | "PARTIAL" | "SOLD";
 export default function AlphaTrackerPage() {
   const { chain, chainConfig } = useChain();
   const { solPrice } = useSolPrice();
+  const { toggle: toggleSounds, playBuy, playSell, isEnabled: isSoundsEnabled } = useTradeSounds();
+  const [soundsOn, setSoundsOn] = useState(() => localStorage.getItem("pulse-sounds-enabled") === "true");
 
-  const { trades, loading, positions } = useAlphaTrades(100);
+  const handleNewTrade = useCallback((trade: AlphaTrade) => {
+    if (trade.trade_type === "buy") playBuy();
+    else playSell();
+  }, [playBuy, playSell]);
+
+  const { trades, loading, positions } = useAlphaTrades(100, handleNewTrade);
   const [searchToken, setSearchToken] = useState("");
   const [searchWallet, setSearchWallet] = useState("");
   const [tradeTypeFilter, setTradeTypeFilter] = useState<TradeTypeFilter>("all");
