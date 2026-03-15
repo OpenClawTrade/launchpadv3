@@ -160,9 +160,10 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
             </button>
           </div>
 
-          {/* ── Center: SOL Price (desktop only) ── */}
-          <div className="hidden md:flex flex-1 items-center justify-center">
+          {/* ── Center: SOL Price + Saturn Token (desktop only) ── */}
+          <div className="hidden md:flex flex-1 items-center justify-center gap-2">
             {chain === 'bnb' ? <BnbPriceDisplay /> : chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
+            <SaturnTokenPriceDisplay />
           </div>
 
           {/* ── Right: X link, Wallet, Panel, Create ── */}
