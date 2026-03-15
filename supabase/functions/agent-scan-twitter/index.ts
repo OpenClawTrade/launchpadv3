@@ -910,7 +910,7 @@ Do NOT mention fees, panels, or platform features. Just your raw take on the mem
 
           const data = await response.json();
           let take = data.choices?.[0]?.message?.content?.trim();
-          if (!take) return "🦞 Snip snip. Trade it on saturntrade.com";
+          if (!take) return "🪐 Trade it on saturn.trade";
 
           // Ensure it starts with 🦞 and trim to 140 chars
           if (!take.startsWith("🦞")) take = "🦞 " + take;
