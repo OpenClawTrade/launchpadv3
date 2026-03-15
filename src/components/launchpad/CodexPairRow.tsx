@@ -143,7 +143,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
 
           {/* Line 2: Age + social icons + holders + pro traders */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[10px] font-mono text-foreground/50">{age}</span>
+            <LiveAge createdAt={token.createdAt} isUnixSeconds />
             <span className="pulse-icon-separator" />
             {token.twitterUrl && (
               <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Twitter">
