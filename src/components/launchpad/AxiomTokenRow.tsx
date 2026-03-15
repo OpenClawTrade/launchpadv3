@@ -8,6 +8,7 @@ import { LaunchpadBadge } from "./LaunchpadBadge";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
+import { LiveAge } from "@/components/ui/LiveAge";
 
 interface AxiomTokenRowProps {
   token: FunToken;
