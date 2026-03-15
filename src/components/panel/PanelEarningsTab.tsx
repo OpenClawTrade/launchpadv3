@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLaunchpad, formatSolAmount } from "@/hooks/useLaunchpad";
 import { useChain } from "@/contexts/ChainContext";
 import { useSolanaWalletWithPrivy } from "@/hooks/useSolanaWalletPrivy";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
