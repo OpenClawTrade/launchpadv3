@@ -10,6 +10,7 @@ import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
 import type { SupportedChain } from "@/contexts/ChainContext";
 import { formatChange24h } from "@/lib/formatters";
+import { LiveAge } from "@/components/ui/LiveAge";
 
 function formatUsdCompact(usd: number): string {
   if (!isFinite(usd) || usd > 1e15) return "$?";
@@ -63,7 +64,6 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
   const mcap = formatUsdCompact(token.marketCap);
   const vol = formatUsdCompact(token.volume24h);
   const liq = formatUsdCompact(token.liquidity);
-  const age = formatAge(token.createdAt);
   const xUsername = extractXUsername(token.twitterUrl);
   const isBnb = chain === 'bnb';
   const shortAddr = token.address
@@ -143,7 +143,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
 
           {/* Line 2: Age + social icons + holders + pro traders */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[10px] font-mono text-foreground/50">{age}</span>
+            <LiveAge createdAt={token.createdAt} isUnixSeconds />
             <span className="pulse-icon-separator" />
             {token.twitterUrl && (
               <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Twitter">

@@ -8,6 +8,7 @@ import { LaunchpadBadge } from "./LaunchpadBadge";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
+import { LiveAge } from "@/components/ui/LiveAge";
 
 interface AxiomTokenRowProps {
   token: FunToken;
@@ -69,7 +70,6 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
   const vol = formatVolume(token.volume_24h_sol, solPrice);
   const fees = formatUsd(token.total_fees_earned, solPrice);
   const holders = token.holder_count ?? 0;
-  const age = formatAge(token.created_at);
   const shortAddr = token.mint_address ? `${token.mint_address.slice(0, 4)}...${token.mint_address.slice(-4)}` : "";
   const priceChange = token.price_change_24h ?? 0;
 
@@ -128,7 +128,7 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
 
           {/* Line 2: Age + social icons + holders + pro traders */}
           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-            <span className="text-[10px] font-mono text-foreground/50">{age}</span>
+            <LiveAge createdAt={token.created_at} />
             <span className="pulse-icon-separator" />
             {token.twitter_url && (
               <a href={token.twitter_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="pulse-social-icon" title="Twitter">

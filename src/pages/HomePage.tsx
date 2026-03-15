@@ -9,6 +9,7 @@ import { SparklineCanvas } from "@/components/launchpad/SparklineCanvas";
 import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { LiveAge } from "@/components/ui/LiveAge";
 import {
   Zap, Rocket, ArrowRight, Crosshair, Radar, CandlestickChart,
   ArrowUpRight, ArrowDownRight, Shield, Users, Bot, ChevronLeft, ChevronRight
@@ -53,6 +54,7 @@ function PulseTokenRow({ token }: { token: CodexPairToken }) {
       <div className="flex-1 min-w-0 relative z-10">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-bold text-foreground truncate">{token.symbol}</span>
+          <LiveAge createdAt={token.createdAt} isUnixSeconds className="text-[9px] font-mono text-muted-foreground" />
           {token.graduationPercent > 0 && token.graduationPercent < 100 && (
             <span className="text-[9px] text-muted-foreground font-mono bg-muted/50 px-1 rounded">{token.graduationPercent.toFixed(0)}%</span>
           )}
