@@ -12,15 +12,7 @@ import { Play, RefreshCw, Shield, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const ADMIN_PASSWORD = "claw";
-const AUTH_STORAGE_KEY = "xbot-admin-auth";
-
 export default function XBotAdminPage() {
-  const [authenticated, setAuthenticated] = useState(() => {
-    return sessionStorage.getItem(AUTH_STORAGE_KEY) === "true";
-  });
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [showRulesForm, setShowRulesForm] = useState(false);
