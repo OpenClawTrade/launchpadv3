@@ -33,6 +33,9 @@ import {
 } from "@/components/ui/collapsible";
 import { Area, AreaChart, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { copyToClipboard } from "@/lib/clipboard";
+import { toast as sonnerToast } from "sonner";
+import { showTradeSuccess } from "@/stores/tradeSuccessStore";
+import { useTurboSwap } from "@/hooks/useTurboSwap";
 
 // ─── Lazy modal imports ───
 const SendTokenModal = lazy(() => import("@/components/wallet/SendTokenModal"));
@@ -210,6 +213,8 @@ export default function PanelUnifiedDashboard() {
   const { toast } = useToast();
   const { solPrice } = useSolPrice();
   const queryClient = useQueryClient();
+  const { executeTurboSwap } = useTurboSwap();
+  const [sellingMint, setSellingMint] = useState<string | null>(null);
 
   const isBnb = chain === 'bnb';
   const isSolana = chain === 'solana';
@@ -407,6 +412,65 @@ export default function PanelUnifiedDashboard() {
       setClaimingTokenId(null);
     }
   };
+
+  // Quick sell from portfolio
+  const handleQuickSell = useCallback(async (holding: HoldingWithToken) => {
+    if (!holding.tokens?.mint_address || sellingMint) return;
+    const ticker = holding.tokens.ticker;
+    const name = holding.tokens.name;
+    const mintAddress = holding.tokens.mint_address;
+    const toastId = `panel-sell-${Date.now()}`;
+
+    setSellingMint(mintAddress);
+    sonnerToast.loading("⚡ Selling...", { id: toastId });
+
+    try {
+      const result = await executeTurboSwap(
+        {
+          id: "", mint_address: mintAddress, name, ticker,
+          description: null, image_url: holding.tokens.image_url || null,
+          website_url: null, twitter_url: null, telegram_url: null, discord_url: null,
+          creator_wallet: "", creator_id: null, dbc_pool_address: null, damm_pool_address: null,
+          virtual_sol_reserves: 0, virtual_token_reserves: 0, real_sol_reserves: 0, real_token_reserves: 0,
+          total_supply: 0, bonding_curve_progress: 0, graduation_threshold_sol: 0,
+          price_sol: holding.tokens.price_sol || 0, market_cap_sol: 0, volume_24h_sol: 0,
+          status: "graduated", migration_status: "", holder_count: 0,
+          created_at: "", updated_at: "", graduated_at: null,
+        },
+        holding.balance,
+        false,
+        500,
+      );
+
+      sonnerToast.dismiss(toastId);
+
+      if (result.success) {
+        showTradeSuccess({
+          type: 'sell',
+          ticker,
+          tokenName: name || ticker,
+          mintAddress,
+          amount: '100%',
+          signature: result.signature,
+          executionMs: result.totalMs || undefined,
+          tokenImageUrl: holding.tokens.image_url || undefined,
+          pnlSol: result.outputAmount ?? undefined,
+        });
+
+        // Immediate invalidation for fast removal
+        queryClient.invalidateQueries({ queryKey: ["wallet-holdings", walletAddr] });
+        queryClient.invalidateQueries({ queryKey: ["portfolio-fun-token-prices"] });
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ["wallet-holdings", walletAddr] });
+        }, 3000);
+      }
+    } catch (err: any) {
+      sonnerToast.dismiss(toastId);
+      toast({ title: "Sell failed", description: err?.message?.slice(0, 80) || "Unknown error", variant: "destructive" });
+    } finally {
+      setSellingMint(null);
+    }
+  }, [executeTurboSwap, sellingMint, walletAddr, queryClient, toast]);
 
   // Pie chart data for portfolio — only tokens with value
   const pieData = useMemo(() => {
@@ -641,14 +705,22 @@ export default function PanelUnifiedDashboard() {
                                   <p className="text-[10px] text-muted-foreground">{currencySymbol}</p>
                                 </div>
                               </Link>
-                              <Link
-                                to={`/trade/${holding.tokens.mint_address}`}
-                                onClick={(e) => e.stopPropagation()}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleQuickSell(holding as HoldingWithToken);
+                                }}
+                                disabled={sellingMint === holding.tokens.mint_address}
                                 className="shrink-0 px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider transition-all
-                                           bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:border-destructive/40"
+                                           bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:border-destructive/40 disabled:opacity-50"
                               >
-                                Sell
-                              </Link>
+                                {sellingMint === holding.tokens.mint_address ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  "Sell"
+                                )}
+                              </button>
                             </div>
                           );
                         })}
