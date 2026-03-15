@@ -42,21 +42,17 @@ html, body, #root {
   90% { transform: translateX(1px) rotate(1deg); }
 }
 
-/* Trade notification toasts: position above sticky footer */
+/* ─── Trade notification toast positioning ─── */
 [data-sonner-toaster][data-x-position="right"][data-y-position="bottom"] {
   bottom: 80px !important;
-  right: 12px !important;
+  right: 16px !important;
 }
 
-/* Toast slide-in / slide-out animations */
+/* ─── Toast entrance / exit ─── */
 @keyframes toast-slide-in {
   0% {
     opacity: 0;
-    transform: translateX(100%) scale(0.9);
-  }
-  60% {
-    opacity: 1;
-    transform: translateX(-4%) scale(1.02);
+    transform: translateX(40px) scale(0.96);
   }
   100% {
     opacity: 1;
@@ -71,24 +67,35 @@ html, body, #root {
   }
   100% {
     opacity: 0;
-    transform: translateX(110%) scale(0.9);
+    transform: translateX(60px) scale(0.95);
   }
 }
 
 [data-sonner-toast] {
-  animation: toast-slide-in 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards !important;
+  animation: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 [data-sonner-toast][data-removed="true"] {
-  animation: toast-slide-out 0.3s cubic-bezier(0.06, 0.71, 0.55, 1) forwards !important;
+  animation: toast-slide-out 0.35s cubic-bezier(0.4, 0, 0.7, 0.2) forwards !important;
 }
 
-/* Stacked toasts: smooth gap between them */
+/* Stacked toasts: smooth repositioning */
 [data-sonner-toaster] [data-sonner-toast] {
-  transition: transform 0.3s cubic-bezier(0.21, 1.02, 0.73, 1),
-              opacity 0.3s ease !important;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s ease !important;
 }
 
+/* ─── Progress bar countdown ─── */
+@keyframes trade-notif-countdown {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+.trade-notif-progress {
+  animation: trade-notif-countdown linear forwards;
+}
+
+/* ─── Mobile responsive ─── */
 @media (max-width: 767px) {
   [data-sonner-toaster][data-x-position="right"][data-y-position="bottom"] {
     bottom: 72px !important;
@@ -98,6 +105,9 @@ html, body, #root {
   }
   [data-sonner-toaster][data-x-position="right"][data-y-position="bottom"] [data-sonner-toast] {
     width: 100% !important;
+    max-width: 100% !important;
+  }
+  .trade-notif-card {
     max-width: 100% !important;
   }
 }

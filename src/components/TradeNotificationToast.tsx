@@ -29,21 +29,20 @@ function formatSol(amount: number): string {
   return amount.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
-function getTokenImageFallbacks(mint: string, chain: string): string[] {
-  const dexChain = chain === "bnb" ? "bsc" : "solana";
-  return [
-    `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${mint}.png`,
-    `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(mint)}`,
-  ];
-}
+const ACCENT = {
+  buy:    { text: "#00D4FF", bg: "rgba(0,212,255,0.08)", border: "rgba(0,212,255,0.15)", glow: "rgba(0,212,255,0.12)", dot: "#00D4FF", bar: "#00D4FF" },
+  sell:   { text: "#FF4D4D", bg: "rgba(255,77,77,0.08)",  border: "rgba(255,77,77,0.15)",  glow: "rgba(255,77,77,0.12)",  dot: "#FF4D4D", bar: "#FF4D4D" },
+  launch: { text: "#A78BFA", bg: "rgba(167,139,250,0.08)", border: "rgba(167,139,250,0.15)", glow: "rgba(167,139,250,0.12)", dot: "#A78BFA", bar: "#A78BFA" },
+} as const;
 
 export function showTradeNotification(data: TradeToastData) {
-  const isBuy = data.tradeType === "buy";
-  const isLaunch = data.tradeType === "launch";
+  const type = data.tradeType;
+  const accent = ACCENT[type];
   const chainLabel = data.chain === "bnb" ? "BNB" : "SOL";
   const mcapStr = formatMcap(data.marketCapUsd);
+  const duration = type === "launch" ? 6000 : 5000;
 
-  // Build token image sources array
+  // Token image sources
   const dexChain = data.chain === "bnb" ? "bsc" : "solana";
   const tokenSources: string[] = [];
   if (data.tokenImageUrl) tokenSources.push(data.tokenImageUrl);
@@ -52,101 +51,155 @@ export function showTradeNotification(data: TradeToastData) {
   }
   tokenSources.push(`https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(data.tokenMint || data.tokenTicker)}`);
 
-  const avatarImg = data.traderAvatar || DEFAULT_AVATAR;
-
-  const bgClass = isLaunch
-    ? "bg-violet-950/80 border-violet-500/25"
-    : isBuy
-      ? "bg-emerald-950/80 border-emerald-500/25"
-      : "bg-red-950/80 border-red-500/25";
-
-  const accentColor = isLaunch
-    ? "text-violet-400"
-    : isBuy
-      ? "text-emerald-400"
-      : "text-red-400";
-
-  const dotColor = isLaunch
-    ? "bg-violet-400"
-    : isBuy
-      ? "bg-emerald-400"
-      : "bg-red-400";
-
-  const badgeBg = isLaunch
-    ? "bg-violet-500/15 text-violet-400 border border-violet-500/20"
-    : isBuy
-      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-      : "bg-red-500/15 text-red-400 border border-red-500/20";
-
-  const mcapAccent = isLaunch
-    ? "text-violet-400/70"
-    : isBuy
-      ? "text-emerald-400/70"
-      : "text-red-400/70";
-
-  const actionLabel = isLaunch ? "launched" : isBuy ? "bought" : "sold";
-  const badgeLabel = isLaunch ? "🚀 NEW" : isBuy ? "BUY" : "SELL";
+  const actionLabel = type === "launch" ? "launched" : type === "buy" ? "bought" : "sold";
+  const badgeLabel = type === "launch" ? "🚀 NEW" : type === "buy" ? "BUY" : "SELL";
 
   toast.custom(
-    () => (
+    (id) => (
       <div
-        className={`
-          flex items-center gap-3 w-full max-w-[380px] px-4 py-3 rounded-xl border backdrop-blur-xl
-          shadow-[0_8px_32px_rgba(0,0,0,0.5)]
-          ${bgClass}
-        `}
+        className="trade-notif-card"
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          width: "100%",
+          maxWidth: "370px",
+          padding: "12px 14px",
+          borderRadius: "14px",
+          background: "rgba(17,17,22,0.82)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: `1px solid ${accent.border}`,
+          boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06)`,
+          overflow: "hidden",
+          cursor: "pointer",
+          fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
+        }}
+        onClick={() => toast.dismiss(id)}
       >
-        {/* Token icon with cascading fallback */}
-        <div className="relative flex-shrink-0">
-          <OptimizedTokenImage
-            src={tokenSources[0]}
-            fallbackSrc={tokenSources.slice(1)}
-            fallbackText={data.tokenTicker}
-            alt={data.tokenTicker}
-            size={40}
-            className="w-10 h-10 rounded-full object-cover bg-white/5"
-          />
-          {/* Indicator dot */}
+        {/* Token icon */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
           <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-black/60 ${dotColor}`}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              overflow: "hidden",
+              border: `1.5px solid ${accent.border}`,
+              background: "rgba(255,255,255,0.04)",
+            }}
+          >
+            <OptimizedTokenImage
+              src={tokenSources[0]}
+              fallbackSrc={tokenSources.slice(1)}
+              fallbackText={data.tokenTicker}
+              alt={data.tokenTicker}
+              size={34}
+              style={{ width: 34, height: 34, objectFit: "cover", display: "block" }}
+            />
+          </div>
+          {/* Status dot */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: -1,
+              right: -1,
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: accent.dot,
+              border: "2px solid rgba(17,17,22,0.9)",
+              boxShadow: `0 0 6px ${accent.glow}`,
+            }}
           />
         </div>
 
-        {/* Trade info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            {/* User avatar */}
-            <AvatarImg
-              src={avatarImg}
-              alt={data.traderName}
-              className="w-4 h-4 rounded-full object-cover flex-shrink-0 bg-white/10"
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
+          {/* Line 1: wallet + action + ticker */}
+          <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "nowrap" }}>
+            {/* Tiny avatar */}
+            <img
+              src={data.traderAvatar || DEFAULT_AVATAR}
+              alt=""
+              style={{
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                objectFit: "cover",
+                flexShrink: 0,
+                opacity: 0.8,
+              }}
+              onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
             />
-            <span className="text-[13px] font-semibold text-white/90 truncate">
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.85)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {data.traderName}
             </span>
-            <span className={`text-[12px] font-medium flex-shrink-0 ${accentColor}`}>
+            <span
+              style={{
+                fontSize: "12.5px",
+                fontWeight: 500,
+                color: accent.text,
+                flexShrink: 0,
+                opacity: 0.9,
+              }}
+            >
               {actionLabel}
             </span>
-            <span className="text-[13px] font-bold text-white truncate">
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#fff",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               ${data.tokenTicker}
             </span>
           </div>
 
-          <div className="flex items-center gap-2 mt-0.5">
-            {!isLaunch && (
-              <span className="text-[12px] text-white/50 font-medium">
-                {formatSol(data.amountSol)} {chainLabel}
-              </span>
-            )}
-            {isLaunch && (
-              <span className="text-[12px] text-white/50 font-medium">
+          {/* Line 2: amount + mcap */}
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {type === "launch" ? (
+              <span style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.4)", fontWeight: 500 }}>
                 New token on {chainLabel}
+              </span>
+            ) : (
+              <span
+                style={{
+                  fontSize: "11.5px",
+                  color: "rgba(255,255,255,0.45)",
+                  fontWeight: 500,
+                  fontFamily: "'Geist Mono', 'SF Mono', monospace",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {formatSol(data.amountSol)} {chainLabel}
               </span>
             )}
             {mcapStr && (
               <>
-                <span className="text-white/20 text-[10px]">•</span>
-                <span className={`text-[11px] font-medium ${mcapAccent}`}>
+                <span style={{ color: "rgba(255,255,255,0.15)", fontSize: "9px" }}>•</span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: accent.text,
+                    opacity: 0.6,
+                    fontWeight: 500,
+                  }}
+                >
                   MC {mcapStr}
                 </span>
               </>
@@ -154,34 +207,53 @@ export function showTradeNotification(data: TradeToastData) {
           </div>
         </div>
 
-        {/* Badge */}
+        {/* Minimal badge */}
         <div
-          className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${badgeBg}`}
+          style={{
+            flexShrink: 0,
+            padding: "3px 8px",
+            borderRadius: "6px",
+            fontSize: "9.5px",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: accent.text,
+            background: accent.bg,
+            border: `1px solid ${accent.border}`,
+          }}
         >
           {badgeLabel}
+        </div>
+
+        {/* Progress bar — animates from full width to 0 */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: "2px",
+            background: "rgba(255,255,255,0.03)",
+            overflow: "hidden",
+            borderRadius: "0 0 14px 14px",
+          }}
+        >
+          <div
+            className="trade-notif-progress"
+            style={{
+              height: "100%",
+              background: `linear-gradient(90deg, transparent, ${accent.bar})`,
+              animationDuration: `${duration}ms`,
+            }}
+          />
         </div>
       </div>
     ),
     {
-      duration: isLaunch ? 6000 : 5000,
+      duration,
       position: "bottom-right",
       unstyled: true,
       className: "trade-notification-toast",
     }
-  );
-}
-
-
-/** Avatar with fallback to default */
-function AvatarImg({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={(e) => {
-        (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
-      }}
-    />
   );
 }
