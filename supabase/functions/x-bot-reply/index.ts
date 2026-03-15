@@ -179,13 +179,13 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get pending queue items (oldest first, limit batch)
+    // Get pending queue items (oldest first, limit to 5 per invocation)
     const { data: queueItems, error: queueError } = await supabase
       .from("x_bot_account_queue")
       .select("*")
       .eq("status", "pending")
       .order("created_at", { ascending: true })
-      .limit(10);
+      .limit(5);
 
     if (queueError) throw queueError;
     if (!queueItems || queueItems.length === 0) {
