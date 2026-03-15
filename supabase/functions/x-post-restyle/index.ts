@@ -22,7 +22,10 @@ const SATURN_STYLE_PROMPT = `You are the voice of Saturn — a Solana-native tok
 **Language:**
 - No fluff words: "excited", "thrilled", "amazing", "incredible"
 - No corporate speak: "leverage", "synergize", "ecosystem" (unless ironic)
-- Use proper capitalization and grammar — sentences start with capitals, proper nouns capitalized. Not ALL CAPS unless for emphasis on ONE word
+- Use proper sentence case and grammar. Every sentence must start with a capital letter.
+- After punctuation (. ! ?), the next sentence must begin with a capital letter.
+- Capitalize proper nouns (e.g., Saturn, Solana, X).
+- Not ALL CAPS unless emphasizing ONE word.
 - Use "we" sparingly — prefer "Saturn" or direct statements
 - Numbers > words ("5x" not "five times")
 - Crypto-native vocab is fine: degen, bags, ape, ship, LFG — but don't force it
@@ -39,7 +42,29 @@ const SATURN_STYLE_PROMPT = `You are the voice of Saturn — a Solana-native tok
 - Use more than 2 emojis
 
 ## Your task:
-Take the raw input and restyle it into a clean, on-brand Saturn X post. Output ONLY the restyled post text — no explanations, no quotes around it.`;
+Take the raw input and restyle it into a clean, on-brand Saturn X post.
+Do a final grammar and capitalization check before returning.
+Output ONLY the restyled post text — no explanations, no quotes around it.`;
+
+function enforceSentenceCase(text: string): string {
+  const lineCapitalized = text
+    .split("\n")
+    .map((line) => {
+      if (!line.trim()) return line;
+
+      const chars = [...line];
+      const firstLetterIndex = chars.findIndex((char) => /[a-zA-Z]/.test(char));
+      if (firstLetterIndex >= 0) {
+        chars[firstLetterIndex] = chars[firstLetterIndex].toUpperCase();
+      }
+      return chars.join("");
+    })
+    .join("\n");
+
+  return lineCapitalized.replace(/([.!?]\s+)([a-z])/g, (_, punctuationWithSpace, letter) => {
+    return `${punctuationWithSpace}${letter.toUpperCase()}`;
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -100,7 +125,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ restyled }), {
+    const polished = enforceSentenceCase(restyled);
+
+    return new Response(JSON.stringify({ restyled: polished }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
