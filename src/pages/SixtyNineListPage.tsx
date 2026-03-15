@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Crown, Trophy, TrendingUp, Shield, Gem, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight, Wallet, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { SATURN_TOKEN_CA } from "@/hooks/useSaturnTokenData"; // Used in CTA link
+
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Progress } from "@/components/ui/progress";
@@ -353,7 +353,7 @@ export default function SixtyNineListPage() {
                 from every token launched on Saturn Terminal. The higher your rank, the more you earn.
               </p>
               <Link
-                to={`/trade/${SATURN_TOKEN_CA}`}
+                to="#"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:brightness-110 transition-all shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.5)]"
               >
                 Buy $SATURN Now
