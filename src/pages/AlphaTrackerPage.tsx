@@ -174,15 +174,22 @@ export default function AlphaTrackerPage() {
               const isBuy = trade.trade_type === "buy";
               const posKey = `${trade.wallet_address}::${trade.token_mint}`;
               const position = positions.get(posKey);
-              // Derive price from trade data when explicit price is missing
-              const derivedPriceSol = (trade.amount_tokens > 0 && trade.amount_sol > 0) 
-                ? (trade.amount_sol / trade.amount_tokens) 
+              // Prefer token-level market cap (available even when this specific trade has 0 tokens)
+              const tokenMcapUsd = trade.token_market_cap_usd != null
+                ? trade.token_market_cap_usd
+                : (trade.token_market_cap_sol != null && solPrice ? trade.token_market_cap_sol * solPrice : null);
+
+              // Fallback to trade-implied market cap only when token-level data is unavailable
+              const derivedPriceSol = (trade.amount_tokens > 0 && trade.amount_sol > 0)
+                ? (trade.amount_sol / trade.amount_tokens)
                 : null;
               const effectivePriceSol = trade.price_sol ?? derivedPriceSol;
-              const mcapSol = effectivePriceSol != null ? effectivePriceSol * 1_000_000_000 : null;
-              const mcapUsd = trade.price_usd != null 
-                ? trade.price_usd * 1_000_000_000 
-                : (mcapSol != null && solPrice ? mcapSol * solPrice : null);
+              const mcapSolFromTrade = effectivePriceSol != null ? effectivePriceSol * 1_000_000_000 : null;
+              const mcapUsdFromTrade = trade.price_usd != null
+                ? trade.price_usd * 1_000_000_000
+                : (mcapSolFromTrade != null && solPrice ? mcapSolFromTrade * solPrice : null);
+
+              const mcapUsd = tokenMcapUsd ?? mcapUsdFromTrade;
               const nativeSymbol = trade.chain === 'bnb' ? 'BNB' : 'SOL';
 
               return (
