@@ -2,6 +2,7 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useAlphaTrades, PositionSummary } from "@/hooks/useAlphaTrades";
 import { useChain } from "@/contexts/ChainContext";
 import { Crosshair, ExternalLink, ArrowUpRight, ArrowDownRight, Search, X, Filter } from "lucide-react";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useMemo, useEffect } from "react";
