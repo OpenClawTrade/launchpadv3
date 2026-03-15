@@ -352,26 +352,13 @@ export default function SixtyNineListPage() {
               </div>
             </div>
 
-            {/* Countdown + Refresh */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+            {/* Countdown */}
+            <div className="flex items-center justify-center">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card/40 border border-border/20">
                 <Timer className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">Next scan in</span>
                 <span className="font-mono text-sm font-bold text-foreground">{countdown}</span>
               </div>
-              <button
-                onClick={() => refetch()}
-                disabled={isFetching}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-                {isFetching ? "Scanning..." : "Refresh Now"}
-              </button>
-              {data?.count && (
-                <span className="text-xs text-muted-foreground">
-                  {data.count.toLocaleString()} total holders
-                </span>
-              )}
             </div>
           </div>
         </section>
