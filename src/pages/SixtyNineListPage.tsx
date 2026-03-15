@@ -409,88 +409,21 @@ export default function SixtyNineListPage() {
                   <Crown className="h-5 w-5 text-primary" />
                   The List
                 </h2>
-                <div className="flex items-center gap-1 bg-card/40 rounded-lg border border-border/20 p-0.5">
-                  <button
-                    onClick={() => setSortBy("holdings")}
-                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${sortBy === "holdings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    By Holdings
-                  </button>
-                  <button
-                    onClick={() => setSortBy("sol")}
-                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${sortBy === "sol" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    By SOL
-                  </button>
+              </div>
+
+              {/* Coming Soon State */}
+              <div className="rounded-xl border border-border/20 bg-card/20 p-8 sm:p-12 text-center">
+                <Crown className="h-12 w-12 text-primary/30 mx-auto mb-4" strokeWidth={1.5} />
+                <h3 className="text-lg font-bold text-foreground mb-2">Holders List Coming Soon</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-4">
+                  Once <span className="text-primary font-semibold">$SATURN</span> launches, the top 69 holders will appear here automatically. 
+                  The contract address will be added to scan and distribute rewards to qualifying wallets.
+                </p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/5 border border-primary/15 text-primary text-xs font-semibold">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Token launch imminent — stay tuned
                 </div>
               </div>
-
-              {/* Table Header */}
-              <div className="grid grid-cols-[44px_1fr_90px_70px_70px] sm:grid-cols-[50px_1fr_130px_100px_90px] gap-1 sm:gap-3 px-3 sm:px-4 py-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider border-b border-border/20 mb-2">
-                <span>Rank</span>
-                <span>Holder</span>
-                <span className="text-right">$SATURN</span>
-                <span className="text-right">Est/Wk</span>
-                <span className="text-right">SOL Bal</span>
-              </div>
-
-              {/* Rows */}
-              <div className="space-y-1.5">
-                {isLoading ? (
-                  Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                    <div key={i} className="px-3 py-3 rounded-lg bg-card/20 border border-border/10">
-                      <Skeleton className="h-6 w-full" />
-                    </div>
-                  ))
-                ) : (
-                  paginatedHolders.map((h: HolderEntry, i: number) => {
-                    const globalRank = (currentPage - 1) * ITEMS_PER_PAGE + i + 1;
-                    return (
-                      <HolderRow
-                        key={h.address}
-                        holder={h}
-                        rank={globalRank}
-                        animDelay={Math.min(i * 30, 300)}
-                      />
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-border/20">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`min-w-[36px] h-9 rounded-lg text-xs font-bold transition-all ${
-                        page === currentPage
-                          ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
-                          : "border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* ────── Sidebar Column ────── */}
