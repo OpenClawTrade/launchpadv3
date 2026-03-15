@@ -1,50 +1,31 @@
-import { useState, useEffect, useMemo } from "react";
-import { Crown, Trophy, TrendingUp, Shield, Gem, ExternalLink, RefreshCw, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Crown, Trophy, TrendingUp, Shield, Gem, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight, Wallet, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SATURN_TOKEN_CA } from "@/hooks/useSaturnTokenData";
+import { SATURN_TOKEN_CA } from "@/hooks/useSaturnTokenData"; // Used in CTA link
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
-interface HolderEntry {
-  address: string;
-  tokenAmount: number;
-  percentage: number;
-  solBalance: number;
-}
+const TREASURY_WALLET = "B85zVUNhN6bzyjEVkn7qwMVYTYodKUdWAfBHztpWxWvc";
+const DISTRIBUTION_THRESHOLD_SOL = 10;
+const HOLDER_SHARE_PERCENT = 69;
 
-function useTop69Holders() {
+/** Live treasury SOL balance */
+function useTreasuryBalance() {
   return useQuery({
-    queryKey: ["top-69-holders", SATURN_TOKEN_CA],
+    queryKey: ["treasury-balance-69", TREASURY_WALLET],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("fetch-token-holders", {
-        body: { mintAddress: SATURN_TOKEN_CA },
+      const { data, error } = await supabase.functions.invoke("fetch-sol-balances", {
+        body: { wallets: [TREASURY_WALLET] },
       });
       if (error) throw error;
-      const holders = (data.holders || []).slice(0, 69);
-      return {
-        holders,
-        totalSupply: data.totalSupply,
-        count: data.count,
-        lastUpdated: new Date().toISOString(),
-      };
+      return (data?.balances?.[TREASURY_WALLET] ?? 0) as number;
     },
-    staleTime: 1000 * 60 * 55,
-    refetchInterval: 1000 * 60 * 60,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
-}
-
-function shortenAddress(addr: string) {
-  return addr.slice(0, 6) + "···" + addr.slice(-4);
-}
-
-function formatTokenAmount(n: number) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
-  return n.toFixed(0);
 }
 
 // Countdown hook — minutes:seconds until next hour + 5min
@@ -68,125 +49,15 @@ function useCountdown() {
   return timeLeft;
 }
 
-// Estimated weekly earnings based on rank position
-function estWeeklyEarnings(rank: number): string {
-  // Mock: top ranks earn more based on even split of 69% of fees
-  const baseEarning = 0.42; // SOL per week estimate per holder
-  if (rank <= 3) return (baseEarning * 2.5).toFixed(2);
-  if (rank <= 10) return (baseEarning * 1.5).toFixed(2);
-  return baseEarning.toFixed(2);
-}
-
-function getRankMedal(rank: number) {
-  if (rank === 1) return "🥇";
-  if (rank === 2) return "🥈";
-  if (rank === 3) return "🥉";
-  return null;
-}
-
-function HolderRow({ holder, rank, animDelay }: { holder: HolderEntry; rank: number; animDelay: number }) {
-  const isTop3 = rank <= 3;
-  const isTop10 = rank <= 10;
-
-  return (
-    <div
-      className={`
-        group relative grid grid-cols-[44px_1fr_90px_70px_70px] sm:grid-cols-[50px_1fr_130px_100px_90px] 
-        items-center gap-1 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg border transition-all duration-300
-        hover:border-primary/30 hover:bg-primary/[0.03] hover:shadow-[0_0_20px_hsl(var(--primary)/0.06)]
-        ${isTop3
-          ? "border-primary/20 bg-primary/[0.04]"
-          : isTop10
-            ? "border-border/40 bg-card/40"
-            : "border-border/20 bg-card/20"
-        }
-      `}
-      style={{ animationDelay: `${animDelay}ms` }}
-    >
-      {/* Rank */}
-      <div className="flex items-center gap-1">
-        {isTop3 ? (
-          <span className="text-lg sm:text-xl" title={`Rank #${rank}`}>
-            {getRankMedal(rank)}
-          </span>
-        ) : (
-          <span className={`font-mono text-sm font-bold ${isTop10 ? "text-primary" : "text-muted-foreground"}`}>
-            #{rank}
-          </span>
-        )}
-      </div>
-
-      {/* Address */}
-      <a
-        href={`https://solscan.io/account/${holder.address}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 min-w-0 group/addr"
-      >
-        {/* Avatar circle */}
-        <div
-          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex-shrink-0 border border-border/30"
-          style={{
-            background: `linear-gradient(135deg, hsl(${(rank * 37) % 360} 60% 50%), hsl(${(rank * 37 + 120) % 360} 50% 40%))`,
-          }}
-        />
-        <span className="font-mono text-xs text-muted-foreground group-hover/addr:text-foreground transition-colors truncate">
-          {shortenAddress(holder.address)}
-        </span>
-        <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover/addr:opacity-50 transition-opacity" />
-      </a>
-
-      {/* Holdings */}
-      <div className="text-right">
-        <div className="text-xs sm:text-sm font-bold text-foreground">{formatTokenAmount(holder.tokenAmount)}</div>
-        <div className="text-[10px] text-muted-foreground">{holder.percentage.toFixed(2)}%</div>
-      </div>
-
-      {/* Est. Weekly */}
-      <div className="text-right">
-        <div className="text-xs font-semibold text-primary">{estWeeklyEarnings(rank)} SOL</div>
-        <div className="text-[10px] text-muted-foreground">est/wk</div>
-      </div>
-
-      {/* SOL Balance */}
-      <div className="text-right text-xs text-muted-foreground">
-        {holder.solBalance.toFixed(2)} SOL
-      </div>
-
-      {/* Rank glow line for top 3 */}
-      {isTop3 && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-3/5 rounded-r-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.5)]" />
-      )}
-    </div>
-  );
-}
-
-const ITEMS_PER_PAGE = 10;
-
 export default function SixtyNineListPage() {
-  const { data, isLoading, refetch, isFetching } = useTop69Holders();
+  const { data: treasuryBalance = 0, isLoading: balanceLoading } = useTreasuryBalance();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<"holdings" | "sol">("holdings");
-  const [currentPage, setCurrentPage] = useState(1);
   const countdown = useCountdown();
 
-  const sortedHolders = useMemo(() => {
-    if (!data?.holders) return [];
-    const copy = [...data.holders];
-    if (sortBy === "sol") {
-      copy.sort((a: HolderEntry, b: HolderEntry) => b.solBalance - a.solBalance);
-    }
-    return copy;
-  }, [data?.holders, sortBy]);
-
-  const totalPages = Math.ceil(sortedHolders.length / ITEMS_PER_PAGE);
-  const paginatedHolders = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return sortedHolders.slice(start, start + ITEMS_PER_PAGE);
-  }, [sortedHolders, currentPage]);
-
-  // Reset page when sort changes
-  useEffect(() => { setCurrentPage(1); }, [sortBy]);
+  const potProgress = Math.min((treasuryBalance / DISTRIBUTION_THRESHOLD_SOL) * 100, 100);
+  const distributionAmount = (treasuryBalance * HOLDER_SHARE_PERCENT) / 100;
+  const perHolder = distributionAmount / 69;
+  const isPotFull = treasuryBalance >= DISTRIBUTION_THRESHOLD_SOL;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -272,6 +143,59 @@ export default function SixtyNineListPage() {
               ))}
             </div>
 
+            {/* ═══════════════ DISTRIBUTION POT ═══════════════ */}
+            <div className={`max-w-3xl mx-auto mb-8 rounded-xl border p-5 sm:p-6 transition-all duration-500 ${
+              isPotFull 
+                ? "border-primary/40 bg-primary/[0.08] shadow-[0_0_30px_hsl(var(--primary)/0.15)]" 
+                : "border-border/30 bg-card/40 backdrop-blur-sm"
+            }`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary" />
+                  <h3 className="font-bold text-foreground text-sm">Distribution Pot</h3>
+                </div>
+                {isPotFull && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 text-primary text-[11px] font-bold animate-pulse">
+                    <Zap className="h-3 w-3" />
+                    Ready to distribute!
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-end justify-between mb-2">
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-foreground tabular-nums">
+                    {balanceLoading ? "—" : treasuryBalance.toFixed(4)}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1.5">SOL</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  / {DISTRIBUTION_THRESHOLD_SOL} SOL threshold
+                </span>
+              </div>
+
+              <Progress value={potProgress} className={`h-3 mb-3 ${isPotFull ? "shadow-[0_0_12px_hsl(var(--primary)/0.4)]" : ""}`} />
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-background/40 rounded-lg p-2.5 border border-border/10">
+                  <div className="text-xs text-muted-foreground mb-0.5">Progress</div>
+                  <div className="text-sm font-bold text-foreground tabular-nums">{potProgress.toFixed(1)}%</div>
+                </div>
+                <div className="bg-background/40 rounded-lg p-2.5 border border-border/10">
+                  <div className="text-xs text-muted-foreground mb-0.5">69% to holders</div>
+                  <div className="text-sm font-bold text-primary tabular-nums">{distributionAmount.toFixed(4)} SOL</div>
+                </div>
+                <div className="bg-background/40 rounded-lg p-2.5 border border-border/10">
+                  <div className="text-xs text-muted-foreground mb-0.5">Per holder</div>
+                  <div className="text-sm font-bold text-foreground tabular-nums">{perHolder.toFixed(4)} SOL</div>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground mt-3 text-center">
+                Live balance of treasury wallet · Auto-distributes 69% to The List when {DISTRIBUTION_THRESHOLD_SOL} SOL is reached
+              </p>
+            </div>
+
             {/* How It Works */}
             <div className="max-w-3xl mx-auto bg-card/30 border border-border/20 rounded-xl p-4 sm:p-5 mb-6">
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2 text-sm">
@@ -293,26 +217,13 @@ export default function SixtyNineListPage() {
               </div>
             </div>
 
-            {/* Countdown + Refresh */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+            {/* Countdown */}
+            <div className="flex items-center justify-center">
               <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card/40 border border-border/20">
                 <Timer className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">Next scan in</span>
                 <span className="font-mono text-sm font-bold text-foreground">{countdown}</span>
               </div>
-              <button
-                onClick={() => refetch()}
-                disabled={isFetching}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-                {isFetching ? "Scanning..." : "Refresh Now"}
-              </button>
-              {data?.count && (
-                <span className="text-xs text-muted-foreground">
-                  {data.count.toLocaleString()} total holders
-                </span>
-              )}
             </div>
           </div>
         </section>
@@ -329,88 +240,21 @@ export default function SixtyNineListPage() {
                   <Crown className="h-5 w-5 text-primary" />
                   The List
                 </h2>
-                <div className="flex items-center gap-1 bg-card/40 rounded-lg border border-border/20 p-0.5">
-                  <button
-                    onClick={() => setSortBy("holdings")}
-                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${sortBy === "holdings" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    By Holdings
-                  </button>
-                  <button
-                    onClick={() => setSortBy("sol")}
-                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-colors ${sortBy === "sol" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    By SOL
-                  </button>
+              </div>
+
+              {/* Coming Soon State */}
+              <div className="rounded-xl border border-border/20 bg-card/20 p-8 sm:p-12 text-center">
+                <Crown className="h-12 w-12 text-primary/30 mx-auto mb-4" strokeWidth={1.5} />
+                <h3 className="text-lg font-bold text-foreground mb-2">Holders List Coming Soon</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-4">
+                  Once <span className="text-primary font-semibold">$SATURN</span> launches, the top 69 holders will appear here automatically. 
+                  The contract address will be added to scan and distribute rewards to qualifying wallets.
+                </p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/5 border border-primary/15 text-primary text-xs font-semibold">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Token launch imminent — stay tuned
                 </div>
               </div>
-
-              {/* Table Header */}
-              <div className="grid grid-cols-[44px_1fr_90px_70px_70px] sm:grid-cols-[50px_1fr_130px_100px_90px] gap-1 sm:gap-3 px-3 sm:px-4 py-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider border-b border-border/20 mb-2">
-                <span>Rank</span>
-                <span>Holder</span>
-                <span className="text-right">$SATURN</span>
-                <span className="text-right">Est/Wk</span>
-                <span className="text-right">SOL Bal</span>
-              </div>
-
-              {/* Rows */}
-              <div className="space-y-1.5">
-                {isLoading ? (
-                  Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
-                    <div key={i} className="px-3 py-3 rounded-lg bg-card/20 border border-border/10">
-                      <Skeleton className="h-6 w-full" />
-                    </div>
-                  ))
-                ) : (
-                  paginatedHolders.map((h: HolderEntry, i: number) => {
-                    const globalRank = (currentPage - 1) * ITEMS_PER_PAGE + i + 1;
-                    return (
-                      <HolderRow
-                        key={h.address}
-                        holder={h}
-                        rank={globalRank}
-                        animDelay={Math.min(i * 30, 300)}
-                      />
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-border/20">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`min-w-[36px] h-9 rounded-lg text-xs font-bold transition-all ${
-                        page === currentPage
-                          ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.3)]"
-                          : "border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg border border-border/20 bg-card/30 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* ────── Sidebar Column ────── */}
