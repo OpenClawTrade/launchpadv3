@@ -49,6 +49,7 @@ const TAB_CONFIG = [
   { value: "forum", label: BRAND.forumName, icon: Shield },
   { value: "saturn-launch", label: "Saturn Launch", icon: Rocket },
   { value: "partner-fees", label: "Partner Fees", icon: Wallet },
+  { value: "x-restyler", label: "X Restyler", icon: Wand2 },
 ] as const;
 
 export default function AdminPanelPage() {
