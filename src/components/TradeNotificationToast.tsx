@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 
 const DEFAULT_AVATAR = "/saturn-logo.png";
 
