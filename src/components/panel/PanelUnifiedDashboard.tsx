@@ -8,6 +8,7 @@ import { useLaunchpad, formatSolAmount, formatTokenAmount, Token } from "@/hooks
 import { useWalletHoldings, TokenHolding as OnChainHolding } from "@/hooks/useWalletHoldings";
 import { useTokenMetadata } from "@/hooks/useTokenMetadata";
 import { useReferralCode, useReferralDashboard } from "@/hooks/useReferral";
+import { useSolPrice } from "@/hooks/useSolPrice";
 import { useExportWallet } from "@privy-io/react-auth/solana";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
