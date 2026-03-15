@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
-import { formatDistanceToNow } from "date-fns";
+import { LiveAge } from "@/components/ui/LiveAge";
 import { Link } from "react-router-dom";
 import {
   TrendingUp,
@@ -44,21 +44,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
     return `$${usd.toFixed(0)}`;
   };
 
-  const formatAge = (createdAt: string | null) => {
-    if (!createdAt) return "-";
-    const dist = formatDistanceToNow(new Date(createdAt), { addSuffix: false });
-    // Shorten: "about 24 hours" → "24h", "5 minutes" → "5m"
-    return dist
-      .replace("about ", "")
-      .replace(" hours", "h")
-      .replace(" hour", "h")
-      .replace(" minutes", "m")
-      .replace(" minute", "m")
-      .replace(" days", "d")
-      .replace(" day", "d")
-      .replace(" months", "mo")
-      .replace(" month", "mo");
-  };
+  const formatAge = (_createdAt: string | null) => null; // replaced by LiveAge
 
   // Segment tokens into 3 columns by bonding progress
   const newPairs = tokens.filter(t => (t.bonding_progress ?? 0) < 30);
@@ -130,7 +116,7 @@ export function TokenTable({ solPrice, promotedTokenIds, onPromote }: TokenTable
           <div className="flex items-center gap-1 mt-px">
             <span className="text-[9px] font-mono text-muted-foreground">${token.ticker}</span>
             <span className="text-[9px] text-muted-foreground/40">·</span>
-            <span className="text-[9px] text-muted-foreground/50">{formatAge(token.created_at)}</span>
+            <LiveAge createdAt={token.created_at} className="text-[9px] text-muted-foreground/50" />
           </div>
           {/* Ultra-thin progress bar */}
           <div className="h-px w-full bg-border/50 mt-1 rounded-full overflow-hidden">

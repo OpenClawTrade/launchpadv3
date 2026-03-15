@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+import { LiveAge } from "@/components/ui/LiveAge";
 import { Users, Bot, BadgeCheck, TrendingUp, BarChart3, ArrowUpRight, Globe, MessageCircle, Copy, Check, Zap, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useKingOfTheHill, type KingToken } from "@/hooks/useKingOfTheHill";
@@ -244,6 +245,7 @@ function KingCard({ token, rank, quickBuyAmount, sparklineData }: { token: KingT
               {token.name}
             </span>
             <span className="text-[11px] font-mono text-muted-foreground/50 flex-shrink-0 whitespace-nowrap">${token.ticker}</span>
+            <LiveAge createdAt={token.created_at} className="text-[9px] font-mono text-muted-foreground/40" />
             {isTrader && (
               <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-md uppercase tracking-wider flex-shrink-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/15">
                 <Bot className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />Trader
