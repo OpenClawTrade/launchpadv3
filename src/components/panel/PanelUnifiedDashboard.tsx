@@ -705,14 +705,22 @@ export default function PanelUnifiedDashboard() {
                                   <p className="text-[10px] text-muted-foreground">{currencySymbol}</p>
                                 </div>
                               </Link>
-                              <Link
-                                to={`/trade/${holding.tokens.mint_address}`}
-                                onClick={(e) => e.stopPropagation()}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleQuickSell(holding as HoldingWithToken);
+                                }}
+                                disabled={sellingMint === holding.tokens.mint_address}
                                 className="shrink-0 px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider transition-all
-                                           bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:border-destructive/40"
+                                           bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 hover:border-destructive/40 disabled:opacity-50"
                               >
-                                Sell
-                              </Link>
+                                {sellingMint === holding.tokens.mint_address ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  "Sell"
+                                )}
+                              </button>
                             </div>
                           );
                         })}
