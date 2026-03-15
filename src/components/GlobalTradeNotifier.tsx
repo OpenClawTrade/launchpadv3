@@ -22,6 +22,7 @@ export function GlobalTradeNotifier() {
 
   // Cached SOL price for market cap calculation
   const solPriceRef = useRef<number>(0);
+  const tokenImageCacheRef = useRef<Record<string, string | null>>({});
   useEffect(() => {
     try {
       const cached = localStorage.getItem("sol_price_cache");
