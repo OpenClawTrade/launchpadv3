@@ -320,14 +320,21 @@ Deno.serve(async (req) => {
     }
 
     // ===== Acquire lock =====
-    const { data: lockAcquired } = await supabase.rpc("acquire_claw_creator_claim_lock", { p_twitter_username: normalizedUsername, p_duration_seconds: CLAIM_LOCK_SECONDS });
+    let lockAcquired: boolean;
+    if (isWalletBased) {
+      const { data } = await supabase.rpc("acquire_creator_claim_lock_by_wallet", { p_wallet_address: creatorWallet, p_duration_seconds: CLAIM_LOCK_SECONDS });
+      lockAcquired = !!data;
+    } else {
+      const { data } = await supabase.rpc("acquire_claw_creator_claim_lock", { p_twitter_username: normalizedUsername, p_duration_seconds: CLAIM_LOCK_SECONDS });
+      lockAcquired = !!data;
+    }
     if (!lockAcquired) {
       return new Response(JSON.stringify({ success: false, error: "Another claim in progress", locked: true }), { status: 423, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     try {
       // Re-verify after lock
-      const verifiedCalc = await calculateClaimable(supabase, normalizedUsername, targetTokenIds, funTokenIds, clawTokenIds, tokenBpsMap);
+      const verifiedCalc = await calculateClaimable(supabase, lookupKey, targetTokenIds, funTokenIds, clawTokenIds, tokenBpsMap);
       
       if (verifiedCalc.claimable < MIN_CLAIM_SOL) {
         console.log(`[saturn-creator-claim] ⚠️ Post-lock: claimable=${verifiedCalc.claimable.toFixed(6)} < ${MIN_CLAIM_SOL}`);
@@ -335,15 +342,21 @@ Deno.serve(async (req) => {
       }
 
       // Re-check rate limit after lock
-      const { data: recentClaim } = await supabase
+      let recentRateLimitQuery = supabase
         .from("claw_distributions")
         .select("created_at")
-        .eq("twitter_username", normalizedUsername)
         .in("distribution_type", ["creator_claim", "creator"])
         .in("status", ["completed", "pending"])
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (isWalletBased) {
+        recentRateLimitQuery = recentRateLimitQuery.eq("creator_wallet", creatorWallet);
+      } else {
+        recentRateLimitQuery = recentRateLimitQuery.eq("twitter_username", normalizedUsername);
+      }
+
+      const { data: recentClaim } = await recentRateLimitQuery.maybeSingle();
 
       if (recentClaim) {
         const timeSinceRecent = Date.now() - new Date(recentClaim.created_at).getTime();
