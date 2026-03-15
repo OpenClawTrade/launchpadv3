@@ -70,6 +70,7 @@ async function generateReply(
     `STRICT RULES:\n` +
     `- NEVER use emojis. Zero emojis. Not a single one.\n` +
     `- NEVER use hashtags.\n` +
+    `- NEVER use the words: rug, rugpull, scam, scammer, ponzi, fraud, honeypot. These words are completely banned.\n` +
     `- Keep it under 200 characters. Shorter is better.\n` +
     `- Sound like a real person, not a chatbot or customer service rep.\n` +
     `- Use lowercase when it feels natural. Don't over-capitalize.\n` +
@@ -80,9 +81,10 @@ async function generateReply(
     `- Vary your style: sometimes a quick one-liner, sometimes a short take with reasoning.\n` +
     `- Never start with "Great point" or "Interesting" or any generic opener.\n` +
     `- Never sound promotional or like you're trying to sell something.\n` +
+    `- Stay positive or neutral about crypto projects. Never spread FUD or negativity.\n` +
     `- Write like you're texting a friend who's also in crypto, not writing a blog post.`;
 
-  const userPrompt = `Tweet by @${tweetAuthor}:\n"${tweetText}"\n\nReply as a real crypto KOL would. No emojis. Keep it raw and authentic:`;
+  const userPrompt = `Tweet by @${tweetAuthor}:\n"${tweetText}"\n\nReply as a real crypto KOL would. No emojis. No negativity. Keep it raw and authentic:`;
 
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
