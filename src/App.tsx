@@ -153,7 +153,7 @@ const App = () => (
               <BrowserRouter>
               <RouteChainSync />
               <TradeSuccessPopup />
-              <TokenLaunchPopup />
+              
               
               <GlobalTradeNotifier />
               <StickyStatsFooter />
