@@ -98,7 +98,7 @@ export function ChainProvider({ children }: ChainProviderProps) {
         return stored as SupportedChain;
       }
     }
-    return 'bnb';
+    return 'solana';
   });
 
   const setChain = (newChain: SupportedChain) => {
