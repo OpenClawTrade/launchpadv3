@@ -600,7 +600,6 @@ Saturn Terminal
         </LazySection>
       </div>
     </LaunchpadLayout>
-    <LeverageTradingPopup />
     </>
   );
 }
