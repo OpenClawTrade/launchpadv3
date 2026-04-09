@@ -1,41 +1,48 @@
 
 
-## Issues Found
+# Plan: Bulk Sell All Memecoins from Wallet
 
-**1. Critical syntax bug in `_shared/telegram-notify.ts`**
-The `sendTelegramNotification` function is missing its closing `}` before `postToCaptcha` is defined. This means `postToCaptcha` is nested inside `sendTelegramNotification` and invisible to the exported functions (`notifySolLaunch`, `notifyBnbLaunch`) that call it directly. This causes SOL/BNB notifications to fail with a ReferenceError.
+## Overview
+Create an edge function `bulk-sell-tokens` that:
+1. Fetches all token holdings from wallet `EoKWXs7yrwTaGgKdtZbB9QFQDgPDm28Yr8EsjKcx2r6a`
+2. For each token with balance > 0, builds a sell transaction via PumpPortal API
+3. Signs each transaction using the wallet's private key (which you'll provide as a secret)
+4. Sends transactions one-by-one with a delay to avoid rate limits
+5. Returns a summary of all sells (successes/failures)
 
-**2. BTC market cap is wrong in notifications**
-The market cap displayed (e.g., "MCap: 0.2811 BTC") is calculated as `price * 1B total supply`, where price comes from `virtual_btc_reserves / virtual_token_reserves`. With 0.3 BTC virtual reserves, this always shows ~0.28 BTC even for brand new tokens with tiny real reserves. The notification should show the **real BTC reserves** as a more meaningful market indicator, or label it differently.
+## Steps
 
-**3. Too many notifications / missing info**
-Every single trade fires a notification. For rapid trading (4 buys in 2 minutes from the same wallet), this spams the channel. Notifications also lack the token name and chain label.
+### 1. Add wallet private key as a secret
+- Add secret `BULK_SELL_PRIVATE_KEY` — you'll input the base58 private key for `EoKWXs7yrwTaGgKdtZbB9QFQDgPDm28Yr8EsjKcx2r6a`
 
----
+### 2. Create edge function `bulk-sell-tokens/index.ts`
+The function will:
+- Accept POST with `{ adminPassword, walletAddress, slippage?, dryRun? }`
+- Require admin password for security
+- Fetch all SPL token accounts via Helius RPC (`getTokenAccountsByOwner`)
+- Filter to tokens with balance > 0
+- For each token:
+  - Call PumpPortal `trade-local` API with `action: "sell"`, `denominatedInSol: "false"`, `amount: 100` (100% of holdings)
+  - Deserialize the returned transaction bytes
+  - Sign with the private key
+  - Send via Helius RPC `sendTransaction`
+  - Wait 2 seconds between sells to avoid rate limits
+  - Log success/failure per token
+- Return JSON array of results: `{ mint, balance, signature?, error? }`
+- Support `dryRun: true` to just list holdings without selling
 
-## Plan
+### 3. Deploy and test
+- Deploy the function
+- First call with `dryRun: true` to see all 50 tokens
+- Then call without dryRun to execute sells
 
-### Step 1: Fix syntax bug in `_shared/telegram-notify.ts`
-- Add the missing closing `}` for `sendTelegramNotification` (after line 41)
-- Move `postToCaptcha` to module scope so it's callable from all exported functions
+## Technical Details
+- Uses `@solana/web3.js` for signing (imported via esm.sh in Deno)
+- PumpPortal's `amount: 100` with `denominatedInSol: "false"` sells 100% of token balance
+- Slippage default: 25% (pumpswap tokens can be illiquid)
+- Priority fee: 0.001 SOL per tx
+- Tokens that fail PumpPortal (not on pump.fun) will be skipped with error logged — those may need Jupiter instead
 
-### Step 2: Fix BTC market cap in notifications
-- Change the BTC notification to show **real BTC reserves** (the actual deposited BTC backing the token) instead of the virtual-reserves-based market cap
-- Label it "Pool: X sats" or "Real MCap" to be accurate
-- The `execute_btc_swap` function already returns the correct data; we just need to pass `real_btc_reserves` from the pool state
-
-### Step 3: Improve notification content
-- Add chain labels to all notifications (🟠 BTC, 🟣 SOL, 🟡 BNB)
-- Add token name alongside ticker
-- Include the specific token page link for BTC notifications (not just `/btc/meme`)
-
-### Step 4: Add notification throttling for BTC trades
-- Add a simple deduplication check: before sending a BTC trade notification, query the most recent notification timestamp for that token. If a notification was sent within the last 30 seconds, skip it or batch into a summary
-- Implement via a lightweight in-memory check or a quick DB query on `btc_meme_trades` to see recent trade density
-
-### Files to modify
-- `supabase/functions/_shared/telegram-notify.ts` — fix syntax, add chain labels
-- `supabase/functions/btc-meme-swap/index.ts` — fix market cap data, add throttling, improve notification format
-- `supabase/functions/server-trade/index.ts` — minor: ensure notification has full info
-- `supabase/functions/bnb-swap/index.ts` — minor: ensure notification has full info
+## Fallback
+Some tokens may have migrated off pump.fun bonding curves. For those, the function will attempt a Jupiter swap as fallback (using the existing `jupiter-proxy` edge function pattern).
 
