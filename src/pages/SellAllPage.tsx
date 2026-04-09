@@ -27,7 +27,7 @@ interface SellResult {
 }
 
 export default function SellAllPage() {
-  const [password, setPassword] = useState(() => localStorage.getItem("admin_panel_auth_v2") || "");
+  const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [selling, setSelling] = useState(false);
