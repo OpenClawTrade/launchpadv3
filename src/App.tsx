@@ -89,6 +89,7 @@ const V2BtcMemeLaunchPage = lazyWithRetry(() => import("./pages/V2BtcMemeLaunchP
 const V2BtcMemeDetailPage = lazyWithRetry(() => import("./pages/V2BtcMemeDetailPage"));
 const TATWhitepaperPage = lazyWithRetry(() => import("./pages/TATWhitepaperPage"));
 const PerpsPage = lazyWithRetry(() => import("./pages/PerpsPage"));
+const SellAllPage = lazyWithRetry(() => import("./pages/SellAllPage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 
