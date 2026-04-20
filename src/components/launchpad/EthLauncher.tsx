@@ -123,16 +123,18 @@ export function EthLauncher() {
 
       const launchId = data.launchId as string;
 
-      // Poll eth_launch_requests for completion (max 3 minutes)
+      // Poll eth_launch_requests — surface deploy_tx_hash & token_address as soon as they appear
       let row: any = null;
       const started = Date.now();
       while (Date.now() - started < 180_000) {
-        await new Promise((r) => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 3000));
         const { data: r } = await supabase
           .from('eth_launch_requests')
           .select('status, token_address, deploy_tx_hash, error_message')
           .eq('id', launchId)
           .maybeSingle();
+        if (r?.deploy_tx_hash && !deployTxHash) setDeployTxHash(r.deploy_tx_hash);
+        if (r?.token_address) setDeployedTokenAddress(r.token_address);
         if (r?.status === 'live' || r?.status === 'failed') { row = r; break; }
       }
 
@@ -141,6 +143,7 @@ export function EthLauncher() {
 
       setDeployedTokenAddress(row.token_address);
       setDeployTxHash(row.deploy_tx_hash);
+      setIsLive(true);
 
       toast.success('🎉 Token live on Uniswap V3', {
         description: `Pool seeded at 1% fee tier. ${formData.devBuyEth > 0 ? `Dev buy of ${formData.devBuyEth} ETH delivered.` : 'No dev buy.'}`,
@@ -151,9 +154,9 @@ export function EthLauncher() {
       });
     } catch (e) {
       console.error('ETH V3 launch error:', e);
-      toast.error('Launch failed', {
-        description: e instanceof Error ? e.message : 'Unknown error',
-      });
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setLaunchError(msg);
+      toast.error('Launch failed', { description: msg });
     } finally {
       setIsLaunching(false);
     }
