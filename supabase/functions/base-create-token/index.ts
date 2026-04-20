@@ -8,6 +8,7 @@ import {
 } from "https://esm.sh/viem@2.45.1";
 import { base } from "https://esm.sh/viem@2.45.1/chains";
 import { privateKeyToAccount } from "https://esm.sh/viem@2.45.1/accounts";
+import { ERC20_BYTECODE, ERC20_ABI } from "./contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
