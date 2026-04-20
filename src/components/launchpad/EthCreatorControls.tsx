@@ -1,297 +1,177 @@
 // ============================================================================
-// EthCreatorControls
+// EthCreatorControls (V3 — fee-claim flavor)
 //
-// Post-launch creator-only management panel for ETH ERC-20 tokens deployed via
-// Saturn. Shown on:
-//   - Launch success screen (right after deploy + LP add)
-//   - /trade/:address page (auto-detects creator via on-chain `owner()`)
+// Replaces V2 burn/remove/renounce. The platform owns the LP NFT, so the
+// creator has nothing to manage on-chain. This panel shows their accrued
+// 50% share of the 1% Uniswap V3 trading fees and lets them claim.
 //
-// Capabilities (manual, one-tx-at-a-time, fail-safe):
-//   • Burn LP   → transfers connected wallet's LP balance to dEaD (irreversible)
-//   • Remove LP → router.removeLiquidityETH (creator only, only if LP not burned)
-//   • Renounce  → owner.renounceOwnership() (irreversible)
-//
-// Reads everything live from Ethereum mainnet via wagmi `useReadContract`, so
-// state always reflects the truth (e.g. if user already burned LP elsewhere,
-// the button auto-hides).
+// Used on:
+//   - Launch success screen (embedded=true)
+//   - /trade/:address page (auto-detects creator by matching wallet)
 // ============================================================================
 
-import { useMemo, useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { mainnet } from "wagmi/chains";
-import { parseAbi, type Address } from "viem";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Flame, Lock, Droplets, Loader2, ExternalLink, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Coins, Loader2, ExternalLink, ShieldCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-
-const UNISWAP_V2_ROUTER = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D" as const;
-const UNISWAP_V2_FACTORY = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f" as const;
-const WETH_MAINNET = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const;
-const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
-
-const ERC20_ABI = parseAbi([
-  "function owner() view returns (address)",
-  "function balanceOf(address) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function transfer(address to, uint256 value) returns (bool)",
-  "function renounceOwnership()",
-  "function totalSupply() view returns (uint256)",
-]);
-const FACTORY_ABI = parseAbi([
-  "function getPair(address tokenA, address tokenB) view returns (address)",
-]);
-const ROUTER_ABI = parseAbi([
-  "function removeLiquidityETH(address token, uint256 liquidity, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline) returns (uint256 amountToken, uint256 amountETH)",
-]);
+import { supabase } from "@/integrations/supabase/client";
+import { formatEther } from "viem";
 
 interface Props {
   tokenAddress: string;
-  /** When true, hides the wrapper Card (use inside an existing card on success screen). */
   embedded?: boolean;
 }
 
+interface Ledger {
+  creator_wallet: string;
+  creator_share_weth: string;
+  creator_paid_weth: string;
+  total_collected_weth: string;
+  last_claim_at: string | null;
+  last_claim_tx: string | null;
+}
+
 export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
-  const tokenAddr = tokenAddress as Address;
   const { address: connected } = useAccount();
-  const { writeContractAsync, isPending: isWriting } = useWriteContract();
-  const [pendingHash, setPendingHash] = useState<`0x${string}` | null>(null);
-  const [pendingLabel, setPendingLabel] = useState<string>("");
+  const [ledger, setLedger] = useState<Ledger | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [collecting, setCollecting] = useState(false);
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash: pendingHash ?? undefined,
-    chainId: mainnet.id,
-  });
+  const fetchLedger = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("eth_creator_fee_ledger")
+      .select("creator_wallet,creator_share_weth,creator_paid_weth,total_collected_weth,last_claim_at,last_claim_tx")
+      .eq("token_address", tokenAddress.toLowerCase())
+      .maybeSingle();
+    setLedger((data as any) ?? null);
+    setLoading(false);
+  }, [tokenAddress]);
 
-  // ---- On-chain reads ----
-  const ownerQ = useReadContract({
-    address: tokenAddr,
-    abi: ERC20_ABI,
-    functionName: "owner",
-    chainId: mainnet.id,
-  });
-  const pairQ = useReadContract({
-    address: UNISWAP_V2_FACTORY,
-    abi: FACTORY_ABI,
-    functionName: "getPair",
-    args: [tokenAddr, WETH_MAINNET],
-    chainId: mainnet.id,
-  });
-  const pairAddress = (pairQ.data as Address | undefined) ?? undefined;
-  const hasPair = !!pairAddress && pairAddress !== ZERO_ADDRESS;
+  useEffect(() => { fetchLedger(); }, [fetchLedger]);
 
-  const lpBalQ = useReadContract({
-    address: pairAddress as Address,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: connected ? [connected] : undefined,
-    chainId: mainnet.id,
-    query: { enabled: !!connected && hasPair },
-  });
+  const isCreator = !!ledger && !!connected && ledger.creator_wallet.toLowerCase() === connected.toLowerCase();
 
-  const owner = (ownerQ.data as Address | undefined) ?? undefined;
-  const isOwner = !!owner && !!connected && owner.toLowerCase() === connected.toLowerCase();
-  const isRenounced = owner === ZERO_ADDRESS;
-  const lpBalance = (lpBalQ.data as bigint | undefined) ?? 0n;
-  const hasLp = lpBalance > 0n;
+  const { totalEarnedEth, claimableEth, lifetimeEth } = useMemo(() => {
+    if (!ledger) return { totalEarnedEth: "0", claimableEth: "0", lifetimeEth: "0" };
+    try {
+      const share = BigInt(ledger.creator_share_weth || "0");
+      const paid = BigInt(ledger.creator_paid_weth || "0");
+      const total = BigInt(ledger.total_collected_weth || "0");
+      const owed = share > paid ? share - paid : 0n;
+      return {
+        totalEarnedEth: parseFloat(formatEther(share)).toFixed(6),
+        claimableEth: parseFloat(formatEther(owed)).toFixed(6),
+        lifetimeEth: parseFloat(formatEther(total)).toFixed(6),
+      };
+    } catch {
+      return { totalEarnedEth: "0", claimableEth: "0", lifetimeEth: "0" };
+    }
+  }, [ledger]);
 
-  // refetch reads when a tx confirms
-  useEffect(() => {
-    if (isConfirmed && pendingHash) {
-      toast.success(`✅ ${pendingLabel} confirmed`, {
-        action: {
-          label: "Etherscan",
-          onClick: () => window.open(`https://etherscan.io/tx/${pendingHash}`, "_blank"),
-        },
+  const handleClaim = async () => {
+    if (!isCreator || !connected) return;
+    setClaiming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("eth-claim-creator-fees", {
+        body: { tokenAddress, creatorWallet: connected },
       });
-      ownerQ.refetch();
-      lpBalQ.refetch();
-      pairQ.refetch();
-      setPendingHash(null);
-      setPendingLabel("");
-    }
-  }, [isConfirmed, pendingHash, pendingLabel, ownerQ, lpBalQ, pairQ]);
-
-  const busy = isWriting || isConfirming;
-
-  // ---- Actions ----
-  const handleBurnLp = async () => {
-    if (!connected || !pairAddress || lpBalance === 0n) return;
-    try {
-      setPendingLabel("Burn LP");
-      const hash = await writeContractAsync({
-        address: pairAddress,
-        abi: ERC20_ABI,
-        functionName: "transfer",
-        args: [DEAD_ADDRESS, lpBalance],
-        chainId: mainnet.id,
-      } as any);
-      setPendingHash(hash);
-      toast.info("🔥 Burn LP tx sent", { description: "Waiting for confirmation…" });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Claim failed");
+      toast.success("✅ Fees claimed", {
+        description: `${parseFloat(formatEther(BigInt(data.claimedWeth))).toFixed(6)} ${data.mode === "eth" ? "ETH" : "WETH"} sent`,
+        action: data.txHash ? {
+          label: "Etherscan",
+          onClick: () => window.open(`https://etherscan.io/tx/${data.txHash}`, "_blank"),
+        } : undefined,
+      });
+      await fetchLedger();
     } catch (e) {
-      toast.error("Burn LP failed", { description: e instanceof Error ? e.message : "Unknown error" });
-      setPendingLabel("");
+      toast.error("Claim failed", { description: e instanceof Error ? e.message : "Unknown error" });
+    } finally {
+      setClaiming(false);
     }
   };
 
-  const handleRemoveLp = async () => {
-    if (!connected || !pairAddress || lpBalance === 0n) return;
+  const handleForceCollect = async () => {
+    setCollecting(true);
     try {
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
-      // Step 1: approve router to pull the LP tokens
-      setPendingLabel("Approve LP");
-      const approveHash = await writeContractAsync({
-        address: pairAddress,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [UNISWAP_V2_ROUTER, lpBalance],
-        chainId: mainnet.id,
-      } as any);
-      setPendingHash(approveHash);
-      toast.info("1/2 Approving router…", { description: "Waiting for confirmation…" });
-
-      // Wait for approval to land before sending the remove call. We poll the
-      // confirmation hook by setting hash + letting effect clear it isn't
-      // synchronous; do a manual receipt wait via fetch is overkill — instead
-      // rely on user re-clicking if first tx not yet mined. Most wallets queue
-      // the second tx behind the first nonce automatically, so we can safely
-      // fire the second call right away (Uniswap router will revert if alowance
-      // is not yet visible). We wrap in try/catch.
-      try {
-        setPendingLabel("Remove LP");
-        const removeHash = await writeContractAsync({
-          address: UNISWAP_V2_ROUTER,
-          abi: ROUTER_ABI,
-          functionName: "removeLiquidityETH",
-          args: [tokenAddr, lpBalance, 0n, 0n, connected, deadline],
-          chainId: mainnet.id,
-        } as any);
-        setPendingHash(removeHash);
-        toast.success("2/2 Remove LP tx sent", {
-          description: "Tokens + ETH return to your wallet on confirmation.",
-        });
-      } catch (innerErr) {
-        toast.warning("Approval sent — please click Remove LP again once it confirms", {
-          description: innerErr instanceof Error ? innerErr.message : undefined,
-        });
-      }
+      const { data, error } = await supabase.functions.invoke("eth-collect-fees", {
+        body: { tokenAddress },
+      });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Collect failed");
+      toast.success("Fees collected from pool", {
+        description: `${data.collected} position(s) processed`,
+      });
+      await fetchLedger();
     } catch (e) {
-      toast.error("Remove LP failed", { description: e instanceof Error ? e.message : "Unknown error" });
-      setPendingLabel("");
+      toast.error("Collect failed", { description: e instanceof Error ? e.message : "Unknown error" });
+    } finally {
+      setCollecting(false);
     }
   };
 
-  const handleRenounce = async () => {
-    if (!connected || !isOwner) return;
-    try {
-      setPendingLabel("Renounce");
-      const hash = await writeContractAsync({
-        address: tokenAddr,
-        abi: ERC20_ABI,
-        functionName: "renounceOwnership",
-        chainId: mainnet.id,
-      } as any);
-      setPendingHash(hash);
-      toast.info("🔒 Renounce tx sent", { description: "Waiting for confirmation…" });
-    } catch (e) {
-      toast.error("Renounce failed", { description: e instanceof Error ? e.message : "Unknown error" });
-      setPendingLabel("");
-    }
-  };
-
-  // Hide entirely if connected wallet is not the owner AND has no LP.
-  // Owner can renounce; LP-holder (== owner usually, but could differ if LP transferred) can burn/remove.
-  const showAnything = isOwner || hasLp;
-  if (!showAnything) return null;
+  if (!loading && !ledger) return null;
+  if (!isCreator && !embedded) return null;
 
   const inner = (
     <div className="space-y-3">
-      {/* Status row */}
       <div className="grid grid-cols-3 gap-2 text-[10px] font-mono">
         <div className="p-2 rounded-md bg-secondary/40 border border-border/40">
-          <div className="text-muted-foreground">Owner</div>
-          <div className={isRenounced ? "text-emerald-400" : "text-foreground"}>
-            {isRenounced ? "Renounced ✓" : owner ? `${owner.slice(0, 6)}…${owner.slice(-4)}` : "—"}
-          </div>
+          <div className="text-muted-foreground">Lifetime Pool Fees</div>
+          <div className="text-foreground">{lifetimeEth} ETH</div>
         </div>
         <div className="p-2 rounded-md bg-secondary/40 border border-border/40">
-          <div className="text-muted-foreground">LP Pair</div>
-          <div className="text-foreground">{hasPair ? "Live" : "Not seeded"}</div>
+          <div className="text-muted-foreground">Your Share (50%)</div>
+          <div className="text-foreground">{totalEarnedEth} ETH</div>
         </div>
-        <div className="p-2 rounded-md bg-secondary/40 border border-border/40">
-          <div className="text-muted-foreground">Your LP</div>
-          <div className="text-foreground">{hasLp ? "Holding" : "0 / Burned"}</div>
+        <div className="p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+          <div className="text-emerald-300/80">Claimable</div>
+          <div className="text-emerald-300 font-bold">{claimableEth} ETH</div>
         </div>
       </div>
 
-      {/* Action buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Button
-          variant="outline"
           size="sm"
-          onClick={handleBurnLp}
-          disabled={busy || !hasLp}
+          onClick={handleClaim}
+          disabled={!isCreator || claiming || claimableEth === "0.000000"}
           className="h-10"
-          title={!hasLp ? "No LP tokens to burn" : "Send LP tokens to dead address — irreversible"}
         >
-          {busy && pendingLabel === "Burn LP" ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Flame className="mr-1.5 h-4 w-4 text-orange-500" />
-          )}
-          Burn LP
+          {claiming ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Coins className="mr-1.5 h-4 w-4" />}
+          Claim {claimableEth} ETH
         </Button>
-
         <Button
           variant="outline"
           size="sm"
-          onClick={handleRemoveLp}
-          disabled={busy || !hasLp}
+          onClick={handleForceCollect}
+          disabled={collecting}
           className="h-10"
-          title={!hasLp ? "No LP to remove (already burned or never seeded)" : "Pull liquidity back to your wallet"}
+          title="Force-collect accrued fees from the Uniswap V3 position into the platform vault"
         >
-          {busy && (pendingLabel === "Remove LP" || pendingLabel === "Approve LP") ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Droplets className="mr-1.5 h-4 w-4 text-cyan-400" />
-          )}
-          Remove LP
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRenounce}
-          disabled={busy || !isOwner || isRenounced}
-          className="h-10"
-          title={isRenounced ? "Already renounced" : !isOwner ? "Only owner can renounce" : "Permanently remove ownership"}
-        >
-          {busy && pendingLabel === "Renounce" ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : isRenounced ? (
-            <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-400" />
-          ) : (
-            <Lock className="mr-1.5 h-4 w-4 text-emerald-400" />
-          )}
-          {isRenounced ? "Renounced" : "Renounce"}
+          {collecting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+          Sync Pool Fees
         </Button>
       </div>
 
       <p className="text-[10px] text-muted-foreground leading-relaxed">
-        <strong className="text-foreground">Burn</strong> and <strong className="text-foreground">Renounce</strong> are
-        irreversible. <strong className="text-foreground">Remove LP</strong> requires 2 signatures (approve + remove).
-        All actions are on Ethereum mainnet — gas paid by your wallet.
+        The LP NFT is held in the platform vault for security. Every ~6h, accrued 1% Uniswap V3 trading
+        fees are collected and your <strong className="text-foreground">50% share</strong> becomes claimable.
+        You can also <strong className="text-foreground">Sync Pool Fees</strong> manually to refresh.
       </p>
 
-      {pendingHash && (
+      {ledger?.last_claim_tx && (
         <a
-          href={`https://etherscan.io/tx/${pendingHash}`}
+          href={`https://etherscan.io/tx/${ledger.last_claim_tx}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-[10px] font-mono text-primary hover:underline inline-flex items-center gap-1"
         >
-          Pending: {pendingHash.slice(0, 10)}…{pendingHash.slice(-6)}
+          Last claim: {ledger.last_claim_tx.slice(0, 10)}…{ledger.last_claim_tx.slice(-6)}
           <ExternalLink className="h-3 w-3" />
         </a>
       )}
@@ -305,10 +185,10 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          Creator Controls
+          Creator Earnings
         </CardTitle>
         <CardDescription className="text-xs">
-          You own this token. Manage LP and ownership manually.
+          You earn 50% of all 1% trading fees on this token.
         </CardDescription>
       </CardHeader>
       <CardContent>{inner}</CardContent>
