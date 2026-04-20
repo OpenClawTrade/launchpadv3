@@ -1,6 +1,9 @@
+// NOTE: This module is now an ETH price service.
+// The legacy `useSolPrice` / `subscribeSolPrice` / `getCachedSolPrice` exports
+// are preserved for backwards compatibility — every consumer reads ETH/USD now.
 import { supabase } from '@/integrations/supabase/client';
 
-const CACHE_KEY = 'sol_price_cache_v2';
+const CACHE_KEY = 'eth_price_cache_v1';
 const POLL_INTERVAL = 60_000; // 60 seconds (matches server cache TTL)
 const STALE_THRESHOLD = 120_000; // 2 minutes
 
@@ -37,7 +40,8 @@ function saveCache(data: PriceData) {
 
 async function doFetch(): Promise<PriceData | null> {
   try {
-    const { data, error } = await supabase.functions.invoke('sol-price');
+    // Site-wide migrated to Ethereum: read ETH/USD from base-eth-price edge fn.
+    const { data, error } = await supabase.functions.invoke('base-eth-price');
     if (error) throw error;
     if (data?.price && typeof data.price === 'number' && data.price > 0) {
       return { price: data.price, change24h: data.change24h || 0, timestamp: Date.now() };

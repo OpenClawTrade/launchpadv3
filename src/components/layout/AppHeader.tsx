@@ -181,14 +181,14 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
           {/* ── Center: Price display (desktop only) ── */}
           <div className="hidden md:flex flex-1 items-center justify-center gap-2">
-            {isBtcMode ? <BtcPriceDisplay /> : chain === 'bnb' ? <BnbPriceDisplay /> : chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
+            {isBtcMode ? <BtcPriceDisplay /> : chain === 'bnb' ? <BnbPriceDisplay /> : <EthPriceDisplay />}
           </div>
 
           {/* ── Right: context-aware actions ── */}
           <div className="flex items-center gap-2 md:gap-3 ml-auto">
             {/* Price — mobile only */}
             <div className="md:hidden flex items-center gap-1.5">
-              {isBtcMode ? <BtcPriceDisplay /> : chain === 'bnb' ? <BnbPriceDisplay /> : chain === 'base' ? <EthPriceDisplay /> : <SolPriceDisplay />}
+              {isBtcMode ? <BtcPriceDisplay /> : chain === 'bnb' ? <BnbPriceDisplay /> : <EthPriceDisplay />}
             </div>
 
             {/* Social links — always shown */}
