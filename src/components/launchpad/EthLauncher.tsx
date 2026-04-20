@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Info, ExternalLink, Upload, X } from 'lucide-react';
 import { EthCreatorControls } from './EthCreatorControls';
+import { EthLaunchProgress } from './EthLaunchProgress';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
@@ -70,6 +71,8 @@ export function EthLauncher() {
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
     ticker: '',
@@ -93,6 +96,8 @@ export function EthLauncher() {
     setDeployedTokenAddress(null);
     setDeployTxHash(null);
     setPoolAddress(null);
+    setLaunchError(null);
+    setIsLive(false);
 
     try {
       toast.info('🛠 Deploying on Ethereum mainnet…', {
@@ -118,16 +123,18 @@ export function EthLauncher() {
 
       const launchId = data.launchId as string;
 
-      // Poll eth_launch_requests for completion (max 3 minutes)
+      // Poll eth_launch_requests — surface deploy_tx_hash & token_address as soon as they appear
       let row: any = null;
       const started = Date.now();
       while (Date.now() - started < 180_000) {
-        await new Promise((r) => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 3000));
         const { data: r } = await supabase
           .from('eth_launch_requests')
           .select('status, token_address, deploy_tx_hash, error_message')
           .eq('id', launchId)
           .maybeSingle();
+        if (r?.deploy_tx_hash && !deployTxHash) setDeployTxHash(r.deploy_tx_hash);
+        if (r?.token_address) setDeployedTokenAddress(r.token_address);
         if (r?.status === 'live' || r?.status === 'failed') { row = r; break; }
       }
 
@@ -136,6 +143,7 @@ export function EthLauncher() {
 
       setDeployedTokenAddress(row.token_address);
       setDeployTxHash(row.deploy_tx_hash);
+      setIsLive(true);
 
       toast.success('🎉 Token live on Uniswap V3', {
         description: `Pool seeded at 1% fee tier. ${formData.devBuyEth > 0 ? `Dev buy of ${formData.devBuyEth} ETH delivered.` : 'No dev buy.'}`,
@@ -146,9 +154,9 @@ export function EthLauncher() {
       });
     } catch (e) {
       console.error('ETH V3 launch error:', e);
-      toast.error('Launch failed', {
-        description: e instanceof Error ? e.message : 'Unknown error',
-      });
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setLaunchError(msg);
+      toast.error('Launch failed', { description: msg });
     } finally {
       setIsLaunching(false);
     }
@@ -415,49 +423,29 @@ export function EthLauncher() {
               </Button>
             )}
 
-            {/* Deployment status */}
-            {deployTxHash && (
-              <div className="text-xs space-y-1 p-3 bg-secondary/30 rounded-lg border border-border/50">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Deploy tx</span>
-                  <a
-                    href={`https://etherscan.io/tx/${deployTxHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    {deployTxHash.slice(0, 10)}…{deployTxHash.slice(-6)}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                {deployedTokenAddress && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Token</span>
-                    <a
-                      href={`https://etherscan.io/address/${deployedTokenAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-emerald-400 hover:underline inline-flex items-center gap-1"
-                    >
-                      {deployedTokenAddress.slice(0, 8)}…{deployedTokenAddress.slice(-6)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
-                {poolAddress && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">V3 Pool (1%)</span>
-                    <a
-                      href={`https://app.uniswap.org/explore/pools/ethereum/${poolAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-primary hover:underline inline-flex items-center gap-1"
-                    >
-                      {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
+            {/* Step-by-step launch progress (with CA reveal at the end) */}
+            <EthLaunchProgress
+              isLaunching={isLaunching}
+              hasDevBuy={formData.devBuyEth > 0}
+              tokenAddress={deployedTokenAddress}
+              deployTxHash={deployTxHash}
+              isLive={isLive}
+              errorMessage={launchError}
+            />
+
+            {/* Pool link (kept as a small extra once we have it) */}
+            {poolAddress && (
+              <div className="text-xs flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/50">
+                <span className="text-muted-foreground">V3 Pool (1%)</span>
+                <a
+                  href={`https://app.uniswap.org/explore/pools/ethereum/${poolAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
             )}
 
