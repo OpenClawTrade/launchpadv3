@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
     const launchId = launchRow?.id ?? null;
 
     // ---- 2. Compile + deploy ERC20 ----
-    const { abi, bytecode } = await compileERC20();
+    const { abi, bytecode } = compileERC20();
     const userDesc = (body.description?.trim() || "").slice(0, 500);
     const metadataURI = JSON.stringify({
       name: body.name.trim(),
