@@ -161,7 +161,7 @@ async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, ma
 // Helper: poll checkverifystatus until Pass/Fail
 async function pollVerificationStatus(guid: string, apiKey: string, maxRetries = 24): Promise<{ verified: boolean; message: string }> {
   for (let i = 0; i < maxRetries; i++) {
-    await new Promise((r) => setTimeout(r, 5000)); // 5s between checks
+    await delay(6000); // 6s between checks to respect rate limit
     try {
       const resp = await fetch(
         `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${apiKey}`
