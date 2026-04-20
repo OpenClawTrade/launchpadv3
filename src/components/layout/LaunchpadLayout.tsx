@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
+import { MarqueeTicker } from "@/components/layout/MarqueeTicker";
 import { DelegationPrompt } from "@/components/DelegationPrompt";
 
 import { useAnnouncements } from "@/hooks/useAnnouncements";
@@ -12,9 +13,10 @@ interface LaunchpadLayoutProps {
   showKingOfTheHill?: boolean;
   hideFooter?: boolean;
   noPadding?: boolean;
+  hideTicker?: boolean;
 }
 
-export function LaunchpadLayout({ children, hideFooter, noPadding }: LaunchpadLayoutProps) {
+export function LaunchpadLayout({ children, hideFooter, noPadding, hideTicker }: LaunchpadLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useAnnouncements();
   useLiveTradeToasts();
@@ -24,6 +26,7 @@ export function LaunchpadLayout({ children, hideFooter, noPadding }: LaunchpadLa
       <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
       <div className="md:ml-[48px] flex flex-col min-h-screen relative z-10">
         <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
+        {!hideTicker && <MarqueeTicker />}
         <main
           className={
             noPadding
@@ -36,7 +39,6 @@ export function LaunchpadLayout({ children, hideFooter, noPadding }: LaunchpadLa
         {!hideFooter && <Footer />}
       </div>
       <DelegationPrompt />
-      
     </div>
   );
 }
