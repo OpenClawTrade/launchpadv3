@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
 const START_MC_USD = 5_000; // $5K starting market cap (single-sided V3)
+const MANDATORY_DEV_BUY_USD = 50; // Required initial dev buy
 
 interface EthLaunchFormData {
   name: string;
@@ -88,7 +89,22 @@ export function EthLauncher() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const canLaunch = isConnected && formData.name.trim().length > 0 && formData.ticker.trim().length > 0;
+  // Auto-set mandatory dev buy = $50 worth of ETH whenever ETH price loads/updates
+  useEffect(() => {
+    if (ethPrice > 0) {
+      const ethAmount = MANDATORY_DEV_BUY_USD / ethPrice;
+      const rounded = Math.ceil(ethAmount * 1e6) / 1e6; // 6 decimals, round up so we always cover $50
+      setFormData(prev => (prev.devBuyEth === rounded ? prev : { ...prev, devBuyEth: rounded }));
+      setDevBuyInput(rounded.toString());
+    }
+  }, [ethPrice]);
+
+  const canLaunch =
+    isConnected &&
+    formData.name.trim().length > 0 &&
+    formData.ticker.trim().length > 0 &&
+    ethPrice > 0 &&
+    formData.devBuyEth > 0;
 
   const handleLaunch = useCallback(async () => {
     if (!canLaunch || !address) return;
@@ -321,14 +337,17 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Optional Dev Buy — free-form ETH amount with live USD + supply % */}
+            {/* Mandatory Dev Buy — locked at $50 worth of ETH */}
             <div className="space-y-3 p-4 bg-secondary/30 rounded-lg border border-border/50">
               <div className="flex items-center justify-between">
                 <Label htmlFor="eth-devbuy" className="flex items-center gap-2 text-base">
                   <Coins className="h-4 w-4 text-primary" />
-                  Dev Buy (optional)
+                  Initial Dev Buy
+                  <Badge variant="outline" className="ml-1 text-[10px] uppercase tracking-wide border-primary/40 text-primary">
+                    Required · ${MANDATORY_DEV_BUY_USD}
+                  </Badge>
                 </Label>
-                {ethPrice > 0 && formData.devBuyEth > 0 && (
+                {ethPrice > 0 && (
                   <span className="text-xs font-mono text-muted-foreground">
                     ≈ ${(formData.devBuyEth * ethPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </span>
@@ -339,22 +358,10 @@ export function EthLauncher() {
                 <Input
                   id="eth-devbuy"
                   type="text"
-                  inputMode="decimal"
-                  placeholder="0.0"
-                  value={devBuyInput}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === '' || /^\d*\.?\d*$/.test(v)) {
-                      setDevBuyInput(v);
-                      const parsed = parseFloat(v);
-                      if (v === '' || isNaN(parsed)) {
-                        handleInputChange('devBuyEth', 0);
-                      } else if (parsed >= 0 && parsed <= MAX_DEV_BUY) {
-                        handleInputChange('devBuyEth', parsed);
-                      }
-                    }
-                  }}
-                  className="bg-background/50 pr-14 h-11 text-base font-mono"
+                  value={ethPrice > 0 ? devBuyInput : 'Loading ETH price…'}
+                  readOnly
+                  disabled
+                  className="bg-background/30 pr-14 h-11 text-base font-mono cursor-not-allowed opacity-90"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground pointer-events-none">
                   ETH
@@ -364,8 +371,7 @@ export function EthLauncher() {
               {/* Live preview: USD cost + supply share */}
               {formData.devBuyEth > 0 && (() => {
                 const usdCost = ethPrice > 0 ? formData.devBuyEth * ethPrice : 0;
-                // Tokens at launch spot price (single-sided V3, $5K starting MC)
-                const pricePerToken = START_MC_USD / TOTAL_SUPPLY; // USD per token
+                const pricePerToken = START_MC_USD / TOTAL_SUPPLY;
                 const tokensReceived = usdCost > 0 ? usdCost / pricePerToken : 0;
                 const pctSupply = (tokensReceived / TOTAL_SUPPLY) * 100;
                 return (
@@ -389,8 +395,8 @@ export function EthLauncher() {
               })()}
 
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Swaps your ETH for tokens at the launch price (~${START_MC_USD.toLocaleString()} starting MC) and sends them to your wallet.
-                Single-sided V3 — actual fill will slip slightly above spot. Max {MAX_DEV_BUY} ETH.
+                Every launch requires a <span className="text-primary font-semibold">${MANDATORY_DEV_BUY_USD} dev buy</span> to seed
+                price discovery and prevent zero-liquidity snipes. Amount auto-converted to ETH at the current spot price.
               </p>
             </div>
 
