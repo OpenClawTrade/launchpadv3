@@ -18,9 +18,28 @@ const BSC_NEW_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
 const BSC_COMPLETING_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 const BSC_COMPLETING_MIN_VOLUME_24H = 100;
 const ETH_NEW_LOOKBACK_SECONDS = 2 * 24 * 60 * 60;
+const ETH_COMPLETING_LOOKBACK_SECONDS = 3 * 24 * 60 * 60; // Final Stretch: only pairs <3d old
 const ETH_NEW_MIN_LIQUIDITY = 500;
 const ETH_COMPLETED_MIN_LIQUIDITY = 25_000;
 const ETH_COMPLETED_MIN_VOLUME_24H = 5_000;
+
+// Stablecoins & wrapped natives to exclude from "Migrated" column on ETH
+const ETH_EXCLUDED_SYMBOLS = new Set([
+  "USDC", "USDT", "DAI", "BUSD", "TUSD", "USDP", "FRAX", "LUSD", "GUSD", "USDD",
+  "PYUSD", "FDUSD", "USDE", "SUSDE", "CRVUSD", "MIM", "USDS", "USDX",
+  "WETH", "WBTC", "STETH", "WSTETH", "RETH", "CBETH", "WEETH", "EZETH", "RSETH",
+]);
+const ETH_EXCLUDED_ADDRESSES = new Set([
+  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
+  "0xdac17f958d2ee523a2206206994597c13d831ec7", // USDT
+  "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
+  "0x4fabb145d64652a948d72533023f6e7a623c7c53", // BUSD
+  "0x853d955acef822db058eb8505911ed77f175b99e", // FRAX
+  "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
+  "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // WBTC
+  "0xae7ab96520de3a18e5e111b5eaab095312d7fe84", // stETH
+  "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", // wstETH
+]);
 
 function toFiniteNumber(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
