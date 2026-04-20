@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
     const { column = "new", limit = 50, networkId = SOLANA_NETWORK_ID } = await req.json().catch(() => ({}));
     const validColumn = (["new", "completing", "completed"] as Column[]).includes(column) ? column : "new";
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
-    const safeNetworkId = [SOLANA_NETWORK_ID, BSC_NETWORK_ID].includes(networkId) ? networkId : SOLANA_NETWORK_ID;
+    const safeNetworkId = [SOLANA_NETWORK_ID, BSC_NETWORK_ID, ETH_NETWORK_ID].includes(networkId) ? networkId : ETH_NETWORK_ID;
 
     const query = buildQuery(validColumn as Column, safeLimit, safeNetworkId);
 
@@ -351,16 +351,20 @@ Deno.serve(async (req) => {
     const tokens = results.map((r: any) => {
       const address = r.token?.info?.address ?? null;
       const isBsc = safeNetworkId === BSC_NETWORK_ID;
-      const dexChain = isBsc ? "bsc" : "solana";
+      const isEth = safeNetworkId === ETH_NETWORK_ID;
+      const dexChain = isBsc ? "bsc" : isEth ? "ethereum" : "solana";
       const normalizedAddress = normalizeAddress(address);
       const dexScreenerImage = normalizedAddress
         ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${normalizedAddress}.png`
         : null;
-      const oneInchImage = isBsc && normalizedAddress
-        ? `https://tokens.1inch.io/56/${normalizedAddress}.png`
+      const oneInchImage = normalizedAddress && (isBsc || isEth)
+        ? `https://tokens.1inch.io/${isEth ? 1 : 56}/${normalizedAddress}.png`
         : null;
       const pancakeSwapImage = isBsc && normalizedAddress
         ? `https://tokens.pancakeswap.finance/images/symbol/${normalizedAddress}.png`
+        : null;
+      const trustWalletEthImage = isEth && normalizedAddress
+        ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${normalizedAddress}/logo.png`
         : null;
       const identiconImage = normalizedAddress
         ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(normalizedAddress)}`
@@ -388,6 +392,17 @@ Deno.serve(async (req) => {
 
         imageUrl = bscImageCandidates[0] ?? null;
         fallbackImageUrl = bscImageCandidates[1] ?? null;
+      } else if (isEth) {
+        // ETH: trust Codex image first (no launchpad spoofing risk), then DexScreener, then trust wallet, then 1inch.
+        const ethImageCandidates = uniqueNonEmpty([
+          codexImage,
+          dexScreenerImage,
+          trustWalletEthImage,
+          oneInchImage,
+          identiconImage,
+        ]);
+        imageUrl = ethImageCandidates[0] ?? null;
+        fallbackImageUrl = ethImageCandidates[1] ?? null;
       } else {
         const solanaImageCandidates = uniqueNonEmpty([codexImage, dexScreenerImage, identiconImage]);
         imageUrl = solanaImageCandidates[0] ?? null;
@@ -423,7 +438,9 @@ Deno.serve(async (req) => {
 
     const maxAllowedChange = safeNetworkId === BSC_NETWORK_ID
       ? MAX_REASONABLE_CHANGE_24H_BSC
-      : MAX_REASONABLE_CHANGE_24H_DEFAULT;
+      : safeNetworkId === ETH_NETWORK_ID
+        ? MAX_REASONABLE_CHANGE_24H_ETH
+        : MAX_REASONABLE_CHANGE_24H_DEFAULT;
 
     const normalizedTokens = await Promise.all(tokens.map(async (token: any) => {
       // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)
