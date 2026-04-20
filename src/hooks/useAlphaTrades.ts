@@ -56,9 +56,11 @@ export function useAlphaTrades(limit = 50, onNewTrade?: (trade: AlphaTrade) => v
   const pendingMarketCaps = useRef<Set<string>>(new Set());
 
   const fetchTrades = useCallback(async () => {
+    // Ethereum-only: filter out legacy chain rows
     const { data, error } = await (supabase as any)
       .from("alpha_trades")
       .select("*")
+      .eq("chain", "ethereum")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) {

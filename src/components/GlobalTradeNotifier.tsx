@@ -60,6 +60,8 @@ export function GlobalTradeNotifier() {
           (payload) => {
             const trade = payload.new as any;
             if (!trade) return;
+            // Ethereum-only: ignore any leftover non-ETH realtime inserts
+            if (trade.chain && trade.chain !== "ethereum") return;
             errorCount = 0; // reset on successful message
             console.log("[GlobalTradeNotifier] Trade received:", trade.trade_type, trade.token_ticker);
 

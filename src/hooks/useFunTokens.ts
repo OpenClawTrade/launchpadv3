@@ -163,6 +163,7 @@ async function fetchPoolStateDirect(
 
 // Core fetch function - used by React Query
 async function fetchFunTokensFromDB(): Promise<FunToken[]> {
+  // Ethereum-only: site is now ETH-mainnet only
   const { data: funTokens, error: fetchError } = await supabase
     .from("fun_tokens")
     .select(`
@@ -171,6 +172,7 @@ async function fetchFunTokensFromDB(): Promise<FunToken[]> {
       total_fees_earned, holder_count, market_cap_sol, bonding_progress,
       trading_fee_bps, fee_mode, last_distribution_at, created_at, updated_at
     `)
+    .eq("chain", "ethereum")
     .neq("launchpad_type", "punch")
     .order("created_at", { ascending: false })
     .limit(100);
