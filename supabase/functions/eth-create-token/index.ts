@@ -424,19 +424,6 @@ Deno.serve(async (req) => {
       }).eq("id", launchId);
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      launchId,
-      tokenAddress,
-      poolAddress: poolAddr,
-      lpTokenId: lpTokenId.toString(),
-      deployTxHash: deployHash,
-      mintTxHash: mintHash,
-      devBuyTxHash,
-      feeTier: FEE_TIER,
-      platformOwner: lpHolder,
-      creatorWallet,
-    });
     })(); // end deployTask
 
     // Run in background; do not await. Catch errors → mark launch as failed.
