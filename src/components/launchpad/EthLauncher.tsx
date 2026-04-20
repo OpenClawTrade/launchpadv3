@@ -125,8 +125,9 @@ export function EthLauncher() {
           lpEth: formData.lpEth,
           userTaxBps: Math.round(formData.userTaxPct * 100),
           platformTaxBps: PLATFORM_FEE_PCT * 100,
-          burnLp: formData.burnLp,
-          renounce: formData.renounce,
+          // burnLp/renounce are now handled manually post-launch by creator
+          burnLp: false,
+          renounce: false,
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
           websiteUrl: formData.websiteUrl || null,
