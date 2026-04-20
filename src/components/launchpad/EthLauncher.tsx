@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Flame, Lock, Info, ExternalLink } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Flame, Lock, Info, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { toast } from 'sonner';
@@ -17,8 +17,28 @@ import {
   useWaitForTransactionReceipt,
   useChainId,
   useSwitchChain,
+  useWriteContract,
 } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
+import { parseEther, encodeFunctionData, parseAbi } from 'viem';
+
+// Uniswap V2 (mainnet) — battle-tested, simple LP add path
+const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' as const;
+const DEAD_ADDRESS = '0x000000000000000000000000000000000000dEaD' as const;
+const UNISWAP_V2_FACTORY = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' as const;
+
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function balanceOf(address) view returns (uint256)',
+  'function renounceOwnership()',
+]);
+const ROUTER_ABI = parseAbi([
+  'function addLiquidityETH(address token, uint256 amountTokenDesired, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline) payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity)',
+]);
+const FACTORY_ABI = parseAbi([
+  'function getPair(address tokenA, address tokenB) view returns (address)',
+]);
+const WETH_MAINNET = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' as const;
 
 const PLATFORM_FEE_PCT = 1; // Always 1% protocol tax
 const MIN_USER_TAX = 0;
@@ -45,10 +65,14 @@ export function EthLauncher() {
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const { sendTransactionAsync } = useSendTransaction();
+  const { writeContractAsync } = useWriteContract();
   const [isLaunching, setIsLaunching] = useState(false);
   const [customLp, setCustomLp] = useState(false);
+  const [lpEthInput, setLpEthInput] = useState('1'); // string for free typing of decimals
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<`0x${string}` | null>(null);
+  const [postDeployStep, setPostDeployStep] = useState<'idle' | 'approve' | 'lp' | 'burn' | 'renounce' | 'verify' | 'done'>('idle');
+  const [verified, setVerified] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
     ticker: '',
