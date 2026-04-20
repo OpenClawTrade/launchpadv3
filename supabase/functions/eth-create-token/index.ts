@@ -257,7 +257,7 @@ function validate(body: any): { ok: true; data: LaunchBody } | { ok: false; erro
   const { name, ticker, creatorWallet, lpEth, userTaxBps, platformTaxBps } = body;
   if (typeof name !== "string" || name.trim().length < 1 || name.length > 32) return { ok: false, error: "Invalid name" };
   if (typeof ticker !== "string" || ticker.trim().length < 1 || ticker.length > 10) return { ok: false, error: "Invalid ticker" };
-  if (typeof creatorWallet !== "string" || !isAddress(creatorWallet)) return { ok: false, error: "Invalid creator wallet" };
+  if (!isEvmAddress(creatorWallet)) return { ok: false, error: "Invalid creator wallet" };
   if (typeof lpEth !== "number" || !isFinite(lpEth) || lpEth <= 0 || lpEth > 1000) return { ok: false, error: "Invalid lpEth (0 < x ≤ 1000)" };
   if (typeof userTaxBps !== "number" || !Number.isInteger(userTaxBps) || userTaxBps < 0 || userTaxBps > 300) {
     return { ok: false, error: "userTaxBps must be integer 0–300 (0%–3%)" };
