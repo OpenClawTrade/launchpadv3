@@ -27,34 +27,26 @@ interface UseJustLaunchedResult {
   error: string | null;
 }
 
-// Fetch tokens from last 48 hours (with 24h as primary, fallback to 48h if empty)
-async function fetchJustLaunched(chainFilter: "solana" | "bnb"): Promise<JustLaunchedToken[]> {
+// Ethereum-only: site is fully ETH mainnet now
+async function fetchJustLaunched(_chainFilter: "solana" | "bnb"): Promise<JustLaunchedToken[]> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  const applyChainFilter = (query: any) => {
-    if (chainFilter === "bnb") {
-      return query.eq("chain", "bsc");
-    }
-    // Solana: chain is null or 'solana'
-    return query.or("chain.is.null,chain.eq.solana");
-  };
+  const baseSelect = `
+    id, name, ticker, image_url, mint_address, market_cap_sol,
+    agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
+    creator_wallet, created_at
+  `;
 
   // Try 24h first
-  let query24 = supabase
+  const { data: data24h, error } = await supabase
     .from("fun_tokens")
-    .select(`
-      id, name, ticker, image_url, mint_address, market_cap_sol,
-      agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
-      creator_wallet, created_at
-    `)
+    .select(baseSelect)
+    .eq("chain", "ethereum")
     .neq("launchpad_type", "punch")
     .gte("created_at", twentyFourHoursAgo)
     .order("created_at", { ascending: false })
     .limit(20);
-
-  query24 = applyChainFilter(query24);
-  const { data: data24h, error } = await query24;
 
   if (error) throw error;
 
@@ -62,20 +54,14 @@ async function fetchJustLaunched(chainFilter: "solana" | "bnb"): Promise<JustLau
   if (filtered24h.length > 0) return filtered24h;
 
   // Fallback to 48h if no 24h results
-  let query48 = supabase
+  const { data: data48h, error: error48h } = await supabase
     .from("fun_tokens")
-    .select(`
-      id, name, ticker, image_url, mint_address, market_cap_sol,
-      agent_id, status, launchpad_type, trading_agent_id, is_trading_agent_token,
-      creator_wallet, created_at
-    `)
+    .select(baseSelect)
+    .eq("chain", "ethereum")
     .neq("launchpad_type", "punch")
     .gte("created_at", fortyEightHoursAgo)
     .order("created_at", { ascending: false })
     .limit(20);
-
-  query48 = applyChainFilter(query48);
-  const { data: data48h, error: error48h } = await query48;
 
   if (error48h) throw error48h;
 
