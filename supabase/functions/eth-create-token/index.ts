@@ -463,9 +463,15 @@ Deno.serve(async (req) => {
 
     if (launchId) {
       await supabase.from("eth_launch_requests").update({
-        status: "live", deploy_tx_hash: deployHash, token_address: tokenAddress,
+        status: "live",
+        deploy_tx_hash: deployHash,
+        token_address: tokenAddress,
+        lp_tx_hash: mintHash,
+        uniswap_pool_address: poolAddr.toLowerCase(),
+        error_message: null,
       }).eq("id", launchId);
     }
+    console.log("[eth-create-token-v3] ✅ launch complete. token=", tokenAddress, " pool=", poolAddr, " lpTokenId=", lpTokenId.toString());
 
     })(); // end deployTask
 
