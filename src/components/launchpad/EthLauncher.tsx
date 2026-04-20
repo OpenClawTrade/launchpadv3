@@ -222,7 +222,7 @@ export function EthLauncher() {
           functionName: 'approve',
           args: [UNISWAP_V2_ROUTER, supplyWei],
           chainId: mainnet.id,
-        });
+        } as any);
 
         // 2. Seed Uniswap V2 LP
         setPostDeployStep('lp');
@@ -234,7 +234,7 @@ export function EthLauncher() {
           args: [tokenAddress as `0x${string}`, supplyWei, 0n, 0n, address as `0x${string}`, deadline],
           value: ethAmount,
           chainId: mainnet.id,
-        });
+        } as any);
 
         // 3. Burn LP (transfer LP token balance to dead)
         if (formData.burnLp) {
@@ -280,7 +280,7 @@ export function EthLauncher() {
                 functionName: 'transfer',
                 args: [DEAD_ADDRESS, lpBalance],
                 chainId: mainnet.id,
-              });
+              } as any);
             }
           } catch (burnErr) {
             console.warn('[eth-launch] LP burn failed', burnErr);
@@ -298,7 +298,7 @@ export function EthLauncher() {
             functionName: 'renounceOwnership',
             args: [],
             chainId: mainnet.id,
-          });
+          } as any);
         }
 
         // 5. Background Etherscan verification
