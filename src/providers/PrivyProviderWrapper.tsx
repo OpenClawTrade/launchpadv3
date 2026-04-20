@@ -350,8 +350,9 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             walletList: ["metamask", "phantom", "solflare", "backpack", "detected_wallets"],
           },
           embeddedWallets: {
+            // ETH-only: do not auto-create Solana embedded wallets for new users
             solana: {
-              createOnLogin: "all-users",
+              createOnLogin: "off",
             },
             ethereum: {
               createOnLogin: "all-users",
