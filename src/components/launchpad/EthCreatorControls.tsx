@@ -147,7 +147,7 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
         functionName: "approve",
         args: [UNISWAP_V2_ROUTER, lpBalance],
         chainId: mainnet.id,
-      });
+      } as any);
       setPendingHash(approveHash);
       toast.info("1/2 Approving router…", { description: "Waiting for confirmation…" });
 
