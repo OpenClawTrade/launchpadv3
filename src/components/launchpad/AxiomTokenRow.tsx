@@ -166,6 +166,11 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
                 <Crown className="h-2.5 w-2.5" />{proTraders}
               </span>
             )}
+            {viewCount > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/55" title={`${viewCount.toLocaleString()} page views`}>
+                <Eye className="h-2.5 w-2.5" />{formatViewCount(viewCount)}
+              </span>
+            )}
           </div>
 
           {/* Line 3: Creator line */}
