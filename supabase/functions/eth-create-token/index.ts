@@ -291,26 +291,39 @@ Deno.serve(async (req) => {
       }).eq("id", launchId);
     }
 
-    // ---- 2b. Auto-verify on Etherscan (fire-and-forget, non-blocking) ----
-    // Triggered now (right after deploy) so source is up by the time the LP/pool
-    // becomes tradable. Failures here never block the launch.
-    (async () => {
-      try {
-        const verifyResp = await fetch(`${supabaseUrl}/functions/v1/eth-verify-contract`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ tokenAddress, launchId }),
-        });
-        const verifyJson = await verifyResp.json().catch(() => ({}));
-        console.log("[eth-create-token-v3] auto-verify result:", verifyJson);
-      } catch (e) {
-        console.error("[eth-create-token-v3] auto-verify trigger failed:", e);
-      }
-    })();
+    // ---- 2b. Verify on Etherscan BEFORE adding LP ----
+    // Wait for Etherscan to index + verify the contract source. This ensures
+    // the token shows as "Verified" on GMGN/DexScreener before LP goes live.
+    if (launchId) {
+      await supabase.from("eth_launch_requests").update({ status: "verifying" }).eq("id", launchId);
+    }
+    let verificationPassed = false;
+    try {
+      console.log("[eth-create-token-v3] waiting for Etherscan verification...");
+      const verifyResp = await fetch(`${supabaseUrl}/functions/v1/eth-verify-contract`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ tokenAddress, launchId, waitForResult: true }),
+      });
+      const verifyJson = await verifyResp.json().catch(() => ({}));
+      console.log("[eth-create-token-v3] verification result:", verifyJson);
+      verificationPassed = verifyJson?.verified === true || verifyJson?.alreadyVerified === true;
+    } catch (e) {
+      console.error("[eth-create-token-v3] verification failed:", e);
+    }
 
+    if (!verificationPassed) {
+      // If verification failed, abort — don't add LP to an unverified contract
+      throw new Error("Contract verification failed on Etherscan. Launch aborted before LP creation.");
+    }
+    console.log("[eth-create-token-v3] ✅ Contract verified on Etherscan, proceeding to LP...");
+
+    if (launchId) {
+      await supabase.from("eth_launch_requests").update({ status: "adding_lp" }).eq("id", launchId);
+    }
 
     // ---- 3. Compute sqrtPriceX96 for ~$5K market cap ----
     const ethUsd = body.ethPriceUsd && body.ethPriceUsd > 0 ? body.ethPriceUsd : 3000;
