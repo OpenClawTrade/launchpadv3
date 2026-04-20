@@ -6,10 +6,10 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { usePanelNav } from "@/hooks/usePanelNav";
 import { useMatrixMode } from "@/contexts/MatrixModeContext";
-import saturnLogo from "@/assets/saturn-logo.png";
+import popshibaLogo from "@/assets/popshiba-logo.png";
 import { BRAND } from "@/config/branding";
 
-const LOGO_SRC = saturnLogo;
+const LOGO_SRC = popshibaLogo;
 
 const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean; comingSoon?: boolean; disabled?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
@@ -68,11 +68,9 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
           const iconEl = Icon ? (
             <Icon className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              neonGreen
-                ? "text-[hsl(72_100%_50%)] drop-shadow-[0_0_6px_hsl(72_100%_50%/0.5)]"
-                : active ? "text-primary" : ""
-            )} strokeWidth={neonGreen ? 2.5 : undefined} />
+              "h-4 w-4 flex-shrink-0",
+              active ? "text-pop-ink" : "text-pop-ink/70"
+            )} strokeWidth={active ? 2.75 : 2.25} />
           ) : null;
 
           if (isMobile) {
