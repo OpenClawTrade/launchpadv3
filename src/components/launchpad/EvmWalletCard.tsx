@@ -7,31 +7,32 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 const BNB_LOGO = "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png";
+const ETH_LOGO = "https://assets.coingecko.com/coins/images/279/small/ethereum.png";
 
 export function EvmWalletCard() {
-  const { 
-    address, 
-    shortAddress, 
-    isConnected, 
-    balance, 
-    isOnBase,
-    isOnBnb, 
-    switchToBase,
+  const {
+    address,
+    shortAddress,
+    isConnected,
+    balance,
+    isOnEthereum,
+    isOnBnb,
+    switchToEthereum,
     switchToBnb,
     connect,
     disconnect,
-    isBalanceLoading 
-  } = useEvmWallet();
-  
+    isBalanceLoading
+  } = useEvmWallet() as any;
+
   const { chain } = useChain();
   const isBnb = chain === 'bnb';
   const [copied, setCopied] = useState(false);
 
-  const isOnCorrectChain = isBnb ? isOnBnb : isOnBase;
-  const chainLabel = isBnb ? 'BNB Chain' : 'Base';
+  const isOnCorrectChain = isBnb ? isOnBnb : isOnEthereum;
+  const chainLabel = isBnb ? 'BNB Chain' : 'Ethereum';
   const nativeToken = isBnb ? 'BNB' : 'ETH';
-  const explorerBase = isBnb ? 'https://bscscan.com/address/' : 'https://basescan.org/address/';
-  const switchFn = isBnb ? switchToBnb : switchToBase;
+  const explorerBase = isBnb ? 'https://bscscan.com/address/' : 'https://etherscan.io/address/';
+  const switchFn = isBnb ? switchToBnb : switchToEthereum;
 
   const handleCopy = async () => {
     if (!address) return;
@@ -48,7 +49,7 @@ export function EvmWalletCard() {
           {isBnb ? (
             <img src={BNB_LOGO} alt="BNB" className="h-5 w-5 rounded-full" />
           ) : (
-            <Wallet className="h-5 w-5 text-blue-400" />
+            <img src={ETH_LOGO} alt="ETH" className="h-5 w-5 rounded-full" />
           )}
           {chainLabel} Wallet
         </CardTitle>
