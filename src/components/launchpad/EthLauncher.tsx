@@ -412,15 +412,49 @@ export function EthLauncher() {
             ) : (
               <Button
                 onClick={handleLaunch}
-                disabled={!canLaunch || isLaunching}
+                disabled={!canLaunch || isLaunching || !!deployTxHash && !deployedTokenAddress}
                 className="w-full h-12 text-lg font-semibold"
               >
                 {isLaunching ? (
-                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Deploying on Ethereum...</>
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Preparing & signing…</>
+                ) : deployTxHash && !deployedTokenAddress ? (
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Waiting for Ethereum confirmation…</>
                 ) : (
                   <><Rocket className="mr-2 h-5 w-5" />Launch Token ({totalTax}% swap tax)</>
                 )}
               </Button>
+            )}
+
+            {/* Deployment status */}
+            {deployTxHash && (
+              <div className="text-xs space-y-1 p-3 bg-secondary/30 rounded-lg border border-border/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Deploy tx</span>
+                  <a
+                    href={`https://etherscan.io/tx/${deployTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    {deployTxHash.slice(0, 10)}…{deployTxHash.slice(-6)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                {deployedTokenAddress && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Token</span>
+                    <a
+                      href={`https://etherscan.io/address/${deployedTokenAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-emerald-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      {deployedTokenAddress.slice(0, 8)}…{deployedTokenAddress.slice(-6)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
