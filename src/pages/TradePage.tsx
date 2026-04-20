@@ -5,7 +5,7 @@ import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useGraduatedTokens } from "@/hooks/useGraduatedTokens";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { useBnbPrice } from "@/hooks/useBnbPrice";
-import { useCodexNewPairs, SOLANA_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
+import { useCodexNewPairs, ETH_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { useProTradersCount } from "@/hooks/useProTradersCount";
 import { AxiomTerminalGrid } from "@/components/launchpad/AxiomTerminalGrid";
 import { useTradeSounds } from "@/hooks/useTradeSounds";
@@ -36,7 +36,7 @@ export default function TradePage() {
   const { chain, chainConfig } = useChain();
 
   const isBnb = chain === 'bnb';
-  const networkId = isBnb ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  const networkId = isBnb ? BSC_NETWORK_ID : ETH_NETWORK_ID;
   const nativeCurrency = chainConfig.nativeCurrency.symbol;
   const quickBuyStorageKey = getQuickBuyStorageKey(isBnb);
 
