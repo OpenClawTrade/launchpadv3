@@ -150,10 +150,10 @@ export default function TradePage() {
         <AxiomTerminalGrid
           tokens={filtered}
           solPrice={activePrice}
-          isLoading={isBnb ? false : isLoading}
-          codexNewPairs={codexNewPairs}
-          codexCompleting={codexCompleting}
-          codexGraduated={codexGraduated}
+          isLoading={isLoading}
+          codexNewPairs={[]}
+          codexCompleting={[]}
+          codexGraduated={[]}
           quickBuyAmount={quickBuyAmount}
           onQuickBuyChange={handleQuickBuySet}
           proTradersMap={proTradersMap ?? {}}
