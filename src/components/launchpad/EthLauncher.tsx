@@ -57,8 +57,6 @@ interface EthLaunchFormData {
   telegramUrl: string;
   lpEth: number;
   userTaxPct: number;
-  burnLp: boolean;
-  renounce: boolean;
 }
 
 export function EthLauncher() {
@@ -72,7 +70,7 @@ export function EthLauncher() {
   const [lpEthInput, setLpEthInput] = useState('1'); // string for free typing of decimals
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<`0x${string}` | null>(null);
-  const [postDeployStep, setPostDeployStep] = useState<'idle' | 'approve' | 'lp' | 'burn' | 'renounce' | 'verify' | 'done'>('idle');
+  const [postDeployStep, setPostDeployStep] = useState<'idle' | 'approve' | 'lp' | 'verify' | 'done'>('idle');
   const [verified, setVerified] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
@@ -84,8 +82,6 @@ export function EthLauncher() {
     telegramUrl: '',
     lpEth: 1,
     userTaxPct: 1,
-    burnLp: true,
-    renounce: true,
   });
 
   // Watch deploy tx confirmation
