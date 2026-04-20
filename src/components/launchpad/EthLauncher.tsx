@@ -89,7 +89,22 @@ export function EthLauncher() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const canLaunch = isConnected && formData.name.trim().length > 0 && formData.ticker.trim().length > 0;
+  // Auto-set mandatory dev buy = $50 worth of ETH whenever ETH price loads/updates
+  useEffect(() => {
+    if (ethPrice > 0) {
+      const ethAmount = MANDATORY_DEV_BUY_USD / ethPrice;
+      const rounded = Math.ceil(ethAmount * 1e6) / 1e6; // 6 decimals, round up so we always cover $50
+      setFormData(prev => (prev.devBuyEth === rounded ? prev : { ...prev, devBuyEth: rounded }));
+      setDevBuyInput(rounded.toString());
+    }
+  }, [ethPrice]);
+
+  const canLaunch =
+    isConnected &&
+    formData.name.trim().length > 0 &&
+    formData.ticker.trim().length > 0 &&
+    ethPrice > 0 &&
+    formData.devBuyEth > 0;
 
   const handleLaunch = useCallback(async () => {
     if (!canLaunch || !address) return;
