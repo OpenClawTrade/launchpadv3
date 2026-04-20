@@ -65,8 +65,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const PK = Deno.env.get("BASE_DEPLOYER_PRIVATE_KEY");
-    if (!PK) throw new Error("Missing platform deployer key");
+    // Fees live in the LP holder wallet (0x8F70…6906), so claims pay out from there.
+    const PK = Deno.env.get("ETH_LP_HOLDER_PRIVATE_KEY");
+    if (!PK) throw new Error("Missing ETH_LP_HOLDER_PRIVATE_KEY (LP NFT holder)");
     const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
     const account = privateKeyToAccount(PK.startsWith("0x") ? PK as `0x${string}` : `0x${PK}` as `0x${string}`);
     const wallet = createWalletClient({ account, chain: mainnet, transport: http(RPC) });
