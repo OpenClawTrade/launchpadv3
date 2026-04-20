@@ -578,16 +578,6 @@ Saturn Terminal
           </section>
         </LazySection>
 
-        {/* ═══ Leverage (lazy) ═══ */}
-        <SectionDivider />
-        <LazySection>
-          <section className={`${CW} mx-auto px-4 py-6 pb-20`}>
-            <SectionHeader icon={CandlestickChart} title="Leverage Trading" linkTo="/leverage" linkLabel="Open Terminal" />
-            <Suspense fallback={<div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>}>
-              <LeverageSection />
-            </Suspense>
-          </section>
-        </LazySection>
       </div>
     </LaunchpadLayout>
     </>
