@@ -229,7 +229,7 @@ export default function PanelMyLaunchesTab() {
     }
   };
 
-  const allTokens = [...tokens, ...clawTokens];
+  const allTokens = [...tokens, ...clawTokens, ...ethTokens];
   const totalEarned = allTokens.reduce((s, t) => s + (t.total_fees_earned || 0) * CREATOR_SHARE, 0);
   const totalClaimed = claimStatus?.totalClaimed || allTokens.reduce((s, t) => s + (t.total_fees_claimed || 0), 0);
   const totalUnclaimed = claimStatus?.pendingAmount ?? Math.max(0, totalEarned - totalClaimed);
