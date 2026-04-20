@@ -365,7 +365,7 @@ Deno.serve(async (req) => {
       args: [{
         token0: token0 as Address, token1: token1 as Address, fee: FEE_TIER,
         tickLower, tickUpper, amount0Desired, amount1Desired,
-        amount0Min: 0n, amount1Min: 0n, recipient: platformDeployer, deadline,
+        amount0Min: 0n, amount1Min: 0n, recipient: lpHolder, deadline,
       }] as any,
     });
     const mintRcpt = await pub.waitForTransactionReceipt({ hash: mintHash });
