@@ -242,6 +242,7 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
   const ethNewCutoff = now - ETH_NEW_LOOKBACK_SECONDS;
   const ethCompletingCutoff = now - ETH_COMPLETING_LOOKBACK_SECONDS;
+  const ethCompletedCutoff = now - ETH_COMPLETED_LOOKBACK_SECONDS;
 
   if (networkId === ETH_NETWORK_ID) {
     // Ethereum: launchpad-agnostic. Show any new pair with LP added (liquidity gate).
