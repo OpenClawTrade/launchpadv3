@@ -9,8 +9,13 @@ import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Inf
 import { EthCreatorControls } from './EthCreatorControls';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
+import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+
+// Launch parameters — must mirror eth-create-token edge function
+const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
+const START_MC_USD = 5_000; // $5K starting market cap (single-sided V3)
 
 interface EthLaunchFormData {
   name: string;
@@ -23,14 +28,13 @@ interface EthLaunchFormData {
   devBuyEth: number;
 }
 
-const DEV_BUY_PRESETS = [0, 0.05, 0.1, 0.5];
 const MAX_DEV_BUY = 5;
 
 export function EthLauncher() {
   const { isConnected, address, connect } = useEvmWallet();
+  const { data: ethPrice = 0 } = useEthPrice();
   const [isLaunching, setIsLaunching] = useState(false);
-  const [customDevBuy, setCustomDevBuy] = useState(false);
-  const [devBuyInput, setDevBuyInput] = useState('0');
+  const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
   const handleImageUpload = async (file: File) => {
@@ -309,31 +313,23 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Optional Dev Buy */}
+            {/* Optional Dev Buy — free-form ETH amount with live USD + supply % */}
             <div className="space-y-3 p-4 bg-secondary/30 rounded-lg border border-border/50">
               <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 text-base">
+                <Label htmlFor="eth-devbuy" className="flex items-center gap-2 text-base">
                   <Coins className="h-4 w-4 text-primary" />
                   Dev Buy (optional)
                 </Label>
-                <span className="text-sm font-mono font-bold text-primary">{formData.devBuyEth} ETH</span>
+                {ethPrice > 0 && formData.devBuyEth > 0 && (
+                  <span className="text-xs font-mono text-muted-foreground">
+                    ≈ ${(formData.devBuyEth * ethPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </span>
+                )}
               </div>
-              {!customDevBuy ? (
-                <div className="grid grid-cols-4 gap-2">
-                  {DEV_BUY_PRESETS.map((amt) => (
-                    <Button
-                      key={amt}
-                      type="button"
-                      variant={formData.devBuyEth === amt ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleInputChange('devBuyEth', amt)}
-                    >
-                      {amt === 0 ? 'None' : `${amt} ETH`}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
+
+              <div className="relative">
                 <Input
+                  id="eth-devbuy"
                   type="text"
                   inputMode="decimal"
                   placeholder="0.0"
@@ -343,23 +339,50 @@ export function EthLauncher() {
                     if (v === '' || /^\d*\.?\d*$/.test(v)) {
                       setDevBuyInput(v);
                       const parsed = parseFloat(v);
-                      if (!isNaN(parsed) && parsed >= 0 && parsed <= MAX_DEV_BUY) {
+                      if (v === '' || isNaN(parsed)) {
+                        handleInputChange('devBuyEth', 0);
+                      } else if (parsed >= 0 && parsed <= MAX_DEV_BUY) {
                         handleInputChange('devBuyEth', parsed);
                       }
                     }
                   }}
-                  className="bg-background/50"
+                  className="bg-background/50 pr-14 h-11 text-base font-mono"
                 />
-              )}
-              <button
-                type="button"
-                onClick={() => setCustomDevBuy((v) => !v)}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
-                {customDevBuy ? '← Use presets' : 'Use custom amount →'}
-              </button>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground pointer-events-none">
+                  ETH
+                </span>
+              </div>
+
+              {/* Live preview: USD cost + supply share */}
+              {formData.devBuyEth > 0 && (() => {
+                const usdCost = ethPrice > 0 ? formData.devBuyEth * ethPrice : 0;
+                // Tokens at launch spot price (single-sided V3, $5K starting MC)
+                const pricePerToken = START_MC_USD / TOTAL_SUPPLY; // USD per token
+                const tokensReceived = usdCost > 0 ? usdCost / pricePerToken : 0;
+                const pctSupply = (tokensReceived / TOTAL_SUPPLY) * 100;
+                return (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cost</div>
+                      <div className="text-sm font-mono font-semibold text-foreground">
+                        {ethPrice > 0
+                          ? `$${usdCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+                          : '—'}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply share</div>
+                      <div className="text-sm font-mono font-semibold text-primary">
+                        {pctSupply >= 0.01 ? `~${pctSupply.toFixed(2)}%` : '<0.01%'}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Dev buy swaps your ETH for tokens at launch price and sends them straight to your wallet. Capped at {MAX_DEV_BUY} ETH.
+                Swaps your ETH for tokens at the launch price (~${START_MC_USD.toLocaleString()} starting MC) and sends them to your wallet.
+                Single-sided V3 — actual fill will slip slightly above spot. Max {MAX_DEV_BUY} ETH.
               </p>
             </div>
 
