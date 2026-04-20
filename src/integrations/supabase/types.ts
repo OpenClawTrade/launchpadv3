@@ -4167,6 +4167,87 @@ export type Database = {
           },
         ]
       }
+      eth_launch_requests: {
+        Row: {
+          burn_lp: boolean
+          created_at: string
+          creator_wallet: string
+          deploy_tx_hash: string | null
+          description: string | null
+          error_message: string | null
+          id: string
+          image_url: string | null
+          lp_eth: number
+          lp_refund_owed_eth: number
+          lp_refund_paid_eth: number
+          lp_tx_hash: string | null
+          platform_tax_bps: number
+          renounce: boolean
+          status: string
+          telegram_url: string | null
+          token_address: string | null
+          token_name: string
+          token_ticker: string
+          twitter_url: string | null
+          uniswap_pool_address: string | null
+          updated_at: string
+          user_tax_bps: number
+          website_url: string | null
+        }
+        Insert: {
+          burn_lp?: boolean
+          created_at?: string
+          creator_wallet: string
+          deploy_tx_hash?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          lp_eth: number
+          lp_refund_owed_eth?: number
+          lp_refund_paid_eth?: number
+          lp_tx_hash?: string | null
+          platform_tax_bps?: number
+          renounce?: boolean
+          status?: string
+          telegram_url?: string | null
+          token_address?: string | null
+          token_name: string
+          token_ticker: string
+          twitter_url?: string | null
+          uniswap_pool_address?: string | null
+          updated_at?: string
+          user_tax_bps?: number
+          website_url?: string | null
+        }
+        Update: {
+          burn_lp?: boolean
+          created_at?: string
+          creator_wallet?: string
+          deploy_tx_hash?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          lp_eth?: number
+          lp_refund_owed_eth?: number
+          lp_refund_paid_eth?: number
+          lp_tx_hash?: string | null
+          platform_tax_bps?: number
+          renounce?: boolean
+          status?: string
+          telegram_url?: string | null
+          token_address?: string | null
+          token_name?: string
+          token_ticker?: string
+          twitter_url?: string | null
+          uniswap_pool_address?: string | null
+          updated_at?: string
+          user_tax_bps?: number
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       fee_claims: {
         Row: {
           amount_sol: number
