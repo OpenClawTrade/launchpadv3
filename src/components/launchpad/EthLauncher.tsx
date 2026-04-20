@@ -71,6 +71,8 @@ export function EthLauncher() {
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
     ticker: '',
