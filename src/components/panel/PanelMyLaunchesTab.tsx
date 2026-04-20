@@ -240,7 +240,7 @@ export default function PanelMyLaunchesTab() {
     return earned > 0;
   });
 
-  if (!twitterUsername) {
+  if (!twitterUsername && ethTokens.length === 0) {
     return (
       <div className="space-y-6 max-w-2xl mx-auto pb-8">
         <div className="text-center py-10">
