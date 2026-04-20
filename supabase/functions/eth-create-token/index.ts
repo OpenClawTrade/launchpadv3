@@ -220,13 +220,17 @@ Deno.serve(async (req) => {
     const body = v.data;
 
     // ---- Env / clients ----
+    // Deployer pays gas for deploy + pool init + mint. LP holder is a separate
+    // wallet (0x8F70…6906) that receives the NFT and later collects all fees.
     const PK = Deno.env.get("BASE_DEPLOYER_PRIVATE_KEY");
     if (!PK) throw new Error("Platform deployer key missing");
+    const LP_HOLDER = "0x8F7017df748Db75a58B3AA441ea0886dfEC16906" as const;
     const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
     const account = privateKeyToAccount(PK.startsWith("0x") ? PK as `0x${string}` : `0x${PK}` as `0x${string}`);
     const wallet = createWalletClient({ account, chain: mainnet, transport: http(RPC) });
     const pub = createPublicClient({ chain: mainnet, transport: http(RPC) });
     const platformDeployer = account.address;
+    const lpHolder = getAddress(LP_HOLDER) as Address;
     const creatorWallet = getAddress(body.creatorWallet) as Address;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
