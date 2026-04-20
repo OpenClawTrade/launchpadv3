@@ -86,7 +86,8 @@ export default function AlphaTrackerPage() {
 
   const getExplorerTxUrl = (txHash: string, tradeChain?: string | null) => {
     if (tradeChain === 'bnb') return `https://bscscan.com/tx/${txHash}`;
-    return `https://solscan.io/tx/${txHash}`;
+    // ETH-default
+    return `https://etherscan.io/tx/${txHash}`;
   };
 
   return (
@@ -205,7 +206,7 @@ export default function AlphaTrackerPage() {
                 : (mcapSolFromTrade != null && solPrice ? mcapSolFromTrade * solPrice : null);
 
               const mcapUsd = tokenMcapUsd ?? mcapUsdFromTrade;
-              const nativeSymbol = trade.chain === 'bnb' ? 'BNB' : 'SOL';
+              const nativeSymbol = trade.chain === 'bnb' ? 'BNB' : 'ETH';
 
               return (
                 <div

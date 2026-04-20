@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 export interface TrackedWallet {
   id: string;
@@ -22,15 +21,30 @@ export interface WalletWithBalance extends TrackedWallet {
 export const TRACKER_TABS = ["All", "Manager", "Trades", "Monitor"] as const;
 export type TrackerTab = typeof TRACKER_TABS[number];
 
-function getRpcUrl(): string {
-  if (typeof window !== "undefined" && (window as any).__PUBLIC_CONFIG__?.HELIUS_RPC_URL) {
-    return (window as any).__PUBLIC_CONFIG__.HELIUS_RPC_URL;
-  }
-  return import.meta.env.VITE_HELIUS_RPC_URL || "https://api.mainnet-beta.solana.com";
-}
+const ETH_RPC_URL = "https://eth.llamarpc.com";
 
 export function shortAddr(addr: string) {
   return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+}
+
+async function fetchEthBalance(address: string): Promise<number | null> {
+  try {
+    const res = await fetch(ETH_RPC_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_getBalance",
+        params: [address, "latest"],
+      }),
+    });
+    const json = await res.json();
+    if (!json?.result) return null;
+    return Number(BigInt(json.result)) / 1e18;
+  } catch {
+    return null;
+  }
 }
 
 export function useWalletTracker() {
@@ -49,24 +63,13 @@ export function useWalletTracker() {
       if (fnError) throw fnError;
       const tracked = (resp?.data || []) as TrackedWallet[];
 
-      const connection = new Connection(getRpcUrl(), "confirmed");
+      // ETH-only: enrich with native ETH balance
       const enriched: WalletWithBalance[] = await Promise.all(
-        tracked.map(async (w) => {
-          let balance: number | null = null;
-          let lastActive: string | null = null;
-          try {
-            const pub = new PublicKey(w.wallet_address);
-            const [lamports, sigs] = await Promise.all([
-              connection.getBalance(pub),
-              connection.getSignaturesForAddress(pub, { limit: 1 }),
-            ]);
-            balance = lamports / LAMPORTS_PER_SOL;
-            if (sigs.length > 0 && sigs[0].blockTime) {
-              lastActive = new Date(sigs[0].blockTime * 1000).toISOString();
-            }
-          } catch {}
-          return { ...w, balance, lastActive };
-        })
+        tracked.map(async (w) => ({
+          ...w,
+          balance: await fetchEthBalance(w.wallet_address),
+          lastActive: null, // last activity to be wired via Etherscan when key added
+        }))
       );
       setWallets(enriched);
     } catch (err) {
@@ -128,7 +131,6 @@ export function useWalletTracker() {
   };
 
   const toggleNotifications = async (walletId: string, enabled: boolean) => {
-    // Optimistic update
     setWallets((prev) => prev.map((w) => w.id === walletId ? { ...w, notifications_enabled: enabled } : w));
     try {
       await supabase.functions.invoke("wallet-tracker-manage", {
@@ -141,7 +143,6 @@ export function useWalletTracker() {
   };
 
   const toggleCopyTrading = async (walletId: string, enabled: boolean) => {
-    // Optimistic update
     setWallets((prev) => prev.map((w) => w.id === walletId ? { ...w, is_copy_trading_enabled: enabled } : w));
     try {
       await supabase.functions.invoke("wallet-tracker-manage", {
