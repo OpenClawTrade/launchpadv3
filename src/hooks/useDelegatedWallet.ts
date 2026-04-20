@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePrivyAvailable, usePrivyBridge } from "@/providers/PrivyProviderWrapper";
 
 const DELEGATION_KEY = "claw_wallet_delegated";
@@ -16,9 +16,9 @@ export function useDelegatedWallet() {
   const privyAvailable = usePrivyAvailable();
   const bridge = usePrivyBridge();
 
-  const { solanaWallets } = bridge;
+  // ETH-only platform: pick the Privy embedded EVM wallet
+  const { evmWallets } = bridge;
 
-  // Track which addresses have been delegated (persisted per-address)
   const [delegatedAddresses, setDelegatedAddresses] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem(DELEGATION_KEY);
@@ -33,23 +33,22 @@ export function useDelegatedWallet() {
   });
 
   const [isDelegating, setIsDelegating] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    try { return sessionStorage.getItem("claw_delegation_dismissed") === "true"; } catch { return false; }
-  });
 
-  const embeddedWallet = privyAvailable ? solanaWallets?.find(
-    (w: any) =>
-      w.walletClientType === "privy" ||
-      w.standardWallet?.name === "Privy" ||
-      String(w?.name ?? "").toLowerCase().includes("privy")
-  ) : undefined;
+  const embeddedWallet = privyAvailable
+    ? evmWallets?.find(
+        (w: any) =>
+          w.walletClientType === "privy" && w.address?.startsWith("0x")
+      ) || evmWallets?.find((w: any) => w.address?.startsWith("0x"))
+    : undefined;
 
   const walletAddress = embeddedWallet?.address;
   const isDelegated = !!(walletAddress && delegatedAddresses.has(walletAddress));
-  const needsDelegation = privyAvailable && !!walletAddress && !isDelegated && !dismissed;
+  // Auto-trading is on by default in TEE mode — never block UI with a prompt
+  const needsDelegation = false;
 
   const saveDelegated = useCallback((addr: string) => {
     setDelegatedAddresses((prev) => {
+      if (prev.has(addr)) return prev;
       const next = new Set(prev);
       next.add(addr);
       try { localStorage.setItem(DELEGATION_KEY, JSON.stringify([...next])); } catch {}
@@ -57,25 +56,25 @@ export function useDelegatedWallet() {
     });
   }, []);
 
-  // TEE mode: "delegation" just marks the address as ready since server already has signing access
+  // TEE mode + ETH-only: as soon as the embedded EVM wallet exists,
+  // auto-mark it as trading-ready so background sniper / copy-trade can run.
+  useEffect(() => {
+    if (privyAvailable && walletAddress && !delegatedAddresses.has(walletAddress)) {
+      saveDelegated(walletAddress);
+    }
+  }, [privyAvailable, walletAddress, delegatedAddresses, saveDelegated]);
+
   const requestDelegation = useCallback(async () => {
     if (!walletAddress) throw new Error("No embedded wallet found");
     setIsDelegating(true);
     try {
-      console.log("[delegation] TEE mode — marking wallet as ready:", walletAddress);
-      // In TEE mode, the server already has signing access.
-      // We just persist the flag so the prompt doesn't show again.
       saveDelegated(walletAddress);
-      console.log("[delegation] ✅ Wallet marked as ready:", walletAddress);
     } finally {
       setIsDelegating(false);
     }
   }, [walletAddress, saveDelegated]);
 
-  const dismiss = useCallback(() => {
-    setDismissed(true);
-    try { sessionStorage.setItem("claw_delegation_dismissed", "true"); } catch {}
-  }, []);
+  const dismiss = useCallback(() => {}, []);
 
   if (!privyAvailable) return FALLBACK;
 
