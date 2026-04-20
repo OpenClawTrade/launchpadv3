@@ -19,7 +19,7 @@ const TRENDING = [
 /** Wireframe label like `[ HERO / H1 ]` overlaid on a dashed outline. */
 function WireFrame({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="relative outline outline-[1.5px] outline-dashed outline-pop-ink/35 -outline-offset-[1.5px] p-6 sm:p-10">
+    <div className="relative outline outline-[1.5px] outline-dashed outline-pop-ink/35 -outline-offset-[1.5px] p-4 sm:p-6 lg:p-10">
       <span className="absolute -top-2.5 left-3 font-pop-mono text-[9px] tracking-[0.15em] uppercase text-pop-ink/55 bg-pop-orange px-1.5">
         {label}
       </span>
@@ -33,33 +33,33 @@ function TerminalMockup() {
   return (
     <div className="bg-[#171310] border-2 border-pop-ink shadow-[6px_6px_0_hsl(var(--pop-orange))] text-pop-cream font-pop-mono w-full max-w-[560px]">
       {/* title bar */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#2b2218] bg-[#231c16]">
-        <span className="flex gap-1.5">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-[#2b2218] bg-[#231c16]">
+        <span className="flex gap-1.5 shrink-0">
           <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
           <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
           <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
         </span>
-        <span className="text-[11px] tracking-[0.08em] text-pop-cream/85">
+        <span className="text-[10px] sm:text-[11px] tracking-[0.08em] text-pop-cream/85 truncate">
           POPSHIBA.TERM / $POPSHIBA
         </span>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-[#5ce68e]">
+        <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-[#5ce68e] shrink-0">
           <span className="w-1.5 h-1.5 rounded-full bg-[#5ce68e] animate-pulse" /> LIVE
         </span>
       </div>
 
       {/* header strip */}
-      <div className="flex items-start justify-between px-5 pt-4">
-        <div>
-          <div className="text-pop-orange text-[15px] font-bold leading-tight">
+      <div className="flex items-start justify-between gap-2 px-4 sm:px-5 pt-4">
+        <div className="min-w-0">
+          <div className="text-pop-orange text-[13px] sm:text-[15px] font-bold leading-tight truncate">
             $POPSHIBA / WETH
           </div>
           <div className="text-[10px] tracking-[0.1em] text-pop-cream/55 mt-1">
             UNISWAP V3 · ETH
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-pop-cream text-[20px] font-bold leading-none">
-            $0.00042 <span className="text-[#5ce68e] text-[14px] ml-1">+142.8%</span>
+        <div className="text-right shrink-0">
+          <div className="text-pop-cream text-[16px] sm:text-[20px] font-bold leading-none whitespace-nowrap">
+            $0.00042 <span className="text-[#5ce68e] text-[12px] sm:text-[14px] ml-1">+142.8%</span>
           </div>
           <div className="text-[10px] text-pop-cream/55 mt-1">
             MC $4.2M · LP $820K
@@ -68,7 +68,7 @@ function TerminalMockup() {
       </div>
 
       {/* chart placeholder — pseudo candlesticks */}
-      <div className="relative h-[200px] mx-5 my-4 border-t border-b border-dashed border-[#2b2218]">
+      <div className="relative h-[160px] sm:h-[200px] mx-4 sm:mx-5 my-4 border-t border-b border-dashed border-[#2b2218]">
         <svg viewBox="0 0 360 180" className="w-full h-full" preserveAspectRatio="none">
           {/* horizontal grid */}
           {[40, 80, 120, 160].map((y) => (
@@ -138,40 +138,40 @@ export function PopshibaHero() {
         }}
       />
 
-      <div className="relative max-w-[1440px] mx-auto px-4 sm:px-7 py-12 lg:py-16">
+      <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-7 py-8 sm:py-12 lg:py-16">
         <WireFrame label="[ hero / h1 ]">
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-10 lg:gap-12 items-center">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-8 sm:gap-10 lg:gap-12 items-center">
             {/* LEFT */}
-            <div>
+            <div className="min-w-0">
               {/* eyebrow pill */}
-              <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-4 py-2 rounded-full mb-7">
-                <span className="w-1.5 h-1.5 rounded-full bg-pop-orange" />
-                <span className="font-pop-mono text-[10px] tracking-[0.18em] uppercase">
+              <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-5 sm:mb-7 max-w-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-pop-orange shrink-0" />
+                <span className="font-pop-mono text-[9px] sm:text-[10px] tracking-[0.14em] sm:tracking-[0.18em] uppercase truncate">
                   The loudest barking launchpad · trading terminal
                 </span>
               </div>
 
               {/* POPSHIBA wordmark */}
-              <h1 className="font-pop-display text-pop-ink leading-[0.88] tracking-[-0.04em] text-[4.5rem] sm:text-[7rem] lg:text-[8.5rem] mb-6">
+              <h1 className="font-pop-display text-pop-ink leading-[0.88] tracking-[-0.04em] text-[3.25rem] xs:text-[4rem] sm:text-[6rem] md:text-[7rem] lg:text-[8.5rem] mb-5 sm:mb-6 break-words">
                 POPSHIBA
               </h1>
 
               {/* subhead */}
-              <p className="text-pop-ink/85 text-[16px] sm:text-[18px] max-w-[520px] mb-8 leading-snug">
+              <p className="text-pop-ink/85 text-[14px] sm:text-[16px] md:text-[18px] max-w-[520px] mb-6 sm:mb-8 leading-snug">
                 Fastest Ethereum trading terminal. Next-generation launchpad. One interface. Zero limits.
               </p>
 
               {/* CTAs */}
-              <div className="flex items-center gap-3 flex-wrap mb-8">
+              <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap mb-6 sm:mb-8">
                 <Link
                   to="/trade"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-transparent border-2 border-pop-ink text-pop-ink font-bold text-[14px] shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
+                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-3.5 bg-transparent border-2 border-pop-ink text-pop-ink font-bold text-[13px] sm:text-[14px] shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
                 >
                   ◆ Open Terminal →
                 </Link>
                 <Link
                   to="/launch"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-pop-ink text-pop-cream border-2 border-pop-ink font-bold text-[14px] shadow-[3px_3px_0_hsl(var(--pop-cream))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-cream))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-cream))] transition-all"
+                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-3.5 bg-pop-ink text-pop-cream border-2 border-pop-ink font-bold text-[13px] sm:text-[14px] shadow-[3px_3px_0_hsl(var(--pop-cream))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-cream))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-cream))] transition-all"
                 >
                   <Rocket className="w-4 h-4" /> Launch Token
                 </Link>
