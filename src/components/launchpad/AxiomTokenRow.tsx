@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
+import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown, Eye } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { LaunchpadBadge } from "./LaunchpadBadge";
@@ -9,6 +9,7 @@ import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
 import { LiveAge } from "@/components/ui/LiveAge";
+import { formatViewCount } from "@/hooks/useTokenViews";
 
 interface AxiomTokenRowProps {
   token: FunToken;
@@ -16,6 +17,7 @@ interface AxiomTokenRowProps {
   quickBuyAmount?: number;
   proTraders?: number;
   sparklineData?: number[];
+  viewCount?: number;
 }
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
@@ -61,7 +63,7 @@ function formatHolders(n: number): string {
   return String(n);
 }
 
-export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount, proTraders = 0, sparklineData }: AxiomTokenRowProps) {
+export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount, proTraders = 0, sparklineData, viewCount = 0 }: AxiomTokenRowProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const bondingProgress = token.bonding_progress ?? 0;
 
@@ -162,6 +164,11 @@ export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quic
             {proTraders > 0 && (
               <span className="flex items-center gap-0.5 text-[9px] font-mono text-primary/80" title="Pro Traders">
                 <Crown className="h-2.5 w-2.5" />{proTraders}
+              </span>
+            )}
+            {viewCount > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/55" title={`${viewCount.toLocaleString()} page views`}>
+                <Eye className="h-2.5 w-2.5" />{formatViewCount(viewCount)}
               </span>
             )}
           </div>

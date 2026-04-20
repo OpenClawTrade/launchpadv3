@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
+import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown, Eye } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { LaunchpadBadge } from "./LaunchpadBadge";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type { SupportedChain } from "@/contexts/ChainContext";
 import { formatChange24h } from "@/lib/formatters";
 import { LiveAge } from "@/components/ui/LiveAge";
+import { formatViewCount } from "@/hooks/useTokenViews";
 
 function formatUsdCompact(usd: number): string {
   if (!isFinite(usd) || usd > 1e15) return "$?";
@@ -58,7 +59,7 @@ function getExplorerUrl(address: string, chain: SupportedChain): string {
   return `https://solscan.io/token/${address}`;
 }
 
-export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, proTraders = 0, sparklineData, chain = 'solana' }: { token: CodexPairToken; quickBuyAmount?: number; proTraders?: number; sparklineData?: number[]; chain?: SupportedChain }) {
+export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, proTraders = 0, sparklineData, chain = 'solana', viewCount = 0 }: { token: CodexPairToken; quickBuyAmount?: number; proTraders?: number; sparklineData?: number[]; chain?: SupportedChain; viewCount?: number }) {
   const [copiedCA, setCopiedCA] = useState(false);
   const gradPct = token.graduationPercent ?? 0;
   const mcap = formatUsdCompact(token.marketCap);
@@ -169,6 +170,11 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
             {proTraders > 0 && (
               <span className="flex items-center gap-0.5 text-[9px] font-mono text-primary/80" title="Pro Traders">
                 <Crown className="h-2.5 w-2.5" />{proTraders}
+              </span>
+            )}
+            {viewCount > 0 && (
+              <span className="flex items-center gap-0.5 text-[9px] font-mono text-foreground/55" title={`${viewCount.toLocaleString()} page views`}>
+                <Eye className="h-2.5 w-2.5" />{formatViewCount(viewCount)}
               </span>
             )}
           </div>

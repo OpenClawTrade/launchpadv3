@@ -37,6 +37,7 @@ import { PumpBadge } from "@/components/forum/PumpBadge";
 import { PhantomBadge } from "@/components/forum/PhantomBadge";
 import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 import { BRAND } from "@/config/branding";
+import { useTrackTokenView } from "@/hooks/useTokenViews";
 
 function isEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/i.test(addr);
@@ -337,6 +338,9 @@ export default function FunTokenDetailPage() {
   const { toast } = useToast();
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'info'>('chart');
+
+  // Track this token page visit (debounced per session, deduped per visitor per day server-side)
+  useTrackTokenView(mintAddress);
 
   const isBsc = isEvmAddress(mintAddress || '');
   // EVM-only: BNB (56) for BSC tokens, Ethereum (1) otherwise
