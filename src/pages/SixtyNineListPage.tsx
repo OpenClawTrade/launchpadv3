@@ -87,7 +87,7 @@ export default function SixtyNineListPage() {
             <div className="flex justify-center mb-5">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-primary text-[11px] font-semibold uppercase tracking-widest">
                 <Sparkles className="h-3 w-3" />
-                Saturn Terminal Presents
+                PopShiba Presents
               </div>
             </div>
 
@@ -101,7 +101,7 @@ export default function SixtyNineListPage() {
                 <Crown className="h-8 w-8 sm:h-12 sm:w-12 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)] animate-pulse" strokeWidth={2} style={{ animationDelay: "500ms" }} />
               </div>
               <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                The Elite Ranking of $SATURN's Most Loyal Holders
+                The Elite Ranking of $POPSHIBA's Most Loyal Holders
               </p>
             </div>
 
@@ -114,13 +114,13 @@ export default function SixtyNineListPage() {
                   Inspired by <span className="text-foreground font-semibold">Forbes' legendary 30 Under 30</span> — the annual
                   roster celebrating trailblazers who've redefined success before age 30 — we present the{" "}
                   <span className="text-primary font-bold">69 Under 69 List</span>. This elite ranking honors the top 69{" "}
-                  <span className="text-primary font-semibold">$SATURN</span> holders (excluding liquidity pools), spotlighting 
+                  <span className="text-primary font-semibold">$POPSHIBA</span> holders (excluding liquidity pools), spotlighting
                   those who've committed to the long game. By holding strong, you climb the ladder to lifetime rewards:{" "}
-                  <span className="text-foreground font-semibold">69% of our 1% launchpad fees</span> from every coin swap is 
-                  distributed evenly among the top 69, based on the last 60 minutes' profits. Plus, immovable holders have a 
-                  high chance at <span className="text-foreground font-semibold">weekly bonuses of 6.9 BNB</span>. The mission? 
-                  Don't sell — ascend to the top and earn passively from every token launched on Saturn Terminal.{" "}
-                  <span className="text-primary font-bold italic">Hold $SATURN, get rich like a Forbes lister.</span>
+                  <span className="text-foreground font-semibold">69% of our 1% launchpad fees</span> from every coin swap is
+                  distributed evenly among the top 69, based on the last 60 minutes' profits. Plus, immovable holders have a
+                  high chance at <span className="text-foreground font-semibold">weekly bonuses of 6.9 BNB</span>. The mission?
+                  Don't sell — ascend to the top and earn passively from every token launched on PopShiba.{" "}
+                  <span className="text-primary font-bold italic">Hold $POPSHIBA, get rich like a Forbes lister.</span>
                 </p>
               </div>
             </div>
@@ -243,16 +243,16 @@ export default function SixtyNineListPage() {
                 </h2>
               </div>
 
-              {/* Coming Soon State */}
+              {/* Coming Soon State — token not yet deployed */}
               <div className="rounded-xl border border-border/20 bg-card/20 p-8 sm:p-12 text-center">
                 <Crown className="h-12 w-12 text-primary/30 mx-auto mb-4" strokeWidth={1.5} />
-                <h3 className="text-lg font-bold text-foreground mb-2">$SATURN Token</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">$POPSHIBA Token</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-4">
-                  <span className="text-primary font-semibold">$SATURN</span> is live! The top 69 holders will appear here automatically. 
-                  Rewards are distributed to qualifying wallets.
+                  <span className="text-primary font-semibold">$POPSHIBA</span> launches soon. The top 69 holders will appear
+                  here automatically the moment the token goes live. Rewards will be distributed to qualifying wallets every hour.
                 </p>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/5 border border-primary/15 text-primary text-xs font-semibold font-mono">
-                  CA: 0x27a51c96b84c6d9f24d5d054c396ae0e1c96ffff
+                  Contract address — coming soon
                 </div>
               </div>
             </div>
@@ -266,9 +266,9 @@ export default function SixtyNineListPage() {
                   <h3 className="font-bold text-foreground text-sm"><h3 className="font-bold text-foreground text-sm">Weekly 6.9 BNB Lottery</h3></h3>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Holders who haven't transferred any <span className="text-primary font-semibold">$SATURN</span> in{" "}
-                  <span className="text-foreground font-semibold">7 days</span> are automatically entered into a weekly draw 
-                  for <span className="text-primary font-bold">6.9 BNB</span>. Your odds increase with rank — top 10 holders get 3× entries.. Your odds increase with rank — top 10 holders get 3× entries.
+                  Holders who haven't transferred any <span className="text-primary font-semibold">$POPSHIBA</span> in{" "}
+                  <span className="text-foreground font-semibold">7 days</span> are automatically entered into a weekly draw
+                  for <span className="text-primary font-bold">6.9 BNB</span>. Your odds increase with rank — top 10 holders get 3× entries.
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
@@ -319,7 +319,7 @@ export default function SixtyNineListPage() {
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
-                  Every swap on Saturn Launchpad generates a 1% fee. 69% flows directly to the top 69 holders, 
+                  Every swap on the PopShiba Launchpad generates a 1% fee. 69% flows directly to the top 69 holders,
                   calculated from the last 60 minutes of revenue.
                 </p>
               </div>
@@ -328,9 +328,9 @@ export default function SixtyNineListPage() {
               <div className="rounded-xl border border-border/20 bg-card/30 p-5">
                 <h3 className="font-bold text-foreground text-sm mb-2">Why "69 Under 69"?</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Forbes' 30 Under 30 spotlights founders who build empires. We spotlight holders who believe in one. 
-                  Where Forbes celebrates creation, Saturn celebrates <span className="text-primary font-semibold">conviction</span>. 
-                  The result? A new loyalty meta — gamifying holding, combating dumps, and building a 
+                  Forbes' 30 Under 30 spotlights founders who build empires. We spotlight holders who believe in one.
+                  Where Forbes celebrates creation, PopShiba celebrates <span className="text-primary font-semibold">conviction</span>.
+                  The result? A new loyalty meta — gamifying holding, combating dumps, and building a
                   prestige system that turns users into crypto elites.
                 </p>
               </div>
@@ -349,14 +349,14 @@ export default function SixtyNineListPage() {
                 Climb the 69 Under 69
               </h3>
               <p className="text-sm text-muted-foreground mb-6 max-w-lg mx-auto">
-                Buy <span className="text-primary font-bold">$SATURN</span>, hold your position, and earn lifetime passive income 
-                from every token launched on Saturn Terminal. The higher your rank, the more you earn.
+                Buy <span className="text-primary font-bold">$POPSHIBA</span> when it launches, hold your position, and earn
+                lifetime passive income from every token launched on PopShiba. The higher your rank, the more you earn.
               </p>
               <Link
                 to="#"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:brightness-110 transition-all shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.5)]"
               >
-                Buy $SATURN Now
+                $POPSHIBA — Coming Soon
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>

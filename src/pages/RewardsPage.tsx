@@ -35,8 +35,8 @@ interface RewardEvent {
 
 const REWARD_TYPE_MAP: Record<string, { label: string; icon: typeof Star; color: string }> = {
   mention: { label: "Post mention", icon: Star, color: "text-yellow-400" },
-  moon_mention: { label: "$SATURN mention", icon: Star, color: "text-yellow-400" },
-  saturn_tag: { label: "@saturnterminal tag", icon: Star, color: "text-yellow-400" },
+  moon_mention: { label: "$POPSHIBA mention", icon: Star, color: "text-yellow-400" },
+  saturn_tag: { label: "@popshiba tag", icon: Star, color: "text-yellow-400" },
   views: { label: "Views", icon: Eye, color: "text-blue-400" },
   retweets: { label: "Retweets", icon: Repeat2, color: "text-green-400" },
   comments: { label: "Comments", icon: MessageCircle, color: "text-purple-400" },
@@ -289,8 +289,8 @@ export default function RewardsPage() {
             </div>
             <h1 className="text-3xl font-bold font-mono text-foreground">Social Rewards</h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Earn points by mentioning <span className="text-primary font-bold">$SATURN</span> or tagging{" "}
-              <span className="text-primary font-bold">@saturnterminal</span> in your posts on X.
+              Earn points by mentioning <span className="text-primary font-bold">$POPSHIBA</span> or tagging{" "}
+              <span className="text-primary font-bold">@popshiba</span> in your posts on X.
             </p>
             <button
               onClick={() => setShowLoginModal(true)}
@@ -512,8 +512,8 @@ export default function RewardsPage() {
                 <div className="rounded-xl border border-border/20 bg-card/10 p-8 text-center">
                   <XIcon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-xs text-muted-foreground font-mono">
-                    No qualifying posts yet. Mention <span className="text-primary">$SATURN</span> or{" "}
-                    <span className="text-primary">@saturnterminal</span> on X and click "Update Data"!
+                    No qualifying posts yet. Mention <span className="text-primary">$POPSHIBA</span> or{" "}
+                    <span className="text-primary">@popshiba</span> on X and click "Update Data"!
                   </p>
                 </div>
               ) : (
@@ -612,8 +612,8 @@ function PointSystemCard() {
         Point System
       </h3>
       <p className="text-[11px] font-mono text-muted-foreground/70">
-        Post on X mentioning <span className="text-primary font-bold">$SATURN</span> or{" "}
-        <span className="text-primary font-bold">@saturnterminal</span> to earn:
+        Post on X mentioning <span className="text-primary font-bold">$POPSHIBA</span> or{" "}
+        <span className="text-primary font-bold">@popshiba</span> to earn:
       </p>
       <div className="space-y-2">
         {[

@@ -122,8 +122,8 @@ export default function BitcoinModePage() {
             Bitcoin Meme Tokens
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto text-sm leading-relaxed">
-            Born on <span className="text-foreground font-semibold">Saturn.Trade / Bitcoin Mainnet</span> (OP_RETURN genesis),
-            trades instantly on <span className="text-foreground font-semibold">Saturn Execution Layer</span>,
+            Born on <span className="text-foreground font-semibold">PopShiba / Bitcoin Mainnet</span> (OP_RETURN genesis),
+            trades instantly on <span className="text-foreground font-semibold">PopShiba Execution Layer</span>,
             audited on <span className="text-foreground font-semibold">Mainnet</span> via Merkle anchors. Graduates to native Rune at 0.5 BTC.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">

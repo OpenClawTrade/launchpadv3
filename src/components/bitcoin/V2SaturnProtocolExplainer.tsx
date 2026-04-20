@@ -59,8 +59,8 @@ export function V2SaturnProtocolExplainer() {
       {/* Intro — matches PDF Section 1 Executive Summary */}
       <div className="px-6 py-4 border-b border-border bg-secondary/10">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Born on <span className="text-foreground font-semibold">Saturn.Trade / Bitcoin Mainnet</span> (OP_RETURN genesis),
-          trades instantly on <span className="text-foreground font-semibold">Saturn Execution Layer</span>,
+          Born on <span className="text-foreground font-semibold">PopShiba / Bitcoin Mainnet</span> (OP_RETURN genesis),
+          trades instantly on <span className="text-foreground font-semibold">PopShiba Execution Layer</span>,
           audited on <span className="text-foreground font-semibold">Mainnet</span> via Merkle anchors. Graduates to native Rune at 0.5 BTC.
         </p>
       </div>

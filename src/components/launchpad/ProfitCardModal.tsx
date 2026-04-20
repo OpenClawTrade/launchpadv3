@@ -51,7 +51,7 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
   const hasPnl = data.pnlPercent !== undefined && data.pnlPercent !== null;
   const pnl = data.pnlPercent ?? 0;
   const isPositive = isBuy || pnl >= 0;
-  const qrLink = referralLink || "https://saturn.trade/";
+  const qrLink = referralLink || `${BRAND.appUrl}/`;
   const truncatedWallet = walletAddress
     ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`
     : "—";
@@ -111,7 +111,7 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
     const pnlLine = hasPnl ? `\nPNL - ${isPositive ? "+" : ""}${pnl.toFixed(2)}%` : "";
     const truncSig = data.signature ? `${data.signature.slice(0, 6)}...${data.signature.slice(-6)}` : "";
     const txLine = truncSig ? `\nTX - ${truncSig}` : "";
-    const text = `${headline}${pnlLine}${txLine}\n\n🪐Trade on @saturnterminal 🪐\n\n${qrLink}`;
+    const text = `${headline}${pnlLine}${txLine}\n\n🐶 Trade on ${BRAND.twitterHandle} 🐶\n\n${qrLink}`;
     window.open(
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
       "_blank"
@@ -169,8 +169,8 @@ export function ProfitCardModal({ open, onClose, data }: ProfitCardModalProps) {
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 8px 20px", position: "relative", zIndex: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <img src={saturnLogo} alt="Saturn" style={{ width: 24, height: 24 }} crossOrigin="anonymous" />
-                <span style={{ color: "#c8ff00", fontWeight: 700, fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase" as const }}>SATURN.TRADE</span>
+                <img src={saturnLogo} alt={BRAND.name} style={{ width: 24, height: 24, borderRadius: 6 }} crossOrigin="anonymous" />
+                <span style={{ color: "#c8ff00", fontWeight: 700, fontSize: 14, letterSpacing: "0.2em", textTransform: "uppercase" as const }}>{BRAND.domain.toUpperCase()}</span>
               </div>
               <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, fontFamily: "monospace" }}>{timeStr}</span>
             </div>

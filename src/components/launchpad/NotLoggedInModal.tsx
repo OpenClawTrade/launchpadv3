@@ -29,7 +29,7 @@ export const NotLoggedInModal = memo(function NotLoggedInModal({ open, onOpenCha
               <Rocket className="h-6 w-6 text-primary" />
             </div>
             <h3 className="text-sm sm:text-base font-black uppercase tracking-[0.12em] font-mono text-foreground">
-              Welcome to Saturn Terminal
+              Welcome to PopShiba
             </h3>
             <p className="text-[11px] sm:text-xs leading-relaxed text-muted-foreground max-w-[320px]">
               You need to create an account to start leverage trading or creating tokens.
@@ -64,7 +64,7 @@ export const NotLoggedInModal = memo(function NotLoggedInModal({ open, onOpenCha
 
           {/* Footer */}
           <p className="text-[9px] text-center text-muted-foreground/40 leading-relaxed font-mono">
-            Saturn Terminal — Trade, launch, and manage digital assets with confidence.
+            PopShiba — Trade, launch, and manage digital assets with confidence.
           </p>
         </div>
       </DialogContent>

@@ -198,7 +198,7 @@ export default function BrandingAdminPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="logoUrl">Logo URL / Path</Label>
-                  <Input id="logoUrl" value={form.logoUrl || ""} onChange={(e) => set("logoUrl", e.target.value)} placeholder="/saturn-logo.png" />
+                  <Input id="logoUrl" value={form.logoUrl || ""} onChange={(e) => set("logoUrl", e.target.value)} placeholder="/popshiba-logo.png" />
                   {form.logoUrl && (
                     <div className="mt-2 p-2 bg-muted/30 rounded-lg inline-block">
                       <img src={form.logoUrl} alt="Logo preview" className="h-12 w-12 object-contain" />
@@ -229,19 +229,19 @@ export default function BrandingAdminPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="domain">Domain</Label>
-                  <Input id="domain" value={form.domain || ""} onChange={(e) => set("domain", e.target.value)} placeholder="saturn.trade" />
+                  <Input id="domain" value={form.domain || ""} onChange={(e) => set("domain", e.target.value)} placeholder="popshiba.com" />
                 </div>
                 <div>
                   <Label htmlFor="appUrl">App URL</Label>
-                  <Input id="appUrl" value={form.appUrl || ""} onChange={(e) => set("appUrl", e.target.value)} placeholder="https://saturn.trade" />
+                  <Input id="appUrl" value={form.appUrl || ""} onChange={(e) => set("appUrl", e.target.value)} placeholder="https://popshiba.com" />
                 </div>
                 <div>
                   <Label htmlFor="twitterHandle">Twitter / X Handle</Label>
-                  <Input id="twitterHandle" value={form.twitterHandle || ""} onChange={(e) => set("twitterHandle", e.target.value)} placeholder="@saturntrade" />
+                  <Input id="twitterHandle" value={form.twitterHandle || ""} onChange={(e) => set("twitterHandle", e.target.value)} placeholder="@popshiba" />
                 </div>
                 <div>
                   <Label htmlFor="twitterUrl">Twitter / X URL</Label>
-                  <Input id="twitterUrl" value={form.twitterUrl || ""} onChange={(e) => set("twitterUrl", e.target.value)} placeholder="https://x.com/saturntrade" />
+                  <Input id="twitterUrl" value={form.twitterUrl || ""} onChange={(e) => set("twitterUrl", e.target.value)} placeholder="https://x.com/popshiba" />
                 </div>
                 <div>
                   <Label htmlFor="discordUrl">Discord URL</Label>
@@ -372,7 +372,7 @@ export default function BrandingAdminPage() {
                 </div>
                 <div>
                   <Label htmlFor="sdkName">SDK Package Name</Label>
-                  <Input id="sdkName" value={form.sdkName || ""} onChange={(e) => set("sdkName", e.target.value)} placeholder="@saturntrade/sdk" className="font-mono text-sm" />
+                  <Input id="sdkName" value={form.sdkName || ""} onChange={(e) => set("sdkName", e.target.value)} placeholder="@popshiba/sdk" className="font-mono text-sm" />
                 </div>
               </div>
             </Card>
