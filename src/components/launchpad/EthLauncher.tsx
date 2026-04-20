@@ -110,17 +110,34 @@ export function EthLauncher() {
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Failed to deploy');
+      if (!data?.success || !data?.launchId) throw new Error(data?.error || 'Failed to start deploy');
 
-      setDeployedTokenAddress(data.tokenAddress);
-      setDeployTxHash(data.deployTxHash);
-      setPoolAddress(data.poolAddress);
+      const launchId = data.launchId as string;
+
+      // Poll eth_launch_requests for completion (max 3 minutes)
+      let row: any = null;
+      const started = Date.now();
+      while (Date.now() - started < 180_000) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data: r } = await supabase
+          .from('eth_launch_requests')
+          .select('status, token_address, deploy_tx_hash, error_message')
+          .eq('id', launchId)
+          .maybeSingle();
+        if (r?.status === 'live' || r?.status === 'failed') { row = r; break; }
+      }
+
+      if (!row) throw new Error('Deployment timed out (still processing on-chain — check Etherscan in a minute)');
+      if (row.status === 'failed') throw new Error(row.error_message || 'Deployment failed');
+
+      setDeployedTokenAddress(row.token_address);
+      setDeployTxHash(row.deploy_tx_hash);
 
       toast.success('🎉 Token live on Uniswap V3', {
         description: `Pool seeded at 1% fee tier. ${formData.devBuyEth > 0 ? `Dev buy of ${formData.devBuyEth} ETH delivered.` : 'No dev buy.'}`,
         action: {
           label: 'View on Etherscan',
-          onClick: () => window.open(`https://etherscan.io/address/${data.tokenAddress}`, '_blank'),
+          onClick: () => window.open(`https://etherscan.io/address/${row.token_address}`, '_blank'),
         },
       });
     } catch (e) {

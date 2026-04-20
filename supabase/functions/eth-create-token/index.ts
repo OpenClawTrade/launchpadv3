@@ -253,6 +253,10 @@ Deno.serve(async (req) => {
       .single();
     const launchId = launchRow?.id ?? null;
 
+    // ---- Fire-and-forget: return immediately, run deploy in background ----
+    // The full V3 launch takes 60-90s on mainnet which exceeds browser fetch
+    // timeouts. Frontend polls eth_launch_requests by launchId for status.
+    const deployTask = (async () => {
     // ---- 2. Compile + deploy ERC20 ----
     const { abi, bytecode } = compileERC20();
     const userDesc = (body.description?.trim() || "").slice(0, 500);
@@ -420,19 +424,29 @@ Deno.serve(async (req) => {
       }).eq("id", launchId);
     }
 
+    })(); // end deployTask
+
+    // Run in background; do not await. Catch errors → mark launch as failed.
+    deployTask.catch(async (err) => {
+      console.error("[eth-create-token-v3] background error", err);
+      if (launchId) {
+        try {
+          await supabase.from("eth_launch_requests").update({
+            status: "failed",
+            error_message: err instanceof Error ? err.message : "Server error",
+          }).eq("id", launchId);
+        } catch (_) { /* swallow */ }
+      }
+    });
+    // @ts-ignore — Deno background task to keep isolate alive
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(deployTask);
+
     return new Response(JSON.stringify({
       success: true,
       launchId,
-      tokenAddress,
-      poolAddress: poolAddr,
-      lpTokenId: lpTokenId.toString(),
-      deployTxHash: deployHash,
-      mintTxHash: mintHash,
-      devBuyTxHash,
-      feeTier: FEE_TIER,
-      platformOwner: lpHolder,
-      creatorWallet,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      status: "deploying",
+      message: "Launch started; poll eth_launch_requests for status",
+    }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[eth-create-token-v3] error", err);
     return new Response(JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Server error" }), {
