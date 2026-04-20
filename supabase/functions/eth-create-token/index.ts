@@ -201,10 +201,26 @@ Deno.serve(async (req) => {
     const PK = Deno.env.get("BASE_DEPLOYER_PRIVATE_KEY");
     if (!PK) throw new Error("Platform deployer key missing");
     const LP_HOLDER = "0x8F7017df748Db75a58B3AA441ea0886dfEC16906" as const;
-    const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
+    // Build a fallback RPC transport. Public endpoints rate-limit aggressively
+    // (esp. eth.llamarpc.com), so we rotate across several. ETH_MAINNET_RPC_URL
+    // (e.g. an Alchemy/Infura URL) is tried first when set.
+    const alchemyKey = Deno.env.get("ALCHEMY_BSC_API_KEY"); // reused; same key works on all Alchemy networks
+    const rpcUrls = [
+      Deno.env.get("ETH_MAINNET_RPC_URL"),
+      alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+      "https://cloudflare-eth.com",
+      "https://rpc.ankr.com/eth",
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.drpc.org",
+      "https://eth.llamarpc.com",
+    ].filter(Boolean) as string[];
+    const transport = fallback(
+      rpcUrls.map((u) => http(u, { timeout: 20_000, retryCount: 1 })),
+      { rank: false, retryCount: 2 },
+    );
     const account = privateKeyToAccount(PK.startsWith("0x") ? PK as `0x${string}` : `0x${PK}` as `0x${string}`);
-    const wallet = createWalletClient({ account, chain: mainnet, transport: http(RPC) });
-    const pub = createPublicClient({ chain: mainnet, transport: http(RPC) });
+    const wallet = createWalletClient({ account, chain: mainnet, transport });
+    const pub = createPublicClient({ chain: mainnet, transport });
     const platformDeployer = account.address;
     const lpHolder = getAddress(LP_HOLDER) as Address;
     const creatorWallet = getAddress(body.creatorWallet) as Address;
