@@ -102,7 +102,7 @@ export default function TradePage() {
   const displayCount = totalCount;
 
   return (
-    <LaunchpadLayout hideFooter noPadding>
+    <LaunchpadLayout hideFooter hideTicker noPadding>
       <div className="space-y-0 relative z-10 bg-pop-cream min-h-screen">
         {/* Pulse Header Toolbar — Poster style */}
         <div className="flex items-center justify-between px-4 py-3 bg-pop-orange border-b-[3px] border-pop-ink">
