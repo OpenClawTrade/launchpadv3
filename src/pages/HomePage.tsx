@@ -543,16 +543,6 @@ Saturn Terminal
           loading={codexLoading}
         />
 
-        {/* ═══ Trading Agents Showcase ═══ */}
-        <SectionDivider />
-        <LazySection>
-          <section className={`${CW} mx-auto px-4 py-6`}>
-            <Suspense fallback={<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-52 rounded-xl" />)}</div>}>
-              <TradingAgentsShowcase />
-            </Suspense>
-          </section>
-        </LazySection>
-
         {/* ═══ Just Launched ═══ */}
         <SectionDivider />
         <section className={`${CW} mx-auto px-4 py-6`}>
