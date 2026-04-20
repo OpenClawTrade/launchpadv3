@@ -235,7 +235,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Detect contract generation ──
+    // ── Detect contract generation (reuse bytecode from indexing check) ──
+    // We already confirmed bytecode exists above; fetch it once more with rate-limit spacing
+    await delay(2000);
     let isPopShiba = false;
     try {
       const codeResp = await fetch(
