@@ -13,6 +13,7 @@ import { Rocket, Flame, CheckCircle2, Radio } from "lucide-react";
 import { usePulseFilters, ColumnId } from "@/hooks/usePulseFilters";
 import { SOLANA_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import type { SupportedChain } from "@/contexts/ChainContext";
+import { useTokenViewCounts } from "@/hooks/useTokenViews";
 
 interface AxiomTerminalGridProps {
   tokens: FunToken[];
