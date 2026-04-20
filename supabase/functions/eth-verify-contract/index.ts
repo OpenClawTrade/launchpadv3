@@ -7,13 +7,9 @@
 //   • Legacy: SaturnEthV3Token (launchedBy = "Saturn V3 Launchpad")
 //   • Current: PopShibaLaunchpad (launchedBy = "PopShiba.com")
 //
-// Detection: fetches the on-chain runtime bytecode and looks for the
-// PopShiba marker hex ("PopShiba.com" = 506f7053686962612e636f6d). If present
-// it submits the new source; otherwise falls back to the legacy Saturn source.
-//
-// Looks up the launch row in eth_launch_requests by tokenAddress (or launchId),
-// rebuilds the EXACT constructor args used by eth-create-token, and POSTs to
-// the Etherscan v2 verify endpoint.
+// When called with waitForResult=true, polls Etherscan checkverifystatus until
+// the contract is verified (or max retries exceeded). This is used by
+// eth-create-token to block LP creation until verification is confirmed.
 //
 // Required secret: ETHERSCAN_API_KEY
 // ============================================================================
@@ -26,7 +22,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ⚠️ Must be byte-identical to ERC20_SOURCE in supabase/functions/eth-create-token/index.ts
 const POPSHIBA_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via PopShiba.com Ethereum Launchpad
 pragma solidity ^0.8.20;
@@ -82,7 +77,6 @@ contract PopShibaLaunchpad {
     }
 }`;
 
-// Legacy source for tokens deployed before the PopShiba rebrand.
 const SATURN_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
 pragma solidity ^0.8.20;
@@ -138,11 +132,51 @@ contract SaturnEthV3Token {
     }
 }`;
 
-// "PopShiba.com" as ASCII hex — present in PopShibaLaunchpad runtime bytecode.
 const POPSHIBA_MARKER_HEX = "506f7053686962612e636f6d";
-
 const TOTAL_SUPPLY_WEI = parseEther("1000000000");
 const ETHEREUM_CHAIN_ID = 1;
+
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Helper: wait for Etherscan to index the contract bytecode
+async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, maxRetries = 20): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    if (i > 0) await delay(6000); // respect rate limit (max 3/sec on free tier)
+    try {
+      const resp = await fetch(
+        `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getCode&address=${tokenAddress}&tag=latest&apikey=${apiKey}`
+      );
+      const json = await resp.json();
+      const code = json?.result || "0x";
+      if (code && code !== "0x" && code.length > 10) {
+        console.log(`[eth-verify] contract indexed after ${i + 1} attempts`);
+        return true;
+      }
+    } catch (_) { /* retry */ }
+    console.log(`[eth-verify] waiting for indexing... attempt ${i + 1}/${maxRetries}`);
+  }
+  return false;
+}
+
+// Helper: poll checkverifystatus until Pass/Fail
+async function pollVerificationStatus(guid: string, apiKey: string, maxRetries = 24): Promise<{ verified: boolean; message: string }> {
+  for (let i = 0; i < maxRetries; i++) {
+    await delay(6000); // 6s between checks to respect rate limit
+    try {
+      const resp = await fetch(
+        `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${apiKey}`
+      );
+      const json = await resp.json();
+      const result = String(json?.result || "");
+      console.log(`[eth-verify] poll ${i + 1}: ${result}`);
+      
+      if (/pass/i.test(result)) return { verified: true, message: result };
+      if (/fail/i.test(result) && !/pending/i.test(result)) return { verified: false, message: result };
+      // "Pending in queue" → keep polling
+    } catch (_) { /* retry */ }
+  }
+  return { verified: false, message: "Verification polling timed out" };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200, headers: corsHeaders });
@@ -158,6 +192,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const tokenAddress: string | undefined = body?.tokenAddress;
     const launchId: string | undefined = body?.launchId;
+    const waitForResult: boolean = body?.waitForResult === true;
+    
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -168,7 +204,16 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Look up launch row to reconstruct constructor args
+    // ── Wait for Etherscan to index the contract code first ──
+    console.log("[eth-verify] waiting for Etherscan to index contract...");
+    const indexed = await waitForEtherscanIndexing(tokenAddress, apiKey);
+    if (!indexed) {
+      return new Response(JSON.stringify({ success: false, error: "Etherscan did not index contract in time" }), {
+        status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Look up launch row
     let launch: any = null;
     if (launchId) {
       const { data } = await supabase.from("eth_launch_requests").select("*").eq("id", launchId).maybeSingle();
@@ -190,7 +235,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Detect contract generation by inspecting deployed bytecode ─────────
+    // ── Detect contract generation (reuse bytecode from indexing check) ──
+    // We already confirmed bytecode exists above; fetch it once more with rate-limit spacing
+    await delay(2000);
     let isPopShiba = false;
     try {
       const codeResp = await fetch(
@@ -211,7 +258,8 @@ Deno.serve(async (req) => {
 
     console.log(`[eth-verify] token=${tokenAddress} generation=${isPopShiba ? "PopShiba" : "Saturn"}`);
 
-    // The platform deployer is the recipient (mints to platform, then LP-pulled into V3 pool).
+    // Determine recipient
+    await delay(2000);
     let recipient: `0x${string}` | null = null;
     if (launch.deploy_tx_hash) {
       try {
@@ -229,11 +277,11 @@ Deno.serve(async (req) => {
     if (!recipient) {
       return new Response(JSON.stringify({
         success: false,
-        error: "Could not determine deploy recipient (deploy_tx_hash missing & ETH_DEPLOYER_PUBLIC_ADDRESS unset)",
+        error: "Could not determine deploy recipient",
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Rebuild metadataURI EXACTLY as eth-create-token does
+    // Rebuild metadataURI exactly
     const metadataURI = JSON.stringify({
       name: launch.token_name,
       symbol: launch.token_ticker,
@@ -267,6 +315,7 @@ Deno.serve(async (req) => {
       language: "Solidity",
       sources: { [contractFile]: { content: ERC20_SOLIDITY_SOURCE } },
       settings: {
+        evmVersion: "paris",
         optimizer: { enabled: true, runs: 200 },
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
@@ -284,14 +333,15 @@ Deno.serve(async (req) => {
     form.append("compilerversion", "v0.8.20+commit.a1b79de6");
     form.append("constructorArguements", encodedArgs);
 
+    await delay(2000);
     const resp = await fetch(verifyUrl, { method: "POST", body: form });
     const result = await resp.json();
-    console.log("[eth-verify] response", result);
+    console.log("[eth-verify] submit response", result);
 
     if (result.status !== "1") {
       const msg = String(result.result || result.message || "Unknown");
       if (/already verified/i.test(msg)) {
-        return new Response(JSON.stringify({ success: true, alreadyVerified: true }), {
+        return new Response(JSON.stringify({ success: true, verified: true, alreadyVerified: true }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -301,6 +351,22 @@ Deno.serve(async (req) => {
     }
 
     const guid: string = result.result;
+    
+    // If caller wants to wait for completion, poll checkverifystatus
+    if (waitForResult) {
+      console.log(`[eth-verify] polling verification status for GUID=${guid}`);
+      const pollResult = await pollVerificationStatus(guid, apiKey);
+      console.log(`[eth-verify] final status: verified=${pollResult.verified} msg=${pollResult.message}`);
+      return new Response(JSON.stringify({
+        success: true,
+        verified: pollResult.verified,
+        guid,
+        message: pollResult.message,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ success: true, guid, message: "Verification submitted" }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
