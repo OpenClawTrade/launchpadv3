@@ -7,11 +7,19 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Rocket, Image as ImageIcon, Globe, Twitter, AlertCircle, Loader2, Coins, Shield, Flame, Lock, Info } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Flame, Lock, Info, ExternalLink } from 'lucide-react';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  useSendTransaction,
+  useWaitForTransactionReceipt,
+  useChainId,
+  useSwitchChain,
+} from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+import { getContractAddress } from 'viem';
 
 const PLATFORM_FEE_PCT = 1; // Always 1% protocol tax
 const MIN_USER_TAX = 0;
@@ -34,9 +42,14 @@ interface EthLaunchFormData {
 }
 
 export function EthLauncher() {
-  const { isConnected, address, balance, connect } = useEvmWallet();
+  const { isConnected, address, connect } = useEvmWallet();
+  const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { sendTransactionAsync } = useSendTransaction();
   const [isLaunching, setIsLaunching] = useState(false);
   const [customLp, setCustomLp] = useState(false);
+  const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
+  const [deployTxHash, setDeployTxHash] = useState<`0x${string}` | null>(null);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
     ticker: '',
@@ -51,22 +64,39 @@ export function EthLauncher() {
     renounce: true,
   });
 
+  // Watch deploy tx confirmation
+  const { data: deployReceipt } = useWaitForTransactionReceipt({
+    hash: deployTxHash ?? undefined,
+    chainId: mainnet.id,
+  });
+
   const handleInputChange = <K extends keyof EthLaunchFormData>(field: K, value: EthLaunchFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const totalTax = useMemo(() => formData.userTaxPct + PLATFORM_FEE_PCT, [formData.userTaxPct]);
+  const isOnEth = chainId === mainnet.id;
   const canLaunch = isConnected && formData.name && formData.ticker && formData.lpEth > 0;
 
   const handleLaunch = useCallback(async () => {
     if (!canLaunch || !address) return;
 
     setIsLaunching(true);
-    toast.info('🚀 Deploying on Ethereum...', {
-      description: 'Creating ERC-20, seeding Uniswap V3 LP, and configuring taxes.',
-    });
+    setDeployedTokenAddress(null);
+    setDeployTxHash(null);
 
     try {
+      // 1. Ensure on Ethereum mainnet
+      if (!isOnEth) {
+        toast.info('Switching to Ethereum…');
+        await switchChainAsync({ chainId: mainnet.id });
+      }
+
+      // 2. Get unsigned deploy tx + ABI from edge function
+      toast.info('🛠 Preparing deployment…', {
+        description: 'Compiling ERC-20 with your metadata embedded on-chain.',
+      });
+
       const { data, error } = await supabase.functions.invoke('eth-create-token', {
         body: {
           name: formData.name,
@@ -86,24 +116,79 @@ export function EthLauncher() {
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Failed to deploy token');
+      if (!data?.success) throw new Error(data?.error || 'Failed to prepare deployment');
 
-      toast.success('🎉 Token deployed on Ethereum!', {
-        description: `${formData.name} ($${formData.ticker}) is live on Uniswap V3.`,
-        action: data.tokenUrl ? {
-          label: 'View on Etherscan',
-          onClick: () => window.open(data.tokenUrl, '_blank'),
-        } : undefined,
+      const launchId: string = data.launchId;
+      const deployTx = data.deployTx as { data: `0x${string}`; value: string; chainId: number };
+
+      // 3. Send deploy tx from user's wallet
+      toast.info('✍️ Sign deployment in your wallet', {
+        description: 'You pay gas. The contract will deploy directly to your address.',
       });
-    } catch (error) {
-      console.error('ETH launch error:', error);
+
+      const txHash = await sendTransactionAsync({
+        to: undefined, // contract creation
+        data: deployTx.data,
+        value: 0n,
+        chainId: mainnet.id,
+      });
+
+      setDeployTxHash(txHash);
+      toast.success('🚀 Deployment broadcast', {
+        description: 'Waiting for Ethereum to confirm your contract…',
+      });
+
+      // 4. Compute predicted contract address (CREATE opcode = keccak256(rlp(sender, nonce)))
+      // viem's getContractAddress requires nonce; the receipt is the source of truth, so we wait.
+      // We poll the receipt via useWaitForTransactionReceipt above; finalize once deployReceipt arrives.
+
+      // Optimistic finalize-pending DB update via finalize endpoint with deploy hash only
+      await supabase.functions.invoke('eth-launch-finalize', {
+        body: {
+          launchId,
+          status: 'live',
+          deployTxHash: txHash,
+        },
+      }).catch((e) => console.warn('[eth-launch] pre-finalize warn', e));
+
+      // We'll rely on deployReceipt effect below to write tokenAddress.
+      // Stash launchId for that effect via window-scoped map (simple, no extra state shape).
+      (window as any).__lastEthLaunchId = launchId;
+    } catch (e) {
+      console.error('ETH launch error:', e);
       toast.error('Launch failed', {
-        description: error instanceof Error ? error.message : 'Unknown error',
+        description: e instanceof Error ? e.message : 'Unknown error',
       });
     } finally {
       setIsLaunching(false);
     }
-  }, [canLaunch, address, formData]);
+  }, [canLaunch, address, isOnEth, switchChainAsync, sendTransactionAsync, formData]);
+
+  // When the deploy tx confirms, extract the contract address and finalize.
+  useMemo(() => {
+    if (!deployReceipt || !deployTxHash) return;
+    const tokenAddress = deployReceipt.contractAddress;
+    if (!tokenAddress) return;
+    setDeployedTokenAddress(tokenAddress);
+    const launchId = (window as any).__lastEthLaunchId as string | undefined;
+    if (launchId) {
+      supabase.functions.invoke('eth-launch-finalize', {
+        body: {
+          launchId,
+          status: 'live',
+          deployTxHash,
+          tokenAddress,
+        },
+      }).catch((e) => console.warn('[eth-launch] finalize warn', e));
+    }
+    toast.success('🎉 Token live on Ethereum', {
+      description: `${formData.name} ($${formData.ticker.toUpperCase()}) is deployed.`,
+      action: {
+        label: 'View on Etherscan',
+        onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
+      },
+    });
+  }, [deployReceipt, deployTxHash, formData.name, formData.ticker]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
