@@ -10,11 +10,17 @@ type Column = "new" | "completing" | "completed";
 
 const SOLANA_NETWORK_ID = 1399811149;
 const BSC_NETWORK_ID = 56;
+const ETH_NETWORK_ID = 1;
 const MAX_REASONABLE_CHANGE_24H_DEFAULT = 10_000;
 const MAX_REASONABLE_CHANGE_24H_BSC = 1_000;
+const MAX_REASONABLE_CHANGE_24H_ETH = 5_000;
 const BSC_NEW_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
 const BSC_COMPLETING_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 const BSC_COMPLETING_MIN_VOLUME_24H = 100;
+const ETH_NEW_LOOKBACK_SECONDS = 2 * 24 * 60 * 60;
+const ETH_NEW_MIN_LIQUIDITY = 5_000;
+const ETH_COMPLETED_MIN_LIQUIDITY = 25_000;
+const ETH_COMPLETED_MIN_VOLUME_24H = 5_000;
 
 function toFiniteNumber(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -186,8 +192,27 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   const twoDaysAgo = now - 172800;
   const bscNewCutoff = now - BSC_NEW_LOOKBACK_SECONDS;
   const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
+  const ethNewCutoff = now - ETH_NEW_LOOKBACK_SECONDS;
 
-  if (networkId === BSC_NETWORK_ID) {
+  if (networkId === ETH_NETWORK_ID) {
+    // Ethereum: launchpad-agnostic. Show any new pair with LP added (liquidity gate).
+    switch (column) {
+      case "new":
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY} }, createdAt: { gte: ${ethNewCutoff} } }`;
+        rankings = `{ attribute: createdAt, direction: DESC }`;
+        break;
+      case "completing":
+        // No real "bonding" concept on raw ETH pairs — surface emerging pairs by volume momentum.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY * 2} }, volume24: { gte: 1000 }, createdAt: { gte: ${ethNewCutoff} } }`;
+        rankings = `{ attribute: volume24, direction: DESC }`;
+        break;
+      case "completed":
+        // Established ETH pairs with healthy liquidity + volume.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} } }`;
+        rankings = `{ attribute: volume24, direction: DESC }`;
+        break;
+    }
+  } else if (networkId === BSC_NETWORK_ID) {
     // BSC launchpads: Four.meme (main BSC launchpad), Four.meme Fair, Moonit, TokenMill V2
     const bscLaunchpads = `["Four.meme", "Moonit"]`;
 
