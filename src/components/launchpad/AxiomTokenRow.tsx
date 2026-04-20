@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
+import { Globe, Users, Copy, CheckCircle, Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown, Eye } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { FunToken } from "@/hooks/useFunTokensPaginated";
 import { LaunchpadBadge } from "./LaunchpadBadge";
@@ -9,6 +9,7 @@ import { OptimizedTokenImage } from "@/components/ui/OptimizedTokenImage";
 import { SparklineCanvas } from "./SparklineCanvas";
 import { toast } from "sonner";
 import { LiveAge } from "@/components/ui/LiveAge";
+import { formatViewCount } from "@/hooks/useTokenViews";
 
 interface AxiomTokenRowProps {
   token: FunToken;
@@ -16,6 +17,7 @@ interface AxiomTokenRowProps {
   quickBuyAmount?: number;
   proTraders?: number;
   sparklineData?: number[];
+  viewCount?: number;
 }
 
 function formatUsd(mcapSol: number | null | undefined, solPrice: number | null): string {
