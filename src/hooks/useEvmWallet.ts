@@ -1,5 +1,5 @@
 import { useAccount, useBalance, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
-import { base, bsc } from 'wagmi/chains';
+import { base, bsc, mainnet } from 'wagmi/chains';
 import { formatEther } from 'viem';
 import { usePrivy } from '@privy-io/react-auth';
 import { useChain } from '@/contexts/ChainContext';
@@ -12,6 +12,7 @@ export interface EvmWalletState {
   balance: string;
   balanceRaw: bigint | undefined;
   isOnBase: boolean;
+  isOnEthereum: boolean;
 }
 
 export function useEvmWallet() {
@@ -22,7 +23,7 @@ export function useEvmWallet() {
   const { login, logout } = usePrivy();
   const { chain } = useChain();
 
-  const balanceChainId = chain === 'bnb' ? bsc.id : base.id;
+  const balanceChainId = chain === 'bnb' ? bsc.id : chain === 'eth' ? mainnet.id : base.id;
 
   const { data: balanceData, isLoading: isBalanceLoading } = useBalance({
     address,
@@ -31,29 +32,28 @@ export function useEvmWallet() {
 
   const isOnBase = chainId === base.id;
   const isOnBnb = chainId === bsc.id;
+  const isOnEthereum = chainId === mainnet.id;
 
-  const balance = balanceData 
-    ? parseFloat(formatEther(balanceData.value)).toFixed(4) 
+  const balance = balanceData
+    ? parseFloat(formatEther(balanceData.value)).toFixed(4)
     : '0.0000';
 
   const switchToBase = async () => {
-    if (switchChain) {
-      await switchChain({ chainId: base.id });
-    }
+    if (switchChain) await switchChain({ chainId: base.id });
   };
-
+  const switchToEthereum = async () => {
+    if (switchChain) await switchChain({ chainId: mainnet.id });
+  };
   const switchToBnb = async () => {
-    if (switchChain) {
-      await switchChain({ chainId: bsc.id });
-    }
+    if (switchChain) await switchChain({ chainId: bsc.id });
   };
 
   const connect = () => {
     login();
   };
 
-  const shortAddress = address 
-    ? `${address.slice(0, 6)}...${address.slice(-4)}` 
+  const shortAddress = address
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : '';
 
   return {
@@ -67,10 +67,12 @@ export function useEvmWallet() {
     isBalanceLoading,
     isOnBase,
     isOnBnb,
+    isOnEthereum,
     connect,
     disconnect,
     logout,
     switchToBase,
     switchToBnb,
+    switchToEthereum,
   };
 }

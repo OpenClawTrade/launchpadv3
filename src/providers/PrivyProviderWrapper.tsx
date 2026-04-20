@@ -319,6 +319,17 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
           },
           supportedChains: [
             {
+              id: 1,
+              name: "Ethereum",
+              nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+              rpcUrls: {
+                default: { http: ["https://eth.merkle.io"] },
+              },
+              blockExplorers: {
+                default: { name: "Etherscan", url: "https://etherscan.io" },
+              },
+            } as any,
+            {
               id: 56,
               name: "BNB Smart Chain",
               nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
@@ -331,14 +342,14 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             } as any,
           ],
           defaultChain: {
-            id: 56,
-            name: "BNB Smart Chain",
-            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+            id: 1,
+            name: "Ethereum",
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
             rpcUrls: {
-              default: { http: [`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno'}.supabase.co/functions/v1/bsc-rpc`] },
+              default: { http: ["https://eth.merkle.io"] },
             },
             blockExplorers: {
-              default: { name: "BscScan", url: "https://bscscan.com" },
+              default: { name: "Etherscan", url: "https://etherscan.io" },
             },
           } as any,
           appearance: {
@@ -346,11 +357,11 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             accentColor: "#22c55e",
             logo: saturnLogo,
             showWalletLoginFirst: true,
-            walletChainType: "ethereum-and-solana",
-            walletList: ["metamask", "phantom", "solflare", "backpack", "detected_wallets"],
+            walletChainType: "ethereum-only",
+            walletList: ["metamask", "rainbow", "wallet_connect", "coinbase_wallet", "detected_wallets"],
           },
           embeddedWallets: {
-            // ETH-only: do not auto-create Solana embedded wallets for new users
+            // ETH-only: do not auto-create Solana embedded wallets
             solana: {
               createOnLogin: "off",
             },
