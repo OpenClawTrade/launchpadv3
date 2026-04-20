@@ -222,8 +222,8 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
         rankings = `{ attribute: createdAt, direction: DESC }`;
         break;
       case "completing":
-        // No real "bonding" concept on raw ETH pairs — surface emerging pairs by volume momentum.
-        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY * 2} }, volume24: { gte: 1000 }, createdAt: { gte: ${ethNewCutoff} } }`;
+        // ETH "Final Stretch" = freshly launched (<3d) pairs gaining real volume momentum.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY * 2} }, volume24: { gte: 1000 }, createdAt: { gte: ${ethCompletingCutoff} } }`;
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
       case "completed":
