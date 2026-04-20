@@ -324,18 +324,6 @@ export default function HomePage() {
           </section>
         </LazySection>
 
-        {/* ═══ Poster Footer Strip ═══ */}
-        <footer className="bg-pop-orange pop-border border-x-0 border-b-0 mt-10">
-          <div className={`${CW} mx-auto px-4 sm:px-6 py-6 flex items-center justify-between flex-wrap gap-3`}>
-            <div className="flex items-center gap-3">
-              <img src={popshibaLogo} alt="" className="w-8 h-8" />
-              <span className="font-pop-display uppercase text-pop-ink text-sm">PopShiba © 2026</span>
-            </div>
-            <span className="font-pop-mono text-[10px] uppercase text-pop-ink/70 tracking-widest">
-              Launch · Trade · Pop
-            </span>
-          </div>
-        </footer>
       </div>
     </LaunchpadLayout>
   );
