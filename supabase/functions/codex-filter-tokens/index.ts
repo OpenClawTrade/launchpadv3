@@ -554,6 +554,27 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ETH/BSC: when Codex hasn't populated an image yet (common for brand-new pairs),
+      // enrich from DexScreener token info API. Same pattern as Solana pump.fun fallback.
+      if ((safeNetworkId === ETH_NETWORK_ID || safeNetworkId === BSC_NETWORK_ID) && token.address) {
+        const currentImage = String(token.imageUrl ?? "").toLowerCase();
+        const needsImage =
+          !token.imageUrl ||
+          currentImage.includes("dd.dexscreener.com") ||
+          currentImage.includes("dicebear.com") ||
+          currentImage.includes("trustwallet") ||
+          currentImage.includes("1inch.io") ||
+          currentImage.includes("pancakeswap.finance");
+
+        if (needsImage) {
+          const dsImage = await fetchEvmDexScreenerImage(token.address, safeNetworkId);
+          if (dsImage && dsImage !== token.imageUrl) {
+            token.fallbackImageUrl = token.imageUrl || token.fallbackImageUrl || null;
+            token.imageUrl = dsImage;
+          }
+        }
+      }
+
       if (Math.abs(token.change24h) <= maxAllowedChange) {
         return token;
       }
