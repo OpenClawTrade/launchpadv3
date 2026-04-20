@@ -234,72 +234,7 @@ export function EthLauncher() {
           chainId: mainnet.id,
         } as any);
 
-        // 3. Burn LP (transfer LP token balance to dead)
-        if (formData.burnLp) {
-          setPostDeployStep('burn');
-          toast.info('3/4 Burning LP forever');
-          try {
-            const rpc = 'https://eth.merkle.io';
-            const pairResp = await fetch(rpc, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', id: 1, method: 'eth_call',
-                params: [{
-                  to: UNISWAP_V2_FACTORY,
-                  data: encodeFunctionData({
-                    abi: FACTORY_ABI, functionName: 'getPair',
-                    args: [tokenAddress as `0x${string}`, WETH_MAINNET],
-                  }),
-                }, 'latest'],
-              }),
-            }).then((r) => r.json());
-            const pairAddress = ('0x' + (pairResp.result as string).slice(-40)) as `0x${string}`;
-
-            const balResp = await fetch(rpc, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', id: 2, method: 'eth_call',
-                params: [{
-                  to: pairAddress,
-                  data: encodeFunctionData({
-                    abi: ERC20_ABI, functionName: 'balanceOf',
-                    args: [address as `0x${string}`],
-                  }),
-                }, 'latest'],
-              }),
-            }).then((r) => r.json());
-            const lpBalance = BigInt(balResp.result || '0x0');
-            if (lpBalance > 0n) {
-              await writeContractAsync({
-                address: pairAddress,
-                abi: parseAbi(['function transfer(address to, uint256 value) returns (bool)']),
-                functionName: 'transfer',
-                args: [DEAD_ADDRESS, lpBalance],
-                chainId: mainnet.id,
-              } as any);
-            }
-          } catch (burnErr) {
-            console.warn('[eth-launch] LP burn failed', burnErr);
-            toast.warning('LP burn skipped — burn manually if needed');
-          }
-        }
-
-        // 4. Renounce
-        if (formData.renounce) {
-          setPostDeployStep('renounce');
-          toast.info('4/4 Renouncing contract');
-          await writeContractAsync({
-            address: tokenAddress as `0x${string}`,
-            abi: ERC20_ABI,
-            functionName: 'renounceOwnership',
-            args: [],
-            chainId: mainnet.id,
-          } as any);
-        }
-
-        // 5. Background Etherscan verification
+        // 3. Background Etherscan verification (non-blocking)
         setPostDeployStep('verify');
         toast.info('Verifying source on Etherscan…');
         supabase.functions.invoke('eth-verify-contract', {
@@ -314,8 +249,8 @@ export function EthLauncher() {
         }).catch((e) => console.warn('[eth-verify] exception', e));
 
         setPostDeployStep('done');
-        toast.success('🎉 Token live & locked', {
-          description: 'LP seeded, burned, ownership renounced.',
+        toast.success('🎉 Token live & LP seeded', {
+          description: 'Use Creator Controls below to Burn LP, Remove LP, or Renounce.',
           action: {
             label: 'View on Etherscan',
             onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
