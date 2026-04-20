@@ -245,6 +245,9 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                       />
                 )}
                 <EmbeddedWalletCard />
+                {!isBsc && /^0x[a-fA-F0-9]{40}$/.test(mintAddress) && (
+                  <EthCreatorControls tokenAddress={mintAddress} />
+                )}
               </>
             )}
             {mobileTab === 'chart' && (
