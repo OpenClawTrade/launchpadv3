@@ -6,10 +6,10 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { usePanelNav } from "@/hooks/usePanelNav";
 import { useMatrixMode } from "@/contexts/MatrixModeContext";
-import saturnLogo from "@/assets/saturn-logo.png";
+import popshibaLogo from "@/assets/popshiba-logo.png";
 import { BRAND } from "@/config/branding";
 
-const LOGO_SRC = saturnLogo;
+const LOGO_SRC = popshibaLogo;
 
 const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean; comingSoon?: boolean; disabled?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
@@ -41,21 +41,19 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-sidebar">
+    <div className="flex flex-col h-full bg-pop-cream">
       {/* Logo */}
       <div className={cn(
-        "flex items-center justify-center border-b border-border/30",
+        "flex items-center justify-center border-b-2 border-pop-ink",
         isMobile ? "px-3 pt-5 pb-4" : "py-3"
       )}>
-        <Link to="/" onClick={onLinkClick} className="group transition-all duration-300 relative">
-          <div className="absolute inset-0 rounded-lg bg-primary/20 blur-md opacity-60 group-hover:opacity-100 group-hover:blur-lg transition-all duration-500 animate-pulse" style={{ animationDuration: '3s' }} />
+        <Link to="/" onClick={onLinkClick} className="group transition-transform duration-150 hover:-translate-y-[2px]">
           <img
             src={LOGO_SRC}
             alt={BRAND.name}
             className={cn(
-              "object-contain rounded-sm flex-shrink-0 transition-all duration-300 relative z-10",
-              "drop-shadow-[0_0_6px_hsl(var(--primary)/0.4)] group-hover:drop-shadow-[0_0_12px_hsl(var(--primary)/0.7)]",
-              isMobile ? "h-8 w-8" : "h-7 w-7"
+              "object-contain flex-shrink-0",
+              isMobile ? "h-9 w-9" : "h-8 w-8"
             )}
           />
         </Link>
@@ -68,23 +66,19 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
           const iconEl = Icon ? (
             <Icon className={cn(
-              "h-4 w-4 flex-shrink-0 transition-colors",
-              neonGreen
-                ? "text-[hsl(72_100%_50%)] drop-shadow-[0_0_6px_hsl(72_100%_50%/0.5)]"
-                : active ? "text-primary" : ""
-            )} strokeWidth={neonGreen ? 2.5 : undefined} />
+              "h-4 w-4 flex-shrink-0",
+              active ? "text-pop-ink" : "text-pop-ink/70"
+            )} strokeWidth={active ? 2.75 : 2.25} />
           ) : null;
 
           if (isMobile) {
             const classes = cn(
-              "flex items-center gap-3 px-4 py-2.5 rounded-sm text-[13px] font-medium transition-all duration-200 w-full border-l-2",
+              "flex items-center gap-3 px-3 py-2.5 rounded-md text-[12px] font-pop-display uppercase tracking-wider w-full transition-all duration-150",
               disabled
-                ? "text-muted-foreground/60 cursor-not-allowed border-transparent"
+                ? "text-pop-ink/40 cursor-not-allowed"
                 : active
-                  ? "text-foreground bg-surface-hover border-primary"
-                  : neonGreen
-                    ? "text-[hsl(72_100%_50%)] font-bold hover:text-foreground hover:bg-surface-hover/50 border-transparent"
-                    : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
+                  ? "bg-pop-orange text-pop-ink pop-border"
+                  : "text-pop-ink/80 hover:bg-pop-ink/10 border-2 border-transparent"
             );
 
             const inner = (
@@ -92,7 +86,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
                 {iconEl}
                 <span>{label}</span>
                 {comingSoon && (
-                  <span className="ml-auto text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground border border-border/40">
+                  <span className="ml-auto text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-pop-ink text-pop-cream font-pop-mono">
                     Soon
                   </span>
                 )}
@@ -115,26 +109,23 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
           // Desktop: icon-only with tooltip
           const desktopClasses = cn(
-            "relative flex items-center justify-center w-9 h-9 rounded-sm transition-all duration-200 group/nav",
+            "relative flex items-center justify-center w-9 h-9 rounded-md transition-all duration-150 group/nav",
             disabled
-              ? "text-muted-foreground/50 cursor-not-allowed"
+              ? "text-pop-ink/30 cursor-not-allowed"
               : active
-                ? "text-primary bg-primary/10"
-                : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50"
+                ? "bg-pop-orange text-pop-ink pop-border"
+                : "text-pop-ink/70 hover:bg-pop-ink/10 hover:text-pop-ink border-2 border-transparent"
           );
 
           const content = (
             <>
               {iconEl}
               {comingSoon && (
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-muted-foreground/70" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-pop-ink/60" />
               )}
-              <span className="absolute left-full ml-2 px-2 py-1 text-[11px] font-medium bg-popover text-popover-foreground border border-border rounded-sm whitespace-nowrap opacity-0 pointer-events-none group-hover/nav:opacity-100 transition-opacity z-50">
-                {label}{comingSoon ? " · Coming Soon" : ""}
+              <span className="absolute left-full ml-2 px-2 py-1 text-[10px] font-pop-display uppercase bg-pop-ink text-pop-cream rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover/nav:opacity-100 transition-opacity z-50">
+                {label}{comingSoon ? " · Soon" : ""}
               </span>
-              {active && !disabled && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[3px] w-[3px] h-4 bg-primary rounded-r-full" />
-              )}
             </>
           );
 
@@ -160,13 +151,13 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           to="/launchpad"
           onClick={onLinkClick}
           className={cn(
-            "btn-gradient-green flex items-center justify-center rounded-sm font-bold",
-            isMobile ? "gap-2 w-full py-2.5 text-[13px]" : "w-9 h-9"
+            "bg-pop-ink text-pop-orange pop-border rounded-md font-pop-display uppercase flex items-center justify-center transition-transform duration-150 hover:-translate-y-[2px]",
+            isMobile ? "gap-2 w-full py-2.5 text-[12px]" : "w-9 h-9"
           )}
           title="Create Token"
         >
-          <Plus className={cn(isMobile ? "h-4 w-4" : "h-4 w-4")} />
-          {isMobile && "Create Token"}
+          <Plus className="h-4 w-4" strokeWidth={3} />
+          {isMobile && "Create"}
         </Link>
       </div>
     </div>
@@ -179,7 +170,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   if (isMobile) {
     return (
       <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()}>
-        <SheetContent side="left" className="p-0 w-[200px] border-r-0 bg-sidebar" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+        <SheetContent side="left" className="p-0 w-[220px] bg-pop-cream border-r-[3px] border-pop-ink">
           <SidebarContent onLinkClick={onMobileClose} />
         </SheetContent>
       </Sheet>
@@ -188,7 +179,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   return (
     <aside
-      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-sidebar/95 backdrop-blur-md border-r border-border"
+      className="fixed top-0 left-0 h-screen z-40 flex-shrink-0 bg-pop-cream border-r-[3px] border-pop-ink"
       style={{ width: "48px" }}
     >
       <SidebarContent />
