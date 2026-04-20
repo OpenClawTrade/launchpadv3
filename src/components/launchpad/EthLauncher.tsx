@@ -140,20 +140,6 @@ export function EthLauncher() {
           onClick: () => window.open(`https://etherscan.io/address/${row.token_address}`, '_blank'),
         },
       });
-      if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || 'Failed to deploy');
-
-      setDeployedTokenAddress(data.tokenAddress);
-      setDeployTxHash(data.deployTxHash);
-      setPoolAddress(data.poolAddress);
-
-      toast.success('🎉 Token live on Uniswap V3', {
-        description: `Pool seeded at 1% fee tier. ${formData.devBuyEth > 0 ? `Dev buy of ${formData.devBuyEth} ETH delivered.` : 'No dev buy.'}`,
-        action: {
-          label: 'View on Etherscan',
-          onClick: () => window.open(`https://etherscan.io/address/${data.tokenAddress}`, '_blank'),
-        },
-      });
     } catch (e) {
       console.error('ETH V3 launch error:', e);
       toast.error('Launch failed', {
