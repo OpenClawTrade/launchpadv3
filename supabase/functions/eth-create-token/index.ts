@@ -24,9 +24,12 @@ import {
   encodeDeployData,
   parseEther,
   getAddress,
-  isAddress,
   toHex,
 } from "https://esm.sh/viem@2.45.1";
+
+// Accept both checksummed and lowercase 0x addresses
+const isEvmAddress = (a: unknown): a is string =>
+  typeof a === "string" && /^0x[a-fA-F0-9]{40}$/.test(a);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
