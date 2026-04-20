@@ -104,36 +104,10 @@ contract SaturnEthV3Token {
     }
 }`;
 
-let cachedCompilation: { abi: any[]; bytecode: `0x${string}` } | null = null;
-async function compileERC20(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
-  if (cachedCompilation) return cachedCompilation;
-  const solcUrl = "https://binaries.soliditylang.org/bin/soljson-v0.8.20+commit.a1b79de6.js";
-  const res = await fetch(solcUrl);
-  if (!res.ok) throw new Error(`solc fetch HTTP ${res.status}`);
-  const solcCode = await res.text();
-  const moduleObj = { exports: {} as any };
-  const stubProcess = { argv: [], env: {}, stdout: { write: () => {} }, stderr: { write: () => {} }, on: () => {}, exit: () => {}, platform: "linux", version: "v18.0.0" };
-  const fn = new Function("module", "exports", "require", "process", "__dirname", "__filename", "global", solcCode + "\n//# sourceURL=soljson.js");
-  fn(moduleObj, moduleObj.exports, () => ({}), stubProcess, "/", "/soljson.js", globalThis);
-  const soljson = moduleObj.exports;
-  const compile = soljson.cwrap("solidity_compile", "string", ["string", "number", "number"]);
-  const input = JSON.stringify({
-    language: "Solidity",
-    sources: { "SaturnEthV3Token.sol": { content: ERC20_SOURCE } },
-    settings: {
-      optimizer: { enabled: true, runs: 200 },
-      outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
-    },
-  });
-  const output = JSON.parse(compile(input, 0, 0));
-  if (output.errors) {
-    const errs = output.errors.filter((e: any) => e.severity === "error");
-    if (errs.length) throw new Error("Compile: " + errs.map((e: any) => e.formattedMessage).join("\n"));
-  }
-  const c = output.contracts?.["SaturnEthV3Token.sol"]?.["SaturnEthV3Token"];
-  const bytecode = ("0x" + c.evm.bytecode.object) as `0x${string}`;
-  cachedCompilation = { abi: c.abi, bytecode };
-  return cachedCompilation;
+// Precompiled at build-time (see ./contract.ts). Runtime solc compilation is
+// not supported in the Deno edge runtime ("soljson.cwrap is not a function").
+function compileERC20(): { abi: any[]; bytecode: `0x${string}` } {
+  return { abi: ERC20_ABI_FULL as any, bytecode: ERC20_BYTECODE };
 }
 
 // ---- Math helpers ----
