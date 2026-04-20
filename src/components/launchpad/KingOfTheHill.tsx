@@ -691,37 +691,76 @@ export function KingOfTheHill() {
         </div>
       </div>
 
+      {/* ── Empty throne CTA ── */}
+      {!isLoading && (!tokens || tokens.length === 0) && (
+        <Link
+          to="/launch/ethereum"
+          className="block w-full rounded-2xl p-8 text-center transition-all hover:scale-[1.01]"
+          style={{
+            background: "linear-gradient(165deg, rgba(15,15,26,0.96) 0%, rgba(5,5,15,0.98) 100%)",
+            border: "1px dashed rgba(245,158,11,0.35)",
+            boxShadow: "0 0 24px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.03)",
+          }}
+        >
+          <Crown
+            className="w-10 h-10 mx-auto mb-3"
+            style={{ color: "#FFD700", filter: "drop-shadow(0 0 8px rgba(255,215,0,0.4))" }}
+          />
+          <h3 className="font-black uppercase tracking-[0.1em] mb-1.5" style={{ fontSize: "16px", color: "#FFFFFF" }}>
+            The throne is empty
+          </h3>
+          <p className="mb-4" style={{ fontSize: "12px", color: "#6E6E80" }}>
+            Be the first to launch an ETH token and claim the crown.
+          </p>
+          <span
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold font-mono"
+            style={{
+              fontSize: "12px",
+              color: "#0A0A0F",
+              background: "linear-gradient(135deg, #F59E0B, #FBBF24, #F59E0B)",
+              boxShadow: "0 0 16px rgba(245,158,11,0.4)",
+            }}
+          >
+            Launch the first king →
+          </span>
+        </Link>
+      )}
+
       {/* ── MOBILE: Vertical stack (< md) ── */}
-      <div className="flex flex-col gap-4 md:hidden">
-        {isLoading
-          ? [1, 2, 3].map(i => <KingCardSkeleton key={i} mobile />)
-          : tokens?.map((t, i) => (
-            <MobileKingCard
-              key={t.id}
-              token={t}
-              rank={i + 1}
-              quickBuyAmount={quickBuyAmount}
-              sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined}
-            />
-          ))
-        }
-      </div>
+      {(isLoading || (tokens && tokens.length > 0)) && (
+        <div className="flex flex-col gap-4 md:hidden">
+          {isLoading
+            ? [1, 2, 3].map(i => <KingCardSkeleton key={i} mobile />)
+            : tokens?.map((t, i) => (
+              <MobileKingCard
+                key={t.id}
+                token={t}
+                rank={i + 1}
+                quickBuyAmount={quickBuyAmount}
+                sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined}
+              />
+            ))
+          }
+        </div>
+      )}
 
       {/* ── DESKTOP: Horizontal row (≥ md) ── */}
-      <div className="hidden md:flex md:flex-row md:gap-4">
-        {isLoading
-          ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
-          : tokens?.map((t, i) => (
-            <DesktopKingCard
-              key={t.id}
-              token={t}
-              rank={i + 1}
-              quickBuyAmount={quickBuyAmount}
-              sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined}
-            />
-          ))
-        }
-      </div>
+      {(isLoading || (tokens && tokens.length > 0)) && (
+        <div className="hidden md:flex md:flex-row md:gap-4">
+          {isLoading
+            ? [1, 2, 3].map(i => <KingCardSkeleton key={i} />)
+            : tokens?.map((t, i) => (
+              <DesktopKingCard
+                key={t.id}
+                token={t}
+                rank={i + 1}
+                quickBuyAmount={quickBuyAmount}
+                sparklineData={t.mint_address ? sparklines?.[t.mint_address] : undefined}
+              />
+            ))
+          }
+        </div>
+      )}
     </div>
   );
 }
