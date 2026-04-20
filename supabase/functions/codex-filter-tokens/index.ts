@@ -165,7 +165,7 @@ async function fetchDexScreenerChange24h(address: string, networkId: number): Pr
     if (!res.ok) return null;
 
     const data = await res.json();
-    const expectedChain = networkId === BSC_NETWORK_ID ? "bsc" : "solana";
+    const expectedChain = networkId === BSC_NETWORK_ID ? "bsc" : networkId === ETH_NETWORK_ID ? "ethereum" : "solana";
     const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
     const filteredPairs = pairs.filter((pair: any) => pair?.chainId === expectedChain);
     const poolCandidates = filteredPairs.length > 0 ? filteredPairs : pairs;
@@ -422,7 +422,7 @@ Deno.serve(async (req) => {
         liquidity: toFiniteNumber(r.liquidity),
         graduationPercent: toFiniteNumber(r.token?.launchpad?.graduationPercent),
         poolAddress: r.token?.launchpad?.poolAddress ?? null,
-        launchpadName: r.token?.launchpad?.launchpadName ?? (safeNetworkId === BSC_NETWORK_ID ? "PancakeSwap" : "Pump.fun"),
+        launchpadName: r.token?.launchpad?.launchpadName ?? (safeNetworkId === BSC_NETWORK_ID ? "PancakeSwap" : safeNetworkId === ETH_NETWORK_ID ? "Uniswap" : "Pump.fun"),
         launchpadIconUrl: r.token?.launchpad?.launchpadIconUrl ?? null,
         completed: r.token?.launchpad?.completed ?? false,
         migrated: r.token?.launchpad?.migrated ?? false,
