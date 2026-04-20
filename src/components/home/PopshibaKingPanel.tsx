@@ -12,8 +12,8 @@ function fmtUsd(v: number) {
 }
 
 export function PopshibaKingPanel() {
-  const { kings } = useKingOfTheHill();
-  const king = kings && kings.length > 0 ? kings[0] : null;
+  const { tokens } = useKingOfTheHill();
+  const king = tokens && tokens.length > 0 ? tokens[0] : null;
   const { solPrice } = useSolPrice();
 
   return (
