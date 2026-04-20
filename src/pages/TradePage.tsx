@@ -103,45 +103,53 @@ export default function TradePage() {
 
   return (
     <LaunchpadLayout hideFooter noPadding>
-      <div className="space-y-0 relative z-10">
-        {/* Pulse Header Toolbar */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40">
+      <div className="space-y-0 relative z-10 bg-pop-cream min-h-screen">
+        {/* Pulse Header Toolbar — Poster style */}
+        <div className="flex items-center justify-between px-4 py-3 bg-pop-orange border-b-[3px] border-pop-ink">
           <div className="flex items-center gap-2">
-            <h1 className="text-[15px] font-bold text-foreground tracking-tight">
-              Pulse {isBnb ? '— BNB' : ''}
+            <h1 className="font-pop-display text-lg uppercase text-pop-ink tracking-tight leading-none">
+              Pulse {isBnb ? '· BNB' : ''}
             </h1>
-            <button className="pulse-toolbar-icon"><List className="h-3.5 w-3.5" /></button>
-            <button className="pulse-toolbar-icon"><Settings className="h-3.5 w-3.5" /></button>
+            <button className="p-1.5 bg-pop-cream pop-border rounded-md text-pop-ink hover:-translate-y-[1px] transition-transform">
+              <List className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
+            <button className="p-1.5 bg-pop-cream pop-border rounded-md text-pop-ink hover:-translate-y-[1px] transition-transform">
+              <Settings className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
           </div>
           <div className="flex items-center gap-1.5">
-            <button className="pulse-toolbar-btn">
+            <button className="flex items-center gap-1 px-2 py-1.5 bg-pop-cream pop-border rounded-md font-pop-mono text-[10px] uppercase text-pop-ink hover:-translate-y-[1px] transition-transform">
               <span>Display</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
+              <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
             </button>
-            <button className="pulse-toolbar-icon"><Bookmark className="h-3.5 w-3.5" /></button>
-            <button className="pulse-toolbar-icon"><Monitor className="h-3.5 w-3.5" /></button>
+            <button className="p-1.5 bg-pop-cream pop-border rounded-md text-pop-ink hover:-translate-y-[1px] transition-transform">
+              <Bookmark className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
+            <button className="p-1.5 bg-pop-cream pop-border rounded-md text-pop-ink hover:-translate-y-[1px] transition-transform hidden md:inline-flex">
+              <Monitor className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
             <button
-              className={`pulse-toolbar-icon ${soundsOn ? "!text-primary !bg-primary/10" : ""}`}
+              className={`p-1.5 pop-border rounded-md hover:-translate-y-[1px] transition-transform ${soundsOn ? "bg-pop-ink text-pop-orange" : "bg-pop-cream text-pop-ink"}`}
               onClick={() => { toggleSounds(); setSoundsOn(!soundsOn); }}
               title={soundsOn ? "Mute trade sounds" : "Enable trade sounds"}
             >
-              {soundsOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              {soundsOn ? <Volume2 className="h-3.5 w-3.5" strokeWidth={2.5} /> : <VolumeX className="h-3.5 w-3.5" strokeWidth={2.5} />}
             </button>
-            <button className="pulse-toolbar-icon"><Settings className="h-3.5 w-3.5" /></button>
-            <button className="pulse-toolbar-icon"><LayoutGrid className="h-3.5 w-3.5" /></button>
-            <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-muted/50 text-[10px] font-mono text-muted-foreground">
-              <span className="text-foreground font-bold">1</span>
+            <button className="p-1.5 bg-pop-cream pop-border rounded-md text-pop-ink hover:-translate-y-[1px] transition-transform hidden md:inline-flex">
+              <LayoutGrid className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
+            <div className="hidden sm:flex items-center gap-1 ml-1 px-2 py-1.5 rounded-md bg-pop-ink text-pop-orange font-pop-mono text-[10px] pop-border">
+              <span className="font-bold">1</span>
               <span>=</span>
               <span>{displayCount.toLocaleString()}</span>
-              <ChevronDown className="h-2.5 w-2.5 opacity-40" />
             </div>
           </div>
         </div>
 
         {search && (
-          <div className="px-3 py-1">
-            <span className="text-[10px] font-mono text-accent-purple">
-              filtering: "{search}"
+          <div className="px-4 py-2 bg-pop-cream border-b-2 border-pop-ink/20">
+            <span className="font-pop-mono text-[11px] text-pop-ink uppercase">
+              Filtering: <span className="font-bold">"{search}"</span>
             </span>
           </div>
         )}
