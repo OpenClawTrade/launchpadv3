@@ -338,6 +338,9 @@ export default function FunTokenDetailPage() {
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'info'>('chart');
 
+  // Track this token page visit (debounced per session, deduped per visitor per day server-side)
+  useTrackTokenView(mintAddress);
+
   const isBsc = isEvmAddress(mintAddress || '');
   // EVM-only: BNB (56) for BSC tokens, Ethereum (1) otherwise
   const networkId = isBsc ? BSC_NETWORK_ID : 1;
