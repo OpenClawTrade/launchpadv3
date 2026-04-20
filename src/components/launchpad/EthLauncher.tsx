@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
 const START_MC_USD = 5_000; // $5K starting market cap (single-sided V3)
+const MANDATORY_DEV_BUY_USD = 50; // Required initial dev buy
 
 interface EthLaunchFormData {
   name: string;
