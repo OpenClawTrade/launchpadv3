@@ -353,11 +353,21 @@ export function EthLauncher() {
                 </div>
               ) : (
                 <Input
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  value={formData.lpEth}
-                  onChange={(e) => handleInputChange('lpEth', parseFloat(e.target.value) || 0)}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.1"
+                  value={lpEthInput}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // Allow empty, digits, single dot, decimals
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                      setLpEthInput(v);
+                      const parsed = parseFloat(v);
+                      if (!isNaN(parsed) && parsed > 0) {
+                        handleInputChange('lpEth', parsed);
+                      }
+                    }
+                  }}
                   className="bg-background/50"
                 />
               )}
