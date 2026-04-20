@@ -60,54 +60,21 @@ const selectFields = `
   telegram_url, website_url, discord_url
 `;
 
-function applyChainFilter(query: any, chainFilter: "solana" | "bnb") {
-  if (chainFilter === "bnb") {
-    return query.eq("chain", "bsc");
-  }
-  return query.or("chain.is.null,chain.eq.solana");
-}
-
-// Fetch top tokens by bonding progress + newest trading agent token
-async function fetchKingOfTheHill(chainFilter: "solana" | "bnb"): Promise<KingToken[]> {
-  // Fetch top 3 by bonding progress
-  let topQuery = supabase
+// Ethereum-only: site is fully ETH mainnet now
+async function fetchKingOfTheHill(_chainFilter: "solana" | "bnb"): Promise<KingToken[]> {
+  // Top 3 ETH bonding tokens by market cap
+  const { data: topTokens, error: topError } = await supabase
     .from("fun_tokens")
     .select(selectFields)
+    .eq("chain", "ethereum")
     .eq("status", "active")
     .neq("launchpad_type", "punch")
-    .order("bonding_progress", { ascending: false })
+    .order("market_cap_sol", { ascending: false, nullsFirst: false })
     .limit(3);
-
-  topQuery = applyChainFilter(topQuery, chainFilter);
-  const { data: topTokens, error: topError } = await topQuery;
 
   if (topError) throw topError;
 
-  // Fetch newest trading agent token (last 24 hours) for guaranteed visibility
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  let agentQuery = supabase
-    .from("fun_tokens")
-    .select(selectFields)
-    .eq("status", "active")
-    .eq("is_trading_agent_token", true)
-    .neq("launchpad_type", "punch")
-    .gte("created_at", oneDayAgo)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  agentQuery = applyChainFilter(agentQuery, chainFilter);
-  const { data: newestTradingAgent } = await agentQuery;
-
-  // Merge: top tokens + newest trading agent (deduplicated)
-  const merged = [...(topTokens || [])];
-  if (newestTradingAgent?.[0]) {
-    const exists = merged.some((t) => t.id === newestTradingAgent[0].id);
-    if (!exists) {
-      merged.push(newestTradingAgent[0]);
-    }
-  }
-
-  const mapped = merged.slice(0, 3).map((t) => ({
+  const mapped = (topTokens ?? []).map((t) => ({
     ...t,
     holder_count: t.holder_count ?? DEFAULT_LIVE.holder_count,
     market_cap_sol: t.market_cap_sol ?? DEFAULT_LIVE.market_cap_sol,
