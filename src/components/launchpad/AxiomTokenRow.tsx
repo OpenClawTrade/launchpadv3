@@ -63,7 +63,7 @@ function formatHolders(n: number): string {
   return String(n);
 }
 
-export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount, proTraders = 0, sparklineData }: AxiomTokenRowProps) {
+export const AxiomTokenRow = memo(function AxiomTokenRow({ token, solPrice, quickBuyAmount, proTraders = 0, sparklineData, viewCount = 0 }: AxiomTokenRowProps) {
   const [copiedCA, setCopiedCA] = useState(false);
   const bondingProgress = token.bonding_progress ?? 0;
 
