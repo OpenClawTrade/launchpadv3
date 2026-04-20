@@ -59,7 +59,7 @@ function getExplorerUrl(address: string, chain: SupportedChain): string {
   return `https://solscan.io/token/${address}`;
 }
 
-export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, proTraders = 0, sparklineData, chain = 'solana' }: { token: CodexPairToken; quickBuyAmount?: number; proTraders?: number; sparklineData?: number[]; chain?: SupportedChain }) {
+export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, proTraders = 0, sparklineData, chain = 'solana', viewCount = 0 }: { token: CodexPairToken; quickBuyAmount?: number; proTraders?: number; sparklineData?: number[]; chain?: SupportedChain; viewCount?: number }) {
   const [copiedCA, setCopiedCA] = useState(false);
   const gradPct = token.graduationPercent ?? 0;
   const mcap = formatUsdCompact(token.marketCap);
