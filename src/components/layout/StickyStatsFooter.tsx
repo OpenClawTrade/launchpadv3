@@ -184,6 +184,10 @@ export function StickyStatsFooter() {
   // Hide footer entirely in Bitcoin mode — BTC page has its own UI
   if (isBitcoin) return null;
 
+  // Hide on Popshiba poster pages — they ship with the branded global footer
+  const popshibaRoutes = ["/", "/launchpad", "/launch", "/discover", "/tokens"];
+  if (popshibaRoutes.includes(pathname)) return null;
+
   const footer = (
     <div
       className="sticky-stats-footer"
