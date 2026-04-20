@@ -88,7 +88,7 @@ function formatUsdCompact(v: number) {
    EXTERNAL TOKEN VIEW (tokens not in our DB)
    ──────────────────────────────────────────────────────── */
 function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number; isBsc?: boolean }) {
-  const networkId = isBsc ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  const networkId = isBsc ? BSC_NETWORK_ID : 1;
   const privyAvailable = usePrivyAvailable();
   const { solanaAddress } = useAuth();
   const { allAddresses } = useMultiWallet();
@@ -339,7 +339,8 @@ export default function FunTokenDetailPage() {
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart' | 'info'>('chart');
 
   const isBsc = isEvmAddress(mintAddress || '');
-  const networkId = isBsc ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  // EVM-only: BNB (56) for BSC tokens, Ethereum (1) otherwise
+  const networkId = isBsc ? BSC_NETWORK_ID : 1;
   const activePrice = isBsc ? bnbPrice : solPrice;
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');

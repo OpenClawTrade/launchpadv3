@@ -138,7 +138,7 @@ async function fetchBars(params: {
 
 export function useCodexChart(
   tokenAddress: string,
-  networkId = 1399811149
+  networkId = 1 // Ethereum mainnet (use 56 for BNB Chain)
 ) {
   const [resolution, setResolution] = useState<Resolution>("15");
   const [chartType, setChartType] = useState<ChartType>("candlestick");
