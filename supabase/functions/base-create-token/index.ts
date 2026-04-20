@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
 
     // Step 1: Compile ERC20 contract
     console.log("[Deploy] Step 1: Compiling ERC20 contract...");
-    const { abi, bytecode } = await compileERC20();
+    const { abi, bytecode } = compileERC20();
 
     // Step 2: Deploy the token contract
     console.log("[Deploy] Step 2: Deploying token contract...");
