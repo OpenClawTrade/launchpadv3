@@ -4167,6 +4167,63 @@ export type Database = {
           },
         ]
       }
+      eth_creator_fee_ledger: {
+        Row: {
+          chain_id: number
+          created_at: string
+          creator_paid_token: number
+          creator_paid_weth: number
+          creator_share_token: number
+          creator_share_weth: number
+          creator_wallet: string
+          id: string
+          last_claim_at: string | null
+          last_claim_tx: string | null
+          last_collect_at: string | null
+          lp_token_id: number
+          token_address: string
+          total_collected_token: number
+          total_collected_weth: number
+          updated_at: string
+        }
+        Insert: {
+          chain_id?: number
+          created_at?: string
+          creator_paid_token?: number
+          creator_paid_weth?: number
+          creator_share_token?: number
+          creator_share_weth?: number
+          creator_wallet: string
+          id?: string
+          last_claim_at?: string | null
+          last_claim_tx?: string | null
+          last_collect_at?: string | null
+          lp_token_id: number
+          token_address: string
+          total_collected_token?: number
+          total_collected_weth?: number
+          updated_at?: string
+        }
+        Update: {
+          chain_id?: number
+          created_at?: string
+          creator_paid_token?: number
+          creator_paid_weth?: number
+          creator_share_token?: number
+          creator_share_weth?: number
+          creator_wallet?: string
+          id?: string
+          last_claim_at?: string | null
+          last_claim_tx?: string | null
+          last_collect_at?: string | null
+          lp_token_id?: number
+          token_address?: string
+          total_collected_token?: number
+          total_collected_weth?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       eth_launch_requests: {
         Row: {
           burn_lp: boolean
@@ -4245,6 +4302,54 @@ export type Database = {
           updated_at?: string
           user_tax_bps?: number
           website_url?: string | null
+        }
+        Relationships: []
+      }
+      eth_lp_positions: {
+        Row: {
+          chain_id: number
+          created_at: string
+          creator_wallet: string
+          fee_tier: number
+          id: string
+          lp_token_id: number
+          platform_owner: string
+          pool_address: string
+          sqrt_price_x96: string | null
+          tick_lower: number
+          tick_upper: number
+          token_address: string
+          updated_at: string
+        }
+        Insert: {
+          chain_id?: number
+          created_at?: string
+          creator_wallet: string
+          fee_tier?: number
+          id?: string
+          lp_token_id: number
+          platform_owner: string
+          pool_address: string
+          sqrt_price_x96?: string | null
+          tick_lower: number
+          tick_upper: number
+          token_address: string
+          updated_at?: string
+        }
+        Update: {
+          chain_id?: number
+          created_at?: string
+          creator_wallet?: string
+          fee_tier?: number
+          id?: string
+          lp_token_id?: number
+          platform_owner?: string
+          pool_address?: string
+          sqrt_price_x96?: string | null
+          tick_lower?: number
+          tick_upper?: number
+          token_address?: string
+          updated_at?: string
         }
         Relationships: []
       }
