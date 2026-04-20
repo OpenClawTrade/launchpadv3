@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type SupportedChain = 'solana' | 'base' | 'ethereum' | 'bnb' | 'bitcoin';
+export type SupportedChain = 'ethereum' | 'bnb';
 
 export interface ChainConfig {
   id: SupportedChain;
@@ -15,26 +15,6 @@ export interface ChainConfig {
 }
 
 export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
-  solana: {
-    id: 'solana',
-    name: 'Solana',
-    shortName: 'SOL',
-    icon: '◎',
-    nativeCurrency: { symbol: 'SOL', decimals: 9 },
-    explorerUrl: 'https://solscan.io',
-    isEnabled: true,
-  },
-  base: {
-    id: 'base',
-    name: 'Base',
-    shortName: 'BASE',
-    icon: '🔵',
-    nativeCurrency: { symbol: 'ETH', decimals: 18 },
-    explorerUrl: 'https://basescan.org',
-    chainId: 8453,
-    isEnabled: false, // Coming soon
-    rpcUrl: 'https://mainnet.base.org',
-  },
   ethereum: {
     id: 'ethereum',
     name: 'Ethereum',
@@ -43,7 +23,7 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     explorerUrl: 'https://etherscan.io',
     chainId: 1,
-    isEnabled: false, // Coming soon
+    isEnabled: true,
   },
   bnb: {
     id: 'bnb',
@@ -55,15 +35,6 @@ export const CHAIN_CONFIGS: Record<SupportedChain, ChainConfig> = {
     chainId: 56,
     isEnabled: true,
     rpcUrl: `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno'}.supabase.co/functions/v1/bsc-rpc`,
-  },
-  bitcoin: {
-    id: 'bitcoin',
-    name: 'Bitcoin',
-    shortName: 'BTC',
-    icon: '₿',
-    nativeCurrency: { symbol: 'BTC', decimals: 8 },
-    explorerUrl: 'https://mempool.space',
-    isEnabled: true,
   },
 };
 
@@ -88,17 +59,11 @@ export function ChainProvider({ children }: ChainProviderProps) {
   const [chain, setChainState] = useState<SupportedChain>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      const isBitcoinRoute = window.location.pathname.startsWith('/btc');
-
-      if (isBitcoinRoute) {
-        return 'bitcoin';
-      }
-
-      if (stored && stored in CHAIN_CONFIGS && stored !== 'bitcoin') {
+      if (stored && stored in CHAIN_CONFIGS) {
         return stored as SupportedChain;
       }
     }
-    return 'solana';
+    return 'ethereum';
   });
 
   const setChain = (newChain: SupportedChain) => {
@@ -108,8 +73,8 @@ export function ChainProvider({ children }: ChainProviderProps) {
 
   const chainConfig = CHAIN_CONFIGS[chain];
   const allChains = Object.values(CHAIN_CONFIGS);
-  const isEvmChain = chain !== 'solana' && chain !== 'bitcoin';
-  const isBtcChain = chain === 'bitcoin';
+  const isEvmChain = true;
+  const isBtcChain = false;
 
   return (
     <ChainContext.Provider value={{ chain, setChain, chainConfig, allChains, isEvmChain, isBtcChain }}>

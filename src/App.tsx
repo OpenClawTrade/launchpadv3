@@ -94,22 +94,6 @@ const SellAllPage = lazyWithRetry(() => import("./pages/SellAllPage"));
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 
 function RouteChainSync() {
-  const { pathname } = useLocation();
-  const { chain, setChain } = useChain();
-
-  React.useEffect(() => {
-    const isBitcoinRoute = pathname.startsWith('/btc');
-
-    if (isBitcoinRoute && chain !== 'bitcoin') {
-      setChain('bitcoin');
-      return;
-    }
-
-    if (!isBitcoinRoute && chain === 'bitcoin') {
-      setChain('bnb');
-    }
-  }, [pathname, chain, setChain]);
-
   return null;
 }
 
@@ -171,7 +155,9 @@ const App = () => (
                     <Route path="/terminal" element={<FunLauncherPage />} />
                     
                      {/* Chain-specific launch routes */}
-                     <Route path="/launch" element={<Navigate to="/launch/solana" replace />} />
+                     <Route path="/launch" element={<Navigate to="/launch/ethereum" replace />} />
+                     <Route path="/launch/solana" element={<Navigate to="/launch/ethereum" replace />} />
+                     <Route path="/launch/bitcoin" element={<Navigate to="/launch/ethereum" replace />} />
                      <Route path="/launch/:chain" element={<FunLauncherPage />} />
                     <Route path="/trade/:mintAddress" element={<FunTokenDetailPage />} />
                     <Route path="/launchpad/:mintAddress" element={<LaunchpadRedirect />} />
