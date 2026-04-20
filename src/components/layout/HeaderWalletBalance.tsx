@@ -89,30 +89,42 @@ function HeaderWalletBalanceInner() {
       let cancelled = false;
       setBalanceLoading(true);
 
+      const ETH_RPCS = [
+        "https://ethereum-rpc.publicnode.com",
+        "https://rpc.ankr.com/eth",
+        "https://cloudflare-eth.com",
+        "https://eth.drpc.org",
+        "https://eth.llamarpc.com",
+      ];
+
       const fetchEthBal = async () => {
-        try {
-          const res = await fetch("https://eth.llamarpc.com", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "eth_getBalance",
-              params: [evmAddress, "latest"],
-            }),
-          });
-          const json = await res.json();
-          if (json?.result) {
-            const wei = BigInt(json.result);
-            const eth = Number(wei) / 1e18;
-            if (!cancelled) { setBalance(eth); setBalanceLoading(false); }
-          } else if (!cancelled) {
-            setBalanceLoading(false);
+        for (const url of ETH_RPCS) {
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "eth_getBalance",
+                params: [evmAddress, "latest"],
+              }),
+            });
+            if (!res.ok) continue;
+            const text = await res.text();
+            let json: any;
+            try { json = JSON.parse(text); } catch { continue; }
+            if (json?.result) {
+              const wei = BigInt(json.result);
+              const eth = Number(wei) / 1e18;
+              if (!cancelled) { setBalance(eth); setBalanceLoading(false); }
+              return;
+            }
+          } catch {
+            // try next RPC
           }
-        } catch (e) {
-          console.warn("Header ETH balance fetch failed:", e);
-          if (!cancelled) setBalanceLoading(false);
         }
+        if (!cancelled) setBalanceLoading(false);
       };
 
       fetchEthBal();
