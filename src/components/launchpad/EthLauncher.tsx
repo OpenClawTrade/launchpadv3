@@ -530,6 +530,13 @@ export function EthLauncher() {
                 )}
               </div>
             )}
+
+            {/* Creator controls — appear once contract is on-chain */}
+            {deployedTokenAddress && (
+              <div className="mt-4">
+                <EthCreatorControls tokenAddress={deployedTokenAddress} />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
