@@ -12,7 +12,7 @@ import { ChainSwitcher } from "@/components/launchpad/ChainSwitcher";
 import { usePanelNav } from "@/hooks/usePanelNav";
 import { HeaderWalletBalance } from "./HeaderWalletBalance";
 import { useAuth } from "@/hooks/useAuth";
-import saturnLogo from "@/assets/saturn-logo.png";
+import popshibaLogo from "@/assets/popshiba-logo.png";
 import { BRAND } from "@/config/branding";
 import { useTokenSearch } from "@/hooks/useTokenSearch";
 import { GlobalSearchDropdown } from "@/components/search/GlobalSearchDropdown";
@@ -114,14 +114,10 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
   return (
     <>
       <header
-        className="fixed inset-x-0 top-0 z-50 flex items-center gap-3 px-3 md:sticky md:gap-4 lg:gap-5 md:px-5 lg:px-6"
+        className="fixed inset-x-0 top-0 z-50 flex items-center gap-3 px-3 md:sticky md:gap-4 lg:gap-5 md:px-5 lg:px-6 bg-pop-orange border-b-[3px] border-pop-ink"
         style={{
           height: "calc(56px + env(safe-area-inset-top, 0px))",
           paddingTop: "env(safe-area-inset-top, 0px)",
-          background: "hsl(0 0% 0% / 0.92)",
-          backdropFilter: "blur(20px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-          borderBottom: "1px solid hsl(84 81% 44% / 0.12)",
         }}
       >
         <div className="flex items-center gap-3 md:gap-4 lg:gap-5 w-full max-w-[1800px] mx-auto">
@@ -129,20 +125,26 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
           <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
             {/* Mobile hamburger */}
             <button
-              className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-card/40"
+              className="md:hidden flex items-center justify-center h-9 w-9 rounded-md text-pop-ink bg-pop-cream pop-border transition-transform duration-150 hover:-translate-y-[2px]"
               onClick={onMobileMenuOpen}
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-4 w-4" strokeWidth={2.5} />
             </button>
+
+            {/* PopShiba mark — visible on mobile */}
+            <Link to="/" className="md:hidden flex items-center gap-1.5">
+              <img src={popshibaLogo} alt="PopShiba" className="h-7 w-7" />
+              <span className="font-pop-display text-pop-ink text-sm uppercase">Pop</span>
+            </Link>
 
             {/* Chain switcher — glass pill style */}
             <div className="hidden sm:block flex-shrink-0">
               <ChainSwitcher />
             </div>
 
-            {/* Desktop search with dropdown */}
+            {/* Desktop search with dropdown — poster style */}
             <div className="hidden md:block relative z-[60] w-56 lg:w-72 xl:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground/60" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-pop-ink/60" />
               <input
                 type="text"
                 placeholder="Search token..."
@@ -150,13 +152,13 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 onFocus={() => { if (debouncedQuery.length >= 2) setShowDropdown(true); }}
-                className="w-full h-9 pl-9 pr-3 text-xs rounded-lg outline-none
-                           text-foreground placeholder-muted-foreground/50
-                           font-mono tracking-wide
-                           transition-all duration-300
-                           border border-border/30 bg-card/20 backdrop-blur-sm
-                           focus:border-primary/40 focus:ring-1 focus:ring-primary/20
-                           focus:bg-card/40 focus:shadow-[0_0_12px_hsl(84_81%_44%/0.08)]"
+                className="w-full h-9 pl-9 pr-3 text-xs rounded-md outline-none
+                           text-pop-ink placeholder-pop-ink/40
+                           font-pop-mono tracking-wide
+                           bg-pop-cream pop-border
+                           transition-all duration-150
+                           focus:-translate-y-[1px]
+                           focus:shadow-[3px_3px_0_0_hsl(var(--pop-ink))]"
               />
               {showDropdown && (
                 <div className="absolute left-0 top-full mt-2 w-[min(720px,calc(100vw-2rem))] z-[60]">
@@ -172,10 +174,10 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
             {/* Mobile search icon */}
             <button
-              className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200 hover:bg-card/40"
+              className="md:hidden flex items-center justify-center h-9 w-9 rounded-md text-pop-ink bg-pop-cream pop-border ml-auto transition-transform duration-150 hover:-translate-y-[2px]"
               onClick={() => setMobileSearchOpen(true)}
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-4 w-4" strokeWidth={2.5} />
             </button>
           </div>
 
@@ -191,25 +193,20 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
               {isBtcMode ? <BtcPriceDisplay /> : chain === 'bnb' ? <BnbPriceDisplay /> : <EthPriceDisplay />}
             </div>
 
-            {/* Social links — always shown */}
+            {/* Social link */}
             <a
               href="https://x.com/saturnterminal"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center h-9 w-9 rounded-lg transition-all duration-200
-                         text-muted-foreground/70 hover:text-foreground
-                         hover:bg-card/40 hover:scale-[1.03]"
+              className="hidden sm:flex items-center justify-center h-9 w-9 rounded-md bg-pop-cream pop-border text-pop-ink transition-transform duration-150 hover:-translate-y-[2px]"
             >
               <XIcon className="h-3.5 w-3.5" />
             </a>
 
             {isBtcMode ? (
-              /* ── BTC-specific header actions ── */
               <BtcWalletConnect />
             ) : (
-              /* ── Default Privy / Solana / EVM header actions ── */
               <>
-
                 {isAuthenticated && (
                   <div className="hidden sm:block">
                     <HeaderWalletBalance />
@@ -218,25 +215,23 @@ export function AppHeader({ onMobileMenuOpen }: TopBarProps) {
 
                 <button
                   onClick={handleLaunchAppClick}
-                  className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-bold
-                             transition-all duration-200
-                             border border-primary/30 text-primary
-                             bg-primary/5 backdrop-blur-sm
-                             hover:bg-primary/10 hover:border-primary/50 hover:scale-[1.03]
-                             hover:shadow-[0_0_16px_hsl(84_81%_44%/0.12)]
-                             cursor-pointer flex-shrink-0"
+                  className="hidden sm:flex items-center gap-1.5 h-9 px-3 rounded-md text-[11px] font-pop-display uppercase
+                             bg-pop-cream pop-border text-pop-ink
+                             transition-transform duration-150 hover:-translate-x-[1px] hover:-translate-y-[1px]
+                             hover:shadow-[3px_3px_0_0_hsl(var(--pop-ink))] cursor-pointer flex-shrink-0"
                 >
-                  <img src={saturnLogo} alt="" className="h-4 w-4 rounded-sm" />
-                  <span>{isAuthenticated ? 'Dashboard' : 'Launch App'}</span>
+                  <img src={popshibaLogo} alt="" className="h-4 w-4" />
+                  <span>{isAuthenticated ? 'Dashboard' : 'Launch'}</span>
                 </button>
 
                 <Link
                   to="/launchpad"
-                  className="flex items-center gap-1.5 h-9 px-3.5 sm:px-4 rounded-lg text-xs font-bold
-                             btn-gradient-green flex-shrink-0
-                             hover:shadow-[0_0_24px_hsl(72_100%_50%/0.3)]"
+                  className="flex items-center gap-1.5 h-9 px-3.5 sm:px-4 rounded-md text-[11px] font-pop-display uppercase
+                             bg-pop-ink text-pop-orange pop-border
+                             transition-transform duration-150 hover:-translate-x-[1px] hover:-translate-y-[1px]
+                             hover:shadow-[3px_3px_0_0_hsl(var(--pop-ink))] flex-shrink-0"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-3.5 w-3.5" strokeWidth={3} />
                   <span className="hidden sm:inline">Create</span>
                 </Link>
               </>
