@@ -166,7 +166,7 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
           functionName: "removeLiquidityETH",
           args: [tokenAddr, lpBalance, 0n, 0n, connected, deadline],
           chainId: mainnet.id,
-        });
+        } as any);
         setPendingHash(removeHash);
         toast.success("2/2 Remove LP tx sent", {
           description: "Tokens + ETH return to your wallet on confirmation.",
