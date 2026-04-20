@@ -37,6 +37,7 @@ import { PumpBadge } from "@/components/forum/PumpBadge";
 import { PhantomBadge } from "@/components/forum/PhantomBadge";
 import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 import { BRAND } from "@/config/branding";
+import { useTrackTokenView } from "@/hooks/useTokenViews";
 
 function isEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/i.test(addr);
