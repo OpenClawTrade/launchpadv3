@@ -50,12 +50,12 @@ interface UseFunTokensPaginatedResult {
   refetch: () => Promise<void>;
 }
 
-// Fetch a specific page of tokens with exact count
-async function fetchTokensPage(page: number, pageSize: number, chainFilter: "solana" | "bnb"): Promise<{ tokens: FunToken[]; count: number }> {
+// Ethereum-only: site is fully ETH mainnet now
+async function fetchTokensPage(page: number, pageSize: number, _chainFilter: "solana" | "bnb"): Promise<{ tokens: FunToken[]; count: number }> {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
+  const { data, count, error } = await supabase
     .from("fun_tokens")
     .select(`
       id, name, ticker, description, image_url, creator_wallet, twitter_url, website_url,
@@ -64,17 +64,10 @@ async function fetchTokensPage(page: number, pageSize: number, chainFilter: "sol
       total_fees_earned, holder_count, market_cap_sol, bonding_progress,
       trading_fee_bps, fee_mode, agent_id, launchpad_type, last_distribution_at, created_at, updated_at
     `, { count: "exact" })
+    .eq("chain", "ethereum")
     .neq("launchpad_type", "punch")
     .order("created_at", { ascending: false })
     .range(from, to);
-
-  if (chainFilter === "bnb") {
-    query = query.eq("chain", "bsc");
-  } else {
-    query = query.or("chain.is.null,chain.eq.solana");
-  }
-
-  const { data, count, error } = await query;
 
   if (error) throw error;
 
