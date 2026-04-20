@@ -191,7 +191,7 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
         abi: ERC20_ABI,
         functionName: "renounceOwnership",
         chainId: mainnet.id,
-      });
+      } as any);
       setPendingHash(hash);
       toast.info("🔒 Renounce tx sent", { description: "Waiting for confirmation…" });
     } catch (e) {
