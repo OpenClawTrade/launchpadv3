@@ -253,6 +253,10 @@ Deno.serve(async (req) => {
       .single();
     const launchId = launchRow?.id ?? null;
 
+    // ---- Fire-and-forget: return immediately, run deploy in background ----
+    // The full V3 launch takes 60-90s on mainnet which exceeds browser fetch
+    // timeouts. Frontend polls eth_launch_requests by launchId for status.
+    const deployTask = (async () => {
     // ---- 2. Compile + deploy ERC20 ----
     const { abi, bytecode } = compileERC20();
     const userDesc = (body.description?.trim() || "").slice(0, 500);
