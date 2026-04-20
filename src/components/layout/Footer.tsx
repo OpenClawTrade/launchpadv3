@@ -4,10 +4,10 @@ import popshibaLogo from "@/assets/popshiba-logo.png";
 export function Footer() {
   return (
     <footer className="bg-pop-ink text-pop-cream border-t-[3px] border-pop-orange">
-      <div className="max-w-[1440px] mx-auto px-7 pt-[60px] pb-[30px]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-12">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-7 pt-10 sm:pt-[60px] pb-6 sm:pb-[30px]">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-8 sm:gap-12">
           {/* Brand */}
-          <div>
+          <div className="col-span-2 md:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-3 mb-3.5">
               <span className="relative w-[38px] h-[38px] inline-block flex-shrink-0">
                 <span className="absolute inset-0 border border-pop-orange rounded-sm bg-[#f5e6c8] -rotate-6" />
@@ -58,7 +58,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="max-w-[1440px] mx-auto mt-10 pt-5 border-t border-dashed border-pop-orange/30 flex flex-wrap justify-between gap-3 font-pop-mono text-[11px] text-pop-cream/55">
+        <div className="mt-8 sm:mt-10 pt-5 border-t border-dashed border-pop-orange/30 flex flex-col sm:flex-row sm:flex-wrap justify-between gap-2 sm:gap-3 font-pop-mono text-[10px] sm:text-[11px] text-pop-cream/55">
           <span>© 2026 POPSHIBA · NOT FINANCIAL ADVICE · DYOR, DEGEN</span>
           <span>BUILT WITH BARK ON ETHEREUM</span>
         </div>

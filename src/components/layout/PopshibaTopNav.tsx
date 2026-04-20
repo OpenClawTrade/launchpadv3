@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Menu, X } from "lucide-react";
 import popshibaLogo from "@/assets/popshiba-logo.png";
 
 const NAV_LINKS = [
@@ -15,7 +17,7 @@ const NAV_LINKS = [
 /** Tilted brand frame: two stacked rotated squares with the logo on top. */
 function BrandFrame() {
   return (
-    <span className="relative inline-block w-[38px] h-[38px] flex-shrink-0">
+    <span className="relative inline-block w-[34px] h-[34px] sm:w-[38px] sm:h-[38px] flex-shrink-0">
       <span className="absolute inset-0 border border-pop-orange rounded-[2px] bg-[#f5e6c8] -rotate-[6deg] z-0" />
       <span className="absolute inset-0 border border-pop-orange rounded-[2px] bg-white rotate-[3deg] z-[1]" />
       <img
@@ -29,18 +31,29 @@ function BrandFrame() {
 
 export function PopshibaTopNav() {
   const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+
+  // Close menu on route change
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Lock body scroll when mobile menu open
+  useEffect(() => {
+    if (open) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   return (
     <header className="sticky top-0 z-[100] bg-pop-ink text-pop-cream border-b-[3px] border-pop-orange">
-      <div className="max-w-[1440px] mx-auto flex items-center gap-6 px-7 py-3 flex-wrap">
+      <div className="max-w-[1440px] mx-auto flex items-center gap-4 lg:gap-6 px-4 sm:px-6 lg:px-7 py-3">
         {/* Brand */}
-        <Link to="/" className="flex items-center gap-3 font-pop-display text-[18px] tracking-[-0.02em] text-pop-orange">
+        <Link to="/" className="flex items-center gap-2.5 sm:gap-3 font-pop-display text-[16px] sm:text-[18px] tracking-[-0.02em] text-pop-orange shrink-0">
           <BrandFrame />
-          POPSHIBA
+          <span>POPSHIBA</span>
         </Link>
 
-        {/* Links */}
-        <nav className="flex gap-5 text-[13px] font-bold flex-wrap">
+        {/* Desktop links */}
+        <nav className="hidden lg:flex gap-5 text-[13px] font-bold flex-wrap">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
             return (
@@ -62,22 +75,70 @@ export function PopshibaTopNav() {
           })}
         </nav>
 
-        {/* Right */}
-        <div className="ml-auto flex items-center gap-2.5">
+        {/* Right (desktop) */}
+        <div className="hidden md:flex ml-auto items-center gap-2.5">
           <Link
             to="/trade"
-            className="inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2.5 border-2 border-pop-cream text-pop-cream bg-transparent shadow-[3px_3px_0_hsl(var(--pop-orange))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-orange))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-orange))] transition-all"
+            className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-cream text-pop-cream bg-transparent shadow-[3px_3px_0_hsl(var(--pop-orange))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-orange))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-orange))] transition-all"
           >
             Launch app
           </Link>
           <Link
             to="/launch"
-            className="inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
+            className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
           >
             + Create
           </Link>
         </div>
+
+        {/* Mobile burger */}
+        <button
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="lg:hidden ml-auto inline-flex items-center justify-center w-10 h-10 border-2 border-pop-cream text-pop-cream"
+        >
+          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
       </div>
+
+      {/* Mobile drawer */}
+      {open && (
+        <div className="lg:hidden border-t-2 border-pop-orange bg-pop-ink max-h-[calc(100vh-64px)] overflow-y-auto">
+          <nav className="flex flex-col px-4 py-4 gap-1">
+            {NAV_LINKS.map((link) => {
+              const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`px-3 py-3 font-bold text-[15px] border-l-[3px] ${
+                    active
+                      ? "border-pop-orange text-pop-cream bg-pop-cream/5"
+                      : "border-transparent text-pop-cream/80"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+            <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-pop-cream/10">
+              <Link
+                to="/trade"
+                className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-cream text-pop-cream"
+              >
+                Launch app
+              </Link>
+              <Link
+                to="/launch"
+                className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-ink bg-pop-orange text-pop-ink"
+              >
+                + Create
+              </Link>
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
