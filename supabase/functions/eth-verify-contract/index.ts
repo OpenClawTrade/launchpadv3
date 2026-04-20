@@ -1,13 +1,19 @@
 // ============================================================================
 // eth-verify-contract
 //
-// Submits the SaturnEthV3Token source to Etherscan for verification (v2 API).
+// Submits the launchpad contract source to Etherscan for verification (v2 API).
+//
+// Supports BOTH contract generations:
+//   • Legacy: SaturnEthV3Token (launchedBy = "Saturn V3 Launchpad")
+//   • Current: PopShibaLaunchpad (launchedBy = "PopShiba.com")
+//
+// Detection: fetches the on-chain runtime bytecode and looks for the
+// PopShiba marker hex ("PopShiba.com" = 506f7053686962612e636f6d). If present
+// it submits the new source; otherwise falls back to the legacy Saturn source.
+//
 // Looks up the launch row in eth_launch_requests by tokenAddress (or launchId),
 // rebuilds the EXACT constructor args used by eth-create-token, and POSTs to
 // the Etherscan v2 verify endpoint.
-//
-// This is auto-invoked from eth-create-token right after the ERC-20 deploy
-// receipt is confirmed, and can also be called manually for older tokens.
 //
 // Required secret: ETHERSCAN_API_KEY
 // ============================================================================
@@ -21,7 +27,63 @@ const corsHeaders = {
 };
 
 // ⚠️ Must be byte-identical to ERC20_SOURCE in supabase/functions/eth-create-token/index.ts
-const ERC20_SOLIDITY_SOURCE = `// SPDX-License-Identifier: MIT
+const POPSHIBA_SOURCE = `// SPDX-License-Identifier: MIT
+// Launched via PopShiba.com Ethereum Launchpad
+pragma solidity ^0.8.20;
+
+contract PopShibaLaunchpad {
+    string public name;
+    string public symbol;
+    uint8  public constant decimals = 18;
+    uint256 public totalSupply;
+    string  public metadataURI;
+    string  public constant launchedBy = "PopShiba.com";
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    constructor(string memory _name, string memory _symbol, address _recipient, uint256 _supply, string memory _metadataURI) {
+        name = _name;
+        symbol = _symbol;
+        totalSupply = _supply;
+        metadataURI = _metadataURI;
+        balanceOf[_recipient] = _supply;
+        emit Transfer(address(0), _recipient, _supply);
+    }
+
+    function transfer(address to, uint256 value) external returns (bool) {
+        _transfer(msg.sender, to, value);
+        return true;
+    }
+    function approve(address spender, uint256 value) external returns (bool) {
+        allowance[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+        return true;
+    }
+    function transferFrom(address from, address to, uint256 value) external returns (bool) {
+        uint256 allowed = allowance[from][msg.sender];
+        require(allowed >= value, "ERC20: allowance");
+        if (allowed != type(uint256).max) {
+            unchecked { allowance[from][msg.sender] = allowed - value; }
+        }
+        _transfer(from, to, value);
+        return true;
+    }
+    function _transfer(address from, address to, uint256 value) internal {
+        require(balanceOf[from] >= value, "ERC20: balance");
+        unchecked {
+            balanceOf[from] -= value;
+            balanceOf[to]   += value;
+        }
+        emit Transfer(from, to, value);
+    }
+}`;
+
+// Legacy source for tokens deployed before the PopShiba rebrand.
+const SATURN_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
 pragma solidity ^0.8.20;
 
@@ -76,6 +138,9 @@ contract SaturnEthV3Token {
     }
 }`;
 
+// "PopShiba.com" as ASCII hex — present in PopShibaLaunchpad runtime bytecode.
+const POPSHIBA_MARKER_HEX = "506f7053686962612e636f6d";
+
 const TOTAL_SUPPLY_WEI = parseEther("1000000000");
 const ETHEREUM_CHAIN_ID = 1;
 
@@ -125,9 +190,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Detect contract generation by inspecting deployed bytecode ─────────
+    let isPopShiba = false;
+    try {
+      const codeResp = await fetch(
+        `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getCode&address=${tokenAddress}&tag=latest&apikey=${apiKey}`
+      );
+      const codeJson = await codeResp.json();
+      const runtimeCode: string = codeJson?.result || "";
+      isPopShiba = runtimeCode.toLowerCase().includes(POPSHIBA_MARKER_HEX);
+    } catch (e) {
+      console.warn("[eth-verify] eth_getCode failed, defaulting to PopShiba", e);
+      isPopShiba = true;
+    }
+
+    const ERC20_SOLIDITY_SOURCE = isPopShiba ? POPSHIBA_SOURCE : SATURN_SOURCE;
+    const contractFile = isPopShiba ? "PopShibaLaunchpad.sol" : "SaturnEthV3Token.sol";
+    const contractName = isPopShiba ? "PopShibaLaunchpad" : "SaturnEthV3Token";
+    const launchpadTag = isPopShiba ? "popshiba-eth-v1" : "saturn-eth-v3";
+
+    console.log(`[eth-verify] token=${tokenAddress} generation=${isPopShiba ? "PopShiba" : "Saturn"}`);
+
     // The platform deployer is the recipient (mints to platform, then LP-pulled into V3 pool).
-    // For verification, recipient = the deployer EOA that signed the deploy tx (from receipt.from).
-    // We don't store it explicitly; fetch from Etherscan tx detail of deploy_tx_hash.
     let recipient: `0x${string}` | null = null;
     if (launch.deploy_tx_hash) {
       try {
@@ -139,7 +223,6 @@ Deno.serve(async (req) => {
       } catch (_) { /* fall through */ }
     }
     if (!recipient) {
-      // Fallback to ETH_DEPLOYER_PUBLIC_ADDRESS env (set this for safety)
       const fallback = Deno.env.get("ETH_DEPLOYER_PUBLIC_ADDRESS");
       if (fallback) recipient = getAddress(fallback) as `0x${string}`;
     }
@@ -159,11 +242,10 @@ Deno.serve(async (req) => {
       website: launch.website_url ?? "",
       twitter: launch.twitter_url ?? "",
       telegram: launch.telegram_url ?? "",
-      launchpad: "saturn-eth-v3",
+      launchpad: launchpadTag,
       launchId: launch.id ?? "",
     });
 
-    // ABI-encode constructor args (string,string,address,uint256,string)
     const encodedArgs = encodeAbiParameters(
       [
         { type: "string" },
@@ -179,12 +261,11 @@ Deno.serve(async (req) => {
         TOTAL_SUPPLY_WEI,
         metadataURI,
       ] as any
-    ).slice(2); // strip 0x
+    ).slice(2);
 
-    // Standard JSON input matching the build settings used to produce contract.ts bytecode
     const standardJson = {
       language: "Solidity",
-      sources: { "SaturnEthV3Token.sol": { content: ERC20_SOLIDITY_SOURCE } },
+      sources: { [contractFile]: { content: ERC20_SOLIDITY_SOURCE } },
       settings: {
         optimizer: { enabled: true, runs: 200 },
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
@@ -199,7 +280,7 @@ Deno.serve(async (req) => {
     form.append("contractaddress", tokenAddress);
     form.append("sourceCode", JSON.stringify(standardJson));
     form.append("codeformat", "solidity-standard-json-input");
-    form.append("contractname", "SaturnEthV3Token.sol:SaturnEthV3Token");
+    form.append("contractname", `${contractFile}:${contractName}`);
     form.append("compilerversion", "v0.8.20+commit.a1b79de6");
     form.append("constructorArguements", encodedArgs);
 
