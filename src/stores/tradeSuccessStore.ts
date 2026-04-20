@@ -1,4 +1,33 @@
-import { create } from 'zustand';
+// Lightweight inline store (zustand-compatible API) — avoids extra dependency.
+type Listener<T> = (state: T) => void;
+function create<T extends object>(initializer: (set: (partial: Partial<T> | ((s: T) => Partial<T>)) => void, get: () => T) => T) {
+  let state: T;
+  const listeners = new Set<Listener<T>>();
+  const setState = (partial: Partial<T> | ((s: T) => Partial<T>)) => {
+    const next = typeof partial === 'function' ? (partial as (s: T) => Partial<T>)(state) : partial;
+    state = { ...state, ...next };
+    listeners.forEach((l) => l(state));
+  };
+  const getState = () => state;
+  state = initializer(setState, getState);
+  function useStore(): T;
+  function useStore<U>(selector: (s: T) => U): U;
+  function useStore<U>(selector?: (s: T) => U): T | U {
+    // Lazy import React to avoid a hard top-level dep cycle.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const React = require('react') as typeof import('react');
+    const [, force] = React.useReducer((x: number) => x + 1, 0);
+    React.useEffect(() => {
+      const l: Listener<T> = () => force();
+      listeners.add(l);
+      return () => { listeners.delete(l); };
+    }, []);
+    return selector ? selector(state) : state;
+  }
+  (useStore as any).getState = getState;
+  (useStore as any).setState = setState;
+  return useStore as typeof useStore & { getState: () => T; setState: typeof setState };
+}
 
 export interface TradeSuccessData {
   type: 'buy' | 'sell';
