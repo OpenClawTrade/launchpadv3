@@ -81,13 +81,12 @@ export default function TradePage() {
     localStorage.setItem(quickBuyStorageKey, String(amount));
   }, [quickBuyStorageKey]);
 
-  // On Solana, merge DB tokens; on BNB, only Codex tokens
+  // Ethereum-only: always merge DB tokens; Codex (Solana/BSC) is disabled
   const allTokens = useMemo(() => {
-    if (isBnb) return [];
     const tokenIds = new Set(tokens.map(t => t.id));
     const missingGraduated = graduatedTokens.filter(t => !tokenIds.has(t.id));
     return [...tokens, ...missingGraduated];
-  }, [tokens, graduatedTokens, isBnb]);
+  }, [tokens, graduatedTokens]);
 
   const mintAddresses = useMemo(() => allTokens.map(t => t.mint_address).filter(Boolean) as string[], [allTokens]);
   const { data: proTradersMap } = useProTradersCount(mintAddresses);
