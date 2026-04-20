@@ -37,8 +37,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const targetToken: string | undefined = body?.tokenAddress;
 
-    const PK = Deno.env.get("BASE_DEPLOYER_PRIVATE_KEY");
-    if (!PK) throw new Error("Missing platform deployer key");
+    // The LP NFT is owned by 0x8F70…6906, so collect() must be signed by that key.
+    const PK = Deno.env.get("ETH_LP_HOLDER_PRIVATE_KEY");
+    if (!PK) throw new Error("Missing ETH_LP_HOLDER_PRIVATE_KEY (LP NFT holder)");
     const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
     const account = privateKeyToAccount(PK.startsWith("0x") ? PK as `0x${string}` : `0x${PK}` as `0x${string}`);
     const wallet = createWalletClient({ account, chain: mainnet, transport: http(RPC) });
