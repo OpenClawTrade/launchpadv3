@@ -33,7 +33,7 @@ interface AxiomTerminalGridProps {
 const COLUMN_TABS = [
   { id: "new" as const, label: "New Pairs", icon: Rocket, color: "160 84% 39%" },
   { id: "final" as const, label: "Final Stretch", icon: Flame, color: "38 92% 50%" },
-  { id: "migrated" as const, label: "Migrated", icon: CheckCircle2, color: "220 90% 56%" },
+  { id: "migrated" as const, label: "Our Launchpad recent launched coins", icon: CheckCircle2, color: "220 90% 56%" },
 ];
 
 type ColumnTab = typeof COLUMN_TABS[number]["id"];
@@ -165,7 +165,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
   // Column labels adapt to chain
   const columnLabels = isBnb
     ? { new: "New BNB Pairs", final: "Final Stretch", migrated: "Top Liquidity" }
-    : { new: "New Pairs", final: "Final Stretch", migrated: "Migrated" };
+    : { new: "New Pairs", final: "Final Stretch", migrated: "Our Launchpad recent launched coins" };
 
   const columns = [
     { id: "new" as const, label: columnLabels.new, icon: Rocket, tokens: filteredNewPairs, codex: filteredCodexNew, color: COLUMN_TABS[0].color },
