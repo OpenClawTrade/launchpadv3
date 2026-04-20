@@ -99,9 +99,7 @@ export default function TradePage() {
     );
   }, [allTokens, search]);
 
-  const displayCount = isBnb
-    ? (codexNewPairs.length + codexCompleting.length + codexGraduated.length)
-    : totalCount;
+  const displayCount = totalCount;
 
   return (
     <LaunchpadLayout hideFooter noPadding>
