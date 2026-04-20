@@ -77,6 +77,22 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
   const identiconFallback = normalizedAddress
     ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(normalizedAddress)}`
     : null;
+  const cleanWebsite = token.websiteUrl?.trim() || null;
+  const websiteHostname = cleanWebsite
+    ? (() => {
+        try {
+          return new URL(cleanWebsite).hostname;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const websiteFaviconFallbacks = websiteHostname
+    ? [
+        `https://www.google.com/s2/favicons?domain=${encodeURIComponent(websiteHostname)}&sz=128`,
+        `https://icons.duckduckgo.com/ip3/${websiteHostname}.ico`,
+      ]
+    : [];
   const bscFallbackCandidates = isBnb && normalizedAddress
     ? [
         `https://tokens.1inch.io/56/${normalizedAddress}.png`,
@@ -86,6 +102,7 @@ export const CodexPairRow = memo(function CodexPairRow({ token, quickBuyAmount, 
 
   const imageFallbacks = [
     token.fallbackImageUrl,
+    ...websiteFaviconFallbacks,
     ...bscFallbackCandidates,
     identiconFallback,
   ].filter((url, index, arr): url is string => !!url && arr.indexOf(url) === index);

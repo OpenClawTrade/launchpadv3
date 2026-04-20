@@ -161,12 +161,28 @@ function TokenIcon({ pair, chain }: { pair: CodexPairToken; chain: PanelChain })
   const dexUrl = pair.address
     ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${pair.address}.png`
     : null;
+  const websiteHostname = pair.websiteUrl
+    ? (() => {
+        try {
+          return new URL(pair.websiteUrl).hostname;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+  const websiteFallbacks = websiteHostname
+    ? [
+        `https://www.google.com/s2/favicons?domain=${encodeURIComponent(websiteHostname)}&sz=128`,
+        `https://icons.duckduckgo.com/ip3/${websiteHostname}.ico`,
+      ]
+    : [];
 
   const srcs: string[] = [];
-  // Both ETH and BSC: prefer the curated image from the edge function (already address-bound),
-  // then fall back to dex screener and any provided fallback.
   if (pair.imageUrl && !pair.imageUrl.includes("dicebear.com")) srcs.push(pair.imageUrl);
   if (pair.fallbackImageUrl && !srcs.includes(pair.fallbackImageUrl)) srcs.push(pair.fallbackImageUrl);
+  for (const url of websiteFallbacks) {
+    if (!srcs.includes(url)) srcs.push(url);
+  }
   if (dexUrl && !srcs.includes(dexUrl)) srcs.push(dexUrl);
 
   if (stage >= srcs.length) {
