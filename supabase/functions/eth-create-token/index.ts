@@ -325,11 +325,25 @@ Deno.serve(async (req) => {
     // Compile ERC-20
     const { abi, bytecode } = await compileERC20();
 
+    // Build auto-formatted description block (embedded in metadataURI on-chain)
+    const userDesc = (body.description?.trim() || "").slice(0, 500);
+    const socialLines: string[] = [];
+    if (body.websiteUrl) socialLines.push(`Domain - ${body.websiteUrl}`);
+    if (body.twitterUrl) socialLines.push(`X - ${body.twitterUrl}`);
+    if (body.telegramUrl) socialLines.push(`Telegram - ${body.telegramUrl}`);
+    const formattedDescription = [
+      "Welcome to Saturn.Trade",
+      "",
+      "This token is safe to trade and was launched from Saturn Launchpad.",
+      ...(userDesc ? ["", userDesc] : []),
+      ...(socialLines.length ? ["", ...socialLines] : []),
+    ].join("\n");
+
     // Build metadata URI (compact JSON embedded as constructor arg)
     const metadataURI = JSON.stringify({
       name: body.name.trim(),
       symbol: body.ticker.trim().toUpperCase(),
-      description: body.description?.slice(0, 500) ?? "",
+      description: formattedDescription,
       image: body.imageUrl ?? "",
       website: body.websiteUrl ?? "",
       twitter: body.twitterUrl ?? "",
