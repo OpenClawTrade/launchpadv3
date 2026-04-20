@@ -2,9 +2,8 @@ import { useState, useCallback } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
-import { TokenLauncher } from "@/components/launchpad/TokenLauncher";
 import { BnbLauncher } from "@/components/launchpad/BnbLauncher";
-import { DevWalletRotationBanner } from "@/components/launchpad/DevWalletRotationBanner";
+import { EthLauncher } from "@/components/launchpad/EthLauncher";
 import { Rocket, ExternalLink, CheckCircle2, ArrowLeft, Shield, Zap, Coins, Copy, Check, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
@@ -31,6 +30,7 @@ export default function CreateTokenPage() {
   const navigate = useNavigate();
   const { chain } = useChain();
   const isBnb = chain === 'bnb';
+  const isEth = chain === 'ethereum' || (!isBnb);
 
   const handleReset = () => setLastResult(null);
   const handleLaunchSuccess = useCallback(() => {}, []);
@@ -73,7 +73,7 @@ export default function CreateTokenPage() {
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground leading-[1.1]">
                 Launch Your Token on{" "}
                 <span className="launch-hero-gradient-text">
-                  {isBnb ? "BNB Chain" : "Saturn"}
+                  {isBnb ? "BNB Chain" : "Ethereum"}
                 </span>
               </h1>
 
@@ -81,7 +81,7 @@ export default function CreateTokenPage() {
               <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
                 {isBnb
                   ? "Create BEP-20 tokens with SaturnPortal bonding curve — fair launch, auto PancakeSwap migration"
-                  : "Create fast, fair, AI-powered memecoins — atomic dev buy, zero frontrun, instant trading"}
+                  : "Deploy ERC-20 tokens with Uniswap V3 LP, custom tax, instant burn & renounce — LP refund guaranteed"}
               </p>
 
               {/* Trust badges */}
@@ -108,20 +108,20 @@ export default function CreateTokenPage() {
                 ) : (
                   <>
                     <span className="launch-trust-badge">
-                      <img src="/phantom-logo.png" alt="" className="w-3.5 h-3.5 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      Phantom
+                      <span className="text-sm">⟠</span>
+                      Ethereum
                     </span>
                     <span className="launch-trust-badge">
                       <Coins className="w-3 h-3 text-primary" />
-                      <span className="font-mono">~0.02 SOL</span>
+                      <span className="font-mono">ERC-20</span>
                     </span>
                     <span className="launch-trust-badge">
                       <Zap className="w-3 h-3 text-primary" />
-                      Bonding Curve
+                      Uniswap V3
                     </span>
                     <span className="launch-trust-badge">
                       <Shield className="w-3 h-3 text-success" />
-                      Anti-Snipe
+                      LP Burn + Renounce
                     </span>
                   </>
                 )}
@@ -137,30 +137,11 @@ export default function CreateTokenPage() {
             </div>
           </div>
 
-          {!isBnb && !lastResult?.success && (
-            <div className="relative z-10 max-w-[640px] mx-auto px-4 pb-4">
-              <DevWalletRotationBanner />
-            </div>
-          )}
-
           {/* Main content: form */}
           <div className="relative z-10 max-w-[640px] mx-auto px-4">
-            {isBnb ? (
-              <div className="launch-page-form-container rounded-2xl p-6 md:p-8">
-                <BnbLauncher />
-              </div>
-            ) : lastResult?.success && lastResult.mintAddress ? (
-              <SuccessResult result={lastResult} onReset={handleReset} />
-            ) : (
-              <div className="launch-page-form-container rounded-2xl p-6 md:p-8">
-                <TokenLauncher
-                  bare
-                  defaultMode="phantom"
-                  onLaunchSuccess={handleLaunchSuccess}
-                  onShowResult={(result) => setLastResult(result as LaunchResult)}
-                />
-              </div>
-            )}
+            <div className="launch-page-form-container rounded-2xl p-6 md:p-8">
+              {isBnb ? <BnbLauncher /> : <EthLauncher />}
+            </div>
           </div>
 
           {/* Bottom spacer */}

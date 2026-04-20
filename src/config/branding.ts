@@ -12,8 +12,8 @@ export const BRAND = {
   // ── Core Identity ──
   name: "Saturn",
   shortName: "Saturn",
-  tagline: "The fastest trading terminal on Solana",
-  description: "Autonomous AI agents that launch tokens and trade on Solana.",
+  tagline: "The fastest launchpad on Ethereum & BNB Chain.",
+  description: "Launch ERC-20 and BEP-20 tokens with one click — fair launches, custom taxes, instant LP burn & contract renounce.",
 
   // ── Domain & URLs ──
   domain: "saturn.trade",
