@@ -81,13 +81,12 @@ export default function TradePage() {
     localStorage.setItem(quickBuyStorageKey, String(amount));
   }, [quickBuyStorageKey]);
 
-  // On Solana, merge DB tokens; on BNB, only Codex tokens
+  // Ethereum-only: always merge DB tokens; Codex (Solana/BSC) is disabled
   const allTokens = useMemo(() => {
-    if (isBnb) return [];
     const tokenIds = new Set(tokens.map(t => t.id));
     const missingGraduated = graduatedTokens.filter(t => !tokenIds.has(t.id));
     return [...tokens, ...missingGraduated];
-  }, [tokens, graduatedTokens, isBnb]);
+  }, [tokens, graduatedTokens]);
 
   const mintAddresses = useMemo(() => allTokens.map(t => t.mint_address).filter(Boolean) as string[], [allTokens]);
   const { data: proTradersMap } = useProTradersCount(mintAddresses);
@@ -100,9 +99,7 @@ export default function TradePage() {
     );
   }, [allTokens, search]);
 
-  const displayCount = isBnb
-    ? (codexNewPairs.length + codexCompleting.length + codexGraduated.length)
-    : totalCount;
+  const displayCount = totalCount;
 
   return (
     <LaunchpadLayout hideFooter noPadding>
@@ -153,10 +150,10 @@ export default function TradePage() {
         <AxiomTerminalGrid
           tokens={filtered}
           solPrice={activePrice}
-          isLoading={isBnb ? false : isLoading}
-          codexNewPairs={codexNewPairs}
-          codexCompleting={codexCompleting}
-          codexGraduated={codexGraduated}
+          isLoading={isLoading}
+          codexNewPairs={[]}
+          codexCompleting={[]}
+          codexGraduated={[]}
           quickBuyAmount={quickBuyAmount}
           onQuickBuyChange={handleQuickBuySet}
           proTradersMap={proTradersMap ?? {}}

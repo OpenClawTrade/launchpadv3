@@ -59,6 +59,8 @@ async function fetchCodexTokens(column: "new" | "completing" | "completed", limi
 }
 
 export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
+  // Ethereum-only: Codex integration only supports Solana/BSC. Disabled to stop wasted API calls.
+  const isSupported = networkId === SOLANA_NETWORK_ID || networkId === BSC_NETWORK_ID;
   const isBsc = networkId === BSC_NETWORK_ID;
   const newLimit = isBsc ? 100 : 50;
   const completingLimit = isBsc ? 50 : 30;
@@ -69,6 +71,7 @@ export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
     queryFn: () => fetchCodexTokens("new", newLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    enabled: isSupported && false, // hard-disabled: ETH-only site
   });
 
   const completingQuery = useQuery({
@@ -76,6 +79,7 @@ export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
     queryFn: () => fetchCodexTokens("completing", completingLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    enabled: isSupported && false,
   });
 
   const completedQuery = useQuery({
@@ -83,6 +87,7 @@ export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
     queryFn: () => fetchCodexTokens("completed", completedLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
+    enabled: isSupported && false,
   });
 
   const recentNewPairs = useMemo(() => {
