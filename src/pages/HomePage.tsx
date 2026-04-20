@@ -173,7 +173,7 @@ export default function HomePage() {
   }, [codexNewPairs, codexCompleting, codexGraduated]);
 
   return (
-    <LaunchpadLayout hideFooter noPadding>
+    <LaunchpadLayout noPadding>
       <div className="bg-pop-ink min-h-screen font-pop-body">
 
         {/* ═══ POSTER HERO ═══ */}
