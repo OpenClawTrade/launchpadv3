@@ -423,49 +423,29 @@ export function EthLauncher() {
               </Button>
             )}
 
-            {/* Deployment status */}
-            {deployTxHash && (
-              <div className="text-xs space-y-1 p-3 bg-secondary/30 rounded-lg border border-border/50">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Deploy tx</span>
-                  <a
-                    href={`https://etherscan.io/tx/${deployTxHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    {deployTxHash.slice(0, 10)}…{deployTxHash.slice(-6)}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                {deployedTokenAddress && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Token</span>
-                    <a
-                      href={`https://etherscan.io/address/${deployedTokenAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-emerald-400 hover:underline inline-flex items-center gap-1"
-                    >
-                      {deployedTokenAddress.slice(0, 8)}…{deployedTokenAddress.slice(-6)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
-                {poolAddress && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">V3 Pool (1%)</span>
-                    <a
-                      href={`https://app.uniswap.org/explore/pools/ethereum/${poolAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-primary hover:underline inline-flex items-center gap-1"
-                    >
-                      {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
+            {/* Step-by-step launch progress (with CA reveal at the end) */}
+            <EthLaunchProgress
+              isLaunching={isLaunching}
+              hasDevBuy={formData.devBuyEth > 0}
+              tokenAddress={deployedTokenAddress}
+              deployTxHash={deployTxHash}
+              isLive={isLive}
+              errorMessage={launchError}
+            />
+
+            {/* Pool link (kept as a small extra once we have it) */}
+            {poolAddress && (
+              <div className="text-xs flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/50">
+                <span className="text-muted-foreground">V3 Pool (1%)</span>
+                <a
+                  href={`https://app.uniswap.org/explore/pools/ethereum/${poolAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
             )}
 
