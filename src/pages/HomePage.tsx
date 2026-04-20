@@ -26,7 +26,7 @@ import { useChain } from "@/contexts/ChainContext";
 const AlphaSection = lazy(() => import("@/components/home/AlphaSection"));
 const XTrackerSection = lazy(() => import("@/components/home/XTrackerSection"));
 const LeverageSection = lazy(() => import("@/components/home/LeverageSection"));
-const TradingAgentsShowcase = lazy(() => import("@/components/home/TradingAgentsShowcase"));
+
 
 /* ── Premium Pulse Token Card ── */
 function PulseTokenRow({ token }: { token: CodexPairToken }) {
