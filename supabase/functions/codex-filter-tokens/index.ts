@@ -257,8 +257,8 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
       case "completed":
-        // Established ETH pairs with healthy liquidity + volume.
-        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} } }`;
+        // ETH "Migrated" = pairs <30d old with healthy liquidity + volume.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} }, createdAt: { gte: ${ethCompletedCutoff} } }`;
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
     }
