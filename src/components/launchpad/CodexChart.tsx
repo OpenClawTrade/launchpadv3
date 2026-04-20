@@ -27,7 +27,7 @@ interface CodexChartProps {
 
 export function CodexChart({
   tokenAddress,
-  networkId = 1399811149,
+  networkId = 1, // Ethereum mainnet default (pass 56 for BNB Chain)
   height = 520,
 }: CodexChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
