@@ -1,26 +1,39 @@
 import { Link } from "react-router-dom";
-import { Zap, Shield, ArrowUpRight, CircleDot, Rocket } from "lucide-react";
+import { Rocket } from "lucide-react";
 
 const FEATURES = [
-  { icon: Zap, label: "Fastest Execution" },
-  { icon: Shield, label: "Secure Trading" },
-  { icon: ArrowUpRight, label: "Referral System" },
-  { icon: CircleDot, label: "Agents Staking" },
+  { glyph: "⚡", label: "Fastest execution" },
+  { glyph: "🛡", label: "Secure trading" },
+  { glyph: "↗", label: "Referral system" },
+  { glyph: "◎", label: "Agents staking" },
 ];
 
 const TRENDING = [
-  { sym: "PUNK", chg: "+1500%" },
-  { sym: "LAIKA", chg: "+113%" },
-  { sym: "UNC", chg: "+62%" },
-  { sym: "GENESIS", chg: "+24%" },
-  { sym: "WOOF", chg: "+9%" },
+  { sym: "PUNK", chg: "+1500%", color: "#7c5cff" },
+  { sym: "LAIKA", chg: "+113%", color: "#4ea65f" },
+  { sym: "UNC", chg: "+62%", color: "#2d65c9" },
+  { sym: "GENESIS", chg: "+24%", color: "#c94d4d" },
+  { sym: "WOOF", chg: "+9%", color: "#e8891a" },
 ];
 
-/** Wireframe label like `[ HERO / H1 ]` overlaid on a dashed outline. */
-function WireFrame({ label, children }: { label: string; children: React.ReactNode }) {
+/** Wireframe label like `[ HERO / H1 ]`. */
+function WireFrame({
+  label,
+  labelColor,
+  className = "",
+  children,
+}: {
+  label: string;
+  labelColor?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative outline outline-[1.5px] outline-dashed outline-pop-ink/35 -outline-offset-[1.5px] p-4 sm:p-6 lg:p-10">
-      <span className="absolute -top-2.5 left-3 font-pop-mono text-[9px] tracking-[0.15em] uppercase text-pop-ink/55 bg-pop-orange px-1.5">
+    <div className={`relative outline outline-[1.5px] outline-dashed outline-pop-ink/35 -outline-offset-[1.5px] ${className}`}>
+      <span
+        className="absolute -top-2.5 left-3 font-pop-mono text-[9px] tracking-[0.15em] uppercase bg-pop-orange px-1.5 z-[2] pointer-events-none"
+        style={{ color: labelColor || "rgba(14,11,8,0.55)" }}
+      >
         {label}
       </span>
       {children}
@@ -28,192 +41,195 @@ function WireFrame({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-/** Dark terminal mockup — POPSHIBA.TERM with chart + buy/sell footer. */
+/** Big terminal mockup with full candle SVG + y/x axis labels. */
 function TerminalMockup() {
   return (
-    <div className="bg-[#171310] border-2 border-pop-ink shadow-[6px_6px_0_hsl(var(--pop-orange))] text-pop-cream font-pop-mono w-full max-w-[560px]">
-      {/* title bar */}
-      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b border-[#2b2218] bg-[#231c16]">
-        <span className="flex gap-1.5 shrink-0">
-          <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
-          <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
-          <span className="w-2.5 h-2.5 bg-[#3a1f14] border border-[#5c3a2a]" />
-        </span>
-        <span className="text-[10px] sm:text-[11px] tracking-[0.08em] text-pop-cream/85 truncate">
+    <WireFrame
+      label="[ live terminal ]"
+      labelColor="rgba(245,165,36,0.7)"
+      className="bg-pop-ink text-pop-cream font-pop-mono w-full max-w-[560px] mx-auto lg:mx-0 shadow-[6px_6px_0_hsl(var(--pop-cream)),6px_6px_0_2px_hsl(var(--pop-ink))]"
+    >
+      {/* head */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-[#2b2218] bg-[#231c16]">
+        <span className="w-2.5 h-2.5 bg-pop-orange border border-pop-ink" />
+        <span className="w-2.5 h-2.5 bg-pop-orange border border-pop-ink" />
+        <span className="w-2.5 h-2.5 bg-pop-orange border border-pop-ink" />
+        <span className="ml-3 text-[10px] tracking-[0.1em] text-[#a49a8a] truncate">
           POPSHIBA.TERM / $POPSHIBA
         </span>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-[#5ce68e] shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#5ce68e] animate-pulse" /> LIVE
-        </span>
+        <span className="ml-auto text-[10px] text-[#5ce68e] shrink-0">● LIVE</span>
       </div>
 
-      {/* header strip */}
-      <div className="flex items-start justify-between gap-2 px-4 sm:px-5 pt-4">
-        <div className="min-w-0">
-          <div className="text-pop-orange text-[13px] sm:text-[15px] font-bold leading-tight truncate">
-            $POPSHIBA / WETH
+      {/* chart area */}
+      <div className="relative px-4 sm:px-5 pt-4 pb-3.5 bg-pop-ink">
+        {/* overview */}
+        <div className="flex items-start justify-between gap-2 mb-2 text-[11px]">
+          <div className="min-w-0">
+            <div className="font-pop-display text-[13px] sm:text-[14px] text-pop-orange tracking-[0.03em] truncate">
+              $POPSHIBA / WETH
+            </div>
+            <div className="text-[10px] text-[#a49a8a] tracking-[0.08em] mt-0.5">UNISWAP V3 · ETH</div>
           </div>
-          <div className="text-[10px] tracking-[0.1em] text-pop-cream/55 mt-1">
-            UNISWAP V3 · ETH
+          <div className="text-right shrink-0">
+            <div className="font-pop-display text-[18px] sm:text-[22px] text-pop-cream tracking-[-0.02em] leading-none whitespace-nowrap">
+              $0.00042 <span className="text-[#5ce68e] font-bold ml-1.5 text-[14px] sm:text-[16px]">+142.8%</span>
+            </div>
+            <div className="text-[10px] text-[#a49a8a] tracking-[0.08em] mt-1">MC $4.2M · LP $820K</div>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <div className="text-pop-cream text-[16px] sm:text-[20px] font-bold leading-none whitespace-nowrap">
-            $0.00042 <span className="text-[#5ce68e] text-[12px] sm:text-[14px] ml-1">+142.8%</span>
-          </div>
-          <div className="text-[10px] text-pop-cream/55 mt-1">
-            MC $4.2M · LP $820K
-          </div>
-        </div>
-      </div>
 
-      {/* chart placeholder — pseudo candlesticks */}
-      <div className="relative h-[160px] sm:h-[200px] mx-4 sm:mx-5 my-4 border-t border-b border-dashed border-[#2b2218]">
-        <svg viewBox="0 0 360 180" className="w-full h-full" preserveAspectRatio="none">
-          {/* horizontal grid */}
-          {[40, 80, 120, 160].map((y) => (
-            <line key={y} x1="0" y1={y} x2="360" y2={y} stroke="#2b2218" strokeWidth="1" strokeDasharray="3,3" />
-          ))}
-          {/* candles — ascending */}
+        {/* y-axis labels */}
+        <div className="absolute right-4 sm:right-5 top-[78px] bottom-9 flex flex-col justify-between text-right font-pop-mono text-[9px] text-[rgba(245,165,36,0.35)] pointer-events-none">
+          <span>0.00048</span>
+          <span>0.00044</span>
+          <span>0.00040</span>
+          <span>0.00036</span>
+        </div>
+
+        {/* candles */}
+        <svg viewBox="0 0 400 140" preserveAspectRatio="none" className="w-full h-[180px] sm:h-[240px] lg:h-[280px] block">
+          <g stroke="rgba(245,165,36,0.12)" strokeDasharray="3,4">
+            <line x1="0" y1="35" x2="400" y2="35" />
+            <line x1="0" y1="70" x2="400" y2="70" />
+            <line x1="0" y1="105" x2="400" y2="105" />
+          </g>
           {[
-            [10, 130, 145, 120, 110],
-            [30, 120, 140, 115, 105],
-            [50, 110, 125, 105, 95],
-            [70, 105, 120, 100, 90],
-            [90, 100, 115, 95, 88],
-            [110, 95, 110, 90, 80],
-            [130, 88, 100, 85, 75],
-            [150, 80, 95, 78, 70],
-            [170, 75, 88, 72, 65],
-            [190, 68, 80, 65, 58],
-            [210, 60, 72, 58, 50],
-            [230, 55, 68, 50, 45],
-            [250, 50, 60, 45, 38],
-            [270, 45, 55, 40, 32],
-            [290, 38, 50, 35, 28],
-            [310, 32, 45, 30, 25],
-            [330, 28, 40, 25, 20],
-            [350, 22, 35, 20, 15],
-          ].map(([x, o, h, c, l], i) => {
-            const top = Math.min(o, c);
-            const height = Math.abs(o - c) || 2;
-            return (
-              <g key={i}>
-                <line x1={x} y1={l} x2={x} y2={h} stroke="#f5a524" strokeWidth="1" />
-                <rect x={x - 4} y={top} width="8" height={height} fill="#f5a524" />
-              </g>
-            );
-          })}
-          {/* price labels */}
-          <text x="350" y="44" textAnchor="end" fill="#a49a8a" fontSize="9" fontFamily="monospace">0.00048</text>
-          <text x="350" y="124" textAnchor="end" fill="#a49a8a" fontSize="9" fontFamily="monospace">0.00040</text>
+            [10,100,20,92,125,"#f5a524"],
+            [28,92,16,85,115,"#f5a524"],
+            [46,96,10,90,110,"#b8781a"],
+            [64,80,22,72,108,"#f5a524"],
+            [82,72,14,66,92,"#f5a524"],
+            [100,78,8,72,90,"#b8781a"],
+            [118,60,20,54,86,"#f5a524"],
+            [136,52,12,46,70,"#f5a524"],
+            [154,56,8,52,68,"#b8781a"],
+            [172,40,20,34,64,"#f5a524"],
+            [190,32,12,26,50,"#f5a524"],
+            [208,36,8,30,48,"#b8781a"],
+            [226,22,18,16,44,"#f5a524"],
+            [244,16,12,10,32,"#f5a524"],
+            [262,20,8,14,32,"#b8781a"],
+            [280,12,12,6,28,"#f5a524"],
+            [298,18,10,12,32,"#b8781a"],
+            [316,8,14,4,26,"#f5a524"],
+            [334,4,10,0,18,"#f5a524"],
+            [352,14,8,8,24,"#b8781a"],
+            [370,6,12,0,22,"#f5a524"],
+          ].map(([x, y, h, wickT, wickB, c], i) => (
+            <g key={i}>
+              <rect x={x as number} y={y as number} width="8" height={h as number} fill={c as string} />
+              <line x1={(x as number) + 4} y1={wickT as number} x2={(x as number) + 4} y2={wickB as number} stroke={c as string} />
+            </g>
+          ))}
         </svg>
-        <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-pop-cream/45 px-1">
+
+        {/* x-axis */}
+        <div className="flex justify-between mt-2 px-0.5 font-pop-mono text-[9px] text-[rgba(245,165,36,0.35)] tracking-[0.05em]">
           <span>09:00</span><span>11:00</span><span>13:00</span><span>15:00</span><span>17:00</span><span>NOW</span>
         </div>
       </div>
 
-      {/* action footer */}
-      <div className="grid grid-cols-2 gap-1.5 p-3 bg-[#0e0b08] border-t border-[#2b2218]">
-        <button className="bg-[#5ce68e] text-pop-ink py-2.5 font-bold text-[11px] tracking-[0.12em] hover:bg-[#4dd17e] transition-colors">
+      {/* buy row */}
+      <div className="grid grid-cols-2 gap-1.5 p-2.5 bg-[#231c16] border-t border-[#2b2218]">
+        <button className="font-pop-mono text-[11px] py-2.5 border-2 font-bold tracking-[0.08em] bg-[#5ce68e] text-pop-ink border-[#5ce68e] shadow-[2px_2px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-transform">
           SNIPE BUY
         </button>
-        <button className="bg-[#e8605a] text-pop-cream py-2.5 font-bold text-[11px] tracking-[0.12em] hover:bg-[#d4554f] transition-colors">
+        <button className="font-pop-mono text-[11px] py-2.5 border-2 font-bold tracking-[0.08em] bg-[#e8605a] text-pop-cream border-[#e8605a] shadow-[2px_2px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] transition-transform">
           SELL ALL
         </button>
       </div>
-    </div>
+    </WireFrame>
   );
 }
 
 export function PopshibaHero() {
   return (
-    <section className="relative bg-pop-orange text-pop-ink overflow-hidden">
-      {/* dotted pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.18] pointer-events-none"
-        style={{
-          backgroundImage: "radial-gradient(circle, hsl(var(--pop-ink)) 1px, transparent 1px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
+    <section className="relative bg-pop-orange text-pop-ink border-b-[3px] border-pop-ink overflow-hidden">
+      <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] gap-8 lg:gap-12 items-center">
+          {/* LEFT — wire-framed centered hero */}
+          <WireFrame label="[ hero / h1 ]" className="text-center px-5 sm:px-8 lg:px-12 py-8 sm:py-10">
+            {/* kicker */}
+            <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-3 py-1.5 mb-5 sm:mb-6 max-w-full">
+              <span className="w-2 h-2 rounded-full bg-pop-orange shadow-[0_0_10px_hsl(var(--pop-orange))] animate-pulse shrink-0" />
+              <span className="font-pop-mono text-[9px] sm:text-[11px] tracking-[0.16em] sm:tracking-[0.2em] uppercase truncate">
+                The loudest barking launchpad · trading terminal
+              </span>
+            </div>
 
-      <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-7 py-8 sm:py-12 lg:py-16">
-        <WireFrame label="[ hero / h1 ]">
-          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-8 sm:gap-10 lg:gap-12 items-center">
-            {/* LEFT */}
-            <div className="min-w-0">
-              {/* eyebrow pill */}
-              <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-3 sm:px-4 py-1.5 sm:py-2 rounded-full mb-5 sm:mb-7 max-w-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-pop-orange shrink-0" />
-                <span className="font-pop-mono text-[9px] sm:text-[10px] tracking-[0.14em] sm:tracking-[0.18em] uppercase truncate">
-                  The loudest barking launchpad · trading terminal
-                </span>
-              </div>
+            {/* POPSHIBA wordmark with cream highlight */}
+            <h1
+              className="font-pop-display text-pop-ink leading-[0.86] tracking-[-0.045em] mb-4 sm:mb-5 whitespace-nowrap"
+              style={{ fontSize: "clamp(48px, 9vw, 112px)" }}
+            >
+              POP
+              <span className="relative inline-block">
+                <span className="relative z-10">SHIBA</span>
+                <span
+                  className="absolute left-0 right-0 bottom-[8px] h-[10px] sm:h-[12px] bg-pop-cream -z-0"
+                  aria-hidden
+                />
+              </span>
+            </h1>
 
-              {/* POPSHIBA wordmark */}
-              <h1 className="font-pop-display text-pop-ink leading-[0.88] tracking-[-0.04em] text-[3.25rem] xs:text-[4rem] sm:text-[6rem] md:text-[7rem] lg:text-[8.5rem] mb-5 sm:mb-6 break-words">
-                POPSHIBA
-              </h1>
+            {/* lede */}
+            <p className="text-[14px] sm:text-[17px] lg:text-[18px] leading-snug text-[#3a1f14] max-w-[560px] mx-auto mb-6 sm:mb-7 font-medium">
+              Fastest Ethereum trading terminal. Next-generation launchpad. One interface. Zero limits.
+            </p>
 
-              {/* subhead */}
-              <p className="text-pop-ink/85 text-[14px] sm:text-[16px] md:text-[18px] max-w-[520px] mb-6 sm:mb-8 leading-snug">
-                Fastest Ethereum trading terminal. Next-generation launchpad. One interface. Zero limits.
-              </p>
+            {/* CTAs */}
+            <div className="flex justify-center gap-3 flex-wrap mb-7">
+              <Link
+                to="/trade"
+                className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-pop-orange border-2 border-pop-ink text-pop-ink font-bold text-[13px] sm:text-[15px] shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
+              >
+                ◆ Open Terminal →
+              </Link>
+              <Link
+                to="/launch"
+                className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 bg-pop-ink text-pop-cream border-2 border-pop-ink font-bold text-[13px] sm:text-[15px] shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
+              >
+                <Rocket className="w-4 h-4" /> Launch Token
+              </Link>
+            </div>
 
-              {/* CTAs */}
-              <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap mb-6 sm:mb-8">
-                <Link
-                  to="/trade"
-                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-3.5 bg-transparent border-2 border-pop-ink text-pop-ink font-bold text-[13px] sm:text-[14px] shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
-                >
-                  ◆ Open Terminal →
-                </Link>
-                <Link
-                  to="/launch"
-                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-3.5 bg-pop-ink text-pop-cream border-2 border-pop-ink font-bold text-[13px] sm:text-[14px] shadow-[3px_3px_0_hsl(var(--pop-cream))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-cream))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-cream))] transition-all"
-                >
-                  <Rocket className="w-4 h-4" /> Launch Token
-                </Link>
-              </div>
-
-              {/* feature strip */}
-              <div className="flex items-center gap-x-6 gap-y-2 flex-wrap mb-6">
-                {FEATURES.map((f) => (
-                  <span key={f.label} className="inline-flex items-center gap-2">
-                    <span className="w-7 h-7 bg-pop-ink text-pop-orange flex items-center justify-center">
-                      <f.icon className="w-3.5 h-3.5" strokeWidth={2.5} />
-                    </span>
-                    <span className="font-pop-mono text-[10px] tracking-[0.14em] uppercase font-bold">
-                      {f.label}
-                    </span>
+            {/* feature chips */}
+            <div className="flex justify-center gap-x-4 sm:gap-x-5 gap-y-2 flex-wrap mb-6 sm:mb-7">
+              {FEATURES.map((f) => (
+                <span key={f.label} className="inline-flex items-center gap-2 font-pop-mono text-[10px] sm:text-[11px] uppercase tracking-[0.08em] font-semibold text-pop-ink">
+                  <span className="inline-flex w-5 h-5 items-center justify-center bg-pop-ink text-pop-orange font-pop-display text-[11px]">
+                    {f.glyph}
                   </span>
-                ))}
-              </div>
-
-              {/* trending pills */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center px-3 py-1.5 bg-pop-ink text-pop-cream font-pop-mono text-[10px] tracking-[0.14em] uppercase font-bold border-2 border-pop-ink">
-                  Trending
+                  {f.label}
                 </span>
-                {TRENDING.map((t) => (
+              ))}
+            </div>
+
+            {/* trending */}
+            <div className="flex items-center justify-center gap-2 flex-wrap font-pop-mono text-[10px] sm:text-[11px]">
+              <span className="bg-pop-ink text-pop-cream px-2.5 py-1.5 tracking-[0.15em] font-bold">
+                TRENDING
+              </span>
+              {TRENDING.map((t) => (
+                <span
+                  key={t.sym}
+                  className="inline-flex items-center gap-1.5 bg-pop-cream border-2 border-pop-ink px-2.5 py-1 shadow-[2px_2px_0_hsl(var(--pop-ink))] font-bold text-pop-ink"
+                >
                   <span
-                    key={t.sym}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-pop-cream border-2 border-pop-ink font-pop-mono text-[10px] tracking-[0.1em] uppercase font-bold shadow-[2px_2px_0_hsl(var(--pop-ink))]"
-                  >
-                    <span className="text-pop-ink">{t.sym}</span>
-                    <span className="text-[#1a8a4a]">{t.chg}</span>
-                  </span>
-                ))}
-              </div>
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ background: t.color }}
+                  />
+                  {t.sym} <span className="text-[#0b8a3a]">{t.chg}</span>
+                </span>
+              ))}
             </div>
+          </WireFrame>
 
-            {/* RIGHT — terminal mockup */}
-            <div className="flex justify-center lg:justify-end">
-              <TerminalMockup />
-            </div>
+          {/* RIGHT — terminal */}
+          <div className="min-w-0">
+            <TerminalMockup />
           </div>
-        </WireFrame>
+        </div>
       </div>
     </section>
   );
