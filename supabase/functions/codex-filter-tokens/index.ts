@@ -44,7 +44,7 @@ const ETH_EXCLUDED_SYMBOLS = new Set([
   "YFI", "BAT", "ZRX", "KNC", "REN", "BNT", "OMG", "LRC", "MANA", "SAND",
   "AXS", "APE", "BLUR", "ARB", "OP", "STRK", "PENDLE", "ETHFI", "EIGEN",
   "MORPHO", "AERO", "VELO", "JOE", "QI", "ALCX", "OHM", "TRIBE", "FEI",
-  "GRT", "LINK", "SHIB", "PEPE", // (PEPE is meme — keep removed below)
+  "GRT", "LINK",
 ]);
 const ETH_EXCLUDED_ADDRESSES = new Set([
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
