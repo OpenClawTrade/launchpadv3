@@ -96,6 +96,8 @@ export function EthLauncher() {
     setDeployedTokenAddress(null);
     setDeployTxHash(null);
     setPoolAddress(null);
+    setLaunchError(null);
+    setIsLive(false);
 
     try {
       toast.info('🛠 Deploying on Ethereum mainnet…', {
