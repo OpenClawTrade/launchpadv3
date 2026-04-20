@@ -458,28 +458,16 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Toggles */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  <div>
-                    <Label className="text-sm">Burn LP forever</Label>
-                    <p className="text-[10px] text-muted-foreground">Sends LP NFT to dead address — locked permanently</p>
-                  </div>
-                </div>
-                <Switch checked={formData.burnLp} onCheckedChange={(v) => handleInputChange('burnLp', v)} />
-              </div>
-              <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-green-500" />
-                  <div>
-                    <Label className="text-sm">Renounce contract</Label>
-                    <p className="text-[10px] text-muted-foreground">Removes ownership immediately after deploy</p>
-                  </div>
-                </div>
-                <Switch checked={formData.renounce} onCheckedChange={(v) => handleInputChange('renounce', v)} />
-              </div>
+            {/* Manual post-launch note (replaces auto burn/renounce toggles) */}
+            <div className="flex items-start gap-2 p-3 bg-secondary/30 rounded-lg border border-border/50">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                After deploy, LP is seeded automatically. You'll get
+                <strong className="text-foreground"> Burn LP</strong>,
+                <strong className="text-foreground"> Remove LP</strong> and
+                <strong className="text-foreground"> Renounce</strong> buttons in the
+                creator panel — choose what to do, when you want.
+              </p>
             </div>
 
             {/* LP Refund Notice */}
