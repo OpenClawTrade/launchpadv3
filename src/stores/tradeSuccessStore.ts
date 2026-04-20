@@ -1,4 +1,6 @@
 // Lightweight inline store (zustand-compatible API) — avoids extra dependency.
+import { useReducer, useEffect } from 'react';
+
 type Listener<T> = (state: T) => void;
 function create<T extends object>(initializer: (set: (partial: Partial<T> | ((s: T) => Partial<T>)) => void, get: () => T) => T) {
   let state: T;
@@ -13,11 +15,8 @@ function create<T extends object>(initializer: (set: (partial: Partial<T> | ((s:
   function useStore(): T;
   function useStore<U>(selector: (s: T) => U): U;
   function useStore<U>(selector?: (s: T) => U): T | U {
-    // Lazy import React to avoid a hard top-level dep cycle.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const React = require('react') as typeof import('react');
-    const [, force] = React.useReducer((x: number) => x + 1, 0);
-    React.useEffect(() => {
+    const [, force] = useReducer((x: number) => x + 1, 0);
+    useEffect(() => {
       const l: Listener<T> = () => force();
       listeners.add(l);
       return () => { listeners.delete(l); };
