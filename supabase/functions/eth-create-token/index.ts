@@ -438,7 +438,7 @@ Deno.serve(async (req) => {
       mintTxHash: mintHash,
       devBuyTxHash,
       feeTier: FEE_TIER,
-      platformOwner: platformDeployer,
+      platformOwner: lpHolder,
       creatorWallet,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
