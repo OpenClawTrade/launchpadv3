@@ -1,9 +1,13 @@
 // ============================================================================
 // eth-verify-contract
 //
-// Submits the SaturnEthToken source to Etherscan for verification (multi-chain v2 API).
-// Looks up the launch row in eth_launch_requests by tokenAddress, reconstructs the
-// constructor args from stored fields, and POSTs to the Etherscan v2 verify endpoint.
+// Submits the SaturnEthV3Token source to Etherscan for verification (v2 API).
+// Looks up the launch row in eth_launch_requests by tokenAddress (or launchId),
+// rebuilds the EXACT constructor args used by eth-create-token, and POSTs to
+// the Etherscan v2 verify endpoint.
+//
+// This is auto-invoked from eth-create-token right after the ERC-20 deploy
+// receipt is confirmed, and can also be called manually for older tokens.
 //
 // Required secret: ETHERSCAN_API_KEY
 // ============================================================================
@@ -16,140 +20,62 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Must match exactly the source compiled by eth-create-token
+// ⚠️ Must be byte-identical to ERC20_SOURCE in supabase/functions/eth-create-token/index.ts
 const ERC20_SOLIDITY_SOURCE = `// SPDX-License-Identifier: MIT
-// Launched via Saturn Ethereum Launchpad — https://saturn.trade
+// Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
 pragma solidity ^0.8.20;
 
-contract SaturnEthToken {
+contract SaturnEthV3Token {
     string public name;
     string public symbol;
     uint8  public constant decimals = 18;
     uint256 public totalSupply;
-
     string  public metadataURI;
-    string  public constant launchedBy = "Saturn Launchpad (Ethereum)";
-    address public immutable platformTaxWallet;
-    address public immutable creatorTaxWallet;
-    uint16  public immutable userTaxBps;
-    uint16  public immutable platformTaxBps;
-    address public owner;
+    string  public constant launchedBy = "Saturn V3 Launchpad";
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
-    mapping(address => bool) public isTaxExempt;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
-    }
-
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _recipient,
-        uint256 _supply,
-        uint16  _userTaxBps,
-        uint16  _platformTaxBps,
-        address _platformTaxWallet,
-        address _creatorTaxWallet,
-        string memory _metadataURI
-    ) {
-        require(_userTaxBps <= 300, "user tax > 3%");
-        require(_platformTaxBps == 100, "platform tax must be 1%");
-        require(_platformTaxWallet != address(0), "platform wallet zero");
-        require(_creatorTaxWallet != address(0), "creator wallet zero");
-
+    constructor(string memory _name, string memory _symbol, address _recipient, uint256 _supply, string memory _metadataURI) {
         name = _name;
         symbol = _symbol;
         totalSupply = _supply;
+        metadataURI = _metadataURI;
         balanceOf[_recipient] = _supply;
         emit Transfer(address(0), _recipient, _supply);
-
-        userTaxBps = _userTaxBps;
-        platformTaxBps = _platformTaxBps;
-        platformTaxWallet = _platformTaxWallet;
-        creatorTaxWallet = _creatorTaxWallet;
-        metadataURI = _metadataURI;
-
-        owner = _recipient;
-        emit OwnershipTransferred(address(0), _recipient);
-
-        isTaxExempt[_recipient] = true;
-        isTaxExempt[_platformTaxWallet] = true;
-        isTaxExempt[_creatorTaxWallet] = true;
-    }
-
-    function setTaxExempt(address account, bool exempt) external onlyOwner {
-        isTaxExempt[account] = exempt;
-    }
-
-    function renounceOwnership() external onlyOwner {
-        emit OwnershipTransferred(owner, address(0));
-        owner = address(0);
-    }
-
-    function _transfer(address from, address to, uint256 value) internal {
-        require(balanceOf[from] >= value, "ERC20: insufficient balance");
-
-        uint256 sendAmount = value;
-
-        if (!isTaxExempt[from] && !isTaxExempt[to]) {
-            uint256 totalTaxBps = uint256(userTaxBps) + uint256(platformTaxBps);
-            if (totalTaxBps > 0) {
-                uint256 platformCut = (value * platformTaxBps) / 10000;
-                uint256 creatorCut  = (value * userTaxBps) / 10000;
-                uint256 totalTax    = platformCut + creatorCut;
-                sendAmount = value - totalTax;
-
-                unchecked {
-                    balanceOf[from] -= totalTax;
-                    if (platformCut > 0) {
-                        balanceOf[platformTaxWallet] += platformCut;
-                        emit Transfer(from, platformTaxWallet, platformCut);
-                    }
-                    if (creatorCut > 0) {
-                        balanceOf[creatorTaxWallet] += creatorCut;
-                        emit Transfer(from, creatorTaxWallet, creatorCut);
-                    }
-                }
-            }
-        }
-
-        unchecked {
-            balanceOf[from] -= sendAmount;
-            balanceOf[to]   += sendAmount;
-        }
-        emit Transfer(from, to, sendAmount);
     }
 
     function transfer(address to, uint256 value) external returns (bool) {
         _transfer(msg.sender, to, value);
         return true;
     }
-
     function approve(address spender, uint256 value) external returns (bool) {
         allowance[msg.sender][spender] = value;
         emit Approval(msg.sender, spender, value);
         return true;
     }
-
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
         uint256 allowed = allowance[from][msg.sender];
-        require(allowed >= value, "ERC20: insufficient allowance");
+        require(allowed >= value, "ERC20: allowance");
         if (allowed != type(uint256).max) {
             unchecked { allowance[from][msg.sender] = allowed - value; }
         }
         _transfer(from, to, value);
         return true;
     }
+    function _transfer(address from, address to, uint256 value) internal {
+        require(balanceOf[from] >= value, "ERC20: balance");
+        unchecked {
+            balanceOf[from] -= value;
+            balanceOf[to]   += value;
+        }
+        emit Transfer(from, to, value);
+    }
 }`;
 
-const PLATFORM_TAX_WALLET_DEFAULT = "0x000000000000000000000000000000000000dEaD";
 const TOTAL_SUPPLY_WEI = parseEther("1000000000");
 const ETHEREUM_CHAIN_ID = 1;
 
@@ -187,83 +113,84 @@ Deno.serve(async (req) => {
       const { data } = await supabase
         .from("eth_launch_requests")
         .select("*")
+        .ilike("token_address", tokenAddress)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       launch = data;
     }
     if (!launch) {
-      return new Response(JSON.stringify({ success: false, error: "Launch row not found" }), {
+      return new Response(JSON.stringify({ success: false, error: "Launch row not found for token" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const platformTaxWallet = (Deno.env.get("ETH_PLATFORM_TAX_WALLET") || PLATFORM_TAX_WALLET_DEFAULT) as `0x${string}`;
-    const creatorTaxWallet = getAddress(launch.creator_wallet) as `0x${string}`;
+    // The platform deployer is the recipient (mints to platform, then LP-pulled into V3 pool).
+    // For verification, recipient = the deployer EOA that signed the deploy tx (from receipt.from).
+    // We don't store it explicitly; fetch from Etherscan tx detail of deploy_tx_hash.
+    let recipient: `0x${string}` | null = null;
+    if (launch.deploy_tx_hash) {
+      try {
+        const txResp = await fetch(
+          `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getTransactionByHash&txhash=${launch.deploy_tx_hash}&apikey=${apiKey}`
+        );
+        const txJson = await txResp.json();
+        if (txJson?.result?.from) recipient = getAddress(txJson.result.from) as `0x${string}`;
+      } catch (_) { /* fall through */ }
+    }
+    if (!recipient) {
+      // Fallback to ETH_DEPLOYER_PUBLIC_ADDRESS env (set this for safety)
+      const fallback = Deno.env.get("ETH_DEPLOYER_PUBLIC_ADDRESS");
+      if (fallback) recipient = getAddress(fallback) as `0x${string}`;
+    }
+    if (!recipient) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Could not determine deploy recipient (deploy_tx_hash missing & ETH_DEPLOYER_PUBLIC_ADDRESS unset)",
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-    // Rebuild description block exactly as eth-create-token did
-    const userDesc = (launch.description?.trim() || "").slice(0, 500);
-    const socialLines: string[] = [];
-    if (launch.website_url) socialLines.push(`Domain - ${launch.website_url}`);
-    if (launch.twitter_url) socialLines.push(`X - ${launch.twitter_url}`);
-    if (launch.telegram_url) socialLines.push(`Telegram - ${launch.telegram_url}`);
-    const formattedDescription = [
-      "Welcome to Saturn.Trade",
-      "",
-      "This token is safe to trade and was launched from Saturn Launchpad.",
-      ...(userDesc ? ["", userDesc] : []),
-      ...(socialLines.length ? ["", ...socialLines] : []),
-    ].join("\n");
-
+    // Rebuild metadataURI EXACTLY as eth-create-token does
     const metadataURI = JSON.stringify({
       name: launch.token_name,
       symbol: launch.token_ticker,
-      description: formattedDescription,
+      description: (launch.description?.trim() || "").slice(0, 500),
       image: launch.image_url ?? "",
       website: launch.website_url ?? "",
       twitter: launch.twitter_url ?? "",
       telegram: launch.telegram_url ?? "",
-      launchpad: "saturn-eth-v1",
-      launchId: launch.id,
+      launchpad: "saturn-eth-v3",
+      launchId: launch.id ?? "",
     });
 
-    // ABI-encode constructor args (without function selector)
+    // ABI-encode constructor args (string,string,address,uint256,string)
     const encodedArgs = encodeAbiParameters(
       [
         { type: "string" },
         { type: "string" },
         { type: "address" },
         { type: "uint256" },
-        { type: "uint16" },
-        { type: "uint16" },
-        { type: "address" },
-        { type: "address" },
         { type: "string" },
       ],
       [
         launch.token_name,
         launch.token_ticker,
-        creatorTaxWallet,
+        recipient,
         TOTAL_SUPPLY_WEI,
-        Number(launch.user_tax_bps),
-        Number(launch.platform_tax_bps),
-        platformTaxWallet,
-        creatorTaxWallet,
         metadataURI,
       ] as any
     ).slice(2); // strip 0x
 
-    // Build standard JSON input for verification
+    // Standard JSON input matching the build settings used to produce contract.ts bytecode
     const standardJson = {
       language: "Solidity",
-      sources: { "SaturnEthToken.sol": { content: ERC20_SOLIDITY_SOURCE } },
+      sources: { "SaturnEthV3Token.sol": { content: ERC20_SOLIDITY_SOURCE } },
       settings: {
         optimizer: { enabled: true, runs: 200 },
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
     };
 
-    // Etherscan v2 multichain verify endpoint
     const verifyUrl = `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}`;
     const form = new URLSearchParams();
     form.append("apikey", apiKey);
@@ -272,7 +199,7 @@ Deno.serve(async (req) => {
     form.append("contractaddress", tokenAddress);
     form.append("sourceCode", JSON.stringify(standardJson));
     form.append("codeformat", "solidity-standard-json-input");
-    form.append("contractname", "SaturnEthToken.sol:SaturnEthToken");
+    form.append("contractname", "SaturnEthV3Token.sol:SaturnEthV3Token");
     form.append("compilerversion", "v0.8.20+commit.a1b79de6");
     form.append("constructorArguements", encodedArgs);
 
@@ -281,14 +208,13 @@ Deno.serve(async (req) => {
     console.log("[eth-verify] response", result);
 
     if (result.status !== "1") {
-      // Often "Already Verified" — treat as success
       const msg = String(result.result || result.message || "Unknown");
       if (/already verified/i.test(msg)) {
         return new Response(JSON.stringify({ success: true, alreadyVerified: true }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ success: false, error: msg }), {
+      return new Response(JSON.stringify({ success: false, error: msg, raw: result }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
