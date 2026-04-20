@@ -136,9 +136,12 @@ const POPSHIBA_MARKER_HEX = "506f7053686962612e636f6d";
 const TOTAL_SUPPLY_WEI = parseEther("1000000000");
 const ETHEREUM_CHAIN_ID = 1;
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 // Helper: wait for Etherscan to index the contract bytecode
 async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, maxRetries = 20): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
+    if (i > 0) await delay(6000); // respect rate limit (max 3/sec on free tier)
     try {
       const resp = await fetch(
         `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getCode&address=${tokenAddress}&tag=latest&apikey=${apiKey}`
@@ -151,7 +154,6 @@ async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, ma
       }
     } catch (_) { /* retry */ }
     console.log(`[eth-verify] waiting for indexing... attempt ${i + 1}/${maxRetries}`);
-    await new Promise((r) => setTimeout(r, 5000)); // 5s between checks
   }
   return false;
 }
