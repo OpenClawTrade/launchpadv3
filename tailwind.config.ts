@@ -24,6 +24,9 @@ export default {
       fontFamily: {
         sans: ['IBM Plex Mono', 'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
         mono: ['IBM Plex Mono', 'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+        'pop-display': ['Archivo Black', 'Inter', 'sans-serif'],
+        'pop-body': ['Space Grotesk', 'Inter', 'sans-serif'],
+        'pop-mono': ['JetBrains Mono', 'IBM Plex Mono', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -109,6 +112,17 @@ export default {
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+        },
+        // Popshiba poster palette
+        pop: {
+          orange: "hsl(var(--pop-orange))",
+          "orange-deep": "hsl(var(--pop-orange-deep))",
+          cream: "hsl(var(--pop-cream))",
+          "cream-soft": "hsl(var(--pop-cream-soft))",
+          ink: "hsl(var(--pop-ink))",
+          "ink-soft": "hsl(var(--pop-ink-soft))",
+          mint: "hsl(var(--pop-mint))",
+          pink: "hsl(var(--pop-pink))",
         },
       },
       borderRadius: {

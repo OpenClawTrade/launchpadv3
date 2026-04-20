@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -168,7 +168,39 @@
     /* Accent colors */
     --accent-purple: 72 100% 50%;
     --accent-cyan: 72 80% 42%;
+
+    /* ─────────────  POPSHIBA POSTER PALETTE  ───────────── */
+    --pop-orange: 36 90% 55%;       /* #f5a524 */
+    --pop-orange-deep: 24 92% 50%;  /* deeper orange for shadows */
+    --pop-cream: 41 100% 93%;       /* #fff4dc */
+    --pop-cream-soft: 41 70% 88%;
+    --pop-ink: 28 17% 5%;           /* #0e0b08 near-black */
+    --pop-ink-soft: 28 12% 12%;
+    --pop-line: 28 17% 5%;          /* hard borders use ink */
+    --pop-mint: 150 60% 70%;
+    --pop-pink: 340 85% 70%;
   }
+}
+
+/* Popshiba poster utilities */
+@layer utilities {
+  .font-pop-display { font-family: 'Archivo Black', 'Inter', sans-serif; letter-spacing: -0.02em; }
+  .font-pop-body    { font-family: 'Space Grotesk', 'Inter', sans-serif; }
+  .font-pop-mono    { font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace; }
+
+  .pop-border    { border: 2px solid hsl(var(--pop-ink)); }
+  .pop-border-cream { border: 2px solid hsl(var(--pop-cream)); }
+  .pop-shadow    { box-shadow: 6px 6px 0 0 hsl(var(--pop-ink)); }
+  .pop-shadow-sm { box-shadow: 4px 4px 0 0 hsl(var(--pop-ink)); }
+  .pop-shadow-cream { box-shadow: 6px 6px 0 0 hsl(var(--pop-cream)); }
+
+  .bg-pop-orange { background-color: hsl(var(--pop-orange)); }
+  .bg-pop-cream  { background-color: hsl(var(--pop-cream)); }
+  .bg-pop-ink    { background-color: hsl(var(--pop-ink)); }
+  .text-pop-ink    { color: hsl(var(--pop-ink)); }
+  .text-pop-cream  { color: hsl(var(--pop-cream)); }
+  .text-pop-orange { color: hsl(var(--pop-orange)); }
+  .border-pop-ink  { border-color: hsl(var(--pop-ink)); }
 }
 
 @layer base {
