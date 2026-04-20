@@ -122,6 +122,33 @@ export default function PanelMyLaunchesTab() {
     },
   });
 
+  // ETH launches — keyed by EVM wallet address (case-insensitive)
+  const evmAddress = user?.wallet?.address;
+  const { data: ethTokens = [] } = useQuery({
+    queryKey: ["my-eth-launches", evmAddress],
+    enabled: !!evmAddress,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("eth_launch_requests")
+        .select("id, token_name, token_ticker, token_address, image_url, status, created_at")
+        .ilike("creator_wallet", evmAddress!)
+        .in("status", ["live", "deploying", "deployed"])
+        .order("created_at", { ascending: false });
+
+      return ((data || []) as any[]).map((r) => ({
+        id: r.id,
+        name: r.token_name,
+        ticker: r.token_ticker,
+        mint_address: r.token_address,
+        image_url: r.image_url,
+        status: r.status,
+        total_fees_earned: 0,
+        total_fees_claimed: 0,
+        created_at: r.created_at,
+      })) as LaunchedToken[];
+    },
+  });
+
   // Check claim status for each token via the edge function
   const { data: claimStatus } = useQuery({
     queryKey: ["claim-status", twitterUsername],
@@ -202,7 +229,7 @@ export default function PanelMyLaunchesTab() {
     }
   };
 
-  const allTokens = [...tokens, ...clawTokens];
+  const allTokens = [...tokens, ...clawTokens, ...ethTokens];
   const totalEarned = allTokens.reduce((s, t) => s + (t.total_fees_earned || 0) * CREATOR_SHARE, 0);
   const totalClaimed = claimStatus?.totalClaimed || allTokens.reduce((s, t) => s + (t.total_fees_claimed || 0), 0);
   const totalUnclaimed = claimStatus?.pendingAmount ?? Math.max(0, totalEarned - totalClaimed);
@@ -213,7 +240,7 @@ export default function PanelMyLaunchesTab() {
     return earned > 0;
   });
 
-  if (!twitterUsername) {
+  if (!twitterUsername && ethTokens.length === 0) {
     return (
       <div className="space-y-6 max-w-2xl mx-auto pb-8">
         <div className="text-center py-10">
