@@ -88,7 +88,7 @@ function formatUsdCompact(v: number) {
    EXTERNAL TOKEN VIEW (tokens not in our DB)
    ──────────────────────────────────────────────────────── */
 function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number; isBsc?: boolean }) {
-  const networkId = isBsc ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  const networkId = isBsc ? BSC_NETWORK_ID : 1;
   const privyAvailable = usePrivyAvailable();
   const { solanaAddress } = useAuth();
   const { allAddresses } = useMultiWallet();
