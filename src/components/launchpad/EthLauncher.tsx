@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Info, ExternalLink } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Info, ExternalLink, Upload, X } from 'lucide-react';
 import { EthCreatorControls } from './EthCreatorControls';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
@@ -31,6 +31,38 @@ export function EthLauncher() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [customDevBuy, setCustomDevBuy] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('0');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be smaller than 5 MB');
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('token-images')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from('token-images').getPublicUrl(path);
+      setFormData(prev => ({ ...prev, imageUrl: data.publicUrl }));
+      toast.success('Image uploaded');
+    } catch (e) {
+      console.error('Image upload error:', e);
+      toast.error('Upload failed', {
+        description: e instanceof Error ? e.message : 'Unknown error',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
@@ -163,17 +195,62 @@ export function EthLauncher() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="eth-imageUrl" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
-                Image URL
+                Token Image
               </Label>
-              <Input
-                id="eth-imageUrl"
-                placeholder="https://..."
-                value={formData.imageUrl}
-                onChange={(e) => handleInputChange('imageUrl', e.target.value)}
-                className="bg-background/50"
-              />
+              {formData.imageUrl ? (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-background/50 border border-border/50">
+                  <img
+                    src={formData.imageUrl}
+                    alt="Token preview"
+                    className="w-16 h-16 rounded-lg object-cover ring-1 ring-border"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground truncate">Uploaded</p>
+                    <p className="text-[10px] font-mono text-muted-foreground/60 truncate">{formData.imageUrl}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleInputChange('imageUrl', '')}
+                    className="shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <label
+                  htmlFor="eth-image-file"
+                  className={`flex flex-col items-center justify-center gap-2 h-28 rounded-lg border-2 border-dashed border-border/60 bg-background/30 cursor-pointer transition-colors hover:border-primary/60 hover:bg-background/50 ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="text-xs text-muted-foreground">Uploading…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        Click to upload <span className="text-foreground font-medium">PNG, JPG, GIF</span> · max 5 MB
+                      </span>
+                    </>
+                  )}
+                  <input
+                    id="eth-image-file"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleImageUpload(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
