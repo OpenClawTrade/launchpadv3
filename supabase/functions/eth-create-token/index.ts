@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
       website: body.websiteUrl ?? "",
       twitter: body.twitterUrl ?? "",
       telegram: body.telegramUrl ?? "",
-      launchpad: "saturn-eth-v3",
+      launchpad: "popshiba-eth-v1",
       launchId: launchId ?? "",
     });
     const deployData = encodeDeployData({
