@@ -9513,6 +9513,54 @@ export type Database = {
           },
         ]
       }
+      token_view_events: {
+        Row: {
+          created_at: string
+          id: string
+          token_address: string
+          viewed_on: string
+          visitor_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          token_address: string
+          viewed_on?: string
+          visitor_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          token_address?: string
+          viewed_on?: string
+          visitor_hash?: string
+        }
+        Relationships: []
+      }
+      token_views: {
+        Row: {
+          created_at: string
+          last_viewed_at: string
+          token_address: string
+          unique_count: number
+          view_count: number
+        }
+        Insert: {
+          created_at?: string
+          last_viewed_at?: string
+          token_address: string
+          unique_count?: number
+          view_count?: number
+        }
+        Update: {
+          created_at?: string
+          last_viewed_at?: string
+          token_address?: string
+          unique_count?: number
+          view_count?: number
+        }
+        Relationships: []
+      }
       tokens: {
         Row: {
           api_account_id: string | null
@@ -12933,6 +12981,14 @@ export type Database = {
       increment_punch_user_launches: {
         Args: { p_wallet_address: string }
         Returns: undefined
+      }
+      increment_token_view: {
+        Args: { p_token_address: string; p_visitor_hash: string }
+        Returns: {
+          unique_count: number
+          view_count: number
+          was_unique: boolean
+        }[]
       }
       is_admin: { Args: never; Returns: boolean }
       is_ip_banned: { Args: { _ip_address: string }; Returns: boolean }
