@@ -203,6 +203,42 @@ async function fetchPumpFunImageUri(address: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * Fetch a token image from DexScreener's token API for EVM chains (ETH/BSC).
+ * Used to enrich newly-launched pairs whose Codex image isn't populated yet.
+ */
+async function fetchEvmDexScreenerImage(address: string, networkId: number): Promise<string | null> {
+  const chain = networkId === ETH_NETWORK_ID ? "ethereum" : networkId === BSC_NETWORK_ID ? "bsc" : null;
+  if (!chain) return null;
+
+  try {
+    const res = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${address}`, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      console.log(`[evm-image] ${address.slice(0,8)}… dexscreener HTTP ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    const pairs = Array.isArray(data) ? data : data?.pairs ?? [];
+    for (const pair of pairs) {
+      const img =
+        pair?.info?.imageUrl ||
+        pair?.baseToken?.info?.imageUrl ||
+        pair?.info?.openGraph ||
+        null;
+      if (img) {
+        console.log(`[evm-image] ${address.slice(0,8)}… ✓ got from DexScreener`);
+        return normalizeImageUrl(img);
+      }
+    }
+  } catch (err) {
+    console.log(`[evm-image] ${address.slice(0,8)}… error: ${(err as Error).message}`);
+  }
+  return null;
+}
+
 async function fetchDexScreenerChange24h(address: string, networkId: number): Promise<number | null> {
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`, {
@@ -514,6 +550,27 @@ Deno.serve(async (req) => {
             token.imageUrl = pumpImage;
           } else if (!pumpImage) {
             console.log(`[pump-enrich] ✗ No image for ${token.symbol} (${token.address.slice(0,8)}…)`);
+          }
+        }
+      }
+
+      // ETH/BSC: when Codex hasn't populated an image yet (common for brand-new pairs),
+      // enrich from DexScreener token info API. Same pattern as Solana pump.fun fallback.
+      if ((safeNetworkId === ETH_NETWORK_ID || safeNetworkId === BSC_NETWORK_ID) && token.address) {
+        const currentImage = String(token.imageUrl ?? "").toLowerCase();
+        const needsImage =
+          !token.imageUrl ||
+          currentImage.includes("dd.dexscreener.com") ||
+          currentImage.includes("dicebear.com") ||
+          currentImage.includes("trustwallet") ||
+          currentImage.includes("1inch.io") ||
+          currentImage.includes("pancakeswap.finance");
+
+        if (needsImage) {
+          const dsImage = await fetchEvmDexScreenerImage(token.address, safeNetworkId);
+          if (dsImage && dsImage !== token.imageUrl) {
+            token.fallbackImageUrl = token.imageUrl || token.fallbackImageUrl || null;
+            token.imageUrl = dsImage;
           }
         }
       }
