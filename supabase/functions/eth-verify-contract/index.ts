@@ -332,6 +332,7 @@ Deno.serve(async (req) => {
     form.append("compilerversion", "v0.8.20+commit.a1b79de6");
     form.append("constructorArguements", encodedArgs);
 
+    await delay(2000);
     const resp = await fetch(verifyUrl, { method: "POST", body: form });
     const result = await resp.json();
     console.log("[eth-verify] submit response", result);
