@@ -126,7 +126,7 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
         functionName: "transfer",
         args: [DEAD_ADDRESS, lpBalance],
         chainId: mainnet.id,
-      });
+      } as any);
       setPendingHash(hash);
       toast.info("🔥 Burn LP tx sent", { description: "Waiting for confirmation…" });
     } catch (e) {
