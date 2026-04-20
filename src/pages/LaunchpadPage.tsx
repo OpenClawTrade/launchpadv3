@@ -6,20 +6,25 @@ import { PulseFiltersDialog } from "@/components/launchpad/PulseFiltersDialog";
 import { useLaunchpad } from "@/hooks/useLaunchpad";
 import { usePulseFilters } from "@/hooks/usePulseFilters";
 import { useSolPrice } from "@/hooks/useSolPrice";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Rocket, Search, Clock, Sparkles, Zap, GraduationCap, Flame, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo, useCallback } from "react";
 import { BRAND } from "@/config/branding";
 
+const TABS = [
+  { id: "new", label: "NEW", icon: Clock },
+  { id: "hot", label: "HOT", icon: Flame },
+  { id: "top", label: "TOP", icon: Trophy },
+  { id: "bonding", label: "BONDING", icon: Zap },
+  { id: "graduated", label: "LIVE", icon: GraduationCap },
+];
 
 export default function LaunchpadPage() {
   const { tokens, isLoadingTokens } = useLaunchpad();
   const { solPrice } = useSolPrice();
-  const { filters, activeFilterColumn, setActiveFilterColumn, updateFilter, resetFilter, hasActiveFilters, applyFilterToFunTokens } = usePulseFilters();
+  const { filters, activeFilterColumn, setActiveFilterColumn, updateFilter, resetFilter, hasActiveFilters } = usePulseFilters();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("new");
   const [quickBuyAmount, setQuickBuyAmount] = useState(() => {
@@ -31,57 +36,46 @@ export default function LaunchpadPage() {
   const handleQuickBuyChange = useCallback((amount: number) => {
     setQuickBuyAmount(amount);
   }, []);
-  // Calculate "hotness" score for trending algorithm
+
   const calculateHotScore = (token: typeof tokens[0]) => {
     const now = Date.now();
-    const createdAt = new Date(token.created_at).getTime();
-    const ageHours = (now - createdAt) / (1000 * 60 * 60);
-    
+    const ageHours = (now - new Date(token.created_at).getTime()) / (1000 * 60 * 60);
     const volumeScore = Math.log10(token.volume_24h_sol + 1) * 30;
     const recencyScore = Math.max(0, 20 - ageHours * 0.8);
     const priceChangeRaw = (token as any).price_change_24h || 0;
     const momentumScore = Math.min(20, Math.max(-10, priceChangeRaw * 0.5));
     const holderScore = Math.log10(token.holder_count + 1) * 10;
-    const bondingBonus = token.status === 'bonding' 
-      ? (token.bonding_curve_progress || 0) * 0.2 
-      : 0;
-    
+    const bondingBonus = token.status === 'bonding' ? (token.bonding_curve_progress || 0) * 0.2 : 0;
     return volumeScore + recencyScore + momentumScore + holderScore + bondingBonus;
   };
 
-  // Filter tokens based on search and tab
   const filteredTokens = useMemo(() => {
     let result = tokens;
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(t => 
+      result = result.filter(t =>
         t.name.toLowerCase().includes(query) ||
         t.ticker.toLowerCase().includes(query) ||
         t.description?.toLowerCase().includes(query)
       );
     }
-
     switch (activeTab) {
       case "hot":
         result = [...result].sort((a, b) => calculateHotScore(b) - calculateHotScore(a));
         break;
       case "bonding":
-        result = result
-          .filter(t => t.status === 'bonding')
+        result = result.filter(t => t.status === 'bonding')
           .sort((a, b) => (b.bonding_curve_progress || 0) - (a.bonding_curve_progress || 0));
         break;
       case "graduated":
-        result = result
-          .filter(t => t.status === 'graduated')
+        result = result.filter(t => t.status === 'graduated')
           .sort((a, b) => b.volume_24h_sol - a.volume_24h_sol);
         break;
       default:
-        result = [...result].sort((a, b) => 
+        result = [...result].sort((a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
     }
-
     return result;
   }, [tokens, searchQuery, activeTab]);
 
@@ -91,107 +85,96 @@ export default function LaunchpadPage() {
   const totalVolume = tokens.reduce((acc, t) => acc + t.volume_24h_sol, 0);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Header */}
-      <header className="relative overflow-hidden border-b border-border bg-gradient-to-br from-background via-background to-accent/10">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-primary/5 rounded-full blur-2xl" />
-        </div>
-
-        <div className="relative px-4 pt-6 pb-4">
-          <div className="flex items-center justify-between mb-4">
-            <Link to="/" className="flex items-center gap-2">
-            <img src={BRAND.logoPath} alt={BRAND.name} className="h-8 w-8 rounded-lg object-cover" />
-              <span className="text-lg font-bold">{BRAND.name}</span>
-            </Link>
+    <div className="min-h-screen bg-pop-orange text-pop-ink">
+      {/* Poster Header */}
+      <header className="relative border-b-[3px] border-pop-ink bg-pop-orange">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-7 py-6">
+          {/* Eyebrow + title */}
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+            <div>
+              <div className="font-pop-mono text-[11px] tracking-[0.18em] uppercase text-pop-ink/65 mb-2">
+                // Launchpad — live feed
+              </div>
+              <h1 className="font-pop-display text-3xl sm:text-5xl leading-[0.95] tracking-[-0.02em] text-pop-ink">
+                Launch. Bond. <span className="underline decoration-pop-ink decoration-[3px] underline-offset-[6px]">Pop.</span>
+              </h1>
+            </div>
             <Link to="/launch">
-              <Button size="default" className="gap-2 shadow-lg glow-yellow">
+              <button className="inline-flex items-center gap-2 font-pop-display text-[13px] tracking-[0.02em] px-5 py-3 bg-pop-ink text-pop-cream border-2 border-pop-ink shadow-[3px_3px_0_hsl(var(--pop-cream))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-cream))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-cream))] transition-all">
                 <Sparkles className="h-4 w-4" />
-                Launch Token
-              </Button>
+                LAUNCH TOKEN →
+              </button>
             </Link>
           </div>
 
           <WalletBalanceCard className="mb-4" />
           <DevWalletRotationBanner />
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
-              <p className="text-base sm:text-lg font-bold text-foreground">{totalTokens}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
-            </div>
-            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
-              <p className="text-base sm:text-lg font-bold text-primary">{bondingTokens}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Bonding</p>
-            </div>
-            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
-              <p className="text-base sm:text-lg font-bold text-green-500">{graduatedTokens}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">Graduated</p>
-            </div>
-            <div className="bg-secondary/50 rounded-lg p-2 sm:p-3 text-center">
-              <p className="text-base sm:text-lg font-bold text-foreground">{totalVolume.toFixed(1)}</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground">24h Vol</p>
-            </div>
+          {/* Stats wire-frame strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {[
+              { label: "TOTAL", value: totalTokens, mono: true },
+              { label: "BONDING", value: bondingTokens, accent: true },
+              { label: "GRADUATED", value: graduatedTokens },
+              { label: "24H VOL", value: `${totalVolume.toFixed(1)} SOL` },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="relative bg-pop-cream border-2 border-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] px-3 py-3 text-center"
+              >
+                <p className={`font-pop-display text-xl sm:text-2xl leading-none ${s.accent ? "text-pop-orange" : "text-pop-ink"}`}>
+                  {s.value}
+                </p>
+                <p className="font-pop-mono text-[9px] tracking-[0.18em] uppercase text-pop-ink/60 mt-1.5">
+                  {s.label}
+                </p>
+              </div>
+            ))}
           </div>
 
+          {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-pop-ink/60 z-10" />
             <Input
               placeholder="Search by name, ticker, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 bg-secondary/50 border-border/50 focus:bg-background transition-colors"
+              className="pl-10 h-11 bg-pop-cream border-2 border-pop-ink rounded-none shadow-[3px_3px_0_hsl(var(--pop-ink))] font-pop-mono text-[12px] placeholder:text-pop-ink/40 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-pop-ink text-pop-ink"
             />
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full h-11 sm:h-12 bg-transparent rounded-none p-0 border-0 grid grid-cols-5 gap-0">
-            <TabsTrigger 
-              value="new" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
-            >
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">New</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="hot" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
-            >
-              <Flame className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Hot</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="top" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
-            >
-              <Trophy className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Top</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="bonding" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
-            >
-              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Bonding</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="graduated" 
-              className="h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary font-medium text-xs sm:text-sm transition-all px-1 sm:px-2"
-            >
-              <GraduationCap className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Live</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Tabs strip — ink bar */}
+        <div className="bg-pop-ink border-t-[3px] border-pop-ink">
+          <div className="max-w-[1440px] mx-auto px-2 sm:px-7 flex overflow-x-auto">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`relative flex items-center gap-2 px-4 sm:px-6 py-3 font-pop-display text-[12px] sm:text-[13px] tracking-[0.06em] whitespace-nowrap transition-colors ${
+                    active ? "text-pop-orange" : "text-pop-cream/70 hover:text-pop-cream"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {t.label}
+                  {active && (
+                    <span className="absolute left-0 right-0 bottom-0 h-[3px] bg-pop-orange" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </header>
 
       {/* Pulse Header Bar */}
-      <div className="max-w-4xl mx-auto px-4 pt-3">
+      <div className="max-w-4xl mx-auto px-4 pt-4">
         <PulseColumnHeaderBar
           label="Launchpad"
-          color="160 84% 39%"
+          color="36 90% 55%"
           icon={Rocket}
           columnId="launchpad"
           quickBuyAmount={quickBuyAmount}
@@ -217,14 +200,14 @@ export default function LaunchpadPage() {
       ) : (
         <div className="p-4 space-y-3 max-w-4xl mx-auto">
           {!isLoadingTokens && filteredTokens.length > 0 && (
-            <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-              <span>{filteredTokens.length} token{filteredTokens.length !== 1 ? 's' : ''}</span>
+            <div className="flex items-center justify-between font-pop-mono text-[11px] tracking-[0.1em] uppercase text-pop-ink/70 px-1">
+              <span>{filteredTokens.length} TOKEN{filteredTokens.length !== 1 ? 'S' : ''}</span>
               {searchQuery && (
-                <button 
+                <button
                   onClick={() => setSearchQuery("")}
-                  className="text-primary hover:underline"
+                  className="text-pop-ink underline decoration-pop-ink underline-offset-2 hover:text-pop-ink/70"
                 >
-                  Clear search
+                  CLEAR SEARCH
                 </button>
               )}
             </div>
@@ -232,41 +215,41 @@ export default function LaunchpadPage() {
 
           {isLoadingTokens ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="p-4 border border-border rounded-xl bg-card space-y-3 animate-pulse">
+              <div key={i} className="p-4 border-2 border-pop-ink bg-pop-cream shadow-[3px_3px_0_hsl(var(--pop-ink))] space-y-3 animate-pulse">
                 <div className="flex gap-4">
-                  <Skeleton className="h-14 w-14 rounded-xl" />
+                  <Skeleton className="h-14 w-14 rounded-none" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-5 w-32" />
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-4 w-full max-w-xs" />
                   </div>
                 </div>
-                <Skeleton className="h-2 w-full rounded-full" />
+                <Skeleton className="h-2 w-full rounded-none" />
               </div>
             ))
           ) : filteredTokens.length === 0 ? (
-            <div className="text-center py-16 space-y-4">
-              <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
-                <Rocket className="h-10 w-10 text-primary" />
+            <div className="text-center py-16 space-y-4 bg-pop-cream border-2 border-pop-ink shadow-[4px_4px_0_hsl(var(--pop-ink))]">
+              <div className="mx-auto w-20 h-20 bg-pop-orange border-2 border-pop-ink flex items-center justify-center">
+                <Rocket className="h-10 w-10 text-pop-ink" />
               </div>
-              <h3 className="text-xl font-bold">No tokens found</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                {searchQuery 
-                  ? "Try adjusting your search query or filters" 
+              <h3 className="font-pop-display text-2xl text-pop-ink">NO TOKENS FOUND</h3>
+              <p className="font-pop-mono text-[12px] text-pop-ink/65 max-w-sm mx-auto">
+                {searchQuery
+                  ? "Try adjusting your search query or filters."
                   : `Be the first to launch a token on ${BRAND.name}!`}
               </p>
-              <Link to="/launch">
-                <Button className="gap-2 mt-2">
+              <Link to="/launch" className="inline-block">
+                <button className="inline-flex items-center gap-2 font-pop-display text-[13px] px-5 py-3 bg-pop-orange text-pop-ink border-2 border-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] transition-all">
                   <Sparkles className="h-4 w-4" />
-                  Launch Token
-                </Button>
+                  LAUNCH TOKEN →
+                </button>
               </Link>
             </div>
           ) : (
             filteredTokens.map((token, index) => (
-              <div 
-                key={token.id} 
-                className="animate-fadeIn" 
+              <div
+                key={token.id}
+                className="animate-fadeIn"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 <TokenCard token={token as any} solPrice={solPrice} quickBuyAmount={quickBuyAmount} />
