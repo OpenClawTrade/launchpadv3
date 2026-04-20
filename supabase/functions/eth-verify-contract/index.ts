@@ -259,6 +259,7 @@ Deno.serve(async (req) => {
     console.log(`[eth-verify] token=${tokenAddress} generation=${isPopShiba ? "PopShiba" : "Saturn"}`);
 
     // Determine recipient
+    await delay(2000);
     let recipient: `0x${string}` | null = null;
     if (launch.deploy_tx_hash) {
       try {
