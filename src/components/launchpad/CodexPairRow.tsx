@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown } from "lucide-react";
+import { Users, Copy, CheckCircle, Globe, ArrowUpRight, ArrowDownRight, ExternalLink, MessageCircle, Crown, Eye } from "lucide-react";
 import { PulseQuickBuyButton } from "./PulseQuickBuyButton";
 import { CodexPairToken } from "@/hooks/useCodexNewPairs";
 import { LaunchpadBadge } from "./LaunchpadBadge";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type { SupportedChain } from "@/contexts/ChainContext";
 import { formatChange24h } from "@/lib/formatters";
 import { LiveAge } from "@/components/ui/LiveAge";
+import { formatViewCount } from "@/hooks/useTokenViews";
 
 function formatUsdCompact(usd: number): string {
   if (!isFinite(usd) || usd > 1e15) return "$?";
