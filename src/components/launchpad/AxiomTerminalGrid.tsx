@@ -206,6 +206,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
             proTraders={0}
             sparklineData={t.address ? sparklineMap?.[t.address] : undefined}
             chain={chain}
+            viewCount={getViewCount(t.address)}
           />
         ))}
         {col.tokens.map(token => (
@@ -216,6 +217,7 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
             quickBuyAmount={colQb}
             proTraders={proTradersMap[token.id] ?? 0}
             sparklineData={token.mint_address ? sparklineMap?.[token.mint_address] : undefined}
+            viewCount={getViewCount(token.mint_address)}
           />
         ))}
       </div>
