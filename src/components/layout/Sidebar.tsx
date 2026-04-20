@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Zap, Bot, TrendingUp, Plus, FileText, Monitor, Crosshair, LayoutDashboard, ShoppingBag, CandlestickChart, Radar, Rocket, Coins, Crown, Flame, FlaskConical, Bitcoin } from "lucide-react";
+import { Home, Zap, TrendingUp, FileText, Crosshair, LayoutDashboard, CandlestickChart, Radar, Rocket, Coins, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -11,7 +11,7 @@ import { BRAND } from "@/config/branding";
 
 const LOGO_SRC = saturnLogo;
 
-const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean }[] = [
+const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean; comingSoon?: boolean; disabled?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
   { to: "/69", label: "69 List", icon: Crown, neonGreen: true },
   { to: "/trade", label: "Pulse", icon: Zap },
@@ -20,14 +20,8 @@ const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGr
   { to: "/discover", label: "Discover", icon: TrendingUp },
   { to: "/alpha-tracker", label: "Alpha", icon: Crosshair },
   { to: "/x-tracker", label: "X Tracker", icon: Radar },
-  { to: "/agents", label: "Staking", icon: Bot },
-  { to: "/leverage", label: "Leverage", icon: CandlestickChart },
-  { to: "/meteorite", label: "Meteorite", icon: Flame, neonGreen: true },
-  
+  { to: "/leverage", label: "Leverage", icon: CandlestickChart, comingSoon: true, disabled: true },
   { to: "/whitepaper", label: "Docs", icon: FileText },
-  { to: "/lab/bonding-curve", label: "Lab", icon: FlaskConical, neonGreen: true },
-  { to: "/btc", label: "Bitcoin", icon: Bitcoin, neonGreen: true },
-  
   { to: "/panel", label: "Panel", icon: LayoutDashboard },
 ];
 
