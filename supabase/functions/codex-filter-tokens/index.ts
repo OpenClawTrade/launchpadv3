@@ -18,7 +18,8 @@ const BSC_NEW_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
 const BSC_COMPLETING_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 const BSC_COMPLETING_MIN_VOLUME_24H = 100;
 const ETH_NEW_LOOKBACK_SECONDS = 2 * 24 * 60 * 60;
-const ETH_COMPLETING_LOOKBACK_SECONDS = 3 * 24 * 60 * 60; // Final Stretch: only pairs <3d old
+const ETH_COMPLETING_LOOKBACK_SECONDS = 30 * 24 * 60 * 60; // Final Stretch: <30d old
+const ETH_COMPLETED_LOOKBACK_SECONDS = 30 * 24 * 60 * 60;  // Migrated: <30d old
 const ETH_NEW_MIN_LIQUIDITY = 500;
 const ETH_COMPLETED_MIN_LIQUIDITY = 25_000;
 const ETH_COMPLETED_MIN_VOLUME_24H = 5_000;
@@ -241,6 +242,7 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
   const ethNewCutoff = now - ETH_NEW_LOOKBACK_SECONDS;
   const ethCompletingCutoff = now - ETH_COMPLETING_LOOKBACK_SECONDS;
+  const ethCompletedCutoff = now - ETH_COMPLETED_LOOKBACK_SECONDS;
 
   if (networkId === ETH_NETWORK_ID) {
     // Ethereum: launchpad-agnostic. Show any new pair with LP added (liquidity gate).
@@ -255,8 +257,8 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
       case "completed":
-        // Established ETH pairs with healthy liquidity + volume.
-        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} } }`;
+        // ETH "Migrated" = pairs <30d old with healthy liquidity + volume.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} }, createdAt: { gte: ${ethCompletedCutoff} } }`;
         rankings = `{ attribute: volume24, direction: DESC }`;
         break;
     }
