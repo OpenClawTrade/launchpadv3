@@ -50,17 +50,19 @@ const MAX_TICK = 887200;
 const TOTAL_SUPPLY_WEI = parseEther("1000000000"); // 1B tokens
 
 // Minimal ERC-20 with no tax, no owner, mints to deployer.
+// IMPORTANT: This source MUST match the bytecode in contract.ts EXACTLY (down to whitespace and
+// comments) for Etherscan verification to succeed via standard-json input.
 const ERC20_SOURCE = `// SPDX-License-Identifier: MIT
-// Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
+// Launched via PopShiba.com Ethereum Launchpad
 pragma solidity ^0.8.20;
 
-contract SaturnEthV3Token {
+contract PopShibaLaunchpad {
     string public name;
     string public symbol;
     uint8  public constant decimals = 18;
     uint256 public totalSupply;
     string  public metadataURI;
-    string  public constant launchedBy = "Saturn V3 Launchpad";
+    string  public constant launchedBy = "PopShiba.com";
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -268,7 +270,7 @@ Deno.serve(async (req) => {
       website: body.websiteUrl ?? "",
       twitter: body.twitterUrl ?? "",
       telegram: body.telegramUrl ?? "",
-      launchpad: "saturn-eth-v3",
+      launchpad: "popshiba-eth-v1",
       launchId: launchId ?? "",
     });
     const deployData = encodeDeployData({
