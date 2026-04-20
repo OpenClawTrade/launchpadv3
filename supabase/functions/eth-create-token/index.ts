@@ -282,6 +282,34 @@ Deno.serve(async (req) => {
     const tokenAddress = deployRcpt.contractAddress!;
     console.log("[eth-create-token-v3] token deployed:", tokenAddress);
 
+    // Persist deploy_tx_hash + token_address ASAP so verify can find them
+    if (launchId) {
+      await supabase.from("eth_launch_requests").update({
+        deploy_tx_hash: deployHash, token_address: tokenAddress,
+      }).eq("id", launchId);
+    }
+
+    // ---- 2b. Auto-verify on Etherscan (fire-and-forget, non-blocking) ----
+    // Triggered now (right after deploy) so source is up by the time the LP/pool
+    // becomes tradable. Failures here never block the launch.
+    (async () => {
+      try {
+        const verifyResp = await fetch(`${supabaseUrl}/functions/v1/eth-verify-contract`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ tokenAddress, launchId }),
+        });
+        const verifyJson = await verifyResp.json().catch(() => ({}));
+        console.log("[eth-create-token-v3] auto-verify result:", verifyJson);
+      } catch (e) {
+        console.error("[eth-create-token-v3] auto-verify trigger failed:", e);
+      }
+    })();
+
+
     // ---- 3. Compute sqrtPriceX96 for ~$5K market cap ----
     const ethUsd = body.ethPriceUsd && body.ethPriceUsd > 0 ? body.ethPriceUsd : 3000;
     const startMcUsd = body.startMarketCapUsd && body.startMarketCapUsd > 0 ? body.startMarketCapUsd : 5000;
