@@ -1,6 +1,10 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatChange24h } from "@/lib/formatters";
-import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { MarqueeTicker } from "@/components/layout/MarqueeTicker";
+import { Footer } from "@/components/layout/Footer";
+import { PopshibaHero } from "@/components/home/PopshibaHero";
+import { BarkLoudCloser } from "@/components/home/BarkLoudCloser";
 import { KingOfTheHill } from "@/components/launchpad/KingOfTheHill";
 import { JustLaunched } from "@/components/launchpad/JustLaunched";
 import { LazySection } from "@/components/ui/LazySection";
