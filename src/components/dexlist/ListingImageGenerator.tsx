@@ -87,14 +87,14 @@ async function loadImageWithProxy(src: string): Promise<HTMLImageElement> {
 }
 
 function generateTweetText(ticker: string, maxLeverage?: number, mintAddress?: string) {
-  return `🪐 Saturn New Leverage Trading Listing $${ticker.toUpperCase()}
+  return `🐶 PopShiba New Leverage Trading Listing $${ticker.toUpperCase()}
 
 📊 Leverage Up to ${maxLeverage || 10}x
 
 ✅ Deposit open Now
 ✅ Full trading enabled
 
-Start Trading 👉 https://saturn.trade/trade/${mintAddress || ""}
+Start Trading 👉 https://popshiba.com/trade/${mintAddress || ""}
 
 #Solana #Binance #okx #trading $sol`;
 }

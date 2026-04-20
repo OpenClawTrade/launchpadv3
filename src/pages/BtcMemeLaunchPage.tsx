@@ -316,7 +316,7 @@ export default function BtcMemeLaunchPage() {
             <span className="text-foreground">0.5 BTC{btcPrice > 0 && <span className="text-muted-foreground"> ({formatUsd(0.5 * btcPrice)})</span>} → Native Rune</span>
           </div>
           <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="text-foreground">1% platform (no creator tax)</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">Bitcoin Genesis</span><span className="text-foreground">Saturn.Trade OP_RETURN</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Bitcoin Genesis</span><span className="text-foreground">PopShiba OP_RETURN</span></div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Launch Fee</span>
             <span className="text-foreground">{launchFeeSats.toLocaleString()} sats{btcPrice > 0 && <span className="text-muted-foreground"> ({formatUsd((launchFeeSats / 1e8) * btcPrice)})</span>}</span>
