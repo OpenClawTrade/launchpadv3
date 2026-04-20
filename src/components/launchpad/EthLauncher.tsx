@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,6 @@ import {
   useSwitchChain,
 } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
-import { getContractAddress } from 'viem';
 
 const PLATFORM_FEE_PCT = 1; // Always 1% protocol tax
 const MIN_USER_TAX = 0;
@@ -165,10 +164,11 @@ export function EthLauncher() {
   }, [canLaunch, address, isOnEth, switchChainAsync, sendTransactionAsync, formData]);
 
   // When the deploy tx confirms, extract the contract address and finalize.
-  useMemo(() => {
+  useEffect(() => {
     if (!deployReceipt || !deployTxHash) return;
     const tokenAddress = deployReceipt.contractAddress;
     if (!tokenAddress) return;
+    if (deployedTokenAddress) return; // already handled
     setDeployedTokenAddress(tokenAddress);
     const launchId = (window as any).__lastEthLaunchId as string | undefined;
     if (launchId) {
@@ -188,7 +188,7 @@ export function EthLauncher() {
         onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
       },
     });
-  }, [deployReceipt, deployTxHash, formData.name, formData.ticker]);
+  }, [deployReceipt, deployTxHash, deployedTokenAddress, formData.name, formData.ticker]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
