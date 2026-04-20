@@ -315,6 +315,7 @@ Deno.serve(async (req) => {
       language: "Solidity",
       sources: { [contractFile]: { content: ERC20_SOLIDITY_SOURCE } },
       settings: {
+        evmVersion: "paris",
         optimizer: { enabled: true, runs: 200 },
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
