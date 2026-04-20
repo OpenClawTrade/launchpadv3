@@ -13,7 +13,7 @@ const LOGO_SRC = saturnLogo;
 
 const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean; comingSoon?: boolean; disabled?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
-  { to: "/69", label: "69 List", icon: Crown, neonGreen: true },
+  
   { to: "/trade", label: "Pulse", icon: Zap },
   { to: "/tokens", label: "Tokens", icon: Coins },
   { to: "/launchpad", label: "Launchpad", icon: Rocket },
