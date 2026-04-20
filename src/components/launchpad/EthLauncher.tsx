@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Flame, Lock, Info, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Rocket, Image as ImageIcon, Globe, Twitter, Loader2, Coins, Shield, Info, ExternalLink } from 'lucide-react';
+import { EthCreatorControls } from './EthCreatorControls';
 import { EvmWalletCard } from './EvmWalletCard';
 import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { toast } from 'sonner';
@@ -56,8 +57,6 @@ interface EthLaunchFormData {
   telegramUrl: string;
   lpEth: number;
   userTaxPct: number;
-  burnLp: boolean;
-  renounce: boolean;
 }
 
 export function EthLauncher() {
@@ -71,7 +70,7 @@ export function EthLauncher() {
   const [lpEthInput, setLpEthInput] = useState('1'); // string for free typing of decimals
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [deployTxHash, setDeployTxHash] = useState<`0x${string}` | null>(null);
-  const [postDeployStep, setPostDeployStep] = useState<'idle' | 'approve' | 'lp' | 'burn' | 'renounce' | 'verify' | 'done'>('idle');
+  const [postDeployStep, setPostDeployStep] = useState<'idle' | 'approve' | 'lp' | 'verify' | 'done'>('idle');
   const [verified, setVerified] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
@@ -83,8 +82,6 @@ export function EthLauncher() {
     telegramUrl: '',
     lpEth: 1,
     userTaxPct: 1,
-    burnLp: true,
-    renounce: true,
   });
 
   // Watch deploy tx confirmation
@@ -128,8 +125,9 @@ export function EthLauncher() {
           lpEth: formData.lpEth,
           userTaxBps: Math.round(formData.userTaxPct * 100),
           platformTaxBps: PLATFORM_FEE_PCT * 100,
-          burnLp: formData.burnLp,
-          renounce: formData.renounce,
+          // burnLp/renounce are now handled manually post-launch by creator
+          burnLp: false,
+          renounce: false,
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
           websiteUrl: formData.websiteUrl || null,
@@ -236,72 +234,7 @@ export function EthLauncher() {
           chainId: mainnet.id,
         } as any);
 
-        // 3. Burn LP (transfer LP token balance to dead)
-        if (formData.burnLp) {
-          setPostDeployStep('burn');
-          toast.info('3/4 Burning LP forever');
-          try {
-            const rpc = 'https://eth.merkle.io';
-            const pairResp = await fetch(rpc, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', id: 1, method: 'eth_call',
-                params: [{
-                  to: UNISWAP_V2_FACTORY,
-                  data: encodeFunctionData({
-                    abi: FACTORY_ABI, functionName: 'getPair',
-                    args: [tokenAddress as `0x${string}`, WETH_MAINNET],
-                  }),
-                }, 'latest'],
-              }),
-            }).then((r) => r.json());
-            const pairAddress = ('0x' + (pairResp.result as string).slice(-40)) as `0x${string}`;
-
-            const balResp = await fetch(rpc, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0', id: 2, method: 'eth_call',
-                params: [{
-                  to: pairAddress,
-                  data: encodeFunctionData({
-                    abi: ERC20_ABI, functionName: 'balanceOf',
-                    args: [address as `0x${string}`],
-                  }),
-                }, 'latest'],
-              }),
-            }).then((r) => r.json());
-            const lpBalance = BigInt(balResp.result || '0x0');
-            if (lpBalance > 0n) {
-              await writeContractAsync({
-                address: pairAddress,
-                abi: parseAbi(['function transfer(address to, uint256 value) returns (bool)']),
-                functionName: 'transfer',
-                args: [DEAD_ADDRESS, lpBalance],
-                chainId: mainnet.id,
-              } as any);
-            }
-          } catch (burnErr) {
-            console.warn('[eth-launch] LP burn failed', burnErr);
-            toast.warning('LP burn skipped — burn manually if needed');
-          }
-        }
-
-        // 4. Renounce
-        if (formData.renounce) {
-          setPostDeployStep('renounce');
-          toast.info('4/4 Renouncing contract');
-          await writeContractAsync({
-            address: tokenAddress as `0x${string}`,
-            abi: ERC20_ABI,
-            functionName: 'renounceOwnership',
-            args: [],
-            chainId: mainnet.id,
-          } as any);
-        }
-
-        // 5. Background Etherscan verification
+        // 3. Background Etherscan verification (non-blocking)
         setPostDeployStep('verify');
         toast.info('Verifying source on Etherscan…');
         supabase.functions.invoke('eth-verify-contract', {
@@ -316,8 +249,8 @@ export function EthLauncher() {
         }).catch((e) => console.warn('[eth-verify] exception', e));
 
         setPostDeployStep('done');
-        toast.success('🎉 Token live & locked', {
-          description: 'LP seeded, burned, ownership renounced.',
+        toast.success('🎉 Token live & LP seeded', {
+          description: 'Use Creator Controls below to Burn LP, Remove LP, or Renounce.',
           action: {
             label: 'View on Etherscan',
             onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
@@ -525,28 +458,16 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Toggles */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-orange-500" />
-                  <div>
-                    <Label className="text-sm">Burn LP forever</Label>
-                    <p className="text-[10px] text-muted-foreground">Sends LP NFT to dead address — locked permanently</p>
-                  </div>
-                </div>
-                <Switch checked={formData.burnLp} onCheckedChange={(v) => handleInputChange('burnLp', v)} />
-              </div>
-              <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-green-500" />
-                  <div>
-                    <Label className="text-sm">Renounce contract</Label>
-                    <p className="text-[10px] text-muted-foreground">Removes ownership immediately after deploy</p>
-                  </div>
-                </div>
-                <Switch checked={formData.renounce} onCheckedChange={(v) => handleInputChange('renounce', v)} />
-              </div>
+            {/* Manual post-launch note (replaces auto burn/renounce toggles) */}
+            <div className="flex items-start gap-2 p-3 bg-secondary/30 rounded-lg border border-border/50">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                After deploy, LP is seeded automatically. You'll get
+                <strong className="text-foreground"> Burn LP</strong>,
+                <strong className="text-foreground"> Remove LP</strong> and
+                <strong className="text-foreground"> Renounce</strong> buttons in the
+                creator panel — choose what to do, when you want.
+              </p>
             </div>
 
             {/* LP Refund Notice */}
@@ -607,6 +528,13 @@ export function EthLauncher() {
                     </a>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Creator controls — appear once contract is on-chain */}
+            {deployedTokenAddress && (
+              <div className="mt-4">
+                <EthCreatorControls tokenAddress={deployedTokenAddress} />
               </div>
             )}
           </CardContent>
