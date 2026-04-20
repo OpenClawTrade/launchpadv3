@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const SOLANA_NETWORK_ID = 1399811149;
 export const BSC_NETWORK_ID = 56;
+export const ETH_NETWORK_ID = 1;
 
-const NEW_PAIRS_MAX_AGE_HOURS = 24;
+const NEW_PAIRS_MAX_AGE_HOURS = 48;
 const NEW_PAIRS_MAX_AGE_MS = NEW_PAIRS_MAX_AGE_HOURS * 60 * 60 * 1000;
 
 export interface CodexPairToken {
@@ -50,7 +51,7 @@ function toTimestampMs(raw: string | number | null): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-async function fetchCodexTokens(column: "new" | "completing" | "completed", limit = 50, networkId = SOLANA_NETWORK_ID): Promise<CodexPairToken[]> {
+async function fetchCodexTokens(column: "new" | "completing" | "completed", limit = 50, networkId = ETH_NETWORK_ID): Promise<CodexPairToken[]> {
   const { data, error } = await supabase.functions.invoke("codex-filter-tokens", {
     body: { column, limit, networkId },
   });
@@ -58,20 +59,20 @@ async function fetchCodexTokens(column: "new" | "completing" | "completed", limi
   return data?.tokens ?? [];
 }
 
-export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
-  // Ethereum-only: Codex integration only supports Solana/BSC. Disabled to stop wasted API calls.
-  const isSupported = networkId === SOLANA_NETWORK_ID || networkId === BSC_NETWORK_ID;
+export function useCodexNewPairs(networkId: number = ETH_NETWORK_ID) {
+  // Site is ETH-default. ETH and BSC remain enabled; Solana stays disabled (legacy).
+  const isSupported = networkId === ETH_NETWORK_ID || networkId === BSC_NETWORK_ID;
   const isBsc = networkId === BSC_NETWORK_ID;
-  const newLimit = isBsc ? 100 : 50;
-  const completingLimit = isBsc ? 50 : 30;
-  const completedLimit = isBsc ? 50 : 30;
+  const newLimit = isBsc ? 100 : 60;
+  const completingLimit = isBsc ? 50 : 40;
+  const completedLimit = isBsc ? 50 : 40;
 
   const newPairsQuery = useQuery({
     queryKey: ["codex-filter-tokens", "new", networkId, newLimit],
     queryFn: () => fetchCodexTokens("new", newLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
-    enabled: isSupported && false, // hard-disabled: ETH-only site
+    enabled: isSupported,
   });
 
   const completingQuery = useQuery({
@@ -79,7 +80,7 @@ export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
     queryFn: () => fetchCodexTokens("completing", completingLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
-    enabled: isSupported && false,
+    enabled: isSupported,
   });
 
   const completedQuery = useQuery({
@@ -87,7 +88,7 @@ export function useCodexNewPairs(networkId: number = SOLANA_NETWORK_ID) {
     queryFn: () => fetchCodexTokens("completed", completedLimit, networkId),
     refetchInterval: 30_000,
     staleTime: 15_000,
-    enabled: isSupported && false,
+    enabled: isSupported,
   });
 
   const recentNewPairs = useMemo(() => {
