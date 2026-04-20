@@ -190,12 +190,14 @@ async function compileERC20(): Promise<{ abi: any[]; bytecode: `0x${string}` }> 
   const solcCode = await res.text();
   console.log(`[compile] solc fetched (${(solcCode.length / 1024 / 1024).toFixed(1)}MB) in ${Date.now() - t0}ms`);
 
+  // Stub Node-only globals that solc's Emscripten build references in Deno
   const moduleObj = { exports: {} as any };
+  const stubProcess = { argv: [], env: {}, stdout: { write: () => {} }, stderr: { write: () => {} }, on: () => {}, exit: () => {}, platform: "linux", version: "v18.0.0" };
   const fn = new Function(
-    "module", "exports", "require",
+    "module", "exports", "require", "process", "__dirname", "__filename", "global",
     solcCode + "\n//# sourceURL=soljson.js"
   );
-  fn(moduleObj, moduleObj.exports, () => ({}));
+  fn(moduleObj, moduleObj.exports, () => ({}), stubProcess, "/", "/soljson.js", globalThis);
 
   const soljson = moduleObj.exports;
   if (!soljson?.cwrap) throw new Error("solc loaded but cwrap missing");
