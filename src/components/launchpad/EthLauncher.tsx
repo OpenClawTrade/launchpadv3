@@ -187,32 +187,151 @@ export function EthLauncher() {
     }
   }, [canLaunch, address, isOnEth, switchChainAsync, sendTransactionAsync, formData]);
 
-  // When the deploy tx confirms, extract the contract address and finalize.
+  // When the deploy tx confirms: save address, then run LP add → burn LP → renounce → verify
   useEffect(() => {
     if (!deployReceipt || !deployTxHash) return;
     const tokenAddress = deployReceipt.contractAddress;
     if (!tokenAddress) return;
-    if (deployedTokenAddress) return; // already handled
+    if (deployedTokenAddress) return;
     setDeployedTokenAddress(tokenAddress);
     const launchId = (window as any).__lastEthLaunchId as string | undefined;
+
     if (launchId) {
       supabase.functions.invoke('eth-launch-finalize', {
-        body: {
-          launchId,
-          status: 'live',
-          deployTxHash,
-          tokenAddress,
-        },
+        body: { launchId, status: 'live', deployTxHash, tokenAddress },
       }).catch((e) => console.warn('[eth-launch] finalize warn', e));
     }
-    toast.success('🎉 Token live on Ethereum', {
-      description: `${formData.name} ($${formData.ticker.toUpperCase()}) is deployed.`,
-      action: {
-        label: 'View on Etherscan',
-        onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
-      },
+
+    toast.success('🎉 Contract deployed', {
+      description: `${formData.name} ($${formData.ticker.toUpperCase()}) is on-chain. Setting up LP…`,
     });
-  }, [deployReceipt, deployTxHash, deployedTokenAddress, formData.name, formData.ticker]);
+
+    // Atomic post-deploy chain: approve → addLiquidityETH → burn LP → renounce → verify
+    (async () => {
+      try {
+        const supplyWei = parseEther('1000000000');
+        const ethAmount = parseEther(String(formData.lpEth));
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
+
+        // 1. Approve router for full supply
+        setPostDeployStep('approve');
+        toast.info('1/4 Approve router');
+        await writeContractAsync({
+          address: tokenAddress as `0x${string}`,
+          abi: ERC20_ABI,
+          functionName: 'approve',
+          args: [UNISWAP_V2_ROUTER, supplyWei],
+          chainId: mainnet.id,
+        });
+
+        // 2. Seed Uniswap V2 LP
+        setPostDeployStep('lp');
+        toast.info('2/4 Seeding Uniswap V2 LP', { description: `${formData.lpEth} ETH + 1B tokens` });
+        await writeContractAsync({
+          address: UNISWAP_V2_ROUTER,
+          abi: ROUTER_ABI,
+          functionName: 'addLiquidityETH',
+          args: [tokenAddress as `0x${string}`, supplyWei, 0n, 0n, address as `0x${string}`, deadline],
+          value: ethAmount,
+          chainId: mainnet.id,
+        });
+
+        // 3. Burn LP (transfer LP token balance to dead)
+        if (formData.burnLp) {
+          setPostDeployStep('burn');
+          toast.info('3/4 Burning LP forever');
+          try {
+            const rpc = 'https://eth.merkle.io';
+            const pairResp = await fetch(rpc, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0', id: 1, method: 'eth_call',
+                params: [{
+                  to: UNISWAP_V2_FACTORY,
+                  data: encodeFunctionData({
+                    abi: FACTORY_ABI, functionName: 'getPair',
+                    args: [tokenAddress as `0x${string}`, WETH_MAINNET],
+                  }),
+                }, 'latest'],
+              }),
+            }).then((r) => r.json());
+            const pairAddress = ('0x' + (pairResp.result as string).slice(-40)) as `0x${string}`;
+
+            const balResp = await fetch(rpc, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0', id: 2, method: 'eth_call',
+                params: [{
+                  to: pairAddress,
+                  data: encodeFunctionData({
+                    abi: ERC20_ABI, functionName: 'balanceOf',
+                    args: [address as `0x${string}`],
+                  }),
+                }, 'latest'],
+              }),
+            }).then((r) => r.json());
+            const lpBalance = BigInt(balResp.result || '0x0');
+            if (lpBalance > 0n) {
+              await writeContractAsync({
+                address: pairAddress,
+                abi: parseAbi(['function transfer(address to, uint256 value) returns (bool)']),
+                functionName: 'transfer',
+                args: [DEAD_ADDRESS, lpBalance],
+                chainId: mainnet.id,
+              });
+            }
+          } catch (burnErr) {
+            console.warn('[eth-launch] LP burn failed', burnErr);
+            toast.warning('LP burn skipped — burn manually if needed');
+          }
+        }
+
+        // 4. Renounce
+        if (formData.renounce) {
+          setPostDeployStep('renounce');
+          toast.info('4/4 Renouncing contract');
+          await writeContractAsync({
+            address: tokenAddress as `0x${string}`,
+            abi: ERC20_ABI,
+            functionName: 'renounceOwnership',
+            args: [],
+            chainId: mainnet.id,
+          });
+        }
+
+        // 5. Background Etherscan verification
+        setPostDeployStep('verify');
+        toast.info('Verifying source on Etherscan…');
+        supabase.functions.invoke('eth-verify-contract', {
+          body: { tokenAddress, launchId },
+        }).then(({ data, error }) => {
+          if (error || !data?.success) {
+            toast.warning('Verification queued', { description: 'Etherscan can take a few minutes.' });
+          } else {
+            setVerified(true);
+            toast.success('✅ Source verified on Etherscan');
+          }
+        }).catch((e) => console.warn('[eth-verify] exception', e));
+
+        setPostDeployStep('done');
+        toast.success('🎉 Token live & locked', {
+          description: 'LP seeded, burned, ownership renounced.',
+          action: {
+            label: 'View on Etherscan',
+            onClick: () => window.open(`https://etherscan.io/address/${tokenAddress}`, '_blank'),
+          },
+        });
+      } catch (e) {
+        console.error('[eth-launch] post-deploy chain failed', e);
+        toast.error('Post-deploy step failed', {
+          description: e instanceof Error ? e.message : 'Complete LP/burn/renounce manually.',
+        });
+        setPostDeployStep('idle');
+      }
+    })();
+  }, [deployReceipt, deployTxHash, deployedTokenAddress, formData, address, writeContractAsync]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
