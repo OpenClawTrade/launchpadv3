@@ -157,6 +157,10 @@ export function AxiomTerminalGrid({ tokens, solPrice, isLoading, codexNewPairs =
   }, [filteredNewPairs, filteredFinalStretch, filteredMigrated, filteredCodexNew, filteredCodexCompleting, filteredCodexGraduated]);
 
   const { data: sparklineMap } = useSparklineBatch(allAddresses, networkId);
+  const { data: viewCountMap = {} } = useTokenViewCounts(allAddresses);
+
+  const getViewCount = (addr?: string | null) =>
+    addr ? (viewCountMap[addr.toLowerCase()]?.view_count ?? 0) : 0;
 
   // Column labels adapt to chain
   const columnLabels = isBnb
