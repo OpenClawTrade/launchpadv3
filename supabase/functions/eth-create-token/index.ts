@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
       pool_address: poolAddr.toLowerCase(),
       lp_token_id: lpTokenId.toString(),
       creator_wallet: creatorWallet.toLowerCase(),
-      platform_owner: platformDeployer.toLowerCase(),
+      platform_owner: lpHolder.toLowerCase(),
       fee_tier: FEE_TIER,
       tick_lower: tickLower,
       tick_upper: tickUpper,
