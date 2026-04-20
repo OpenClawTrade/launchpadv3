@@ -10,11 +10,17 @@ type Column = "new" | "completing" | "completed";
 
 const SOLANA_NETWORK_ID = 1399811149;
 const BSC_NETWORK_ID = 56;
+const ETH_NETWORK_ID = 1;
 const MAX_REASONABLE_CHANGE_24H_DEFAULT = 10_000;
 const MAX_REASONABLE_CHANGE_24H_BSC = 1_000;
+const MAX_REASONABLE_CHANGE_24H_ETH = 5_000;
 const BSC_NEW_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
 const BSC_COMPLETING_LOOKBACK_SECONDS = 7 * 24 * 60 * 60;
 const BSC_COMPLETING_MIN_VOLUME_24H = 100;
+const ETH_NEW_LOOKBACK_SECONDS = 2 * 24 * 60 * 60;
+const ETH_NEW_MIN_LIQUIDITY = 5_000;
+const ETH_COMPLETED_MIN_LIQUIDITY = 25_000;
+const ETH_COMPLETED_MIN_VOLUME_24H = 5_000;
 
 function toFiniteNumber(value: unknown): number {
   const num = typeof value === "number" ? value : Number(value);
@@ -159,7 +165,7 @@ async function fetchDexScreenerChange24h(address: string, networkId: number): Pr
     if (!res.ok) return null;
 
     const data = await res.json();
-    const expectedChain = networkId === BSC_NETWORK_ID ? "bsc" : "solana";
+    const expectedChain = networkId === BSC_NETWORK_ID ? "bsc" : networkId === ETH_NETWORK_ID ? "ethereum" : "solana";
     const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
     const filteredPairs = pairs.filter((pair: any) => pair?.chainId === expectedChain);
     const poolCandidates = filteredPairs.length > 0 ? filteredPairs : pairs;
@@ -186,8 +192,27 @@ function buildQuery(column: Column, limit: number, networkId: number): string {
   const twoDaysAgo = now - 172800;
   const bscNewCutoff = now - BSC_NEW_LOOKBACK_SECONDS;
   const bscCompletingCutoff = now - BSC_COMPLETING_LOOKBACK_SECONDS;
+  const ethNewCutoff = now - ETH_NEW_LOOKBACK_SECONDS;
 
-  if (networkId === BSC_NETWORK_ID) {
+  if (networkId === ETH_NETWORK_ID) {
+    // Ethereum: launchpad-agnostic. Show any new pair with LP added (liquidity gate).
+    switch (column) {
+      case "new":
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY} }, createdAt: { gte: ${ethNewCutoff} } }`;
+        rankings = `{ attribute: createdAt, direction: DESC }`;
+        break;
+      case "completing":
+        // No real "bonding" concept on raw ETH pairs — surface emerging pairs by volume momentum.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_NEW_MIN_LIQUIDITY * 2} }, volume24: { gte: 1000 }, createdAt: { gte: ${ethNewCutoff} } }`;
+        rankings = `{ attribute: volume24, direction: DESC }`;
+        break;
+      case "completed":
+        // Established ETH pairs with healthy liquidity + volume.
+        filters = `{ network: [${networkId}], liquidity: { gte: ${ETH_COMPLETED_MIN_LIQUIDITY} }, volume24: { gte: ${ETH_COMPLETED_MIN_VOLUME_24H} } }`;
+        rankings = `{ attribute: volume24, direction: DESC }`;
+        break;
+    }
+  } else if (networkId === BSC_NETWORK_ID) {
     // BSC launchpads: Four.meme (main BSC launchpad), Four.meme Fair, Moonit, TokenMill V2
     const bscLaunchpads = `["Four.meme", "Moonit"]`;
 
@@ -289,7 +314,7 @@ Deno.serve(async (req) => {
     const { column = "new", limit = 50, networkId = SOLANA_NETWORK_ID } = await req.json().catch(() => ({}));
     const validColumn = (["new", "completing", "completed"] as Column[]).includes(column) ? column : "new";
     const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
-    const safeNetworkId = [SOLANA_NETWORK_ID, BSC_NETWORK_ID].includes(networkId) ? networkId : SOLANA_NETWORK_ID;
+    const safeNetworkId = [SOLANA_NETWORK_ID, BSC_NETWORK_ID, ETH_NETWORK_ID].includes(networkId) ? networkId : ETH_NETWORK_ID;
 
     const query = buildQuery(validColumn as Column, safeLimit, safeNetworkId);
 
@@ -326,16 +351,20 @@ Deno.serve(async (req) => {
     const tokens = results.map((r: any) => {
       const address = r.token?.info?.address ?? null;
       const isBsc = safeNetworkId === BSC_NETWORK_ID;
-      const dexChain = isBsc ? "bsc" : "solana";
+      const isEth = safeNetworkId === ETH_NETWORK_ID;
+      const dexChain = isBsc ? "bsc" : isEth ? "ethereum" : "solana";
       const normalizedAddress = normalizeAddress(address);
       const dexScreenerImage = normalizedAddress
         ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${normalizedAddress}.png`
         : null;
-      const oneInchImage = isBsc && normalizedAddress
-        ? `https://tokens.1inch.io/56/${normalizedAddress}.png`
+      const oneInchImage = normalizedAddress && (isBsc || isEth)
+        ? `https://tokens.1inch.io/${isEth ? 1 : 56}/${normalizedAddress}.png`
         : null;
       const pancakeSwapImage = isBsc && normalizedAddress
         ? `https://tokens.pancakeswap.finance/images/symbol/${normalizedAddress}.png`
+        : null;
+      const trustWalletEthImage = isEth && normalizedAddress
+        ? `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${normalizedAddress}/logo.png`
         : null;
       const identiconImage = normalizedAddress
         ? `https://api.dicebear.com/9.x/identicon/svg?seed=${encodeURIComponent(normalizedAddress)}`
@@ -363,6 +392,17 @@ Deno.serve(async (req) => {
 
         imageUrl = bscImageCandidates[0] ?? null;
         fallbackImageUrl = bscImageCandidates[1] ?? null;
+      } else if (isEth) {
+        // ETH: trust Codex image first (no launchpad spoofing risk), then DexScreener, then trust wallet, then 1inch.
+        const ethImageCandidates = uniqueNonEmpty([
+          codexImage,
+          dexScreenerImage,
+          trustWalletEthImage,
+          oneInchImage,
+          identiconImage,
+        ]);
+        imageUrl = ethImageCandidates[0] ?? null;
+        fallbackImageUrl = ethImageCandidates[1] ?? null;
       } else {
         const solanaImageCandidates = uniqueNonEmpty([codexImage, dexScreenerImage, identiconImage]);
         imageUrl = solanaImageCandidates[0] ?? null;
@@ -382,7 +422,7 @@ Deno.serve(async (req) => {
         liquidity: toFiniteNumber(r.liquidity),
         graduationPercent: toFiniteNumber(r.token?.launchpad?.graduationPercent),
         poolAddress: r.token?.launchpad?.poolAddress ?? null,
-        launchpadName: r.token?.launchpad?.launchpadName ?? (safeNetworkId === BSC_NETWORK_ID ? "PancakeSwap" : "Pump.fun"),
+        launchpadName: r.token?.launchpad?.launchpadName ?? (safeNetworkId === BSC_NETWORK_ID ? "PancakeSwap" : safeNetworkId === ETH_NETWORK_ID ? "Uniswap" : "Pump.fun"),
         launchpadIconUrl: r.token?.launchpad?.launchpadIconUrl ?? null,
         completed: r.token?.launchpad?.completed ?? false,
         migrated: r.token?.launchpad?.migrated ?? false,
@@ -398,7 +438,9 @@ Deno.serve(async (req) => {
 
     const maxAllowedChange = safeNetworkId === BSC_NETWORK_ID
       ? MAX_REASONABLE_CHANGE_24H_BSC
-      : MAX_REASONABLE_CHANGE_24H_DEFAULT;
+      : safeNetworkId === ETH_NETWORK_ID
+        ? MAX_REASONABLE_CHANGE_24H_ETH
+        : MAX_REASONABLE_CHANGE_24H_DEFAULT;
 
     const normalizedTokens = await Promise.all(tokens.map(async (token: any) => {
       // Filter out tokens with overflow/invalid market caps (2^63 sentinel values)

@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, memo } from "react";
 import { formatChange24h } from "@/lib/formatters";
-import { useCodexNewPairs, type CodexPairToken, SOLANA_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
+import { useCodexNewPairs, type CodexPairToken, SOLANA_NETWORK_ID, BSC_NETWORK_ID, ETH_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { RefreshCw, Rocket, ExternalLink, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import solanaLogo from "@/assets/solana-logo.png";
 
-type PanelChain = "solana" | "bnb";
+type PanelChain = "ethereum" | "bnb";
 
 interface NewPairsPanelProps {
   onRefresh?: (e: React.MouseEvent) => void;
@@ -158,20 +157,17 @@ const MiniSparkline = memo(function MiniSparkline({ seed, isUp }: { seed: string
 function TokenIcon({ pair, chain }: { pair: CodexPairToken; chain: PanelChain }) {
   const [stage, setStage] = useState(0);
   const isBnb = chain === "bnb";
-  const dexChain = isBnb ? "bsc" : "solana";
+  const dexChain = isBnb ? "bsc" : "ethereum";
   const dexUrl = pair.address
     ? `https://dd.dexscreener.com/ds-data/tokens/${dexChain}/${pair.address}.png`
     : null;
 
   const srcs: string[] = [];
-  if (isBnb) {
-    if (pair.imageUrl && !pair.imageUrl.includes("dicebear.com")) srcs.push(pair.imageUrl);
-    if (pair.fallbackImageUrl && !srcs.includes(pair.fallbackImageUrl)) srcs.push(pair.fallbackImageUrl);
-    if (dexUrl && !srcs.includes(dexUrl)) srcs.push(dexUrl);
-  } else {
-    if (dexUrl) srcs.push(dexUrl);
-    if (pair.imageUrl && pair.imageUrl !== dexUrl) srcs.push(pair.imageUrl);
-  }
+  // Both ETH and BSC: prefer the curated image from the edge function (already address-bound),
+  // then fall back to dex screener and any provided fallback.
+  if (pair.imageUrl && !pair.imageUrl.includes("dicebear.com")) srcs.push(pair.imageUrl);
+  if (pair.fallbackImageUrl && !srcs.includes(pair.fallbackImageUrl)) srcs.push(pair.fallbackImageUrl);
+  if (dexUrl && !srcs.includes(dexUrl)) srcs.push(dexUrl);
 
   if (stage >= srcs.length) {
     const hash = hashStr(pair.symbol || "?");
@@ -354,9 +350,9 @@ function TokenRowCard({ pair, chain, onClick }: {
 }
 
 
-export function NewPairsPanel({ onRefresh, refreshing, compact, defaultChain = "solana" }: NewPairsPanelProps) {
+export function NewPairsPanel({ onRefresh, refreshing, compact, defaultChain = "ethereum" }: NewPairsPanelProps) {
   const [selectedChain, setSelectedChain] = useState<PanelChain>(defaultChain);
-  const networkId = selectedChain === "bnb" ? BSC_NETWORK_ID : SOLANA_NETWORK_ID;
+  const networkId = selectedChain === "bnb" ? BSC_NETWORK_ID : ETH_NETWORK_ID;
   const { newPairs, isLoading } = useCodexNewPairs(networkId);
   const navigate = useNavigate();
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -428,17 +424,24 @@ export function NewPairsPanel({ onRefresh, refreshing, compact, defaultChain = "
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
           <button
-            onClick={(e) => { e.stopPropagation(); setSelectedChain("solana"); setVisibleCount(PAGE_SIZE); }}
+            onClick={(e) => { e.stopPropagation(); setSelectedChain("ethereum"); setVisibleCount(PAGE_SIZE); }}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: 28, height: 28, borderRadius: 8, border: "none", cursor: "pointer",
-              background: selectedChain === "solana" ? "rgba(200,255,0,0.12)" : "transparent",
-              boxShadow: selectedChain === "solana" ? "inset 0 0 0 1px rgba(200,255,0,0.2)" : "none",
+              background: selectedChain === "ethereum" ? "rgba(98,126,234,0.16)" : "transparent",
+              boxShadow: selectedChain === "ethereum" ? "inset 0 0 0 1px rgba(98,126,234,0.32)" : "none",
               transition: "all 0.15s",
             }}
-            title="Solana pairs"
+            title="Ethereum pairs"
           >
-            <img src={solanaLogo} alt="SOL" style={{ width: 18, height: 18, borderRadius: "50%" }} />
+            <svg viewBox="0 0 256 417" style={{ width: 16, height: 16 }} fill="none">
+              <path fill="#627EEA" d="M127.961 0l-2.795 9.5v275.668l2.795 2.79 127.962-75.638z"/>
+              <path fill="#8C8C8C" d="M127.962 0L0 212.32l127.962 75.639V154.158z"/>
+              <path fill="#627EEA" d="M127.961 312.187l-1.575 1.92v98.199l1.575 4.6L256 236.587z"/>
+              <path fill="#8C8C8C" d="M127.962 416.905v-104.72L0 236.585z"/>
+              <path fill="#3C3C3B" d="M127.961 287.958l127.96-75.637-127.96-58.162z"/>
+              <path fill="#8C8C8C" d="M0 212.32l127.96 75.638v-133.8z"/>
+            </svg>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setSelectedChain("bnb"); setVisibleCount(PAGE_SIZE); }}
