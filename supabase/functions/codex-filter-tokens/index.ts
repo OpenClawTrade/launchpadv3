@@ -517,6 +517,16 @@ Deno.serve(async (req) => {
           return token.volume24h >= BSC_COMPLETING_MIN_VOLUME_24H;
         }
         return true;
+      })
+      .filter((token: any) => {
+        // ETH "Migrated" column: hide stablecoins, wrapped natives, LSTs.
+        if (safeNetworkId === ETH_NETWORK_ID && validColumn === "completed") {
+          const sym = String(token.symbol ?? "").toUpperCase();
+          const addr = normalizeAddress(token.address);
+          if (ETH_EXCLUDED_SYMBOLS.has(sym)) return false;
+          if (addr && ETH_EXCLUDED_ADDRESSES.has(addr)) return false;
+        }
+        return true;
       });
 
     if (safeNetworkId === BSC_NETWORK_ID && validColumn === "completing") {
