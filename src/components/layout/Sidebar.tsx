@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, Zap, TrendingUp, FileText, Crosshair, LayoutDashboard, CandlestickChart, Radar, Rocket, Coins, Crown } from "lucide-react";
+import { Home, Zap, TrendingUp, Plus, FileText, Crosshair, LayoutDashboard, CandlestickChart, Radar, Rocket, Coins, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -63,9 +63,9 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       <nav className={cn("flex-1 flex flex-col items-center gap-0.5 py-2", isMobile && "items-stretch px-2")}>
         {NAV_LINKS.map((navItem) => {
-          const { to, label, icon: Icon, exact, neonGreen } = navItem;
+          const { to, label, icon: Icon, exact, neonGreen, comingSoon, disabled } = navItem;
           const active = isActive(to, exact);
-          
+
           const iconEl = Icon ? (
             <Icon className={cn(
               "h-4 w-4 flex-shrink-0 transition-colors",
@@ -76,20 +76,39 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           ) : null;
 
           if (isMobile) {
-            // Mobile: show labels
             const classes = cn(
               "flex items-center gap-3 px-4 py-2.5 rounded-sm text-[13px] font-medium transition-all duration-200 w-full border-l-2",
-              active
-                ? "text-foreground bg-surface-hover border-primary"
-                : neonGreen
-                  ? "text-[hsl(72_100%_50%)] font-bold hover:text-foreground hover:bg-surface-hover/50 border-transparent"
-                  : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
+              disabled
+                ? "text-muted-foreground/60 cursor-not-allowed border-transparent"
+                : active
+                  ? "text-foreground bg-surface-hover border-primary"
+                  : neonGreen
+                    ? "text-[hsl(72_100%_50%)] font-bold hover:text-foreground hover:bg-surface-hover/50 border-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50 border-transparent"
             );
 
-            return (
-              <Link key={to} to={to} onClick={onLinkClick} className={classes}>
+            const inner = (
+              <>
                 {iconEl}
                 <span>{label}</span>
+                {comingSoon && (
+                  <span className="ml-auto text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground border border-border/40">
+                    Soon
+                  </span>
+                )}
+              </>
+            );
+
+            if (disabled) {
+              return (
+                <div key={to} className={classes} aria-disabled="true">
+                  {inner}
+                </div>
+              );
+            }
+            return (
+              <Link key={to} to={to} onClick={onLinkClick} className={classes}>
+                {inner}
               </Link>
             );
           }
@@ -97,24 +116,35 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
           // Desktop: icon-only with tooltip
           const desktopClasses = cn(
             "relative flex items-center justify-center w-9 h-9 rounded-sm transition-all duration-200 group/nav",
-            active
-              ? "text-primary bg-primary/10"
-              : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50"
+            disabled
+              ? "text-muted-foreground/50 cursor-not-allowed"
+              : active
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:text-foreground hover:bg-surface-hover/50"
           );
 
           const content = (
             <>
               {iconEl}
-              {/* Tooltip */}
+              {comingSoon && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-muted-foreground/70" />
+              )}
               <span className="absolute left-full ml-2 px-2 py-1 text-[11px] font-medium bg-popover text-popover-foreground border border-border rounded-sm whitespace-nowrap opacity-0 pointer-events-none group-hover/nav:opacity-100 transition-opacity z-50">
-                {label}
+                {label}{comingSoon ? " · Coming Soon" : ""}
               </span>
-              {/* Active indicator bar */}
-              {active && (
+              {active && !disabled && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[3px] w-[3px] h-4 bg-primary rounded-r-full" />
               )}
             </>
           );
+
+          if (disabled) {
+            return (
+              <div key={to} className={desktopClasses} aria-disabled="true">
+                {content}
+              </div>
+            );
+          }
 
           return (
             <Link key={to} to={to} className={desktopClasses}>
