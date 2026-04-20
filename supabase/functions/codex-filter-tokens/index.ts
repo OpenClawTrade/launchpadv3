@@ -23,11 +23,21 @@ const ETH_NEW_MIN_LIQUIDITY = 500;
 const ETH_COMPLETED_MIN_LIQUIDITY = 25_000;
 const ETH_COMPLETED_MIN_VOLUME_24H = 5_000;
 
-// Stablecoins & wrapped natives to exclude from "Migrated" column on ETH
+// Stablecoins, wrapped natives, and liquid-staking / restaking tokens
+// to exclude from "Migrated" column on ETH (and matched as substrings too).
 const ETH_EXCLUDED_SYMBOLS = new Set([
+  // Stables
   "USDC", "USDT", "DAI", "BUSD", "TUSD", "USDP", "FRAX", "LUSD", "GUSD", "USDD",
-  "PYUSD", "FDUSD", "USDE", "SUSDE", "CRVUSD", "MIM", "USDS", "USDX",
-  "WETH", "WBTC", "STETH", "WSTETH", "RETH", "CBETH", "WEETH", "EZETH", "RSETH",
+  "PYUSD", "FDUSD", "USDE", "SUSDE", "CRVUSD", "MIM", "USDS", "USDX", "USDY",
+  "USDM", "USD0", "USR", "DOLA", "OUSD", "SUSD", "USDL", "USDB",
+  // Wrapped natives
+  "WETH", "WBTC", "WBETH",
+  // Liquid staking / restaking / yield-bearing ETH derivatives
+  "STETH", "WSTETH", "RETH", "CBETH", "WEETH", "EETH", "EZETH", "RSETH", "PUFETH",
+  "ANKRETH", "OSETH", "SWETH", "FRXETH", "SFRXETH", "METH", "LSETH", "OETH",
+  "WOETH", "YIETH", "RSWETH", "UNIETH", "RENZO", "STKBNB",
+  // Liquid restaking & wrappers
+  "AETHB", "AETHC", "AWETH", "ASTETH",
 ]);
 const ETH_EXCLUDED_ADDRESSES = new Set([
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
@@ -39,6 +49,17 @@ const ETH_EXCLUDED_ADDRESSES = new Set([
   "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599", // WBTC
   "0xae7ab96520de3a18e5e111b5eaab095312d7fe84", // stETH
   "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", // wstETH
+  "0xae78736cd615f374d3085123a210448e74fc6393", // rETH
+  "0xbe9895146f7af43049ca1c1ae358b0541ea49704", // cbETH
+  "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee", // weETH
+  "0xbf5495efe5db9ce00f80364c8b423567e58d2110", // ezETH (Renzo)
+  "0xa1290d69c65a6fe4df752f95823fae25cb99e5a7", // rsETH (Kelp)
+  "0xd9a442856c234a39a81a089c06451ebaa4306a72", // pufETH
+  "0xa35b1b31ce002fbf2058d22f30f95d405200a15b", // ETHx (Stader)
+  "0xf951e335afb289353dc249e82926178eac7ded78", // swETH
+  "0x5e8422345238f34275888049021821e8e08caa1f", // frxETH
+  "0xac3e018457b222d93114458476f3e3416abbe38f", // sfrxETH
+  "0xd5f7838f5c461feff7fe49ea5ebaf7728bb0adfa", // mETH (Mantle)
 ]);
 
 function toFiniteNumber(value: unknown): number {
