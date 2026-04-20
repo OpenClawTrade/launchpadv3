@@ -133,7 +133,7 @@ export function useKingOfTheHill(): UseKingOfTheHillResult {
   const { data: codexData } = useQuery({
     queryKey: [...CODEX_QUERY_KEY, ...mintAddresses],
     queryFn: () => fetchCodexLiveData(mintAddresses),
-    enabled: mintAddresses.length > 0 && chainFilter === "solana", // Codex only for Solana
+    enabled: false, // Ethereum-only: Codex (Solana) data disabled
     staleTime: 1000 * 15,
     refetchInterval: 1000 * 20,
     refetchOnWindowFocus: false,
