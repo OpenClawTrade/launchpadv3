@@ -436,7 +436,30 @@ Deno.serve(async (req) => {
       feeTier: FEE_TIER,
       platformOwner: lpHolder,
       creatorWallet,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    });
+    })(); // end deployTask
+
+    // Run in background; do not await. Catch errors → mark launch as failed.
+    deployTask.catch(async (err) => {
+      console.error("[eth-create-token-v3] background error", err);
+      if (launchId) {
+        try {
+          await supabase.from("eth_launch_requests").update({
+            status: "failed",
+            error_message: err instanceof Error ? err.message : "Server error",
+          }).eq("id", launchId);
+        } catch (_) { /* swallow */ }
+      }
+    });
+    // @ts-ignore — Deno background task to keep isolate alive
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(deployTask);
+
+    return new Response(JSON.stringify({
+      success: true,
+      launchId,
+      status: "deploying",
+      message: "Launch started; poll eth_launch_requests for status",
+    }), { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[eth-create-token-v3] error", err);
     return new Response(JSON.stringify({ success: false, error: err instanceof Error ? err.message : "Server error" }), {
