@@ -40,9 +40,10 @@ function HeaderWalletBalanceInner() {
   const [profile, setProfile] = useState<{ display_name?: string | null; avatar_url?: string | null; username?: string | null; evm_wallet_address?: string | null } | null>(null);
 
   const isBnb = chain === 'bnb';
+  // ETH-default: prefer the embedded EVM wallet for display everywhere except BNB.
   const evmAddress = privyEvm.address || evmWallet.address || '';
-  const displayAddress = isBnb ? evmAddress : (embeddedAddress || '');
-  const currencyLabel = isBnb ? 'BNB' : 'SOL';
+  const displayAddress = isBnb ? evmAddress : (evmAddress || embeddedAddress || '');
+  const currencyLabel = isBnb ? 'BNB' : 'ETH';
 
   useEffect(() => {
     if (!embeddedAddress && !evmAddress) return;
@@ -83,46 +84,42 @@ function HeaderWalletBalanceInner() {
       const interval = setInterval(fetchBnbBal, 15000);
       return () => { cancelled = true; clearInterval(interval); };
     } else {
-      if (!embeddedAddress) { setBalanceLoading(false); return; }
+      // ETH path: fetch native ETH balance via public RPC
+      if (!evmAddress) { setBalanceLoading(false); return; }
       let cancelled = false;
       setBalanceLoading(true);
 
-      // Fast path: use edge function for quick server-side balance
-      const fetchViaEdge = async () => {
+      const fetchEthBal = async () => {
         try {
-          const { data } = await supabase.functions.invoke("fetch-sol-balances", {
-            body: { wallets: [embeddedAddress] },
+          const res = await fetch("https://eth.llamarpc.com", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_getBalance",
+              params: [evmAddress, "latest"],
+            }),
           });
-          if (!cancelled && data?.balances?.[embeddedAddress] !== undefined) {
-            setBalance(data.balances[embeddedAddress]);
+          const json = await res.json();
+          if (json?.result) {
+            const wei = BigInt(json.result);
+            const eth = Number(wei) / 1e18;
+            if (!cancelled) { setBalance(eth); setBalanceLoading(false); }
+          } else if (!cancelled) {
             setBalanceLoading(false);
           }
         } catch (e) {
-          console.warn("Edge balance fetch failed, falling back to RPC:", e);
+          console.warn("Header ETH balance fetch failed:", e);
+          if (!cancelled) setBalanceLoading(false);
         }
       };
 
-      // Also fetch via RPC as backup / refresh
-      const fetchViaRpc = async () => {
-        try {
-          const connection = new (await import("@solana/web3.js")).Connection(
-            (await import("@/hooks/useSolanaWallet")).getRpcUrl().url, "confirmed"
-          );
-          const pubkey = new (await import("@solana/web3.js")).PublicKey(embeddedAddress!);
-          const lamports = await connection.getBalance(pubkey);
-          const bal = lamports / 1e9;
-          if (!cancelled) { setBalance(bal); setBalanceLoading(false); }
-        } catch (e) { console.warn("Header RPC balance fetch failed:", e); if (!cancelled) setBalanceLoading(false); }
-      };
-
-      // Race: edge function (fast) + RPC (accurate)
-      fetchViaEdge();
-      fetchViaRpc();
-
-      const interval = setInterval(fetchViaRpc, 15000);
+      fetchEthBal();
+      const interval = setInterval(fetchEthBal, 15000);
       return () => { cancelled = true; clearInterval(interval); };
     }
-  }, [embeddedAddress, chain, evmWallet.isConnected, evmWallet.address, privyEvm.address]);
+  }, [evmAddress, isBnb]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -264,7 +261,7 @@ function HeaderWalletBalanceInner() {
         open={depositOpen}
         onOpenChange={setDepositOpen}
         address={displayAddress}
-        chain={isBnb ? "bnb" : "solana"}
+        chain={isBnb ? "bnb" : "ethereum" as any}
         getBalance={undefined}
       />
       <WithdrawDialog
