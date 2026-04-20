@@ -18,6 +18,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  fallback,
   parseEther,
   parseAbi,
   encodeDeployData,
