@@ -106,6 +106,40 @@ function buildSparkPath(values: number[]): string {
     .join(" ");
 }
 
+// --- Synthetic sparkline (mirrors SparklineCanvas.normalizeFlatData) ---
+function hashSeed(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function seededRandom(seed: number, index: number): number {
+  const x = Math.sin(seed * 9301 + index * 49297 + 233280) * 49297;
+  return x - Math.floor(x);
+}
+// Deterministic 24-point curve when no real Codex data is available.
+// `trend` (-1..+1) biases the slope so up tokens trend up, down tokens trend down.
+function syntheticSparkline(seed: string, trend = 0): number[] {
+  const h = hashSeed(seed);
+  const numPoints = 24;
+  const mean = 1;
+  const amplitude = 0.18;
+  const freq1 = 0.15 + (h % 100) / 500;
+  const freq2 = 0.08 + ((h >> 8) % 100) / 800;
+  const phase1 = ((h % 360) * Math.PI) / 180;
+  const phase2 = (((h >> 4) % 360) * Math.PI) / 180;
+  const drift = trend * amplitude * 0.6;
+  const out: number[] = [];
+  for (let i = 0; i < numPoints; i++) {
+    const t = i / (numPoints - 1);
+    const wave =
+      Math.sin(i * freq1 + phase1) * 0.6 +
+      Math.sin(i * freq2 + phase2) * 0.4 +
+      (seededRandom(h, i) - 0.5) * 0.3;
+    out.push(mean + wave * amplitude + drift * t);
+  }
+  return out;
+}
+
 function injectTopTokens(
   doc: Document,
   topTokens: Array<{ launch: EthLaunch; market: Market; sparkline: number[]; index: number }>
@@ -126,7 +160,20 @@ function injectTopTokens(
     const chg = market?.changeH24 ?? null;
     const chgColor = chg == null ? "var(--up)" : chg >= 0 ? "var(--up)" : "#ff6b4a";
     const chgText = chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%`;
-    const path = buildSparkPath(sparkline);
+    // Always render a chart — use real Codex sparkline if we got one,
+    // otherwise generate a deterministic synthetic curve seeded by the token
+    // address so every card matches /trade's pulse-card look.
+    const sparkData =
+      sparkline && sparkline.length >= 2
+        ? sparkline
+        : syntheticSparkline(
+            launch.token_address || launch.id,
+            chg == null ? 0 : Math.max(-1, Math.min(1, chg / 50))
+          );
+    const path = buildSparkPath(sparkData);
+    const isUp = sparkData[sparkData.length - 1] >= sparkData[0];
+    const lineColor = isUp ? "#0ed47a" : "#ff6b4a";
+    const fillColor = isUp ? "rgba(14,212,122,0.18)" : "rgba(255,107,74,0.18)";
     const tradeHref = launch.token_address ? `/ape/${launch.token_address}` : "#";
     const imageHTML = launch.image_url
       ? `<img src="${launch.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
@@ -148,14 +195,10 @@ function injectTopTokens(
         <div><div class="gm">24H</div><div class="gv" style="color:${chgColor}">${chgText}</div></div>
       </div>
       <div class="mini-chart">
-        ${
-          path
-            ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none">
-                 <path class="fill" d="${path} L 100 30 L 0 30 Z"/>
-                 <path class="ln" d="${path}"/>
-               </svg>`
-            : `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#fff7e0;opacity:0.4;text-align:center;padding-top:12px">no chart yet</div>`
-        }
+        <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+          <path d="${path} L 100 30 L 0 30 Z" fill="${fillColor}" stroke="none"/>
+          <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
     `;
     list.appendChild(card);
@@ -395,7 +438,7 @@ export default function PopshibaLaunchpadPage() {
           const bm = typeof b.market.marketCap === "number" && isFinite(b.market.marketCap) ? b.market.marketCap : -1;
           return bm - am;
         })
-        .slice(0, 4);
+        .slice(0, 8);
 
       let sparklines: Record<string, number[]> = {};
       if (topRanked.length > 0) {
