@@ -21,6 +21,7 @@ interface FinalizeBody {
   tokenAddress?: string;
   poolAddress?: string;
   lpTokenId?: string;          // bigint stringified
+  uncxLockId?: string;         // bigint stringified — UNCX V3 lock id
   errorMessage?: string;
 }
 
@@ -85,6 +86,9 @@ Deno.serve(async (req) => {
     if (body.lpTokenId) {
       // Numeric column; stringified bigint is fine for postgres
       update.lp_token_id = body.lpTokenId;
+    }
+    if (body.uncxLockId) {
+      update.uncx_lock_id = body.uncxLockId;
     }
     if (body.errorMessage) update.error_message = body.errorMessage.slice(0, 500);
 
