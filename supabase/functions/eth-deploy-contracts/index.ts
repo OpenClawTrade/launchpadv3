@@ -73,14 +73,14 @@ Deno.serve(async (req) => {
     const balance = await publicClient.getBalance({ address: account.address });
     const nonce = await publicClient.getTransactionCount({ address: account.address });
 
-    // Idempotency: only consider "fully-formed" active deployments (must have launcher_address now)
+    // Find any active row (with or without launcher) — needed so launcher-only mode can detect a 3-contract row missing only the launcher.
     const { data: existing } = await supabase
       .from("eth_deployments")
       .select("id, vault_address, clone_factory_address, token_impl_address, launcher_address, deployed_at")
       .eq("is_active", true)
       .not("vault_address", "is", null)
       .not("clone_factory_address", "is", null)
-      .not("launcher_address", "is", null)
+      .not("token_impl_address", "is", null)
       .order("deployed_at", { ascending: false })
       .limit(1)
       .maybeSingle();
