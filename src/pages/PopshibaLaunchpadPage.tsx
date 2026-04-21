@@ -335,7 +335,7 @@ export default function PopshibaLaunchpadPage() {
   const [prefill, setPrefill] = useState<LauncherPrefill>({});
   const navigate = useNavigate();
   const { address, isConnected } = useAccount();
-  const { login, authenticated, ready } = usePrivy();
+  const { login, logout, authenticated, ready } = usePrivy();
 
 
   // ETH-data injection + polling
@@ -494,13 +494,15 @@ export default function PopshibaLaunchpadPage() {
         if (ready) login();
       } else if (data.type === "open-earnings") {
         navigate("/earnings");
+      } else if (data.type === "wallet-logout") {
+        logout().catch(() => {});
       }
     }
     window.addEventListener("message", onMessage);
     // Push state immediately and whenever wallet changes
     sendWalletState();
     return () => window.removeEventListener("message", onMessage);
-  }, [authenticated, isConnected, address, ready, login, navigate]);
+  }, [authenticated, isConnected, address, ready, login, logout, navigate]);
 
   return (
     <>
