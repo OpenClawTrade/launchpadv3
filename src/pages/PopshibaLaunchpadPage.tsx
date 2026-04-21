@@ -216,6 +216,7 @@ function injectLiveData(
   setText("stat-volume", fmtUsd(hero.totalVolume));
   setText("stat-mc", fmtUsd(hero.totalMC));
   setText("stat-grad-count", String(Math.round((hero.gradPct / 100) * launches.length)));
+
 }
 
 export default function PopshibaLaunchpadPage() {
@@ -260,10 +261,11 @@ export default function PopshibaLaunchpadPage() {
         (s, m) => s + (m?.marketCap ?? 0),
         0
       );
-      const gradCount = launches.filter(
-        (l) => l.status === "graduated" || (markets[l.token_address?.toLowerCase() ?? ""]?.liquidityUsd ?? 0) >= GRAD_LIQUIDITY_USD
+      // Count tokens from our launchpad that have hit >= $1M market cap
+      const millionCount = launches.filter(
+        (l) => (markets[l.token_address?.toLowerCase() ?? ""]?.marketCap ?? 0) >= 1_000_000
       ).length;
-      const gradPct = launches.length > 0 ? (gradCount / launches.length) * 100 : 0;
+      const gradPct = launches.length > 0 ? (millionCount / launches.length) * 100 : 0;
 
       const doc = ref.current?.contentDocument;
       if (doc && doc.getElementById("ll-body")) {
