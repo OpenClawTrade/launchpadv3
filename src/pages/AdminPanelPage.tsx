@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Lock, Wallet, Rocket, Database, Megaphone, Bot, ScrollText,
-  Users, Shield, Loader2, Wand2, Layers, Repeat, Radio, Zap, Brain, Send, AtSign
+  Users, Shield, Loader2, Wand2, Layers, Repeat, Radio, Zap, Brain, Send, AtSign, Coins
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -37,6 +37,7 @@ const MevAdminPage = lazy(() => import("./MevAdminPage"));
 const AICollabPage = lazy(() => import("./AICollabPage"));
 const TokenSendTab = lazy(() => import("@/components/admin/TokenSendTab").then(m => ({ default: m.TokenSendTab })));
 const MentionerTab = lazy(() => import("@/components/admin/MentionerTab").then(m => ({ default: m.MentionerTab })));
+const EthLpFeesPanel = lazy(() => import("@/components/admin/EthLpFeesPanel").then(m => ({ default: m.EthLpFeesPanel })));
 
 import { AnnouncementManager } from "@/components/admin/AnnouncementManager";
 import { BRAND } from "@/config/branding";
@@ -71,6 +72,7 @@ const TAB_CONFIG = [
   { value: "ai-collab", label: "AI Collab", icon: Brain },
   { value: "token-send", label: "Token Send", icon: Send },
   { value: "mentioner", label: "Mentioner", icon: AtSign },
+  { value: "eth-lp-fees", label: "ETH LP Fees", icon: Coins },
 ] as const;
 
 export default function AdminPanelPage() {
@@ -301,6 +303,12 @@ export default function AdminPanelPage() {
               <TabsContent value="mentioner" className="mt-6">
                 <Suspense fallback={<TabLoader />}>
                   <MentionerTab />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="eth-lp-fees" className="mt-6">
+                <Suspense fallback={<TabLoader />}>
+                  <EthLpFeesPanel />
                 </Suspense>
               </TabsContent>
             </Tabs>
