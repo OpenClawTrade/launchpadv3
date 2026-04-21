@@ -358,8 +358,19 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
     }
   }, [canLaunch, address, formData, walletClient, currentChainId, switchChainAsync, lpEthAmount, pushLog]);
 
+  // Auto-fire launch (used by the Popshiba "1-click" landing flow). Waits until
+  // wallet client + ETH price are loaded so canLaunch can flip true.
+  const autoFiredRef = useState({ fired: false })[0];
+  useEffect(() => {
+    if (!autoLaunch) return;
+    if (autoFiredRef.fired) return;
+    if (!canLaunch || !walletClient) return;
+    autoFiredRef.fired = true;
+    handleLaunch();
+  }, [autoLaunch, canLaunch, walletClient, handleLaunch, autoFiredRef]);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className={hideUI ? 'sr-only pointer-events-none' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}>
       {/* Main Form */}
       <div className="lg:col-span-2 space-y-6">
         <Card className="bg-card/50 backdrop-blur border-border/50">
