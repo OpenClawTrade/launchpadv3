@@ -36,12 +36,16 @@ interface IERC721 {
     function transferFrom(address from, address to, uint256 tokenId) external;
 }
 
-interface IPopShibaToken {
-    function initialize(string memory name_, string memory symbol_, string memory metadataURI_, uint256 totalSupply_, address recipient_) external;
-}
-
 interface IPopShibaCloneFactory {
-    function deploy(address creator) external returns (address token);
+    /// Matches the deployed PopShibaCloneFactory ABI.
+    function createToken(
+        string calldata name,
+        string calldata symbol,
+        address recipient,
+        uint256 supply,
+        string calldata metadataURI,
+        address creator
+    ) external returns (address token);
 }
 
 interface IUniswapV3Factory {
@@ -188,9 +192,10 @@ contract PopShibaLauncherV3 {
         uint256 lockFee = lockLP ? teamFinanceFeeWei() : 0;
         require(msg.value == ethForLP + ethForDevBuy + lockFee, "BAD_VALUE");
 
-        // 1. Clone & initialize token
-        token = IPopShibaCloneFactory(cloneFactory).deploy(msg.sender);
-        IPopShibaToken(token).initialize(name_, symbol_, metadataURI_, TOTAL_SUPPLY, address(this));
+        // 1. Clone & initialize token (full supply minted to THIS launcher for LP seeding)
+        token = IPopShibaCloneFactory(cloneFactory).createToken(
+            name_, symbol_, address(this), TOTAL_SUPPLY, metadataURI_, msg.sender
+        );
 
         // 2. Wrap LP + dev-buy ETH into WETH
         IWETH9(WETH).deposit{value: ethForLP + ethForDevBuy}();
