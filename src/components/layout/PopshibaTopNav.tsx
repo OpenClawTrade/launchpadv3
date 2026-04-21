@@ -236,9 +236,14 @@ function WalletPill({ className = "" }: { className?: string }) {
       <button
         onClick={() => {
           try {
-            const eth = (window as any).ethereum;
-            if (eth?.request) {
-              eth.request({
+            const eth: any = (window as any).ethereum;
+            // Target MetaMask provider directly to avoid the browser's
+            // "which extension?" picker when Phantom is also installed.
+            const mmProvider =
+              eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
+              (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
+            if (mmProvider?.request) {
+              mmProvider.request({
                 method: "wallet_revokePermissions",
                 params: [{ eth_accounts: {} }],
               }).catch(() => {});
