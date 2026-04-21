@@ -74,7 +74,7 @@ export default function ApePage() {
     params.chain === "eth" || params.chain === "ethereum" ? "eth" : null;
   const urlAddress = params.address && ADDR_RE.test(params.address) ? params.address : "";
 
-  const [chain, setChain] = useState<ApeChain>(urlChain ?? "eth");
+  const [chain, setChain] = useState<ApeChain>("eth"); // BNB trading not live — ETH only
   const [tokenAddress, setTokenAddress] = useState(urlAddress);
   const [tokenDecimals, setTokenDecimals] = useState<string>("18");
   const [isBuy, setIsBuy] = useState(true);
@@ -144,7 +144,7 @@ export default function ApePage() {
   useEffect(() => {
     document.title = market?.name
       ? `${market.name} ($${market.symbol}) — Ape Terminal`
-      : "Ape Terminal — Trade Any ETH/BNB Token";
+      : "Ape Terminal — Trade Any ETH Token";
   }, [market]);
 
   const handleSwap = async () => {
@@ -243,24 +243,10 @@ export default function ApePage() {
 
   const TradeSection = () => (
     <div className="trade-glass-panel p-4 space-y-3">
-      {/* Chain + contract input (always present) */}
-      <div className="flex gap-1 p-0.5 bg-muted/30 rounded-lg">
-        <button
-          onClick={() => setChain("eth")}
-          className={`flex-1 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-1.5 ${
-            chain === "eth" ? "bg-primary/15 text-primary border border-primary/25" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <img src={ETH_LOGO} alt="ETH" className="h-3.5 w-3.5 rounded-full" /> ETH
-        </button>
-        <button
-          onClick={() => setChain("bnb")}
-          className={`flex-1 py-1.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-1.5 ${
-            chain === "bnb" ? "bg-primary/15 text-primary border border-primary/25" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <img src={BNB_LOGO} alt="BNB" className="h-3.5 w-3.5 rounded-full" /> BNB
-        </button>
+      {/* ETH-only: BNB trading is not live */}
+      <div className="flex items-center justify-center gap-1.5 p-2 bg-primary/10 border border-primary/25 rounded-lg">
+        <img src={ETH_LOGO} alt="ETH" className="h-3.5 w-3.5 rounded-full" />
+        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-primary">Ethereum</span>
       </div>
 
       <div>
