@@ -126,7 +126,7 @@ function injectTopTokens(
     const chgColor = chg == null ? "var(--up)" : chg >= 0 ? "var(--up)" : "#ff6b4a";
     const chgText = chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%`;
     const path = buildSparkPath(sparkline);
-    const tradeHref = launch.token_address ? `/trade/${launch.token_address}` : "#";
+    const tradeHref = launch.token_address ? `/ape/${launch.token_address}` : "#";
     const imageHTML = launch.image_url
       ? `<img src="${launch.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
       : av;
