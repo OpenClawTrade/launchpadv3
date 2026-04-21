@@ -7,7 +7,7 @@ import {
   POPSHIBA_CLONE_FACTORY_SOL,
   POPSHIBA_FEE_VAULT_SOL,
   POPSHIBA_LAUNCHER_SOL,
-} from "../eth-deploy-contracts/sources.ts";
+} from "./sources.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
