@@ -243,15 +243,13 @@ Deno.serve(async (req) => {
     }).select().single();
     if (insErr) console.error("[deploy] persist failed", insErr);
 
-    // Fire-and-forget verification
+    // Fire-and-forget verification of the suite (Token impl + Factory + Vault)
     EdgeRuntime.waitUntil((async () => {
-      for (const [name, addr] of Object.entries(deployed)) {
-        try {
-          await supabase.functions.invoke("eth-verify-contract", {
-            body: { address: addr, contractName: name },
-          });
-        } catch (e) { console.error(`[verify] ${name}:`, e); }
-      }
+      try {
+        await supabase.functions.invoke("eth-verify-suite", {
+          body: { deploymentId: row?.id },
+        });
+      } catch (e) { console.error("[verify-suite] invoke failed:", e); }
     })());
 
     return new Response(JSON.stringify({
