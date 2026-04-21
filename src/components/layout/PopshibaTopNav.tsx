@@ -145,6 +145,57 @@ export function PopshibaTopNav() {
   );
 }
 
+/* ───────── Social Links (Telegram + X) ───────── */
+const TELEGRAM_URL = "https://t.me/popshiba_eth";
+const X_URL = "https://x.com/PopShiba_launch";
+
+function TelegramIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.022c.242-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.643-.204-.657-.643.136-.953l11.566-4.458c.538-.196 1.006.128.832.938z"/>
+    </svg>
+  );
+}
+
+function XIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
+
+function SocialLinks({ compact = false }: { compact?: boolean }) {
+  const sizeCls = compact ? "w-8 h-8" : "w-9 h-9";
+  const iconCls = compact ? "w-3.5 h-3.5" : "w-4 h-4";
+  const base =
+    "inline-flex items-center justify-center border-[1.5px] border-pop-orange bg-pop-ink-soft text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors";
+  return (
+    <div className="flex items-center gap-1.5">
+      <a
+        href={TELEGRAM_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Popshiba on Telegram"
+        title="Telegram"
+        className={`${base} ${sizeCls}`}
+      >
+        <TelegramIcon className={iconCls} />
+      </a>
+      <a
+        href={X_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Popshiba on X"
+        title="X (Twitter)"
+        className={`${base} ${sizeCls}`}
+      >
+        <XIcon className={iconCls} />
+      </a>
+    </div>
+  );
+}
+
 function WalletPill({ className = "" }: { className?: string }) {
   const { user, login, authenticated } = usePrivy();
   const evm =
