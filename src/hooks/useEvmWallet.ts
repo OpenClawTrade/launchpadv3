@@ -1,7 +1,7 @@
 import { useAccount, useBalance, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { base, bsc, mainnet } from 'wagmi/chains';
 import { formatEther } from 'viem';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useConnectWallet } from '@privy-io/react-auth';
 import { useChain } from '@/contexts/ChainContext';
 
 export interface EvmWalletState {
