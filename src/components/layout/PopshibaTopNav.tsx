@@ -79,6 +79,7 @@ export function PopshibaTopNav() {
 
         {/* Right (desktop) */}
         <div className="hidden md:flex ml-auto items-center gap-2.5">
+          <SocialLinks />
           <CreatorFeesPill />
           <WalletPill />
           <Link
