@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
 // PopShiba.com — Ethereum Mainnet Launchpad
-// PopShibaLauncherV3: atomic launch with OPTIONAL UNCX lock (per-launch flag).
+// PopShibaLauncherV3: atomic launch with OPTIONAL Team Finance LP lock.
 //
-// Same one-tx flow as V2, but the creator chooses at call-time whether to lock
-// LP in UNCX or not. This means we deploy ONCE and the UI controls policy:
-//   - lockLP = false → cheapest possible launch (no UNCX fee). LP NFT stays
-//                      held by THIS launcher contract (rescuable by owner only).
-//                      No UNCX scanner badge.
-//   - lockLP = true  → identical to V2: NFT locked in UNCX, fees harvested by
-//                      PopShibaFeeVaultV2, scanner shows "🔒 LP Locked via UNCX".
+// One contract, per-launch policy chosen by the UI:
+//   - lockLP = false → cheapest path. NFT held by THIS launcher (rescuable
+//                      by owner only). No locker scanner badge.
+//   - lockLP = true  → NFT locked in Team Finance (cheaper than UNCX).
+//                      Vault registered as withdrawal address so it can:
+//                        a) collect 1% trading fees forever (creator gets 50%)
+//                        b) withdraw LP after 10y unlock
 //
-// msg.value MUST equal:
-//   ethForLP + ethForDevBuy + (lockLP ? uncxLockFeeWei() : 0)
+// Cost formula:
+//   msg.value MUST equal: ethForLP + ethForDevBuy + (lockLP ? teamFinanceFeeWei() : 0)
 //
-// Future migration path: when locking becomes mandatory, just enforce lockLP=true
-// in the UI / a thin wrapper — no contract redeploy needed.
+// Team Finance fee is a flat ~$150 in ETH (price-feed denominated). Read live
+// via teamFinanceFeeWei(). Readable on-chain — no hardcoding.
+//
+// Future: when locking becomes mandatory, the UI just stops sending lockLP=false.
+// Zero contract redeploy needed.
 pragma solidity ^0.8.20;
 
 interface IERC20 {
@@ -48,7 +51,6 @@ interface IUniswapV3Factory {
 
 interface IUniswapV3Pool {
     function initialize(uint160 sqrtPriceX96) external;
-    function token0() external view returns (address);
 }
 
 interface INonfungiblePositionManager {
@@ -85,58 +87,53 @@ interface ISwapRouter {
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 }
 
-interface IUNCX_LiquidityLocker_UniV3 {
-    struct LockParams {
-        address nftPositionManager;
-        uint256 nft_id;
-        address dustRecipient;
-        address owner;
-        address additionalCollector;
-        address collector;
-        uint16 countryCode;
-        string feeName;
-        bytes[] r;
-    }
-    struct FeeStruct {
-        string name;
-        uint256 lpFee;
-        uint256 collectFee;
-        uint256 flatFee;
-        address flatFeeToken;
-    }
-    function lock(LockParams calldata params) external payable returns (uint256 lockId);
-    function getFee(string memory _name) external view returns (FeeStruct memory);
+/// @notice Team Finance LockToken (Ethereum mainnet proxy 0xe2fe530c047f2d85298b07d9333c05737f1435fb)
+interface ITeamFinanceLocker {
+    /// @notice Locks an ERC-721 (Uniswap V3 LP NFT). Caller must approve the locker for `_tokenId` first.
+    /// Returns the lock id.
+    function lockNFT(
+        address _tokenAddress,
+        address _withdrawalAddress,
+        uint256 _amount,
+        uint256 _unlockTime,
+        uint256 _tokenId,
+        bool _mintNFT,
+        address referrer
+    ) external payable returns (uint256 _id);
+
+    /// @notice Returns the lock fee in wei. Pass address(0) for the default ETH-denominated fee.
+    function getFeesInETH(address _tokenAddress) external view returns (uint256);
 }
 
-interface IPopShibaFeeVaultV2 {
-    function registerLockedToken(address token, uint256 uncxLockId, address creator) external;
+interface IPopShibaFeeVaultV3 {
+    function registerLockedToken(address token, uint256 tfLockId, address creator) external;
 }
 
 contract PopShibaLauncherV3 {
     // --- Constants (mainnet) ---
-    address public constant WETH       = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address public constant V3_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
-    address public constant NPM        = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
-    address public constant SWAP_ROUTER     = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    address public constant UNCX_V3_LOCKER  = 0xFD235968e65B0990584585763f837A5b5330e6DE;
+    address public constant WETH                = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant V3_FACTORY          = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    address public constant NPM                 = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address public constant SWAP_ROUTER         = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address public constant TEAM_FINANCE_LOCKER = 0xE2fE530C047f2d85298b07D9333C05737f1435fB;
 
     uint24  public constant FEE_TIER     = 10000; // 1%
     int24   public constant TICK_LOWER   = -887200;
     int24   public constant TICK_UPPER   =  887200;
     uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 1e18;
+    uint256 public constant LOCK_DURATION = 10 * 365 days; // Team Finance UI default
 
     // --- Storage ---
     address public owner;
     address public cloneFactory;
     address public feeVault;
-    string  public uncxFeeName = "DEFAULT";
 
     // Track unlocked LP NFTs we still custody (lockLP=false launches).
-    // tokenAddr => lpTokenId
+    // Owner can later sweep them into a locker without redeploying.
     mapping(address => uint256) public unlockedLpTokenId;
 
     event Launched(address indexed token, address indexed creator, address pool, uint256 lpTokenId, bool locked);
-    event LpLocked(address indexed token, uint256 indexed uncxLockId, uint256 unlockDate);
+    event LpLocked(address indexed token, uint256 indexed tfLockId, uint256 unlockDate);
     event UnlockedLpRescued(address indexed token, uint256 indexed lpTokenId, address indexed to);
     event ConfigChanged();
 
@@ -152,11 +149,10 @@ contract PopShibaLauncherV3 {
     // --- Admin ---
     function setCloneFactory(address f) external onlyOwner { cloneFactory = f; emit ConfigChanged(); }
     function setFeeVault(address v) external onlyOwner { feeVault = v; emit ConfigChanged(); }
-    function setUncxFeeName(string calldata name_) external onlyOwner { uncxFeeName = name_; emit ConfigChanged(); }
     function transferOwnership(address newOwner) external onlyOwner { require(newOwner != address(0), "ZERO"); owner = newOwner; }
 
     /// @notice Owner can rescue an unlocked LP NFT (only those held from lockLP=false launches).
-    /// Use this to later migrate an unlocked position into Team Finance / UNCX once we choose.
+    /// Use to migrate an unlocked position into Team Finance later.
     function rescueUnlockedLp(address token, address to) external onlyOwner {
         uint256 id = unlockedLpTokenId[token];
         require(id != 0, "NO_UNLOCKED_LP");
@@ -166,21 +162,19 @@ contract PopShibaLauncherV3 {
     }
 
     // --- Views ---
-    function uncxLockFeeWei() public view returns (uint256) {
-        IUNCX_LiquidityLocker_UniV3.FeeStruct memory f =
-            IUNCX_LiquidityLocker_UniV3(UNCX_V3_LOCKER).getFee(uncxFeeName);
-        if (f.flatFeeToken == address(0)) return f.flatFee;
-        return 0;
+    /// @notice Live Team Finance flat-ETH lock fee. Pass through to UI.
+    function teamFinanceFeeWei() public view returns (uint256) {
+        return ITeamFinanceLocker(TEAM_FINANCE_LOCKER).getFeesInETH(address(0));
     }
 
     /// @notice Total ETH msg.value the user must send for a given launch config.
     function quoteTotalCost(uint256 ethForLP, uint256 ethForDevBuy, bool lockLP) external view returns (uint256) {
-        return ethForLP + ethForDevBuy + (lockLP ? uncxLockFeeWei() : 0);
+        return ethForLP + ethForDevBuy + (lockLP ? teamFinanceFeeWei() : 0);
     }
 
     // --- Main entrypoint ---
-    /// @param lockLP true → lock LP in UNCX (adds uncxLockFeeWei to required msg.value)
-    ///               false → keep LP NFT in this contract (cheapest path; no scanner badge)
+    /// @param lockLP true → lock LP in Team Finance (adds teamFinanceFeeWei to required msg.value)
+    ///               false → keep LP NFT in this contract (cheapest; no scanner badge)
     function launch(
         string calldata name_,
         string calldata symbol_,
@@ -188,11 +182,11 @@ contract PopShibaLauncherV3 {
         uint256 ethForLP,
         uint256 ethForDevBuy,
         bool lockLP
-    ) external payable returns (address token, address pool, uint256 lpTokenId, uint256 uncxLockId) {
+    ) external payable returns (address token, address pool, uint256 lpTokenId, uint256 tfLockId) {
         require(ethForLP > 0, "LP=0");
 
-        uint256 uncxFee = lockLP ? uncxLockFeeWei() : 0;
-        require(msg.value == ethForLP + ethForDevBuy + uncxFee, "BAD_VALUE");
+        uint256 lockFee = lockLP ? teamFinanceFeeWei() : 0;
+        require(msg.value == ethForLP + ethForDevBuy + lockFee, "BAD_VALUE");
 
         // 1. Clone & initialize token
         token = IPopShibaCloneFactory(cloneFactory).deploy(msg.sender);
@@ -233,31 +227,30 @@ contract PopShibaLauncherV3 {
             })
         );
 
-        // 5. Optional UNCX lock
+        // 5. Optional Team Finance lock
         if (lockLP) {
-            IERC721(NPM).approve(UNCX_V3_LOCKER, lpTokenId);
-            uint256 unlockDate = block.timestamp + (100 * 365 days);
+            IERC721(NPM).approve(TEAM_FINANCE_LOCKER, lpTokenId);
+            uint256 unlockDate = block.timestamp + LOCK_DURATION;
 
-            bytes[] memory empty = new bytes[](0);
-            IUNCX_LiquidityLocker_UniV3.LockParams memory lp = IUNCX_LiquidityLocker_UniV3.LockParams({
-                nftPositionManager: NPM,
-                nft_id: lpTokenId,
-                dustRecipient: msg.sender,
-                owner: feeVault,
-                additionalCollector: address(0),
-                collector: feeVault,
-                countryCode: 0,
-                feeName: uncxFeeName,
-                r: empty
-            });
+            // Vault is the withdrawal address → it can collect trading fees AND
+            // pull the LP after unlockDate. _amount=1 (single NFT), _mintNFT=false
+            // (Team Finance optionally mints a receipt NFT — not needed for our flow),
+            // referrer=address(0) (no discount).
+            tfLockId = ITeamFinanceLocker(TEAM_FINANCE_LOCKER).lockNFT{value: lockFee}(
+                NPM,
+                feeVault,
+                1,
+                unlockDate,
+                lpTokenId,
+                false,
+                address(0)
+            );
 
-            uncxLockId = IUNCX_LiquidityLocker_UniV3(UNCX_V3_LOCKER).lock{value: uncxFee}(lp);
-            emit LpLocked(token, uncxLockId, unlockDate);
+            emit LpLocked(token, tfLockId, unlockDate);
 
             // Register with vault so creator can claim 50% fees forever.
-            IPopShibaFeeVaultV2(feeVault).registerLockedToken(token, uncxLockId, msg.sender);
+            IPopShibaFeeVaultV3(feeVault).registerLockedToken(token, tfLockId, msg.sender);
         } else {
-            // NFT stays here. Owner can later migrate via rescueUnlockedLp().
             unlockedLpTokenId[token] = lpTokenId;
         }
 

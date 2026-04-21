@@ -45,6 +45,7 @@ export function EthLauncher() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [lockLP, setLockLP] = useState(false); // V3: opt-in Team Finance LP lock
   const [diagLogs, setDiagLogs] = useState<string[]>([]);
   const pushLog = useCallback((line: string) => {
     const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
@@ -143,6 +144,7 @@ export function EthLauncher() {
           creatorWallet: address,
           ethForLPWei: ethForLPWeiStr,
           devBuyEth: formData.devBuyEth || 0,
+          lockLP,
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
           websiteUrl: formData.websiteUrl || null,
@@ -157,9 +159,9 @@ export function EthLauncher() {
       const launcher = data.launcher as Address;
       const ethForLPWei = BigInt(data.ethForLPWei);
       const ethForDevBuyWei = BigInt(data.ethForDevBuyWei);
-      const uncxLockFeeWei = data.uncxLockFeeWei ? BigInt(data.uncxLockFeeWei) : 0n;
-      const totalValue = ethForLPWei + ethForDevBuyWei + uncxLockFeeWei;
-      pushLog(`launcher=${launcher}  ethForLPWei=${ethForLPWei}  ethForDevBuyWei=${ethForDevBuyWei}  uncxLockFeeWei=${uncxLockFeeWei}  total=${totalValue}`);
+      const lockerFeeWei = data.lockerFeeWei ? BigInt(data.lockerFeeWei) : (data.uncxLockFeeWei ? BigInt(data.uncxLockFeeWei) : 0n);
+      const totalValue = ethForLPWei + ethForDevBuyWei + lockerFeeWei;
+      pushLog(`launcher=${launcher}  ethForLPWei=${ethForLPWei}  ethForDevBuyWei=${ethForDevBuyWei}  lockerFeeWei=${lockerFeeWei}  lockLP=${lockLP}  total=${totalValue}`);
       pushLog(`launchId=${launchId}  metadataURI.len=${(data.metadataURI || '').length}`);
 
       // 2. Wallet checks

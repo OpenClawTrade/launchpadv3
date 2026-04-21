@@ -17,6 +17,11 @@ import {
   POPSHIBA_LAUNCHER_V2_BYTECODE,
   V2_BYTECODE_READY,
 } from "./v2_bytecode.ts";
+import {
+  POPSHIBA_FEE_VAULT_V3_BYTECODE,
+  POPSHIBA_LAUNCHER_V3_BYTECODE,
+  V3_BYTECODE_READY,
+} from "./v3_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +52,9 @@ Deno.serve(async (req) => {
   // v2: deploy PopShibaFeeVaultV2 + PopShibaLauncherV2 (UNCX locking suite). Reuses existing
   // PopShibaToken impl + CloneFactory from the active V1 row, inserts a NEW active eth_deployments row.
   const v2: boolean = body.v2 === true;
+  // v3: deploy PopShibaFeeVaultV3 + PopShibaLauncherV3 (Team Finance locking suite, optional lock).
+  // Reuses existing PopShibaToken impl + CloneFactory; inserts NEW active row.
+  const v3: boolean = body.v3 === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
@@ -228,9 +236,11 @@ Deno.serve(async (req) => {
         ownership,
         v2Ready: V2_BYTECODE_READY,
         v2CanDeploy: V2_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
+        v3Ready: V3_BYTECODE_READY,
+        v3CanDeploy: V3_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
-          : (existing && !force && !launcherOnly && !v2 ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, or v2=true to deploy the UNCX-locking V2 suite alongside it." : null),
+          : (existing && !force && !launcherOnly && !v2 && !v3 ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, or v3=true for Team Finance-lock suite." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -355,6 +365,129 @@ Deno.serve(async (req) => {
         uncxLockFeeWei,
         deploymentId: rowV2?.id,
         message: "✅ V2 (UNCX locking) suite deployed. New launches will use UNCX V3 Locker. V1 vault stays operational for legacy claims.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ============================================================
+    // V3 DEPLOY MODE — Team Finance locking suite (optional lock)
+    //   1. Reuses existing PopShibaToken impl + CloneFactory.
+    //   2. Deploys PopShibaFeeVaultV3 (Team Finance-aware) + PopShibaLauncherV3.
+    //   3. Calls FeeVaultV3.setLauncher(launcherV3) so registerLockedToken works.
+    //   4. Inserts NEW active eth_deployments row → frontend routes new launches to V3.
+    // ============================================================
+    if (v3) {
+      if (!V3_BYTECODE_READY) {
+        return new Response(JSON.stringify({
+          error: "V3 bytecode not pasted yet. Compile contracts/PopShibaFeeVaultV3.sol + PopShibaLauncherV3.sol (Solidity 0.8.20, optimizer 200 runs, viaIR) and paste the runtime bytecode into supabase/functions/eth-deploy-contracts/v3_bytecode.ts.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!existing?.token_impl_address || !existing?.clone_factory_address) {
+        return new Response(JSON.stringify({
+          error: "V3 deploy requires an existing active row (for the shared PopShibaToken impl + CloneFactory). Deploy V1 first.",
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (balance < parseEther("0.02")) {
+        return new Response(JSON.stringify({
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.02 ETH for V3 deploy.`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const encodeAddrLocal3 = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
+      const v3TxHashes: string[] = [];
+
+      async function deployOneV3(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
+        const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
+        const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+        v3TxHashes.push(hash);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
+        if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
+        console.log(`[deploy v3] ${label} → ${receipt.contractAddress} (gas ${receipt.gasUsed})`);
+        return receipt.contractAddress;
+      }
+
+      // 1. PopShibaFeeVaultV3(treasury)
+      const vaultV3 = await deployOneV3(
+        "PopShibaFeeVaultV3",
+        POPSHIBA_FEE_VAULT_V3_BYTECODE,
+        encodeAddrLocal3(PLATFORM_TREASURY),
+      );
+
+      // 2. PopShibaLauncherV3(cloneFactory, vaultV3)
+      const launcherV3 = await deployOneV3(
+        "PopShibaLauncherV3",
+        POPSHIBA_LAUNCHER_V3_BYTECODE,
+        encodeAddrLocal3(existing.clone_factory_address) + encodeAddrLocal3(vaultV3),
+      );
+
+      // 3. Wire FeeVaultV3.setLauncher(launcherV3)
+      const setLauncherAbi3 = parseAbi(["function setLauncher(address) external"]);
+      const setLauncherTx3 = await walletClient.sendTransaction({
+        to: getAddress(vaultV3),
+        data: encodeFunctionData({ abi: setLauncherAbi3, functionName: "setLauncher", args: [getAddress(launcherV3)] }),
+        value: 0n,
+      });
+      v3TxHashes.push(setLauncherTx3);
+      const setLauncherReceipt3 = await publicClient.waitForTransactionReceipt({ hash: setLauncherTx3, timeout: 180_000 });
+      if (setLauncherReceipt3.status !== "success") throw new Error(`setLauncher reverted: ${setLauncherTx3}`);
+
+      // 4. Read teamFinanceFeeWei from launcher (live from Team Finance price oracle).
+      let tfLockFeeWei: string | null = null;
+      try {
+        const fee = await publicClient.readContract({
+          address: getAddress(launcherV3),
+          abi: parseAbi(["function teamFinanceFeeWei() view returns (uint256)"]),
+          functionName: "teamFinanceFeeWei",
+        }) as bigint;
+        tfLockFeeWei = fee.toString();
+      } catch (e) {
+        console.warn("[deploy v3] teamFinanceFeeWei read failed:", e);
+      }
+
+      const finalBalV3 = await publicClient.getBalance({ address: account.address });
+
+      await supabase.from("eth_deployments").update({ is_active: false }).eq("is_active", true);
+      const { data: rowV3, error: insErrV3 } = await supabase.from("eth_deployments").insert({
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaToken: existing.token_impl_address,
+          PopShibaCloneFactory: existing.clone_factory_address,
+          PopShibaFeeVaultV3: vaultV3,
+          PopShibaLauncherV3: launcherV3,
+          weth: WETH_MAINNET,
+          nfpm: UNISWAP_V3_NFPM,
+          team_finance_locker: "0xE2fE530C047f2d85298b07D9333C05737f1435fB",
+          treasury: PLATFORM_TREASURY,
+          version: "v3",
+          locker: "team_finance",
+        },
+        tx_hashes: v3TxHashes,
+        vault_address: vaultV3,
+        clone_factory_address: existing.clone_factory_address,
+        token_impl_address: existing.token_impl_address,
+        launcher_address: launcherV3,
+        uncx_lock_fee_wei: tfLockFeeWei, // reused column — now stores Team Finance fee
+        is_active: true,
+        verified: false,
+      }).select().single();
+      if (insErrV3) console.error("[deploy v3] persist failed", insErrV3);
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "v3",
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaToken: existing.token_impl_address,
+          PopShibaCloneFactory: existing.clone_factory_address,
+          PopShibaFeeVaultV3: vaultV3,
+          PopShibaLauncherV3: launcherV3,
+        },
+        tx_hashes: v3TxHashes,
+        gasUsedEth: formatEther(balance - finalBalV3),
+        tfLockFeeWei,
+        deploymentId: rowV3?.id,
+        message: "✅ V3 (Team Finance locking) suite deployed. New launches can opt into LP locking per-launch (cheap default = no lock).",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

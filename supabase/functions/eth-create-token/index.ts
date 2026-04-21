@@ -24,6 +24,7 @@ interface LaunchBody {
   creatorWallet: string;
   ethForLPWei?: string; // client-computed: $50 worth of ETH at spot price
   devBuyEth?: number;   // optional, can be 0
+  lockLP?: boolean;     // V3 only — opt-in Team Finance LP lock
   description?: string | null;
   imageUrl?: string | null;
   websiteUrl?: string | null;
@@ -144,12 +145,16 @@ Deno.serve(async (req) => {
       ? parseEther(String(body.devBuyEth)).toString()
       : "0";
 
-    // UNCX V3 locker flat fee. Stored as a column on eth_deployments so admin
-    // can update it without redeploying. Defaults to 0.0001 ETH (current mainnet
-    // value) to avoid blocking launches if the column was never populated.
-    const uncxLockFeeWei = (deployment as any).uncx_lock_fee_wei
+    // Locker flat fee (UNCX on V2, Team Finance on V3). Stored as `uncx_lock_fee_wei`
+    // on eth_deployments — column name is legacy; value is whatever the active locker
+    // currently charges. Defaults to 0 if column never populated (V3 unlocked launches).
+    const lockerFeeWei = (deployment as any).uncx_lock_fee_wei
       ? String((deployment as any).uncx_lock_fee_wei)
-      : parseEther("0.0001").toString();
+      : "0";
+
+    // V3 only: respect the user's lockLP flag. If false → no locker fee added.
+    // V2 launchers ignore this (they always lock and we always add the fee).
+    const lockLP = body.lockLP === true;
 
     return new Response(JSON.stringify({
       success: true,
@@ -158,7 +163,11 @@ Deno.serve(async (req) => {
       metadataURI,
       ethForLPWei,
       ethForDevBuyWei,
-      uncxLockFeeWei,
+      // Legacy field — still emitted for V2 launcher clients.
+      uncxLockFeeWei: lockLP ? lockerFeeWei : "0",
+      // New canonical fields:
+      lockerFeeWei: lockLP ? lockerFeeWei : "0",
+      lockLP,
       cloneFactory: deployment.clone_factory_address,
       feeVault: deployment.vault_address,
     }), {
