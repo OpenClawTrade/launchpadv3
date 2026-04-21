@@ -493,6 +493,25 @@ export function EthLauncher() {
               errorMessage={launchError}
             />
 
+            {/* Diagnostic logs panel */}
+            {diagLogs.length > 0 && (
+              <div className="rounded-lg border border-border/50 bg-secondary/30 p-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                  <span>Launch diagnostics</span>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(diagLogs.join('\n'))}
+                    className="text-primary hover:underline"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <pre className="text-[10px] font-mono leading-relaxed text-foreground/80 max-h-72 overflow-auto whitespace-pre-wrap break-all">
+                  {diagLogs.join('\n')}
+                </pre>
+              </div>
+            )}
+
             {/* Pool link (kept as a small extra once we have it) */}
             {poolAddress && (
               <div className="text-xs flex items-center justify-between p-2 rounded-lg bg-secondary/30 border border-border/50">
