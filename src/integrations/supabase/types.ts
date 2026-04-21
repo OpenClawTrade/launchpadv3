@@ -1137,39 +1137,6 @@ export type Database = {
           },
         ]
       }
-      base_deployments: {
-        Row: {
-          contracts: Json
-          created_at: string
-          deployed_at: string
-          deployer: string
-          id: string
-          is_active: boolean
-          network: string
-          tx_hashes: string[]
-        }
-        Insert: {
-          contracts: Json
-          created_at?: string
-          deployed_at?: string
-          deployer: string
-          id?: string
-          is_active?: boolean
-          network: string
-          tx_hashes: string[]
-        }
-        Update: {
-          contracts?: Json
-          created_at?: string
-          deployed_at?: string
-          deployer?: string
-          id?: string
-          is_active?: boolean
-          network?: string
-          tx_hashes?: string[]
-        }
-        Relationships: []
-      }
       bookmarks: {
         Row: {
           created_at: string
@@ -4221,6 +4188,51 @@ export type Database = {
           total_collected_token?: number
           total_collected_weth?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      eth_deployments: {
+        Row: {
+          clone_factory_address: string | null
+          contracts: Json
+          created_at: string
+          deployed_at: string
+          deployer: string
+          id: string
+          is_active: boolean
+          network: string
+          token_impl_address: string | null
+          tx_hashes: string[]
+          vault_address: string | null
+          verified: boolean
+        }
+        Insert: {
+          clone_factory_address?: string | null
+          contracts: Json
+          created_at?: string
+          deployed_at?: string
+          deployer: string
+          id?: string
+          is_active?: boolean
+          network: string
+          token_impl_address?: string | null
+          tx_hashes: string[]
+          vault_address?: string | null
+          verified?: boolean
+        }
+        Update: {
+          clone_factory_address?: string | null
+          contracts?: Json
+          created_at?: string
+          deployed_at?: string
+          deployer?: string
+          id?: string
+          is_active?: boolean
+          network?: string
+          token_impl_address?: string | null
+          tx_hashes?: string[]
+          vault_address?: string | null
+          verified?: boolean
         }
         Relationships: []
       }
