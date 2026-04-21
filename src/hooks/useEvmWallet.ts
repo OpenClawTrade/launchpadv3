@@ -50,7 +50,13 @@ export function useEvmWallet() {
   };
 
   const connect = () => {
-    if (!ready || authenticated || isConnected || isConnecting) return;
+    if (!ready || isConnecting) return;
+    // If Privy session exists but no wagmi connector is attached, open the
+    // external-wallet connect modal (MetaMask/Trust/etc) instead of login().
+    if (authenticated) {
+      if (!isConnected) connectWallet();
+      return;
+    }
     login();
   };
 
