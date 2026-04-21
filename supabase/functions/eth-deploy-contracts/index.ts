@@ -133,19 +133,6 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ---- Compile ----
-    const out = compile({
-      "PopShibaToken.sol": CONTRACT_SOURCES.PopShibaToken,
-      "PopShibaCloneFactory.sol": CONTRACT_SOURCES.PopShibaCloneFactory,
-      "PopShibaFeeVault.sol": CONTRACT_SOURCES.PopShibaFeeVault,
-      "PopShibaLauncher.sol": CONTRACT_SOURCES.PopShibaLauncher,
-    });
-
-    const tokenContract = out.contracts["PopShibaToken.sol"]["PopShibaToken"];
-    const factoryContract = out.contracts["PopShibaCloneFactory.sol"]["PopShibaCloneFactory"];
-    const vaultContract = out.contracts["PopShibaFeeVault.sol"]["PopShibaFeeVault"];
-    const launcherContract = out.contracts["PopShibaLauncher.sol"]["PopShibaLauncher"];
-
     const encodeAddr = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
     const txHashes: string[] = [];
     const deployed: Record<string, string> = {};
@@ -160,13 +147,14 @@ Deno.serve(async (req) => {
       return receipt.contractAddress;
     }
 
-    // ============= LAUNCHER-ONLY MODE: keep existing 3 contracts, deploy ONLY the missing PopShibaLauncher =============
+    // ============= LAUNCHER-ONLY MODE: use precompiled bytecode (skips solc → no CPU limit) =============
     if (launcherOnly && existing) {
       const launcherAddr = await deployOne(
         "PopShibaLauncher",
-        launcherContract.evm.bytecode.object,
+        POPSHIBA_LAUNCHER_BYTECODE,
         encodeAddr(existing.clone_factory_address!) + encodeAddr(existing.vault_address!),
       );
+
 
       const finalBalLO = await publicClient.getBalance({ address: account.address });
       const gasUsedEthLO = formatEther(balance - finalBalLO);
