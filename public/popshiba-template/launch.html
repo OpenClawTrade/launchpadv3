@@ -997,9 +997,10 @@
             <div class="upl-preview"><div class="upl-placeholder"><span class="big">🐕</span>drag / drop<br>or click to pick</div></div>
             <div class="upl-body">
               <div class="upl-actions">
-                <button class="upl-btn">📁 Upload file</button>
-                <button class="upl-btn">🎨 Generate with AI</button>
-                <button class="upl-btn">🔗 From URL</button>
+                <button type="button" class="upl-btn">📁 Upload file</button>
+                <button type="button" class="upl-btn" id="aiGenBtn">🎨 Generate with AI</button>
+                <button type="button" class="upl-btn" id="aiRegenBtn" style="display:none">🔄 Regenerate</button>
+                <button type="button" class="upl-btn">🔗 From URL</button>
               </div>
               <div class="upl-specs">
                 <b>Good art = more hold.</b> Square, high-contrast, readable at 32px. No<br>watermarks. No logos you don't own. IPFS-pinned automatically.
@@ -1455,15 +1456,54 @@
   });
   recomputeEcon();
 
-  // ===== "Generate with AI" sample preview =====
-  const aiBtn = Array.from(document.querySelectorAll('.upl-btn')).find(b => /generate with ai/i.test(b.textContent || ''));
-  const uplPreview = document.querySelector('.upl-preview');
-  if (aiBtn && uplPreview) {
-    aiBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      uplPreview.innerHTML = '<img src="/popshiba-template/meme-ai-sample.png" alt="AI generated meme" style="width:100%;height:100%;object-fit:cover" />';
-    });
+  // ===== "Generate with AI" — calls real edge function via parent React =====
+  const aiBtn       = document.getElementById('aiGenBtn');
+  const aiRegenBtn  = document.getElementById('aiRegenBtn');
+  const uplPreview  = document.querySelector('.upl-preview');
+  const descTextarea = document.querySelector('.form-card textarea.fld-input');
+  let aiBusy = false;
+  let aiImageDataUrl = null;
+
+  function setAiLoading(on){
+    aiBusy = on;
+    if (aiBtn)      { aiBtn.disabled = on; aiBtn.textContent = on ? '✨ Generating…' : '🎨 Generate with AI'; aiBtn.style.opacity = on ? '0.7' : '1'; }
+    if (aiRegenBtn) { aiRegenBtn.disabled = on; aiRegenBtn.textContent = on ? '✨ Regenerating…' : '🔄 Regenerate'; aiRegenBtn.style.opacity = on ? '0.7' : '1'; }
+    if (on && uplPreview) {
+      uplPreview.innerHTML = '<div class="upl-placeholder"><span class="big">✨</span>cooking up<br>your meme…</div>';
+    }
   }
+  function applyAiResult(payload){
+    if (!payload) return;
+    if (payload.imageDataUrl && uplPreview) {
+      aiImageDataUrl = payload.imageDataUrl;
+      uplPreview.innerHTML = '<img src="' + payload.imageDataUrl + '" alt="AI generated meme" style="width:100%;height:100%;object-fit:cover" />';
+    }
+    if (payload.name && inpName)   { inpName.value = payload.name;   inpName.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (payload.ticker && inpTick) { inpTick.value = payload.ticker; inpTick.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (payload.description && descTextarea) { descTextarea.value = payload.description; }
+    if (aiRegenBtn) aiRegenBtn.style.display = '';
+  }
+  function applyAiError(message){
+    if (uplPreview) {
+      uplPreview.innerHTML = '<div class="upl-placeholder" style="color:#c8372d"><span class="big">⚠️</span>' + (message || 'Generation failed').replace(/</g,'&lt;') + '<br>tap regenerate</div>';
+    }
+    if (aiRegenBtn) aiRegenBtn.style.display = '';
+  }
+  function requestAiGen(){
+    if (aiBusy) return;
+    setAiLoading(true);
+    try { window.parent.postMessage({ source:'popshiba-template', type:'ai-meme-generate' }, '*'); } catch(_){}
+  }
+  if (aiBtn)      aiBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
+  if (aiRegenBtn) aiRegenBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
+
+  // Listen for the parent's response
+  window.addEventListener('message', function(e){
+    var d = e.data;
+    if (!d || d.source !== 'popshiba-host') return;
+    if (d.type === 'ai-meme-result')  { setAiLoading(false); applyAiResult(d.payload); }
+    if (d.type === 'ai-meme-error')   { setAiLoading(false); applyAiError(d.error); }
+  });
 
   // ===== Bridge to parent React (host iframe) =====
   function collectLaunchPayload(){
@@ -1477,6 +1517,7 @@
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
       devBuyEth: parseEthInput(devBuyInput && devBuyInput.value),
+      imageDataUrl: aiImageDataUrl,
     };
   }
   function postToParent(type, payload){
