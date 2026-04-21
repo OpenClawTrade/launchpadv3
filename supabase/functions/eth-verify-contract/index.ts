@@ -24,7 +24,7 @@ const corsHeaders = {
 
 const POPSHIBA_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via PopShiba.com Ethereum Launchpad
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract PopShibaLaunchpad {
     string public name;
