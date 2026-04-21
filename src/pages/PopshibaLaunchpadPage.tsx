@@ -106,6 +106,40 @@ function buildSparkPath(values: number[]): string {
     .join(" ");
 }
 
+// --- Synthetic sparkline (mirrors SparklineCanvas.normalizeFlatData) ---
+function hashSeed(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function seededRandom(seed: number, index: number): number {
+  const x = Math.sin(seed * 9301 + index * 49297 + 233280) * 49297;
+  return x - Math.floor(x);
+}
+// Deterministic 24-point curve when no real Codex data is available.
+// `trend` (-1..+1) biases the slope so up tokens trend up, down tokens trend down.
+function syntheticSparkline(seed: string, trend = 0): number[] {
+  const h = hashSeed(seed);
+  const numPoints = 24;
+  const mean = 1;
+  const amplitude = 0.18;
+  const freq1 = 0.15 + (h % 100) / 500;
+  const freq2 = 0.08 + ((h >> 8) % 100) / 800;
+  const phase1 = ((h % 360) * Math.PI) / 180;
+  const phase2 = (((h >> 4) % 360) * Math.PI) / 180;
+  const drift = trend * amplitude * 0.6;
+  const out: number[] = [];
+  for (let i = 0; i < numPoints; i++) {
+    const t = i / (numPoints - 1);
+    const wave =
+      Math.sin(i * freq1 + phase1) * 0.6 +
+      Math.sin(i * freq2 + phase2) * 0.4 +
+      (seededRandom(h, i) - 0.5) * 0.3;
+    out.push(mean + wave * amplitude + drift * t);
+  }
+  return out;
+}
+
 function injectTopTokens(
   doc: Document,
   topTokens: Array<{ launch: EthLaunch; market: Market; sparkline: number[]; index: number }>
