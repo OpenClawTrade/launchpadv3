@@ -49,10 +49,23 @@ export function useEvmWallet() {
     if (switchChain) await switchChain({ chainId: bsc.id });
   };
 
+  const revokeMetaMaskPermission = () => {
+    try {
+      const eth = (window as any).ethereum;
+      if (eth?.request) {
+        eth.request({
+          method: "wallet_revokePermissions",
+          params: [{ eth_accounts: {} }],
+        }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+  };
+
   const connect = () => {
     if (!ready || isConnecting) return;
-    // If Privy session exists but no wagmi connector is attached, open the
-    // external-wallet connect modal (MetaMask/Trust/etc) instead of login().
+    // Force MetaMask to re-prompt the account picker for the currently
+    // active account instead of silently reusing a cached permission.
+    revokeMetaMaskPermission();
     if (authenticated) {
       if (!isConnected) connectWallet();
       return;
