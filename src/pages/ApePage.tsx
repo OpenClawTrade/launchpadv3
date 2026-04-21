@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Loader2, Zap, ArrowDownToLine, Shield, Gauge, Settings2, ExternalLink } from "lucide-react";
 import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
-import { Helmet } from "react-helmet-async";
+import { useEffect } from "react";
 
 const ETH_LOGO = "https://assets.coingecko.com/coins/images/279/small/ethereum.png";
 const BNB_LOGO = "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png";
