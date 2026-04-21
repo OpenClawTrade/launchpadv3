@@ -12,6 +12,9 @@
  * - Empty-state CTA when there are no live launches.
  */
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAccount } from "wagmi";
+import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
