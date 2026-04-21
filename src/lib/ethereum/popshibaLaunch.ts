@@ -2,8 +2,15 @@
 // Used by EthLauncher and any client wanting to call launcher.launch() directly.
 import { decodeEventLog, parseAbi, type Address, type Hash, type PublicClient, type Log } from 'viem';
 
+// V2 launcher ABI — atomic launch + UNCX V3 lock in one tx.
+// Launched(token, creator, pool, lpTokenId) is the canonical "token is live" event.
+// LpLocked(token, uncxLockId, unlockDate) is the new UNCX lock receipt.
 export const POPSHIBA_LAUNCHER_ABI = parseAbi([
-  'function launch(string name, string symbol, string metadataURI, uint256 ethForLP, uint256 ethForDevBuy) payable returns (address token, address pool, uint256 lpTokenId)',
+  'function launch(string name, string symbol, string metadataURI, uint256 ethForLP, uint256 ethForDevBuy) payable returns (address token, address pool, uint256 lpTokenId, uint256 uncxLockId)',
+  'function uncxLockFeeWei() view returns (uint256)',
+  'event Launched(address indexed token, address indexed creator, address pool, uint256 lpTokenId)',
+  'event LpLocked(address indexed token, uint256 indexed uncxLockId, uint256 unlockDate)',
+  // Legacy v1 event — still parsed for backward compatibility on old launcher addresses.
   'event TokenLaunched(address indexed token, address indexed creator, address pool, uint256 lpTokenId, uint256 ethForLP, uint256 ethForDevBuy)',
 ]);
 
