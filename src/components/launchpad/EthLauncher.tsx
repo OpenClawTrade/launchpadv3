@@ -37,7 +37,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher() {
+export function EthLauncher({ initialValues }: { initialValues?: Partial<EthLaunchFormData> } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -93,14 +93,14 @@ export function EthLauncher() {
   const [isLive, setIsLive] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
-    name: '',
-    ticker: '',
-    description: '',
-    imageUrl: '',
-    websiteUrl: '',
-    twitterUrl: '',
-    telegramUrl: '',
-    devBuyEth: 0,
+    name: initialValues?.name ?? '',
+    ticker: initialValues?.ticker ?? '',
+    description: initialValues?.description ?? '',
+    imageUrl: initialValues?.imageUrl ?? '',
+    websiteUrl: initialValues?.websiteUrl ?? '',
+    twitterUrl: initialValues?.twitterUrl ?? '',
+    telegramUrl: initialValues?.telegramUrl ?? '',
+    devBuyEth: initialValues?.devBuyEth ?? 0,
   });
 
   const handleInputChange = <K extends keyof EthLaunchFormData>(field: K, value: EthLaunchFormData[K]) => {
