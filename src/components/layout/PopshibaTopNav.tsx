@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import popshibaLogo from "@/assets/popshiba-logo.png";
+import { CreatorFeesPill } from "./CreatorFeesPill";
 
 const NAV_LINKS = [
   { label: "Home", to: "/" },
@@ -77,6 +78,7 @@ export function PopshibaTopNav() {
 
         {/* Right (desktop) */}
         <div className="hidden md:flex ml-auto items-center gap-2.5">
+          <CreatorFeesPill />
           <Link
             to="/trade"
             className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-cream text-pop-cream bg-transparent shadow-[3px_3px_0_hsl(var(--pop-orange))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-orange))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-orange))] transition-all"
@@ -89,6 +91,11 @@ export function PopshibaTopNav() {
           >
             + Create
           </Link>
+        </div>
+
+        {/* Mobile pill (compact) */}
+        <div className="md:hidden ml-auto flex items-center gap-2">
+          <CreatorFeesPill />
         </div>
 
         {/* Mobile burger */}

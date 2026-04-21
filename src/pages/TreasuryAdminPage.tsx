@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BaseDeployPanel } from "@/components/admin/BaseDeployPanel";
+import { EthContractsDeployPanel } from "@/components/admin/EthContractsDeployPanel";
 
 const VERCEL_API_URL = "https://clawmode.vercel.app";
 const TREASURY_SECRET = "claw-treasury-2024";
@@ -611,7 +611,7 @@ export default function TreasuryAdminPage() {
           </TabsList>
 
           <TabsContent value="base-deploy" className="mt-6">
-            <BaseDeployPanel />
+            <EthContractsDeployPanel />
           </TabsContent>
 
           <TabsContent value="alt-setup" className="mt-6">
