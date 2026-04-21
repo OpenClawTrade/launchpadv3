@@ -74,17 +74,17 @@ Deno.serve(async (req) => {
     const balance = await publicClient.getBalance({ address: account.address });
     const nonce = await publicClient.getTransactionCount({ address: account.address });
 
-    // Find any active row (with or without launcher) — needed so launcher-only mode can detect a 3-contract row missing only the launcher.
-    const { data: existing } = await supabase
+    // Find any active row (with or without launcher) — filter in JS to avoid PostgREST .not() chain quirks.
+    const { data: existingRows, error: exErr } = await supabase
       .from("eth_deployments")
       .select("id, vault_address, clone_factory_address, token_impl_address, launcher_address, deployed_at")
       .eq("is_active", true)
-      .not("vault_address", "is", null)
-      .not("clone_factory_address", "is", null)
-      .not("token_impl_address", "is", null)
-      .order("deployed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("deployed_at", { ascending: false });
+    if (exErr) console.error("[deploy] fetch existing failed", exErr);
+    const existing = (existingRows || []).find(
+      (r) => r.token_impl_address && r.clone_factory_address && r.vault_address,
+    ) || null;
+    console.log("[deploy] existing row:", existing?.id, "launcher:", existing?.launcher_address);
 
     // Existing active row already has token+factory+vault but is missing launcher → user can do "launcher-only" patch.
     const canPatchLauncher = !!(existing && !existing.launcher_address &&
