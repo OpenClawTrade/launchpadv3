@@ -58,21 +58,26 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, []);
 
-  const deploy = useCallback(async (force: boolean) => {
-    const confirmMsg = force
-      ? "FORCE redeploy?\n\nThis deactivates the current active deployment and spends gas (typically $1–50, can spike higher in congestion). Cannot be undone."
-      : "Deploy PopShibaToken + CloneFactory + FeeVault to Ethereum mainnet?\n\nThis spends gas (typically $1–50, can spike higher in congestion). Cannot be undone.";
+  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly") => {
+    const confirmMsg = mode === "force"
+      ? "FORCE redeploy ALL 4 contracts?\n\nThis deactivates the current active deployment and spends gas (~$15–50). Cannot be undone."
+      : mode === "launcherOnly"
+      ? "Deploy ONLY the missing PopShibaLauncher?\n\nKeeps your existing 3 verified contracts untouched. Just adds the 4th (router) and wires it into the active row. Gas: ~$3–10."
+      : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
     setBusy(true); setErr(null); setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("eth-deploy-contracts", {
-        body: { dryRun: false, force },
+        body: {
+          dryRun: false,
+          force: mode === "force",
+          launcherOnly: mode === "launcherOnly",
+        },
       });
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error((data as any).error);
       setResult(data as DeployResult);
-      toast.success("✅ Contracts deployed", { description: "Verification running in background" });
-      // Refresh dry-run so panel shows new active row
+      toast.success("✅ Deployed", { description: (data as any)?.message || "Verification running in background" });
       checkReadiness();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Deployment failed";
