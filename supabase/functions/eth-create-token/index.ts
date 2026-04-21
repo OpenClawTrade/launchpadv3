@@ -123,15 +123,20 @@ Deno.serve(async (req) => {
       .single();
     const launchId = launchRow?.id ?? null;
 
+    // On-chain metadata stored permanently in the token's metadataURI() getter.
+    // Visible on Etherscan "Read Contract" tab → metadataURI() forever.
+    // Image deliberately omitted (lives in Supabase storage, served by frontend).
     const metadataURI = JSON.stringify({
       name: body.name.trim(),
       symbol: body.ticker.trim().toUpperCase(),
       description: (body.description?.trim() || "").slice(0, 500),
-      image: body.imageUrl ?? "",
-      website: body.websiteUrl ?? "",
-      twitter: body.twitterUrl ?? "",
-      telegram: body.telegramUrl ?? "",
-      launchpad: "popshiba-eth-v2-atomic",
+      website: body.websiteUrl?.trim() || "",
+      twitter: body.twitterUrl?.trim() || "",
+      telegram: body.telegramUrl?.trim() || "",
+      launchpad: "PopShiba.com",
+      launchpadUrl: "https://popshiba.com",
+      chain: "ethereum",
+      launchedAt: new Date().toISOString(),
       launchId: launchId ?? "",
     });
 
