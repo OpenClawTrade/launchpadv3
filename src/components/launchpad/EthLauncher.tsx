@@ -39,6 +39,9 @@ const MAX_DEV_BUY = 5;
 export function EthLauncher() {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
+  const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
+  const { switchChainAsync } = useSwitchChain();
+  const currentChainId = useChainId();
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
