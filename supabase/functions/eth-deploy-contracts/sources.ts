@@ -411,7 +411,7 @@ contract PopShibaLauncher {
     /// @param name        ERC-20 name
     /// @param symbol      ERC-20 symbol
     /// @param metadataURI JSON metadata blob (description, image, socials)
-    /// @param sqrtPriceX96 Initial sqrtPriceX96 for the V3 pool
+    /// @param ethForLP    Wei to seed the LP pool (paired against 1B tokens)
     /// @param ethForDevBuy Wei to spend swapping ETH → token for the creator (0 to skip)
     /// @return token       New ERC-20 address
     /// @return pool        Uniswap V3 pool address
@@ -420,11 +420,11 @@ contract PopShibaLauncher {
         string calldata name,
         string calldata symbol,
         string calldata metadataURI,
-        uint160 sqrtPriceX96,
+        uint256 ethForLP,
         uint256 ethForDevBuy
     ) external payable nonReentrant returns (address token, address pool, uint256 lpTokenId) {
-        require(msg.value > ethForDevBuy, "INSUFFICIENT_ETH"); // need >0 for LP
-        uint256 ethForLP = msg.value - ethForDevBuy;
+        require(ethForLP >= 0.0001 ether, "LP_TOO_SMALL");
+        require(msg.value == ethForLP + ethForDevBuy, "BAD_MSG_VALUE");
         address creator = msg.sender;
 
         // 1. Clone token, full supply minted to this launcher
@@ -435,8 +435,15 @@ contract PopShibaLauncher {
         // 2. Wrap ETH for LP
         IWETH9(WETH).deposit{value: ethForLP}();
 
-        // 3. Create + initialize pool
+        // 3. Create + initialize pool with sqrtPriceX96 derived on-chain
+        // from the (ethForLP, TOTAL_SUPPLY) ratio. Price = WETH_amt / token_amt
+        // for the SORTED token0/token1 pair.
         (address token0, address token1) = token < WETH ? (token, WETH) : (WETH, token);
+        bool tokenIsToken0_ = token < WETH;
+        uint160 sqrtPriceX96 = _computeSqrtPriceX96(
+            tokenIsToken0_ ? TOTAL_SUPPLY : ethForLP,   // amount0
+            tokenIsToken0_ ? ethForLP    : TOTAL_SUPPLY // amount1
+        );
         pool = INonfungiblePositionManager(NPM).createAndInitializePoolIfNecessary(
             token0, token1, FEE_TIER, sqrtPriceX96
         );
