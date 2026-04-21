@@ -190,6 +190,7 @@ const App = () => (
                      <Route path="/alpha-tracker" element={<PopshibaAlphaPage />} />
                      <Route path="/alpha" element={<PopshibaAlphaPage />} />
                      <Route path="/x-tracker" element={<PopshibaXTrackerPage />} />
+                     <Route path="/tracker" element={<PopshibaXTrackerPage />} />
                      <Route path="/x-tracker-classic" element={<XTrackerPage />} />
                      <Route path="/discover" element={<DiscoverPage />} />
                      <Route path="/profile/:identifier" element={<UserProfilePage />} />
