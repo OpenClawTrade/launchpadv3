@@ -75,10 +75,34 @@ Deno.serve(async (req) => {
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
-  // Helper: always fetch latest pending nonce before sending — prevents "nonce too low" desync.
+  async function delay(ms: number) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // Helper: handle RPC nonce lag / overlapping requests by retrying with fresher or incremented nonces.
   async function sendTx(args: { to: `0x${string}` | null; data: `0x${string}`; value?: bigint }): Promise<`0x${string}`> {
-    const n = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-    return await walletClient.sendTransaction({ to: args.to, data: args.data, value: args.value ?? 0n, nonce: n });
+    let nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        return await walletClient.sendTransaction({ to: args.to, data: args.data, value: args.value ?? 0n, nonce });
+      } catch (error) {
+        lastError = error;
+        const msg = error instanceof Error ? error.message : String(error);
+        const lower = msg.toLowerCase();
+        const isNonceIssue = lower.includes("nonce too low") || lower.includes("nonce provided for the transaction") || lower.includes("replacement transaction underpriced") || lower.includes("already known");
+        if (!isNonceIssue) throw error;
+
+        const pendingNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+        const nextNonce = pendingNonce > nonce ? pendingNonce : nonce + 1;
+        console.warn(`[deploy] nonce retry attempt=${attempt + 1} current=${nonce} pending=${pendingNonce} next=${nextNonce}`);
+        nonce = nextNonce;
+        await delay(400 * (attempt + 1));
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 
   try {
@@ -235,7 +259,7 @@ Deno.serve(async (req) => {
         deployer: account.address,
         balance: `${formatEther(balance)} ETH`,
         nonce,
-        ready: balance >= parseEther(launcherOnly ? "0.01" : "0.05"),
+        ready: balance >= parseEther(launcherOnly ? "0.01" : "0.005"),
         existingDeployment: existing ?? null,
         canPatchLauncher,
         willDeploy,
