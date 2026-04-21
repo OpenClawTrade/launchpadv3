@@ -75,8 +75,6 @@ export function PopshibaTopNav() {
               </Link>
             );
           })}
-          <span className="mx-1 h-5 w-px bg-pop-cream/20" />
-          <SocialLinks />
         </nav>
 
         {/* Right (desktop) */}
@@ -171,12 +169,12 @@ function XIcon({ className = "w-4 h-4" }: { className?: string }) {
 }
 
 function SocialLinks({ compact = false }: { compact?: boolean }) {
-  const sizeCls = compact ? "w-8 h-8" : "w-9 h-9";
-  const iconCls = compact ? "w-3.5 h-3.5" : "w-4 h-4";
+  const sizeCls = compact ? "w-9 h-9" : "w-10 h-10";
+  const iconCls = compact ? "w-4 h-4" : "w-[18px] h-[18px]";
   const base =
-    "inline-flex items-center justify-center border-[1.5px] border-pop-orange bg-pop-ink-soft text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors";
+    "inline-flex items-center justify-center border-2 border-pop-orange bg-pop-orange text-pop-ink hover:bg-pop-cream hover:text-pop-ink transition-colors shadow-[2px_2px_0_hsl(var(--pop-ink))]";
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <a
         href={TELEGRAM_URL}
         target="_blank"
