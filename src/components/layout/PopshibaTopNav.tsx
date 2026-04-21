@@ -2,21 +2,21 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   Menu, X, Plus,
-  Home as HomeIcon, Activity, LineChart, Rocket, Compass, Sparkles, Twitter, BookOpen,
+  Home as HomeIcon, LineChart, Users, Sparkles, Twitter, BookOpen,
 } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import popshibaLogo from "@/assets/popshiba-logo.png";
 import { CreatorFeesPill } from "./CreatorFeesPill";
 
+// Mirrors the in-iframe template nav on the home page so every page shows the
+// exact same primary navigation.
 const NAV_LINKS = [
-  { label: "Home", to: "/", Icon: HomeIcon },
-  { label: "Pulse", to: "/launchpad", Icon: Activity },
-  { label: "Trade", to: "/trade", Icon: LineChart },
-  { label: "Launchpad", to: "/launch", Icon: Rocket },
-  { label: "Discover", to: "/discover", Icon: Compass },
-  { label: "Alpha", to: "/alpha-tracker", Icon: Sparkles },
-  { label: "X Tracker", to: "/x-tracker", Icon: Twitter },
-  { label: "Docs", to: "/docs", Icon: BookOpen },
+  { label: "Home",    to: "/",           Icon: HomeIcon },
+  { label: "Trade",   to: "/ape",        Icon: LineChart },
+  { label: "Holders", to: "/holders",    Icon: Users },
+  { label: "Alpha",   to: "/alpha",      Icon: Sparkles },
+  { label: "Tracker", to: "/x-tracker",  Icon: Twitter },
+  { label: "Docs",    to: "/docs",       Icon: BookOpen },
 ];
 
 /** Tilted brand frame: two stacked rotated squares with the logo on top. */
@@ -90,7 +90,7 @@ export function PopshibaTopNav() {
           <CreatorFeesPill />
           <WalletPill />
           <Link
-            to="/launch"
+            to="/"
             className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={3} />
@@ -141,7 +141,7 @@ export function PopshibaTopNav() {
               </div>
               <WalletPill className="col-span-2" />
               <Link
-                to="/launch"
+                to="/"
                 className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-ink bg-pop-orange text-pop-ink col-span-2"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={3} />
