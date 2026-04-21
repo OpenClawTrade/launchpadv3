@@ -20,7 +20,7 @@ import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popsh
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
-const MIN_LP_USD = 50;       // $50 minimum LP seed — V3 pool needs enough ETH to clear initial tick range
+const MIN_LP_USD = 5;        // $5 test minimum LP seed (server floor: 0.001 ETH ≈ $3)
 const MAX_DEV_BUY_USD = 5000; // soft UX cap on dev buy
 
 interface EthLaunchFormData {
