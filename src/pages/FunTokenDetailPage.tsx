@@ -39,19 +39,26 @@ import { PhantomBadge } from "@/components/forum/PhantomBadge";
 import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 import { BRAND } from "@/config/branding";
 import { useTrackTokenView } from "@/hooks/useTokenViews";
+import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
 
 function isEvmAddress(addr: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/i.test(addr);
 }
 
 function getExplorerUrl(addr: string, isBsc: boolean): string {
-  return isBsc ? `https://bscscan.com/token/${addr}` : `https://solscan.io/token/${addr}`;
+  if (isEvmAddress(addr)) {
+    return isBsc ? `https://bscscan.com/token/${addr}` : `https://etherscan.io/token/${addr}`;
+  }
+  return `https://solscan.io/token/${addr}`;
 }
 
 function getTradeUrl(addr: string, isBsc: boolean): string {
-  return isBsc
-    ? `https://pancakeswap.finance/swap?outputCurrency=${addr}&chain=bsc`
-    : `https://solscan.io/token/${addr}`;
+  if (isEvmAddress(addr)) {
+    return isBsc
+      ? `https://pancakeswap.finance/swap?outputCurrency=${addr}&chain=bsc`
+      : `https://app.uniswap.org/explore/tokens/ethereum/${addr}`;
+  }
+  return `https://solscan.io/token/${addr}`;
 }
 
 function getRiskLevel(volume: number, liquidity: number, holders: number): { label: string; className: string } {
@@ -90,18 +97,57 @@ function formatUsdCompact(v: number) {
    EXTERNAL TOKEN VIEW (tokens not in our DB)
    ──────────────────────────────────────────────────────── */
 function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { token: import("@/hooks/useExternalToken").ExternalToken; mintAddress: string; solPrice: number; isBsc?: boolean }) {
-  const networkId = isBsc ? BSC_NETWORK_ID : 1;
+  const effectiveIsBsc = isBsc || token.networkId === BSC_NETWORK_ID;
+  const isEvmToken = isEvmAddress(mintAddress);
+  const networkId = isEvmToken ? (effectiveIsBsc ? BSC_NETWORK_ID : 1) : SOLANA_NETWORK_ID;
+  const nativeSymbol = effectiveIsBsc ? "BNB" : isEvmToken ? "ETH" : "SOL";
   const privyAvailable = usePrivyAvailable();
   const { solanaAddress } = useAuth();
   const { allAddresses } = useMultiWallet();
   const allWalletAddresses = allAddresses;
   const { toast } = useToast();
   const [mobileTab, setMobileTab] = useState<'trade' | 'chart'>('trade');
+  const { data: liveTradesData, isLoading: liveTradesLoading } = useCodexTokenEvents(mintAddress);
 
   const copyAddress = () => { navigator.clipboard.writeText(mintAddress); toast({ title: "Address copied!" }); };
   const shareToken = () => { navigator.clipboard.writeText(window.location.href); toast({ title: "Link copied!" }); };
 
   const isPriceUp = token.change24h >= 0;
+  const recentTrades = liveTradesData?.events ?? [];
+
+  const desktopTrades = useMemo(() => recentTrades.slice(0, 9), [recentTrades]);
+  const topHolderRows = useMemo(() => {
+    const balances = new Map<string, number>();
+
+    for (const trade of recentTrades) {
+      const current = balances.get(trade.maker) ?? 0;
+      const next = trade.type === "Buy"
+        ? current + trade.tokenAmount
+        : Math.max(0, current - trade.tokenAmount);
+      balances.set(trade.maker, next);
+    }
+
+    const ranked = Array.from(balances.entries())
+      .filter(([, amount]) => amount > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    const topTotal = ranked.reduce((sum, [, amount]) => sum + amount, 0);
+
+    return ranked.map(([address, amount], index) => ({
+      rank: index + 1,
+      address,
+      amount,
+      percent: topTotal > 0 ? (amount / topTotal) * 100 : 0,
+    }));
+  }, [recentTrades]);
+
+  const formatTradeAge = (timestamp: number) => {
+    const date = new Date(timestamp > 1_000_000_000_000 ? timestamp : timestamp * 1000);
+    return formatDistanceToNow(date, { addSuffix: false });
+      }
+
+  const compactWallet = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
 
   const stats = [
     { label: 'MCAP', value: formatUsdCompact(token.marketCapUsd), accent: true },
@@ -116,8 +162,9 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
       <div className="trade-page-bg -mx-4 -mt-4 px-4 pt-4 md:mx-0 md:mt-0 md:pl-6 md:pr-4 md:pt-4 md:rounded-xl lg:px-6 lg:pt-6">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-4 pb-32 md:pb-24">
 
-          {/* ── TOP BAR ── */}
-          <div className="trade-topbar">
+          <div className="wf-section">
+            <span className="wf-label">[ TOKEN / HEADER ]</span>
+            <div className="trade-topbar">
             <div className="flex items-center gap-3 px-5 py-3.5">
               <Link to="/trade" className="shrink-0">
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] rounded-lg">
@@ -171,7 +218,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 <div className="hidden md:flex items-center gap-1">
                   {token.websiteUrl && <a href={token.websiteUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-white/[0.06] rounded-lg"><Globe className="h-3.5 w-3.5" /></Button></a>}
                   {token.twitterUrl && <a href={token.twitterUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-white/[0.06] rounded-lg"><Twitter className="h-3.5 w-3.5" /></Button></a>}
-                  <a href={getExplorerUrl(mintAddress, isBsc)} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-white/[0.06] rounded-lg"><ExternalLink className="h-3.5 w-3.5" /></Button></a>
+                  <a href={getExplorerUrl(mintAddress, effectiveIsBsc)} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-white/[0.06] rounded-lg"><ExternalLink className="h-3.5 w-3.5" /></Button></a>
                 </div>
               </div>
             </div>
@@ -185,6 +232,7 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
                 </div>
               ))}
             </div>
+          </div>
           </div>
 
           {/* Phone stats */}
@@ -234,16 +282,12 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             {mobileTab === 'trade' && (
               <>
                 {privyAvailable && (
-                  isBsc
+                  effectiveIsBsc
                     ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
                     : <MobileTradePanelV2
                         externalToken={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }}
                         userTokenBalance={0}
                       />
-                )}
-                <EmbeddedWalletCard />
-                {!isBsc && /^0x[a-fA-F0-9]{40}$/.test(mintAddress) && (
-                  <EthCreatorControls tokenAddress={mintAddress} />
                 )}
               </>
             )}
@@ -275,72 +319,160 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             <div className="col-span-5 flex flex-col gap-4">
               <div className="sticky top-4 flex flex-col gap-4">
                 {privyAvailable && (
-                  isBsc
+                  effectiveIsBsc
                     ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
                     : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
-                )}
-                
-                <EmbeddedWalletCard />
-                {!isBsc && /^0x[a-fA-F0-9]{40}$/.test(mintAddress) && (
-                  <EthCreatorControls tokenAddress={mintAddress} />
                 )}
               </div>
             </div>
           </div>
 
-          {/* Desktop layout */}
           <div className="hidden lg:grid grid-cols-12 gap-4 flex-1">
             <div className="col-span-9 flex flex-col gap-4">
               <div className="wf-section">
-                <span className="wf-label dark">[ CHART / PRICE ]</span>
+                <span className="wf-label dark">[ CHART / CANDLES ]</span>
                 <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
-                  <CodexChart tokenAddress={mintAddress} networkId={networkId} height={420} />
+                  <CodexChart tokenAddress={mintAddress} networkId={networkId} height={460} />
                 </div>
-              </div>
-              <div className="wf-section">
-                <span className="wf-label">[ ACTIVITY / TRADES ]</span>
-                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
               </div>
             </div>
             <div className="col-span-3 flex flex-col gap-4">
               {privyAvailable && (
                 <div className="wf-section trade-trade-panel">
                   <span className="wf-label">[ BUY / SELL ]</span>
-                  {isBsc
+                  {effectiveIsBsc
                     ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
                     : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
                   }
                 </div>
               )}
-
-              <EmbeddedWalletCard />
-              {!isBsc && /^0x[a-fA-F0-9]{40}$/.test(mintAddress) && (
-                <EthCreatorControls tokenAddress={mintAddress} />
-              )}
             </div>
           </div>
 
-          {/* Bottom row — About panel (Top Holders already in tabs above) */}
-          <div className="hidden md:block wf-section trade-trade-panel">
-            <span className="wf-label">[ TOKEN / ABOUT ]</span>
-            <div className="trade-glass-panel p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold font-mono">◆ ABOUT ${token.symbol}</span>
+          <div className="hidden lg:block wf-section">
+            <span className="wf-label">[ ACTIVITY / TRADES ]</span>
+            <div className="overflow-hidden border-2 border-pop-ink bg-pop-cream shadow-[5px_5px_0_0_hsl(var(--pop-ink))]">
+              <div className="flex items-center justify-between gap-4 border-b-2 border-pop-ink px-4 py-3">
+                <div className="flex items-center gap-6 text-[11px] font-pop-mono font-bold uppercase tracking-[0.12em] text-pop-ink">
+                  <span className="border-b-2 border-pop-ink pb-1">All Trades</span>
+                  <span className="opacity-60">Your Trades</span>
+                  <span className="opacity-60">Holders ({token.holders.toLocaleString()})</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-pop-mono font-bold uppercase tracking-[0.12em] text-pop-ink">
+                  <span className="border border-pop-ink bg-pop-orange px-2 py-1">Live</span>
+                  <span className="border border-pop-ink px-2 py-1 opacity-60">&gt; $500</span>
+                  <span className="border border-pop-ink px-2 py-1 opacity-60">Whales</span>
+                </div>
               </div>
-              <p className="text-[13px] leading-relaxed opacity-80 max-w-3xl">
-                {token.name} (${token.symbol}) is an external {isBsc ? 'BNB' : 'Ethereum'} token tracked via Codex.
-                Trade routing is auto-selected for best execution.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                <div className="about-metric"><span>SUPPLY</span><span className="v">{formatUsdCompact(token.marketCapUsd)}</span></div>
-                <div className="about-metric"><span>HOLDERS</span><span className="v">{token.holders.toLocaleString()}</span></div>
-                <div className="about-metric"><span>LIQ</span><span className="v">{formatUsdCompact(token.liquidity)}</span></div>
-                <div className="about-metric"><span>VOL 24H</span><span className="v">{formatUsdCompact(token.volume24hUsd)}</span></div>
+
+              <div className="overflow-x-auto bg-pop-cream">
+                <table className="min-w-full text-left font-pop-mono text-[11px] text-pop-ink">
+                  <thead className="border-b border-pop-ink/30 text-[10px] uppercase tracking-[0.14em] text-pop-ink/65">
+                    <tr>
+                      <th className="px-4 py-3">Age</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3 text-right">USD</th>
+                      <th className="px-4 py-3 text-right">Price</th>
+                      <th className="px-4 py-3 text-right">{token.symbol}</th>
+                      <th className="px-4 py-3 text-right">{nativeSymbol}</th>
+                      <th className="px-4 py-3">Wallet</th>
+                      <th className="px-4 py-3 text-right">Tx</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {desktopTrades.map((trade) => (
+                      <tr key={`${trade.txHash}-${trade.timestamp}-${trade.maker}`} className="border-b border-pop-ink/10">
+                        <td className="px-4 py-3">{formatTradeAge(trade.timestamp)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${trade.type === 'Buy' ? 'border-pop-ink bg-green-500/20 text-pop-ink' : 'border-pop-ink bg-red-500/20 text-pop-ink'}`}>
+                            {trade.type}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-bold ${trade.type === 'Buy' ? 'text-green-700' : 'text-red-700'}`}>{formatUsdCompact(trade.totalUsd)}</td>
+                        <td className="px-4 py-3 text-right">{trade.priceUsd.toFixed(6)}</td>
+                        <td className="px-4 py-3 text-right">{formatTokenAmount(trade.tokenAmount)}</td>
+                        <td className="px-4 py-3 text-right">{trade.priceUsd > 0 ? (trade.totalUsd / trade.priceUsd / Math.max(trade.tokenAmount, 1)).toFixed(3) : '—'}</td>
+                        <td className="px-4 py-3">{compactWallet(trade.maker)}</td>
+                        <td className="px-4 py-3 text-right">
+                          {trade.txHash ? (
+                            <a href={`${effectiveIsBsc ? 'https://bscscan.com/tx' : isEvmToken ? 'https://etherscan.io/tx' : 'https://solscan.io/tx'}/${trade.txHash}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-end hover:text-pop-orange">
+                              ↗
+                            </a>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                    {!desktopTrades.length && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-10 text-center text-[12px] text-pop-ink/55">
+                          {liveTradesLoading ? 'Loading trades…' : 'No trades yet'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="about-metric !justify-start gap-3">
-                <span>CA</span>
-                <code className="v truncate flex-1">{mintAddress}</code>
-                <button onClick={copyAddress} className="opacity-70 hover:opacity-100"><Copy className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+
+          <div className="hidden lg:grid grid-cols-2 gap-4">
+            <div className="wf-section">
+              <span className="wf-label">[ TOKEN / ABOUT ]</span>
+              <div className="overflow-hidden border-2 border-pop-ink bg-pop-cream shadow-[5px_5px_0_0_hsl(var(--pop-ink))]">
+                <div className="border-b-2 border-pop-ink px-4 py-3 font-pop-display text-sm uppercase text-pop-ink">◆ About ${token.symbol}</div>
+                <div className="space-y-4 px-4 py-4 text-pop-ink">
+                  <div>
+                    <h2 className="font-pop-display text-2xl leading-none">{token.name}</h2>
+                    <p className="mt-2 max-w-2xl font-pop-mono text-[12px] leading-6 text-pop-ink/75">
+                      External {effectiveIsBsc ? 'BNB Chain' : isEvmToken ? 'Ethereum' : 'Solana'} token tracked live with the same poster trade layout as your reference.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 font-pop-mono text-[11px] uppercase tracking-[0.12em]">
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Mcap</div><div className="mt-2 text-sm font-bold text-pop-ink">{formatUsdCompact(token.marketCapUsd)}</div></div>
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Holders</div><div className="mt-2 text-sm font-bold text-pop-ink">{token.holders.toLocaleString()}</div></div>
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Liq</div><div className="mt-2 text-sm font-bold text-pop-ink">{formatUsdCompact(token.liquidity)}</div></div>
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Vol 24h</div><div className="mt-2 text-sm font-bold text-pop-ink">{formatUsdCompact(token.volume24hUsd)}</div></div>
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Price</div><div className="mt-2 text-sm font-bold text-pop-ink">{formatUsdCompact(token.priceUsd)}</div></div>
+                    <div className="border border-dashed border-pop-ink/40 px-3 py-3"><div className="text-pop-ink/55">Status</div><div className="mt-2 text-sm font-bold text-pop-ink">{token.migrated || token.completed ? 'Live' : 'Bonding'}</div></div>
+                  </div>
+
+                  <div className="flex items-center gap-3 border border-dashed border-pop-ink/40 px-3 py-3 font-pop-mono text-[11px] uppercase tracking-[0.12em]">
+                    <span className="text-pop-ink/55">CA</span>
+                    <code className="min-w-0 flex-1 truncate text-[12px] font-bold normal-case tracking-normal">{mintAddress}</code>
+                    <button onClick={copyAddress} className="border border-pop-ink px-2 py-1 text-[10px] font-bold hover:bg-pop-orange">Copy</button>
+                    <a href={getExplorerUrl(mintAddress, effectiveIsBsc)} target="_blank" rel="noopener noreferrer" className="border border-pop-ink px-2 py-1 text-[10px] font-bold hover:bg-pop-orange">↗</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="wf-section">
+              <span className="wf-label">[ HOLDERS / TOP 10 ]</span>
+              <div className="overflow-hidden border-2 border-pop-ink bg-pop-cream shadow-[5px_5px_0_0_hsl(var(--pop-ink))]">
+                <div className="flex items-center justify-between border-b-2 border-pop-ink px-4 py-3 font-pop-display text-sm uppercase text-pop-ink">
+                  <span>◎ Top Holders</span>
+                  <span className="font-pop-mono text-[11px]">{token.holders.toLocaleString()}</span>
+                </div>
+                <div className="divide-y divide-pop-ink/10">
+                  {topHolderRows.map((holder) => (
+                    <div key={holder.address} className="px-4 py-3 font-pop-mono text-[11px] text-pop-ink">
+                      <div className="mb-2 flex items-center gap-3">
+                        <span className={`inline-flex h-7 w-7 items-center justify-center border border-pop-ink text-[10px] font-bold ${holder.rank <= 3 ? 'bg-pop-orange' : 'bg-pop-cream'}`}>{String(holder.rank).padStart(2, '0')}</span>
+                        <span className="min-w-0 flex-1 truncate font-bold">{compactWallet(holder.address)}</span>
+                        <span className="font-bold">{holder.percent.toFixed(2)}%</span>
+                      </div>
+                      <div className="h-2 border border-pop-ink bg-pop-cream">
+                        <div className="h-full bg-pop-orange" style={{ width: `${Math.min(holder.percent, 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {!topHolderRows.length && (
+                    <div className="px-4 py-10 text-center font-pop-mono text-[12px] text-pop-ink/55">
+                      No holder distribution yet
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
