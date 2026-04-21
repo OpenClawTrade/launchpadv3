@@ -435,26 +435,39 @@ contract PopShibaLauncher {
         // 2. Wrap ETH for LP
         IWETH9(WETH).deposit{value: ethForLP}();
 
-        // 3. Create + initialize pool with sqrtPriceX96 derived on-chain
-        // from the (ethForLP, TOTAL_SUPPLY) ratio. Price = WETH_amt / token_amt
-        // for the SORTED token0/token1 pair.
-        (address token0, address token1) = token < WETH ? (token, WETH) : (WETH, token);
+        // 3-4. Create pool + mint LP NFT (extracted to helper to free stack)
+        (pool, lpTokenId) = _createPoolAndMintLP(token, ethForLP);
+
+        // 5. Register in fee vault
+        feeVault.registerToken(token, lpTokenId, creator);
+
+        // 6. Optional dev buy — swap ETH→token, recipient = creator
+        if (ethForDevBuy > 0) {
+            _devBuy(token, creator, ethForDevBuy);
+        }
+
+        // 7. Sweep dust back to creator
+        _sweepDust(token, creator);
+
+        emit TokenLaunched(token, creator, pool, lpTokenId, ethForLP, ethForDevBuy);
+    }
+
+    function _createPoolAndMintLP(address token, uint256 ethForLP)
+        internal
+        returns (address pool, uint256 lpTokenId)
+    {
         bool tokenIsToken0_ = token < WETH;
+        (address token0, address token1) = tokenIsToken0_ ? (token, WETH) : (WETH, token);
         uint160 sqrtPriceX96 = _computeSqrtPriceX96(
-            tokenIsToken0_ ? TOTAL_SUPPLY : ethForLP,   // amount0
-            tokenIsToken0_ ? ethForLP    : TOTAL_SUPPLY // amount1
+            tokenIsToken0_ ? TOTAL_SUPPLY : ethForLP,
+            tokenIsToken0_ ? ethForLP    : TOTAL_SUPPLY
         );
         pool = INonfungiblePositionManager(NPM).createAndInitializePoolIfNecessary(
             token0, token1, FEE_TIER, sqrtPriceX96
         );
 
-        // 4. Approve NPM and mint full-range LP to the vault
         IERC20(token).approve(NPM, TOTAL_SUPPLY);
         IERC20(WETH).approve(NPM, ethForLP);
-
-        (uint256 amount0Desired, uint256 amount1Desired) = tokenIsToken0_
-            ? (TOTAL_SUPPLY, ethForLP)
-            : (ethForLP, TOTAL_SUPPLY);
 
         INonfungiblePositionManager.MintParams memory mp = INonfungiblePositionManager.MintParams({
             token0: token0,
@@ -462,8 +475,8 @@ contract PopShibaLauncher {
             fee: FEE_TIER,
             tickLower: MIN_TICK,
             tickUpper: MAX_TICK,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
+            amount0Desired: tokenIsToken0_ ? TOTAL_SUPPLY : ethForLP,
+            amount1Desired: tokenIsToken0_ ? ethForLP    : TOTAL_SUPPLY,
             amount0Min: 0,
             amount1Min: 0,
             recipient: address(feeVault),
@@ -471,29 +484,25 @@ contract PopShibaLauncher {
         });
         (lpTokenId, , , ) = INonfungiblePositionManager(NPM).mint(mp);
 
-        // Reset approvals
         IERC20(token).approve(NPM, 0);
         IERC20(WETH).approve(NPM, 0);
+    }
 
-        // 5. Register in fee vault
-        feeVault.registerToken(token, lpTokenId, creator);
+    function _devBuy(address token, address creator, uint256 ethForDevBuy) internal {
+        ISwapRouter.ExactInputSingleParams memory sp = ISwapRouter.ExactInputSingleParams({
+            tokenIn: WETH,
+            tokenOut: token,
+            fee: FEE_TIER,
+            recipient: creator,
+            deadline: block.timestamp + 600,
+            amountIn: ethForDevBuy,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        ISwapRouter(SWAP_ROUTER).exactInputSingle{value: ethForDevBuy}(sp);
+    }
 
-        // 6. Optional dev buy — swap ETH→token, recipient = creator
-        if (ethForDevBuy > 0) {
-            ISwapRouter.ExactInputSingleParams memory sp = ISwapRouter.ExactInputSingleParams({
-                tokenIn: WETH,
-                tokenOut: token,
-                fee: FEE_TIER,
-                recipient: creator,
-                deadline: block.timestamp + 600,
-                amountIn: ethForDevBuy,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-            ISwapRouter(SWAP_ROUTER).exactInputSingle{value: ethForDevBuy}(sp);
-        }
-
-        // 7. Sweep dust back to creator
+    function _sweepDust(address token, address creator) internal {
         uint256 leftoverToken = IERC20(token).balanceOf(address(this));
         if (leftoverToken > 0) IERC20(token).transfer(creator, leftoverToken);
         uint256 leftoverWeth = IERC20(WETH).balanceOf(address(this));
@@ -504,8 +513,6 @@ contract PopShibaLauncher {
             (bool ok, ) = creator.call{value: address(this).balance}("");
             require(ok, "REFUND_FAILED");
         }
-
-        emit TokenLaunched(token, creator, pool, lpTokenId, ethForLP, ethForDevBuy);
     }
 
     /// @dev sqrtPriceX96 = sqrt(amount1 * 2^192 / amount0). Babylonian sqrt.
