@@ -1,16 +1,20 @@
 /**
  * PopshibaLaunchpadPage
- * Phase 3 — pixel-perfect template + live ETH data injection.
+ * Phase 4 — pixel-perfect template + live ETH data + real launcher modal.
  *
- * Renders /public/popshiba-template/launch.html in an iframe (1:1 design),
- * then on iframe load, replaces the mock launch data with REAL rows from
- * `eth_launch_requests`. Hero counters (launched, near-grad) are also wired.
+ * Renders /public/popshiba-template/launch.html in an iframe (1:1 design).
+ * - Live launches table is replaced with REAL rows from `eth_launch_requests`.
+ * - When the user clicks "🚀 LAUNCH IT" inside the iframe, the form values
+ *   are postMessage'd up here and we open the existing <EthLauncher /> modal
+ *   prefilled — that component runs the real on-chain launch flow.
  *
- * Empty-state contract: when no live launches exist, show a "Be the first
- * → launch your coin" row instead of fabricated tokens.
+ * Empty-state contract: if no live launches exist, the table shows
+ * a "Be the first → launch your coin" CTA.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EthLauncher } from "@/components/launchpad/EthLauncher";
 
 type EthLaunch = {
   id: string;
@@ -20,6 +24,16 @@ type EthLaunch = {
   status: string;
   created_at: string;
   token_address: string | null;
+};
+
+type LauncherPrefill = {
+  name?: string;
+  ticker?: string;
+  description?: string;
+  twitterUrl?: string;
+  telegramUrl?: string;
+  websiteUrl?: string;
+  devBuyEth?: number;
 };
 
 const palette = ["#8ed36c", "#e8c88a", "#f5d84a", "#cf5f5f", "#f5a524", "#c08fe6", "#7b5dd9", "#a8c27a"];
@@ -41,7 +55,6 @@ function injectLiveData(doc: Document, launches: EthLaunch[], totalCount: number
   body.innerHTML = "";
 
   if (launches.length === 0) {
-    // "Be the first" empty-state row spanning all 8 cols.
     const tr = doc.createElement("tr");
     tr.innerHTML = `
       <td colspan="8" style="text-align:center;padding:42px 22px">
@@ -100,10 +113,12 @@ function injectLiveData(doc: Document, launches: EthLaunch[], totalCount: number
 
 export default function PopshibaLaunchpadPage() {
   const ref = useRef<HTMLIFrameElement>(null);
+  const [launcherOpen, setLauncherOpen] = useState(false);
+  const [prefill, setPrefill] = useState<LauncherPrefill>({});
 
+  // ETH-data injection + polling
   useEffect(() => {
     let cancelled = false;
-
     async function load() {
       const [recentRes, totalRes] = await Promise.all([
         supabase
@@ -120,15 +135,10 @@ export default function PopshibaLaunchpadPage() {
       const doc = ref.current?.contentDocument;
       if (doc && doc.getElementById("ll-body")) injectLiveData(doc, launches, total);
     }
-
-    function onLoad() {
-      // Defer once so the template's own setup script finishes appending mock rows first.
-      setTimeout(load, 50);
-    }
+    function onLoad() { setTimeout(load, 50); }
     const f = ref.current;
     f?.addEventListener("load", onLoad);
     if (f?.contentDocument?.readyState === "complete") onLoad();
-
     const interval = setInterval(load, 15000);
     return () => {
       cancelled = true;
@@ -137,13 +147,38 @@ export default function PopshibaLaunchpadPage() {
     };
   }, []);
 
+  // postMessage bridge from iframe → open launcher modal prefilled
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.source !== "popshiba-template") return;
+      if (data.type === "open-launcher") {
+        setPrefill(data.payload || {});
+        setLauncherOpen(true);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   return (
-    <iframe
-      ref={ref}
-      src="/popshiba-template/launch.html"
-      title="Popshiba Launchpad"
-      className="block w-full border-0"
-      style={{ height: "100vh", background: "#f5a524" }}
-    />
+    <>
+      <iframe
+        ref={ref}
+        src="/popshiba-template/launch.html"
+        title="Popshiba Launchpad"
+        className="block w-full border-0"
+        style={{ height: "100vh", background: "#f5a524" }}
+      />
+      <Dialog open={launcherOpen} onOpenChange={setLauncherOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Launch your coin on Ethereum</DialogTitle>
+          </DialogHeader>
+          {/* key forces remount with new prefill values each open */}
+          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={prefill} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
