@@ -577,14 +577,15 @@ export default function PopshibaLaunchpadPage() {
         className="block w-full border-0"
         style={{ height: "100vh", background: "#f5a524" }}
       />
-      <Dialog open={launcherOpen} onOpenChange={setLauncherOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Launch your coin on Ethereum</DialogTitle>
-          </DialogHeader>
-          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }} initialLockLP={!!prefill.lockLP} />
-        </DialogContent>
-      </Dialog>
+      {launcherOpen && (
+        <EthLauncher
+          key="auto-launch"
+          initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }}
+          initialLockLP={!!prefill.lockLP}
+          autoLaunch
+          hideUI
+        />
+      )}
     </>
   );
 }
