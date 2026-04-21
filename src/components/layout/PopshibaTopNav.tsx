@@ -57,21 +57,25 @@ export function PopshibaTopNav() {
           <span>POPSHIBA</span>
         </Link>
 
-        {/* Desktop links */}
-        <nav className="hidden lg:flex gap-5 text-[13px] font-bold flex-wrap items-center">
+        {/* Desktop links — icons-only on lg, with labels on xl+ */}
+        <nav className="hidden lg:flex gap-1 xl:gap-4 text-[13px] font-bold items-center">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
+            const Icon = link.Icon;
             return (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`relative px-0.5 py-1 transition-colors ${
+                title={link.label}
+                aria-label={link.label}
+                className={`relative flex items-center gap-1.5 px-2 xl:px-0.5 py-1 transition-colors ${
                   active ? "text-pop-cream" : "text-pop-cream/85 hover:text-pop-cream"
                 }`}
               >
-                {link.label}
+                <Icon className="w-[18px] h-[18px] xl:hidden" strokeWidth={2.25} />
+                <span className="hidden xl:inline">{link.label}</span>
                 <span
-                  className={`absolute left-0 right-0 -bottom-0.5 h-[3px] bg-pop-orange transition-opacity ${
+                  className={`absolute left-1 right-1 xl:left-0 xl:right-0 -bottom-0.5 h-[3px] bg-pop-orange transition-opacity ${
                     active ? "opacity-100" : "opacity-0"
                   }`}
                 />
