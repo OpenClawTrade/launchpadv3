@@ -1,32 +1,35 @@
 // ============================================================================
 // eth-verify-contract
 //
-// Submits the launchpad contract source to Etherscan for verification (v2 API).
+// Submits a per-token Etherscan verification for a cloned PopShibaToken so
+// the Solidity source on Etherscan shows the launch metadata header
+// (Name, Website, X, Telegram, Discord, Description) for THAT specific token.
 //
-// Supports BOTH contract generations:
-//   • Legacy: SaturnEthV3Token (launchedBy = "Saturn V3 Launchpad")
-//   • Current: PopShibaLaunchpad (launchedBy = "PopShiba.com")
+// Background: tokens are EIP-1167 minimal proxies cloned from a single
+// PopShibaToken implementation. Without per-token verification, Etherscan
+// only shows "Similar Match Source Code" pointing at the impl. Submitting
+// the same source again — for the clone address, with a unique comment
+// header — produces a unique verified source page per token.
 //
-// When called with waitForResult=true, polls Etherscan checkverifystatus until
-// the contract is verified (or max retries exceeded). This is used by
-// eth-create-token to block LP creation until verification is confirmed.
+// Comments do not affect bytecode, so the SAME compiler + settings used at
+// deploy time still produce a matching bytecode hash and verification passes.
 //
 // Required secret: ETHERSCAN_API_KEY
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { encodeAbiParameters, parseEther, getAddress } from "https://esm.sh/viem@2.45.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const POPSHIBA_SOURCE = `// SPDX-License-Identifier: MIT
-// Launched via PopShiba.com Ethereum Launchpad
-pragma solidity ^0.8.19;
+// Source matches eth-deploy-contracts/sources.ts POPSHIBA_TOKEN_SOL exactly.
+// Clones have NO constructor args (state is set via initialize()).
+const POPSHIBA_TOKEN_BASE_SOURCE = `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-contract PopShibaLaunchpad {
+contract PopShibaToken {
     string public name;
     string public symbol;
     uint8  public constant decimals = 18;
@@ -34,13 +37,23 @@ contract PopShibaLaunchpad {
     string  public metadataURI;
     string  public constant launchedBy = "PopShiba.com";
 
+    bool private _initialized;
+
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
-    constructor(string memory _name, string memory _symbol, address _recipient, uint256 _supply, string memory _metadataURI) {
+    function initialize(
+        string memory _name,
+        string memory _symbol,
+        address _recipient,
+        uint256 _supply,
+        string memory _metadataURI
+    ) external {
+        require(!_initialized, "ALREADY_INIT");
+        _initialized = true;
         name = _name;
         symbol = _symbol;
         totalSupply = _supply;
@@ -53,11 +66,13 @@ contract PopShibaLaunchpad {
         _transfer(msg.sender, to, value);
         return true;
     }
+
     function approve(address spender, uint256 value) external returns (bool) {
         allowance[msg.sender][spender] = value;
         emit Approval(msg.sender, spender, value);
         return true;
     }
+
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
         uint256 allowed = allowance[from][msg.sender];
         require(allowed >= value, "ERC20: allowance");
@@ -67,6 +82,7 @@ contract PopShibaLaunchpad {
         _transfer(from, to, value);
         return true;
     }
+
     function _transfer(address from, address to, uint256 value) internal {
         require(balanceOf[from] >= value, "ERC20: balance");
         unchecked {
@@ -75,73 +91,17 @@ contract PopShibaLaunchpad {
         }
         emit Transfer(from, to, value);
     }
-}`;
+}
+`;
 
-const SATURN_SOURCE = `// SPDX-License-Identifier: MIT
-// Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
-pragma solidity ^0.8.19;
-
-contract SaturnEthV3Token {
-    string public name;
-    string public symbol;
-    uint8  public constant decimals = 18;
-    uint256 public totalSupply;
-    string  public metadataURI;
-    string  public constant launchedBy = "Saturn V3 Launchpad";
-
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    constructor(string memory _name, string memory _symbol, address _recipient, uint256 _supply, string memory _metadataURI) {
-        name = _name;
-        symbol = _symbol;
-        totalSupply = _supply;
-        metadataURI = _metadataURI;
-        balanceOf[_recipient] = _supply;
-        emit Transfer(address(0), _recipient, _supply);
-    }
-
-    function transfer(address to, uint256 value) external returns (bool) {
-        _transfer(msg.sender, to, value);
-        return true;
-    }
-    function approve(address spender, uint256 value) external returns (bool) {
-        allowance[msg.sender][spender] = value;
-        emit Approval(msg.sender, spender, value);
-        return true;
-    }
-    function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        uint256 allowed = allowance[from][msg.sender];
-        require(allowed >= value, "ERC20: allowance");
-        if (allowed != type(uint256).max) {
-            unchecked { allowance[from][msg.sender] = allowed - value; }
-        }
-        _transfer(from, to, value);
-        return true;
-    }
-    function _transfer(address from, address to, uint256 value) internal {
-        require(balanceOf[from] >= value, "ERC20: balance");
-        unchecked {
-            balanceOf[from] -= value;
-            balanceOf[to]   += value;
-        }
-        emit Transfer(from, to, value);
-    }
-}`;
-
-const POPSHIBA_MARKER_HEX = "506f7053686962612e636f6d";
-const TOTAL_SUPPLY_WEI = parseEther("1000000000");
 const ETHEREUM_CHAIN_ID = 1;
+const COMPILER_VERSION = "v0.8.20+commit.a1b79de6";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Helper: wait for Etherscan to index the contract bytecode
 async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, maxRetries = 20): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
-    if (i > 0) await delay(6000); // respect rate limit (max 3/sec on free tier)
+    if (i > 0) await delay(6000);
     try {
       const resp = await fetch(
         `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getCode&address=${tokenAddress}&tag=latest&apikey=${apiKey}`
@@ -158,10 +118,9 @@ async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, ma
   return false;
 }
 
-// Helper: poll checkverifystatus until Pass/Fail
 async function pollVerificationStatus(guid: string, apiKey: string, maxRetries = 24): Promise<{ verified: boolean; message: string }> {
   for (let i = 0; i < maxRetries; i++) {
-    await delay(6000); // 6s between checks to respect rate limit
+    await delay(6000);
     try {
       const resp = await fetch(
         `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${apiKey}`
@@ -169,13 +128,29 @@ async function pollVerificationStatus(guid: string, apiKey: string, maxRetries =
       const json = await resp.json();
       const result = String(json?.result || "");
       console.log(`[eth-verify] poll ${i + 1}: ${result}`);
-      
       if (/pass/i.test(result)) return { verified: true, message: result };
       if (/fail/i.test(result) && !/pending/i.test(result)) return { verified: false, message: result };
-      // "Pending in queue" → keep polling
     } catch (_) { /* retry */ }
   }
   return { verified: false, message: "Verification polling timed out" };
+}
+
+function buildMetadataHeader(launch: any): string {
+  const sanitize = (s: unknown) =>
+    String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
+  const lines: string[] = [];
+  const nm = sanitize(launch.token_name);
+  const tk = sanitize(launch.token_ticker);
+  if (nm || tk) lines.push(`// ${nm}${tk ? ` ($${tk})` : ""}`);
+  if (launch.website_url)  lines.push(`// Website     - ${sanitize(launch.website_url)}`);
+  if (launch.twitter_url)  lines.push(`// X / Twitter - ${sanitize(launch.twitter_url)}`);
+  if (launch.telegram_url) lines.push(`// Telegram    - ${sanitize(launch.telegram_url)}`);
+  if (launch.discord_url)  lines.push(`// Discord     - ${sanitize(launch.discord_url)}`);
+  if (launch.description) {
+    lines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
+  }
+  if (lines.length === 0) return "";
+  return lines.join("\n") + "\n//\n";
 }
 
 Deno.serve(async (req) => {
@@ -193,19 +168,20 @@ Deno.serve(async (req) => {
     const tokenAddress: string | undefined = body?.tokenAddress;
     const launchId: string | undefined = body?.launchId;
     const waitForResult: boolean = body?.waitForResult === true;
-    
+
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // ── Wait for Etherscan to index the contract code first ──
-    console.log("[eth-verify] waiting for Etherscan to index contract...");
+    // Wait for Etherscan to index the clone bytecode.
+    console.log(`[eth-verify] waiting for Etherscan to index ${tokenAddress}`);
     const indexed = await waitForEtherscanIndexing(tokenAddress, apiKey);
     if (!indexed) {
       return new Response(JSON.stringify({ success: false, error: "Etherscan did not index contract in time" }), {
@@ -213,16 +189,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Look up launch row
+    // Look up the launch row to fetch metadata.
     let launch: any = null;
     if (launchId) {
-      const { data } = await supabase.from("eth_launch_requests").select("*").eq("id", launchId).maybeSingle();
+      const { data } = await supabase
+        .from("eth_launch_requests")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url")
+        .eq("id", launchId)
+        .maybeSingle();
       launch = data;
     }
     if (!launch) {
       const { data } = await supabase
         .from("eth_launch_requests")
-        .select("*")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url")
         .ilike("token_address", tokenAddress)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -235,106 +215,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Detect contract generation (reuse bytecode from indexing check) ──
-    // We already confirmed bytecode exists above; fetch it once more with rate-limit spacing
-    await delay(2000);
-    let isPopShiba = false;
-    try {
-      const codeResp = await fetch(
-        `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getCode&address=${tokenAddress}&tag=latest&apikey=${apiKey}`
-      );
-      const codeJson = await codeResp.json();
-      const runtimeCode: string = codeJson?.result || "";
-      isPopShiba = runtimeCode.toLowerCase().includes(POPSHIBA_MARKER_HEX);
-    } catch (e) {
-      console.warn("[eth-verify] eth_getCode failed, defaulting to PopShiba", e);
-      isPopShiba = true;
-    }
+    // Inject metadata header right after the SPDX line. Comments don't change
+    // bytecode → verification still matches the on-chain code.
+    const metaHeader = buildMetadataHeader(launch);
+    const sourceWithHeader = metaHeader
+      ? POPSHIBA_TOKEN_BASE_SOURCE.replace(
+          /^(\/\/ SPDX-License-Identifier:[^\n]*\n)/,
+          `$1${metaHeader}`,
+        )
+      : POPSHIBA_TOKEN_BASE_SOURCE;
 
-    const baseSource = isPopShiba ? POPSHIBA_SOURCE : SATURN_SOURCE;
+    const contractFile = "PopShibaToken.sol";
+    const contractName = "PopShibaToken";
 
-    // Build metadata comment header from launch info (comments don't affect bytecode)
-    const sanitize = (s: string) =>
-      String(s || "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
-    const headerLines: string[] = [];
-    headerLines.push(`// ${sanitize(launch.token_name)} ($${sanitize(launch.token_ticker)})`);
-    if (launch.website_url)  headerLines.push(`// Website  - ${sanitize(launch.website_url)}`);
-    if (launch.twitter_url)  headerLines.push(`// X        - ${sanitize(launch.twitter_url)}`);
-    if (launch.telegram_url) headerLines.push(`// Telegram - ${sanitize(launch.telegram_url)}`);
-    if (launch.discord_url)  headerLines.push(`// Discord  - ${sanitize(launch.discord_url)}`);
-    if (launch.description)  headerLines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
-    const metaHeader = headerLines.join("\n") + "\n//\n";
-
-    // Inject header right after the SPDX line (keep SPDX first per Solidity convention)
-    const ERC20_SOLIDITY_SOURCE = baseSource.replace(
-      /^(\/\/ SPDX-License-Identifier:[^\n]*\n)/,
-      `$1${metaHeader}`
-    );
-
-    const contractFile = isPopShiba ? "PopShibaLaunchpad.sol" : "SaturnEthV3Token.sol";
-    const contractName = isPopShiba ? "PopShibaLaunchpad" : "SaturnEthV3Token";
-    const launchpadTag = isPopShiba ? "popshiba-eth-v1" : "saturn-eth-v3";
-
-    console.log(`[eth-verify] token=${tokenAddress} generation=${isPopShiba ? "PopShiba" : "Saturn"}`);
-
-    // Determine recipient
-    await delay(2000);
-    let recipient: `0x${string}` | null = null;
-    if (launch.deploy_tx_hash) {
-      try {
-        const txResp = await fetch(
-          `https://api.etherscan.io/v2/api?chainid=${ETHEREUM_CHAIN_ID}&module=proxy&action=eth_getTransactionByHash&txhash=${launch.deploy_tx_hash}&apikey=${apiKey}`
-        );
-        const txJson = await txResp.json();
-        if (txJson?.result?.from) recipient = getAddress(txJson.result.from) as `0x${string}`;
-      } catch (_) { /* fall through */ }
-    }
-    if (!recipient) {
-      const fallback = Deno.env.get("ETH_DEPLOYER_PUBLIC_ADDRESS");
-      if (fallback) recipient = getAddress(fallback) as `0x${string}`;
-    }
-    if (!recipient) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: "Could not determine deploy recipient",
-      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Rebuild metadataURI exactly
-    const metadataURI = JSON.stringify({
-      name: launch.token_name,
-      symbol: launch.token_ticker,
-      description: (launch.description?.trim() || "").slice(0, 500),
-      image: launch.image_url ?? "",
-      website: launch.website_url ?? "",
-      twitter: launch.twitter_url ?? "",
-      telegram: launch.telegram_url ?? "",
-      launchpad: launchpadTag,
-      launchId: launch.id ?? "",
-    });
-
-    const encodedArgs = encodeAbiParameters(
-      [
-        { type: "string" },
-        { type: "string" },
-        { type: "address" },
-        { type: "uint256" },
-        { type: "string" },
-      ],
-      [
-        launch.token_name,
-        launch.token_ticker,
-        recipient,
-        TOTAL_SUPPLY_WEI,
-        metadataURI,
-      ] as any
-    ).slice(2);
-
+    // Settings MUST mirror eth-deploy-contracts (evmVersion: paris, viaIR: true,
+    // optimizer enabled, runs: 200) — otherwise bytecode won't match.
     const standardJson = {
       language: "Solidity",
-      sources: { [contractFile]: { content: ERC20_SOLIDITY_SOURCE } },
+      sources: { [contractFile]: { content: sourceWithHeader } },
       settings: {
         evmVersion: "paris",
+        viaIR: true,
         optimizer: { enabled: true, runs: 200 },
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
@@ -349,8 +250,8 @@ Deno.serve(async (req) => {
     form.append("sourceCode", JSON.stringify(standardJson));
     form.append("codeformat", "solidity-standard-json-input");
     form.append("contractname", `${contractFile}:${contractName}`);
-    form.append("compilerversion", "v0.8.19+commit.7dd6d404");
-    form.append("constructorArguements", encodedArgs);
+    form.append("compilerversion", COMPILER_VERSION);
+    form.append("constructorArguements", ""); // clones have no ctor args
 
     await delay(2000);
     const resp = await fetch(verifyUrl, { method: "POST", body: form });
@@ -370,8 +271,7 @@ Deno.serve(async (req) => {
     }
 
     const guid: string = result.result;
-    
-    // If caller wants to wait for completion, poll checkverifystatus
+
     if (waitForResult) {
       console.log(`[eth-verify] polling verification status for GUID=${guid}`);
       const pollResult = await pollVerificationStatus(guid, apiKey);
