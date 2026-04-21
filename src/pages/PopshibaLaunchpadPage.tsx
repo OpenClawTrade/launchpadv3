@@ -378,7 +378,7 @@ export default function PopshibaLaunchpadPage() {
           <DialogHeader>
             <DialogTitle>Launch your coin on Ethereum</DialogTitle>
           </DialogHeader>
-          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={prefill} />
+          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }} />
         </DialogContent>
       </Dialog>
     </>
