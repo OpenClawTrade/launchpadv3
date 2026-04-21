@@ -79,7 +79,7 @@ contract PopShibaLaunchpad {
 
 const SATURN_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract SaturnEthV3Token {
     string public name;
