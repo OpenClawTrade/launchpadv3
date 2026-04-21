@@ -4246,6 +4246,7 @@ export type Database = {
           network: string
           token_impl_address: string | null
           tx_hashes: string[]
+          uncx_lock_fee_wei: number | null
           vault_address: string | null
           verified: boolean
         }
@@ -4261,6 +4262,7 @@ export type Database = {
           network: string
           token_impl_address?: string | null
           tx_hashes: string[]
+          uncx_lock_fee_wei?: number | null
           vault_address?: string | null
           verified?: boolean
         }
@@ -4276,6 +4278,7 @@ export type Database = {
           network?: string
           token_impl_address?: string | null
           tx_hashes?: string[]
+          uncx_lock_fee_wei?: number | null
           vault_address?: string | null
           verified?: boolean
         }
