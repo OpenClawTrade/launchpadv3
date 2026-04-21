@@ -684,9 +684,11 @@
     }
     .nav-links::-webkit-scrollbar{display:none}
     .nav-links a{flex-shrink:0;white-space:nowrap}
-    .nav-right{gap:6px}
-    .wallet-pill{padding:6px 10px;font-size:10px}
-    .nav-right .btn{padding:7px 11px;font-size:11px;box-shadow:2px 2px 0 var(--ink)}
+    .nav-right{gap:6px;flex-wrap:nowrap}
+    .nav-right > a{width:32px !important;height:32px !important;flex-shrink:0}
+    .nav-right > a svg{width:14px !important;height:14px !important}
+    .wallet-pill{padding:6px 10px;font-size:10px;flex-shrink:0}
+    .nav-right .btn{padding:7px 11px;font-size:11px;box-shadow:2px 2px 0 var(--ink);flex-shrink:0}
 
     /* hero */
     .hero{padding:22px 18px;box-shadow:4px 4px 0 var(--cream),4px 4px 0 2px var(--ink)}
