@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 const BSC_RPC = "https://bsc-dataseed1.binance.org";
 
 // Minimal ABI for ERC-20 transfer + balanceOf + decimals

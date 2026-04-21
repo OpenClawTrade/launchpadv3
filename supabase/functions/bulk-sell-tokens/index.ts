@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const WALLET_ADDRESS = "EoKWXs7yrwTaGgKdtZbB9QFQDgPDm28Yr8EsjKcx2r6a";
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 const PUMPPORTAL_API = "https://pumpportal.fun/api/trade-local";
 const JUPITER_SWAP_API = "https://api.jup.ag/swap/v1";
 const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";

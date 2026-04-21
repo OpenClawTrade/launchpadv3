@@ -12,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

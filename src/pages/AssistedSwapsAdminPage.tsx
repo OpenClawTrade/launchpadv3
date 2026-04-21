@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowUpDown, ExternalLink, CheckCircle2, XCircle, Clock, Send } from "lucide-react";
 import { toast } from "sonner";
 
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 interface SwapLog {
   id: string;

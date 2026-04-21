@@ -13,7 +13,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Footer } from "@/components/layout/Footer";
 
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 // Lazy load all admin content
 const TreasuryAdminContent = lazy(() => import("./TreasuryAdminPage").then(m => ({ default: m.default })));

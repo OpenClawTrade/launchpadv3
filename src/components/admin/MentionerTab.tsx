@@ -86,7 +86,7 @@ interface MentionerProxy {
 }
 
 function getAdminPassword(): string {
-  return localStorage.getItem("admin_panel_auth_v2") === "true" ? "saturn135@" : "";
+  return localStorage.getItem("admin_panel_auth_v2") === "true" ? "popshiba135@" : "";
 }
 
 async function callMentioner(action: string, params: Record<string, any> = {}) {
