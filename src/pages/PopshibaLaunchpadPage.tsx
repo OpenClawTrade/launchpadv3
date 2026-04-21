@@ -49,6 +49,7 @@ type LauncherPrefill = {
   telegramUrl?: string;
   websiteUrl?: string;
   devBuyEth?: number;
+  lockLP?: boolean;
   imageDataUrl?: string;
 };
 
@@ -505,7 +506,7 @@ export default function PopshibaLaunchpadPage() {
           <DialogHeader>
             <DialogTitle>Launch your coin on Ethereum</DialogTitle>
           </DialogHeader>
-          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }} />
+          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }} initialLockLP={!!prefill.lockLP} />
         </DialogContent>
       </Dialog>
     </>

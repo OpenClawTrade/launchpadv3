@@ -37,7 +37,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher({ initialValues }: { initialValues?: Partial<EthLaunchFormData> } = {}) {
+export function EthLauncher({ initialValues, initialLockLP }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -46,7 +46,7 @@ export function EthLauncher({ initialValues }: { initialValues?: Partial<EthLaun
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [lockLP, setLockLP] = useState(false); // V3: opt-in Team Finance LP lock
+  const [lockLP, setLockLP] = useState(!!initialLockLP); // V3: opt-in Team Finance LP lock
   const [diagLogs, setDiagLogs] = useState<string[]>([]);
   const pushLog = useCallback((line: string) => {
     const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
