@@ -13,8 +13,9 @@ import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type PublicClient } from 'viem';
+import { createPublicClient, http, parseEther, type Address, type PublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
+import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 
 // Launch parameters — must mirror eth-create-token edge function
@@ -38,6 +39,9 @@ const MAX_DEV_BUY = 5;
 export function EthLauncher() {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
+  const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
+  const { switchChainAsync } = useSwitchChain();
+  const currentChainId = useChainId();
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -142,15 +146,16 @@ export function EthLauncher() {
       const ethForDevBuyWei = BigInt(data.ethForDevBuyWei);
       const totalValue = ethForLPWei + ethForDevBuyWei;
 
-      // 2. Get the user's injected EVM provider
-      const ethereum = (window as any).ethereum;
-      if (!ethereum) throw new Error('No Ethereum wallet detected. Install MetaMask, Rabby, or similar.');
+      // 2. Use the wagmi-managed wallet client tied to the connector the user actually selected
+      // (MetaMask, Privy, Trust, etc.). Avoid window.ethereum directly — when multiple wallets
+      // are installed they fight over window.ethereum and the wrong one prompts.
+      if (!walletClient) throw new Error('Wallet not ready. Reconnect your wallet and try again.');
 
-      const walletClient = createWalletClient({
-        account: address as Address,
-        chain: mainnet,
-        transport: custom(ethereum),
-      });
+      if (currentChainId !== mainnet.id) {
+        toast.info('Switching wallet to Ethereum mainnet…');
+        await switchChainAsync({ chainId: mainnet.id });
+      }
+
       const publicClient = createPublicClient({ chain: mainnet, transport: http() });
 
       // 3. Single signature: launcher.launch() with msg.value = LP + devBuy
