@@ -129,6 +129,9 @@ export function PopshibaTopNav() {
               );
             })}
             <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-pop-cream/10">
+              <div className="col-span-2 flex justify-center">
+                <SocialLinks />
+              </div>
               <WalletPill className="col-span-2" />
               <Link
                 to="/launch"
