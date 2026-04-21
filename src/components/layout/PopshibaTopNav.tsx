@@ -2,21 +2,21 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   Menu, X, Plus,
-  Home as HomeIcon, Activity, LineChart, Rocket, Compass, Sparkles, Twitter, BookOpen,
+  Home as HomeIcon, LineChart, Users, Sparkles, Twitter, BookOpen,
 } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import popshibaLogo from "@/assets/popshiba-logo.png";
 import { CreatorFeesPill } from "./CreatorFeesPill";
 
+// Mirrors the in-iframe template nav on the home page so every page shows the
+// exact same primary navigation.
 const NAV_LINKS = [
-  { label: "Home", to: "/", Icon: HomeIcon },
-  { label: "Pulse", to: "/launchpad", Icon: Activity },
-  { label: "Trade", to: "/trade", Icon: LineChart },
-  { label: "Launchpad", to: "/launch", Icon: Rocket },
-  { label: "Discover", to: "/discover", Icon: Compass },
-  { label: "Alpha", to: "/alpha-tracker", Icon: Sparkles },
-  { label: "X Tracker", to: "/x-tracker", Icon: Twitter },
-  { label: "Docs", to: "/docs", Icon: BookOpen },
+  { label: "Home",    to: "/",           Icon: HomeIcon },
+  { label: "Trade",   to: "/ape",        Icon: LineChart },
+  { label: "Holders", to: "/holders",    Icon: Users },
+  { label: "Alpha",   to: "/alpha",      Icon: Sparkles },
+  { label: "Tracker", to: "/x-tracker",  Icon: Twitter },
+  { label: "Docs",    to: "/docs",       Icon: BookOpen },
 ];
 
 /** Tilted brand frame: two stacked rotated squares with the logo on top. */
