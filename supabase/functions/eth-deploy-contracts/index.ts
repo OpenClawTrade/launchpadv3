@@ -96,6 +96,120 @@ Deno.serve(async (req) => {
     const canPatchLauncher = !!(existing && !existing.launcher_address &&
       existing.token_impl_address && existing.clone_factory_address && existing.vault_address);
 
+    // ============= OWNERSHIP CHECK / TRANSFER =============
+    // Read CloneFactory.owner() and FeeVault.owner(). Both must equal the Launcher address
+    // for any user-wallet launch to succeed (createToken / registerToken are onlyOwner).
+    const ownableAbi = parseAbi([
+      "function owner() view returns (address)",
+      "function transferOwnership(address newOwner) external",
+    ]);
+
+    async function readOwners() {
+      if (!existing?.clone_factory_address || !existing?.vault_address) {
+        return { factoryOwner: null, vaultOwner: null };
+      }
+      try {
+        const [factoryOwner, vaultOwner] = await Promise.all([
+          publicClient.readContract({
+            address: getAddress(existing.clone_factory_address),
+            abi: ownableAbi,
+            functionName: "owner",
+          }) as Promise<string>,
+          publicClient.readContract({
+            address: getAddress(existing.vault_address),
+            abi: ownableAbi,
+            functionName: "owner",
+          }) as Promise<string>,
+        ]);
+        return { factoryOwner, vaultOwner };
+      } catch (e) {
+        console.error("[ownership] read failed", e);
+        return { factoryOwner: null, vaultOwner: null };
+      }
+    }
+
+    if (checkOwnership) {
+      if (!existing) {
+        return new Response(JSON.stringify({ error: "No active deployment to inspect" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { factoryOwner, vaultOwner } = await readOwners();
+      const launcher = existing.launcher_address;
+      const factoryOk = !!(factoryOwner && launcher && factoryOwner.toLowerCase() === launcher.toLowerCase());
+      const vaultOk = !!(vaultOwner && launcher && vaultOwner.toLowerCase() === launcher.toLowerCase());
+      return new Response(JSON.stringify({
+        success: true,
+        deployer: account.address,
+        launcher,
+        factoryAddress: existing.clone_factory_address,
+        vaultAddress: existing.vault_address,
+        factoryOwner,
+        vaultOwner,
+        factoryOk,
+        vaultOk,
+        bothOk: factoryOk && vaultOk,
+        message: factoryOk && vaultOk
+          ? "✅ Both contracts owned by the Launcher. User wallets can launch tokens."
+          : "⚠️ Ownership not transferred yet. Click 'Hand Over Ownership' to enable user launches.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (transferOwnership) {
+      if (!existing?.launcher_address || !existing?.clone_factory_address || !existing?.vault_address) {
+        return new Response(JSON.stringify({ error: "Active deployment must have launcher + factory + vault" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const launcher = getAddress(existing.launcher_address);
+      const factory = getAddress(existing.clone_factory_address);
+      const vault = getAddress(existing.vault_address);
+
+      const { factoryOwner, vaultOwner } = await readOwners();
+      const txs: { contract: string; tx: string; alreadyTransferred?: boolean }[] = [];
+
+      // Factory
+      if (factoryOwner && factoryOwner.toLowerCase() === launcher.toLowerCase()) {
+        txs.push({ contract: "CloneFactory", tx: "", alreadyTransferred: true });
+      } else if (factoryOwner && factoryOwner.toLowerCase() !== account.address.toLowerCase()) {
+        return new Response(JSON.stringify({
+          error: `CloneFactory owner is ${factoryOwner} — not the deployer wallet ${account.address}. Cannot transfer.`,
+        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } else {
+        const data = encodeFunctionData({ abi: ownableAbi, functionName: "transferOwnership", args: [launcher] });
+        const hash = await walletClient.sendTransaction({ to: factory, data, value: 0n });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
+        if (receipt.status !== "success") throw new Error(`CloneFactory.transferOwnership reverted: ${hash}`);
+        txs.push({ contract: "CloneFactory", tx: hash });
+        console.log(`[ownership] CloneFactory → Launcher (${hash})`);
+      }
+
+      // Vault
+      if (vaultOwner && vaultOwner.toLowerCase() === launcher.toLowerCase()) {
+        txs.push({ contract: "FeeVault", tx: "", alreadyTransferred: true });
+      } else if (vaultOwner && vaultOwner.toLowerCase() !== account.address.toLowerCase()) {
+        return new Response(JSON.stringify({
+          error: `FeeVault owner is ${vaultOwner} — not the deployer wallet ${account.address}. Cannot transfer.`,
+        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } else {
+        const data = encodeFunctionData({ abi: ownableAbi, functionName: "transferOwnership", args: [launcher] });
+        const hash = await walletClient.sendTransaction({ to: vault, data, value: 0n });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
+        if (receipt.status !== "success") throw new Error(`FeeVault.transferOwnership reverted: ${hash}`);
+        txs.push({ contract: "FeeVault", tx: hash });
+        console.log(`[ownership] FeeVault → Launcher (${hash})`);
+      }
+
+      const finalBalOwn = await publicClient.getBalance({ address: account.address });
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "transfer-ownership",
+        deployer: account.address,
+        launcher,
+        txs,
+        gasUsedEth: formatEther(balance - finalBalOwn),
+        message: "✅ Ownership transferred. Any user wallet can now call launcher.launch() and become the token creator.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (dryRun) {
       const willDeploy = launcherOnly
         ? (canPatchLauncher ? ["PopShibaLauncher"] : [])
