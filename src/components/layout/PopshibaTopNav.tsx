@@ -93,6 +93,7 @@ export function PopshibaTopNav() {
 
         {/* Mobile pill (compact) */}
         <div className="md:hidden ml-auto flex items-center gap-2">
+          <SocialLinks compact />
           <CreatorFeesPill />
         </div>
 
