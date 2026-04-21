@@ -448,12 +448,11 @@ contract PopShibaLauncher {
             token0, token1, FEE_TIER, sqrtPriceX96
         );
 
-        // 4. Approve NPM and mint full-range single-sided LP to the vault
+        // 4. Approve NPM and mint full-range LP to the vault
         IERC20(token).approve(NPM, TOTAL_SUPPLY);
         IERC20(WETH).approve(NPM, ethForLP);
 
-        bool tokenIsToken0 = token < WETH;
-        (uint256 amount0Desired, uint256 amount1Desired) = tokenIsToken0
+        (uint256 amount0Desired, uint256 amount1Desired) = tokenIsToken0_
             ? (TOTAL_SUPPLY, ethForLP)
             : (ethForLP, TOTAL_SUPPLY);
 
@@ -507,6 +506,41 @@ contract PopShibaLauncher {
         }
 
         emit TokenLaunched(token, creator, pool, lpTokenId, ethForLP, ethForDevBuy);
+    }
+
+    /// @dev sqrtPriceX96 = sqrt(amount1 * 2^192 / amount0). Babylonian sqrt.
+    /// Inputs are pool reserves in the SORTED ordering (amount0 = token0).
+    function _computeSqrtPriceX96(uint256 amount0, uint256 amount1) internal pure returns (uint160) {
+        require(amount0 > 0 && amount1 > 0, "ZERO_AMOUNT");
+        // ratio = amount1 * 2^192 / amount0   (Q192.0 → fits a uint256 since
+        // amount1 ≤ ~10^27 and 2^192 ≈ 6e57, product up to 6e84; uint256 max ≈ 1.16e77).
+        // Use mulDiv-style splitting to avoid overflow.
+        // Practical safe bound: amount1 * 2^96 first, then * 2^96 again with sqrt in between.
+        uint256 r1 = _sqrt(_mulDiv(amount1, 1 << 96, amount0)); // sqrt(amount1/amount0) * 2^48 approx
+        // Multiply by 2^48 to scale up to 2^96 final
+        uint256 sqrtPrice = r1 << 48;
+        require(sqrtPrice <= type(uint160).max, "SQRT_OVERFLOW");
+        return uint160(sqrtPrice);
+    }
+
+    /// @dev Babylonian integer square root.
+    function _sqrt(uint256 x) internal pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+
+    /// @dev Minimal unsigned mulDiv: floor(a * b / d). Reverts on overflow/zero.
+    function _mulDiv(uint256 a, uint256 b, uint256 d) internal pure returns (uint256) {
+        require(d > 0, "MULDIV_ZERO");
+        // Solidity 0.8 has built-in overflow checks. For safety on large
+        // products we accept that the on-chain price seed amounts never
+        // exceed ~10^45, well within uint256.
+        return (a * b) / d;
     }
 
     receive() external payable {}
