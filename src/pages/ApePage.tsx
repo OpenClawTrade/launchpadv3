@@ -13,6 +13,7 @@ import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import { supabase } from "@/integrations/supabase/client";
 import { CodexChart } from "@/components/launchpad/CodexChart";
+import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 import { ETH_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
