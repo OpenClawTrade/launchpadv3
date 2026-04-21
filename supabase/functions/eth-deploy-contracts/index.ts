@@ -75,6 +75,12 @@ Deno.serve(async (req) => {
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
+  // Helper: always fetch latest pending nonce before sending — prevents "nonce too low" desync.
+  async function sendTx(args: { to: `0x${string}` | null; data: `0x${string}`; value?: bigint }): Promise<`0x${string}`> {
+    const n = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+    return await walletClient.sendTransaction({ to: args.to, data: args.data, value: args.value ?? 0n, nonce: n });
+  }
+
   try {
     const balance = await publicClient.getBalance({ address: account.address });
     const nonce = await publicClient.getTransactionCount({ address: account.address });
