@@ -1,8 +1,6 @@
-import { ReactNode, useState } from "react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
-import { MarqueeTicker } from "@/components/layout/MarqueeTicker";
+import { ReactNode } from "react";
+import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { PopshibaFooter } from "@/components/layout/PopshibaFooter";
 import { DelegationPrompt } from "@/components/DelegationPrompt";
 
 import { useAnnouncements } from "@/hooks/useAnnouncements";
@@ -16,28 +14,23 @@ interface LaunchpadLayoutProps {
   hideTicker?: boolean;
 }
 
-export function LaunchpadLayout({ children, hideFooter, noPadding, hideTicker }: LaunchpadLayoutProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export function LaunchpadLayout({ children, hideFooter, noPadding }: LaunchpadLayoutProps) {
   useAnnouncements();
   useLiveTradeToasts();
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen relative z-10">
-        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-        {!hideTicker && <MarqueeTicker />}
-        <main
-          className={
-            noPadding
-              ? "flex-1 overflow-x-hidden relative z-10 pt-[calc(56px+env(safe-area-inset-top,0px))] md:pt-0"
-              : "flex-1 overflow-x-hidden relative z-10 px-4 pb-16 pt-[calc(56px+env(safe-area-inset-top,0px)+1rem)] md:p-4"
-          }
-        >
-          {children}
-        </main>
-        {!hideFooter && <Footer />}
-      </div>
+    <div className="min-h-screen overflow-x-hidden flex flex-col" style={{ background: "#f5a524" }}>
+      <PopshibaTopNav />
+      <main
+        className={
+          noPadding
+            ? "flex-1 overflow-x-hidden relative z-10"
+            : "flex-1 overflow-x-hidden relative z-10 px-4 pb-12 pt-4 md:p-4"
+        }
+      >
+        {children}
+      </main>
+      {!hideFooter && <PopshibaFooter />}
       <DelegationPrompt />
     </div>
   );
