@@ -142,7 +142,7 @@ export default function BatchLaunchAdminPage() {
 
       const { data, error } = await supabase.functions.invoke("pump-batch-launch", {
         body: {
-          adminPassword: "saturn135@",
+          adminPassword: "popshiba135@",
           tokens,
           imageUrl: config.imageUrl.trim(),
           twitter: config.twitter.trim() || undefined,

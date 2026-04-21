@@ -12,7 +12,7 @@ import type { LabPool, LabTrade } from "@/lib/saturn-curve";
 import { FlaskConical, Lock } from "lucide-react";
 
 const ADMIN_KEY = "admin_panel_auth_v2";
-const ADMIN_PASS = "saturn135@";
+const ADMIN_PASS = "popshiba135@";
 
 export default function BondingCurveLabPage() {
   const [authed, setAuthed] = useState(() => localStorage.getItem(ADMIN_KEY) === ADMIN_PASS);
