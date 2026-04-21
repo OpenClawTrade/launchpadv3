@@ -508,9 +508,9 @@ Deno.serve(async (req) => {
         error: "Active PopShiba deployment already exists. Pass { launcherOnly: true } to add only the missing Launcher (recommended), or { force: true } to redeploy ALL contracts (deactivates the old set).",
         existing,
       }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    } else if (balance < parseEther("0.05")) {
+    } else if (balance < parseEther("0.005")) {
       return new Response(JSON.stringify({
-        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for full deploy.`,
+        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.005 ETH for full deploy.`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
