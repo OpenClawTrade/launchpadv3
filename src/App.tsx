@@ -97,6 +97,8 @@ const ApePage = lazyWithRetry(() => import("./pages/ApePage"));
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 const PopshibaLaunchpadPage = lazyWithRetry(() => import("./pages/PopshibaLaunchpadPage"));
 const PopshibaEarnings = lazyWithRetry(() => import("./pages/PopshibaEarnings"));
+const PopshibaAlphaPage = lazyWithRetry(() => import("./pages/PopshibaAlphaPage"));
+const PopshibaXTrackerPage = lazyWithRetry(() => import("./pages/PopshibaXTrackerPage"));
 
 function RouteChainSync() {
   return null;
@@ -185,8 +187,10 @@ const App = () => (
                     <Route path="/ape" element={<ApePage />} />
                     <Route path="/ape/:address" element={<ApePage />} />
                     <Route path="/ape/:chain/:address" element={<ApePage />} />
-                     <Route path="/alpha-tracker" element={<AlphaTrackerPage />} />
-                     <Route path="/x-tracker" element={<XTrackerPage />} />
+                     <Route path="/alpha-tracker" element={<PopshibaAlphaPage />} />
+                     <Route path="/alpha" element={<PopshibaAlphaPage />} />
+                     <Route path="/x-tracker" element={<PopshibaXTrackerPage />} />
+                     <Route path="/x-tracker-classic" element={<XTrackerPage />} />
                      <Route path="/discover" element={<DiscoverPage />} />
                      <Route path="/profile/:identifier" element={<UserProfilePage />} />
                     <Route path="/investigate-token" element={<InvestigateTokenPage />} />
