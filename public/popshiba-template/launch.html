@@ -1071,18 +1071,21 @@
         </div>
 
         <div class="fld">
-          <div class="fld-label">Dev first-buy <span class="hint">optional · max 5 ETH</span></div>
+          <div class="fld-label">Dev first-buy <span class="hint" id="devBuyHint">optional · max ~$15,000</span></div>
           <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
-            <input id="devBuyInput" class="fld-input mono" value="0.000 ETH" />
+            <div style="position:relative">
+              <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;color:var(--brown);pointer-events:none">$</span>
+              <input id="devBuyInput" class="fld-input mono" value="0" inputmode="decimal" style="padding-left:26px" />
+            </div>
             <div style="display:flex;gap:6px" id="devBuyPresets">
-              <button type="button" class="upl-btn" data-buy="0" style="padding:10px 12px">0</button>
-              <button type="button" class="upl-btn" data-buy="0.01" style="padding:10px 12px">0.01</button>
-              <button type="button" class="upl-btn" data-buy="0.05" style="padding:10px 12px;background:var(--primary)">0.05</button>
-              <button type="button" class="upl-btn" data-buy="0.1" style="padding:10px 12px">0.1</button>
-              <button type="button" class="upl-btn" data-buy="0.5" style="padding:10px 12px">0.5</button>
+              <button type="button" class="upl-btn" data-usd="0" style="padding:10px 12px">$0</button>
+              <button type="button" class="upl-btn" data-usd="50" style="padding:10px 12px">$50</button>
+              <button type="button" class="upl-btn" data-usd="200" style="padding:10px 12px;background:var(--primary)">$200</button>
+              <button type="button" class="upl-btn" data-usd="500" style="padding:10px 12px">$500</button>
+              <button type="button" class="upl-btn" data-usd="1000" style="padding:10px 12px">$1K</button>
             </div>
           </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">Buys your token in the same launch tx so snipers can't front-run you. Counts as your dev allocation.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">≈ <span id="devBuyEthEq">0.000 ETH</span> · Buys your token in the same launch tx so snipers can't front-run you. Counts as your dev allocation.</div>
         </div>
       </div>
 
@@ -1409,51 +1412,72 @@
   const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
   let ethUsd = ETH_USD_FALLBACK;
 
+  const MAX_DEV_ETH  = 5;            // hard cap stays at 5 ETH
+
   const devBuyInput  = document.getElementById('devBuyInput');
+  const devEthEqEl   = document.getElementById('devBuyEthEq');
+  const devBuyHintEl = document.getElementById('devBuyHint');
   const devAllocEl   = document.getElementById('econDevAlloc');
   const startMcEl    = document.getElementById('econStartMc');
   const buyAmtEl     = document.getElementById('buy-amt');
   const totalCostEl  = document.getElementById('total-cost');
 
-  function fmtEth(n){ return (Math.max(0, n) || 0).toFixed(3) + ' ETH'; }
+  function fmtEth(n){ return (Math.max(0, n) || 0).toFixed(4) + ' ETH'; }
   function fmtUsd0(n){
     if (!isFinite(n) || n <= 0) return '$0';
     if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
     if (n >= 1e3) return '$' + Math.round(n/100)/10 + 'K';
     return '$' + Math.round(n).toLocaleString();
   }
-  function parseEthInput(v){
-    const m = String(v||'').replace(',', '.').match(/-?\d+(\.\d+)?/);
-    return m ? Math.max(0, Math.min(5, parseFloat(m[0]))) : 0;
+  // Parse the USD input and clamp to the ETH-equivalent cap.
+  function parseUsdInput(v){
+    const m = String(v||'').replace(/[,$\s]/g, '').match(/-?\d+(\.\d+)?/);
+    if (!m) return 0;
+    const usd = Math.max(0, parseFloat(m[0]));
+    const maxUsd = MAX_DEV_ETH * ethUsd;
+    return Math.min(usd, maxUsd);
   }
+  function devEthFromUsd(usd){ return ethUsd > 0 ? usd / ethUsd : 0; }
+
   function recomputeEcon(){
-    const dev = parseEthInput(devBuyInput && devBuyInput.value);
-    // Starting market cap = LP_USD scaled by supply / LP fraction.
-    // With single-sided V3 the LP value at spot ≈ LP_SEED_USD, and starting MC tracks roughly LP_USD * 1000 (matches live launches).
+    const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
+    const dev    = devEthFromUsd(devUsd);
     const startMcUsd = LP_SEED_USD * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
-    // Dev allocation % = how much of total supply the dev buy purchases at the starting price.
-    // tokensBought ≈ devUsd / startingPrice ; startingPrice = startMcUsd / TOTAL_SUPPLY → alloc% = devUsd / startMcUsd
-    const devUsd = dev * ethUsd;
     const allocPct = startMcUsd > 0 ? Math.min(100, (devUsd / startMcUsd) * 100) : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
+    if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(3) + ' ETH';
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(4) + ' ETH';
+    if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ~' + fmtUsd0(MAX_DEV_ETH * ethUsd);
   }
   if (devBuyInput) {
     devBuyInput.addEventListener('input', recomputeEcon);
-    devBuyInput.addEventListener('blur', () => { devBuyInput.value = fmtEth(parseEthInput(devBuyInput.value)); recomputeEcon(); });
+    devBuyInput.addEventListener('blur', () => {
+      const usd = parseUsdInput(devBuyInput.value);
+      devBuyInput.value = usd > 0 ? String(Math.round(usd * 100) / 100) : '0';
+      recomputeEcon();
+    });
   }
-  document.querySelectorAll('#devBuyPresets [data-buy]').forEach(btn => {
+  document.querySelectorAll('#devBuyPresets [data-usd]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      const v = parseFloat(btn.getAttribute('data-buy')) || 0;
-      if (devBuyInput) devBuyInput.value = fmtEth(v);
-      document.querySelectorAll('#devBuyPresets [data-buy]').forEach(x => x.style.background = '');
+      const v = parseFloat(btn.getAttribute('data-usd')) || 0;
+      if (devBuyInput) devBuyInput.value = String(v);
+      document.querySelectorAll('#devBuyPresets [data-usd]').forEach(x => x.style.background = '');
       btn.style.background = 'var(--primary)';
       recomputeEcon();
     });
   });
+
+  // Live ETH/USD price (Coingecko, no key). Falls back to ETH_USD_FALLBACK.
+  (function fetchEthPrice(){
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { const p = j && j.ethereum && j.ethereum.usd; if (p && isFinite(p) && p > 0) { ethUsd = p; recomputeEcon(); } })
+      .catch(()=>{});
+  })();
+
   recomputeEcon();
 
   // ===== "Generate with AI" — calls real edge function via parent React =====
@@ -1516,7 +1540,7 @@
       twitterUrl: socials[0] ? socials[0].value.trim() : '',
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
-      devBuyEth: parseEthInput(devBuyInput && devBuyInput.value),
+      devBuyEth: devEthFromUsd(parseUsdInput(devBuyInput && devBuyInput.value)),
       imageDataUrl: aiImageDataUrl,
     };
   }
