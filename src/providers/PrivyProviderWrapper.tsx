@@ -302,12 +302,9 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
       <PrivyProviderWithGate
         appId={appId}
         config={{
-          // Email + social first; wallet last. SIWE (wallet login) requires a
-          // signature step that many users reject in MetaMask, producing the
-          // "Could not log in with wallet" error. Users can still LINK a wallet
-          // after logging in via email/twitter — that flow uses connectWallet
-          // and never asks for a signature.
-          loginMethods: ["email", "twitter", "wallet"],
+          // Wallet-only login. No email/social. Users connect with whichever
+          // EVM wallet they have installed (MetaMask, Rainbow, Coinbase, etc.).
+          loginMethods: ["wallet"],
           externalWallets: {
             solana: {
               connectors: solanaConnectors,
@@ -361,12 +358,10 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             theme: "dark",
             accentColor: "#22c55e",
             logo: saturnLogo,
-            // Don't put wallet login first — SIWE signature step often
-            // gets rejected by users, breaking the flow. Email/social
-            // is more reliable; wallet can be linked after login.
-            showWalletLoginFirst: false,
+            // Wallet-first: show installed wallets at top of the modal.
+            showWalletLoginFirst: true,
             walletChainType: "ethereum-only",
-            walletList: ["metamask", "rainbow", "wallet_connect", "coinbase_wallet", "detected_wallets"],
+            walletList: ["detected_wallets", "metamask", "rainbow", "coinbase_wallet", "wallet_connect"],
           },
           embeddedWallets: {
             // ETH-only: do not auto-create Solana embedded wallets
