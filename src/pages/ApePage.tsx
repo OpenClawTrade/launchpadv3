@@ -7,6 +7,8 @@ import { Loader2, Zap, ArrowDownToLine, Shield, Gauge, Settings2, ExternalLink, 
 import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import { supabase } from "@/integrations/supabase/client";
+import { CodexChart } from "@/components/launchpad/CodexChart";
+import { ETH_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 
 const ETH_LOGO = "https://assets.coingecko.com/coins/images/279/small/ethereum.png";
 const BNB_LOGO = "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png";
