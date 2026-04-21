@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Send, Loader2, CheckCircle2, AlertCircle, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 interface SendResult {
   success: boolean;
