@@ -4242,6 +4242,7 @@ export type Database = {
           deployer: string
           id: string
           is_active: boolean
+          launcher_address: string | null
           network: string
           token_impl_address: string | null
           tx_hashes: string[]
@@ -4256,6 +4257,7 @@ export type Database = {
           deployer: string
           id?: string
           is_active?: boolean
+          launcher_address?: string | null
           network: string
           token_impl_address?: string | null
           tx_hashes: string[]
@@ -4270,6 +4272,7 @@ export type Database = {
           deployer?: string
           id?: string
           is_active?: boolean
+          launcher_address?: string | null
           network?: string
           token_impl_address?: string | null
           tx_hashes?: string[]
@@ -4288,9 +4291,11 @@ export type Database = {
           error_message: string | null
           id: string
           image_url: string | null
+          launch_tx_hash: string | null
           lp_eth: number
           lp_refund_owed_eth: number
           lp_refund_paid_eth: number
+          lp_token_id: number | null
           lp_tx_hash: string | null
           platform_tax_bps: number
           renounce: boolean
@@ -4314,9 +4319,11 @@ export type Database = {
           error_message?: string | null
           id?: string
           image_url?: string | null
+          launch_tx_hash?: string | null
           lp_eth: number
           lp_refund_owed_eth?: number
           lp_refund_paid_eth?: number
+          lp_token_id?: number | null
           lp_tx_hash?: string | null
           platform_tax_bps?: number
           renounce?: boolean
@@ -4340,9 +4347,11 @@ export type Database = {
           error_message?: string | null
           id?: string
           image_url?: string | null
+          launch_tx_hash?: string | null
           lp_eth?: number
           lp_refund_owed_eth?: number
           lp_refund_paid_eth?: number
+          lp_token_id?: number | null
           lp_tx_hash?: string | null
           platform_tax_bps?: number
           renounce?: boolean
