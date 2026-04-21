@@ -35,30 +35,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const safeNetworkId = Number(networkId) || SOLANA_NETWORK_ID;
+    const requestedNetworkId = Number(networkId) || SOLANA_NETWORK_ID;
 
-    // Query both token metadata and market data
-    const query = `{
+    // For EVM addresses, try the requested network first, then fall back across ETH (1) and BSC (56)
+    const networksToTry: number[] = isEvmAddr
+      ? Array.from(new Set([requestedNetworkId, 1, 56]))
+      : [requestedNetworkId];
+
+    async function queryCodex(safeNetworkId: number) {
+      const query = `{
   tokens(ids: [{ address: "${address}", networkId: ${safeNetworkId} }]) {
     address
     decimals
     name
     symbol
-    info {
-      imageSmallUrl
-      imageLargeUrl
-    }
-    socialLinks {
-      twitter
-      website
-      telegram
-      discord
-    }
-    launchpad {
-      graduationPercent
-      completed
-      migrated
-    }
+    info { imageSmallUrl imageLargeUrl }
+    socialLinks { twitter website telegram discord }
+    launchpad { graduationPercent completed migrated }
   }
   filterTokens(
     filters: { network: [${safeNetworkId}] }
@@ -66,50 +59,41 @@ Deno.serve(async (req) => {
     tokens: ["${address}"]
     limit: 1
   ) {
-    results {
-      holders
-      marketCap
-      volume24
-      liquidity
-      change24
-      priceUSD
-    }
+    results { holders marketCap volume24 liquidity change24 priceUSD }
   }
 }`;
-
-    const res = await fetch("https://graph.codex.io/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: apiKey,
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("Codex API error:", res.status, text);
-      return new Response(
-        JSON.stringify({ error: "Codex API error" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const res = await fetch("https://graph.codex.io/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: apiKey },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok) {
+        console.error("Codex API error:", res.status, await res.text());
+        return { tokenMeta: null, marketResult: null, networkId: safeNetworkId };
+      }
+      const data = await res.json();
+      if (data.errors) console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
+      return {
+        tokenMeta: data?.data?.tokens?.[0] ?? null,
+        marketResult: data?.data?.filterTokens?.results?.[0] ?? null,
+        networkId: safeNetworkId,
+      };
     }
 
-    const data = await res.json();
-
-    if (data.errors) {
-      console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
+    let resolved: { tokenMeta: any; marketResult: any; networkId: number } | null = null;
+    for (const nid of networksToTry) {
+      const r = await queryCodex(nid);
+      if (r.tokenMeta) { resolved = r; break; }
     }
 
-    const tokenMeta = data?.data?.tokens?.[0];
-    const marketResult = data?.data?.filterTokens?.results?.[0];
-
-    if (!tokenMeta) {
+    if (!resolved || !resolved.tokenMeta) {
       return new Response(
         JSON.stringify({ token: null }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const { tokenMeta, marketResult, networkId: safeNetworkId } = resolved;
 
     const token = {
       address: tokenMeta.address,
