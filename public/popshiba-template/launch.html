@@ -688,13 +688,16 @@
     .brand{font-size:15px}
     .brand-frame{width:32px;height:32px}
     .nav-links{
-      order:3;width:100%;gap:14px;font-size:12px;
+      order:3;width:100%;gap:10px;font-size:12px;
       overflow-x:auto;flex-wrap:nowrap;padding:4px 0 2px;
       -webkit-overflow-scrolling:touch;
       scrollbar-width:none;
+      justify-content:space-between;
     }
     .nav-links::-webkit-scrollbar{display:none}
-    .nav-links a{flex-shrink:0;white-space:nowrap}
+    .nav-links a{flex-shrink:0;white-space:nowrap;padding:6px 4px}
+    .nav-links a .ni{display:inline-block;font-size:18px}
+    .nav-links a .nl{display:none}
     .nav-right{gap:6px;flex-wrap:nowrap}
     .nav-right > a{width:32px !important;height:32px !important;flex-shrink:0}
     .nav-right > a svg{width:14px !important;height:14px !important}
