@@ -1442,23 +1442,45 @@
   }
   function devEthFromUsd(usd){ return ethUsd > 0 ? usd / ethUsd : 0; }
 
+  const LOCKER_FEE_ETH = 0.045; // Team Finance LP lock fee (matches EthLauncher.tsx)
+  let lockLP = false;
+
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
     const dev    = devEthFromUsd(devUsd);
-    // Starting market cap is fixed by the LP seed; the dev buy happens AFTER seeding,
-    // so it does NOT change starting MC (it does push the *post-buy* price up).
     const startMcUsd = LP_SEED_USD * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
-    // Dev allocation %: single-sided Uniswap V3 acts ~ constant-product against the seeded
-    // ETH side, so tokens_received ≈ TOTAL_SUPPLY * devUsd / (LP_USD + devUsd).
-    // → alloc% = 100 * devUsd / (LP_USD + devUsd)
     const allocPct = devUsd > 0 ? (devUsd / (LP_SEED_USD + devUsd)) * 100 : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(4) + ' ETH';
+    const lockFee = lockLP ? LOCKER_FEE_ETH : 0;
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev + lockFee).toFixed(4) + ' ETH';
     if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
+    const feeRow = document.getElementById('lockerFeeRow');
+    if (feeRow) feeRow.style.display = lockLP ? '' : 'none';
   }
+
+  // LP Locker toggle wiring
+  (function(){
+    const toggle = document.getElementById('lockLpToggle');
+    const check = document.getElementById('lockLpCheck');
+    const box = document.getElementById('lockLpBox');
+    const desc = document.getElementById('lockLpDesc');
+    if (!toggle) return;
+    function render(){
+      if (check) check.style.display = lockLP ? '' : 'none';
+      if (box) box.style.background = lockLP ? 'var(--primary)' : '#fff';
+      if (desc) desc.textContent = lockLP
+        ? 'LP NFT will be locked in Team Finance for 10 years. Token gets the recognized 🔒 LP Locked badge on DEXTools / GMGN, and you earn 50% of all 1% swap fees forever (claim anytime). Adds ~0.045 ETH (~$150) to launch cost.'
+        : 'No lock — cheapest path. The LP NFT stays in the launcher contract; no scanner badge, no creator fee claim flow. Toggle on to lock for 10 years, get the recognized 🔒 LP Locked badge on DEXTools / GMGN, and earn 50% of all 1% swap fees forever.';
+      recomputeEcon();
+    }
+    toggle.addEventListener('click', function(){ lockLP = !lockLP; render(); });
+    toggle.addEventListener('keydown', function(e){ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); lockLP=!lockLP; render(); }});
+    render();
+  })();
+
   if (devBuyInput) {
     devBuyInput.addEventListener('input', recomputeEcon);
     devBuyInput.addEventListener('blur', () => {
