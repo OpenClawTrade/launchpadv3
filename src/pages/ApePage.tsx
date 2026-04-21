@@ -618,6 +618,11 @@ const TEMPLATE_CSS = `
   /* CHART */
   .chart-panel { background:#0e0b08; color:#fff4dc; border:2px solid #0e0b08; box-shadow:5px 5px 0 #fff4dc, 5px 5px 0 2px #0e0b08; display:flex; flex-direction:column; overflow:hidden; }
   .chart-toolbar { display:flex; align-items:center; gap:4px; padding:10px 14px; border-bottom:1px solid #2b2218; background:#171310; flex-wrap:wrap; }
+  .tf { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; padding:6px 10px; color:#a49a8a; background:transparent; border:1.5px solid transparent; letter-spacing:0.05em; cursor:pointer; }
+  .tf:hover { color:#fff4dc; }
+  .tf.on { color:#f5a524; border-color:#f5a524; background:rgba(245,165,36,0.08); }
+  .tf-sep { width:1px; height:18px; background:#2b2218; margin:0 6px; display:inline-block; }
+  .expand { width:26px; height:26px; border:1.5px solid #f5a524; color:#f5a524; background:transparent; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
   .toolbar-opt { font-family:'JetBrains Mono',monospace; font-size:11px; color:#fff4dc; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; letter-spacing:0.05em; }
   .toolbar-opt .pre { color:#f5a524; }
   .toolbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; font-family:'JetBrains Mono',monospace; font-size:11px; }
