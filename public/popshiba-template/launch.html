@@ -1400,11 +1400,75 @@
   inpName.addEventListener('input', updateCta);
   inpTick.addEventListener('input', updateCta);
 
+  // ===== Dev first-buy: presets, dynamic dev allocation %, total cost =====
+  // Constants mirrored from src/components/launchpad/EthLauncher.tsx
+  const TOTAL_SUPPLY = 1_000_000_000;
+  const LP_SEED_ETH  = 0.001;       // ~$5 single-sided V3 seed
+  const LP_SEED_USD  = 5;
+  const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
+  let ethUsd = ETH_USD_FALLBACK;
+
+  const devBuyInput  = document.getElementById('devBuyInput');
+  const devAllocEl   = document.getElementById('econDevAlloc');
+  const startMcEl    = document.getElementById('econStartMc');
+  const buyAmtEl     = document.getElementById('buy-amt');
+  const totalCostEl  = document.getElementById('total-cost');
+
+  function fmtEth(n){ return (Math.max(0, n) || 0).toFixed(3) + ' ETH'; }
+  function fmtUsd0(n){
+    if (!isFinite(n) || n <= 0) return '$0';
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + Math.round(n/100)/10 + 'K';
+    return '$' + Math.round(n).toLocaleString();
+  }
+  function parseEthInput(v){
+    const m = String(v||'').replace(',', '.').match(/-?\d+(\.\d+)?/);
+    return m ? Math.max(0, Math.min(5, parseFloat(m[0]))) : 0;
+  }
+  function recomputeEcon(){
+    const dev = parseEthInput(devBuyInput && devBuyInput.value);
+    // Starting market cap = LP_USD scaled by supply / LP fraction.
+    // With single-sided V3 the LP value at spot ≈ LP_SEED_USD, and starting MC tracks roughly LP_USD * 1000 (matches live launches).
+    const startMcUsd = LP_SEED_USD * 1000;
+    if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
+    // Dev allocation % = how much of total supply the dev buy purchases at the starting price.
+    // tokensBought ≈ devUsd / startingPrice ; startingPrice = startMcUsd / TOTAL_SUPPLY → alloc% = devUsd / startMcUsd
+    const devUsd = dev * ethUsd;
+    const allocPct = startMcUsd > 0 ? Math.min(100, (devUsd / startMcUsd) * 100) : 0;
+    if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
+    if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(3) + ' ETH';
+  }
+  if (devBuyInput) {
+    devBuyInput.addEventListener('input', recomputeEcon);
+    devBuyInput.addEventListener('blur', () => { devBuyInput.value = fmtEth(parseEthInput(devBuyInput.value)); recomputeEcon(); });
+  }
+  document.querySelectorAll('#devBuyPresets [data-buy]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const v = parseFloat(btn.getAttribute('data-buy')) || 0;
+      if (devBuyInput) devBuyInput.value = fmtEth(v);
+      document.querySelectorAll('#devBuyPresets [data-buy]').forEach(x => x.style.background = '');
+      btn.style.background = 'var(--primary)';
+      recomputeEcon();
+    });
+  });
+  recomputeEcon();
+
+  // ===== "Generate with AI" sample preview =====
+  const aiBtn = Array.from(document.querySelectorAll('.upl-btn')).find(b => /generate with ai/i.test(b.textContent || ''));
+  const uplPreview = document.querySelector('.upl-preview');
+  if (aiBtn && uplPreview) {
+    aiBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      uplPreview.innerHTML = '<img src="/popshiba-template/meme-ai-sample.png" alt="AI generated meme" style="width:100%;height:100%;object-fit:cover" />';
+    });
+  }
+
   // ===== Bridge to parent React (host iframe) =====
   function collectLaunchPayload(){
     const socials = document.querySelectorAll('.social-row .social-input input');
     const desc = document.querySelector('.form-card textarea.fld-input');
-    const devBuyEl = document.querySelector('.fld input.fld-input.mono[value*="ETH"]');
     return {
       name: (inpName.value || '').trim(),
       ticker: (inpTick.value || '').trim().toUpperCase(),
@@ -1412,8 +1476,7 @@
       twitterUrl: socials[0] ? socials[0].value.trim() : '',
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
-      discordUrl: socials[3] ? socials[3].value.trim() : '',
-      devBuyEth: devBuyEl ? parseFloat(String(devBuyEl.value).replace(/[^0-9.]/g,'')) || 0 : 0,
+      devBuyEth: parseEthInput(devBuyInput && devBuyInput.value),
     };
   }
   function postToParent(type, payload){
