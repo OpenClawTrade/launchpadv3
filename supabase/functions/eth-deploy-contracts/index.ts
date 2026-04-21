@@ -18,7 +18,7 @@ const UNISWAP_V3_NFPM = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
 const PLATFORM_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
 async function readContract(name: string): Promise<string> {
-  const url = new URL(`../../../contracts/popshiba/${name}.sol`, import.meta.url);
+  const url = new URL(`./contracts/${name}.sol`, import.meta.url);
   return await Deno.readTextFile(url);
 }
 
