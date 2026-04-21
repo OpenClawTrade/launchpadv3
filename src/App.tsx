@@ -167,11 +167,9 @@ const App = () => (
                     <Route path="/launchpad/create" element={<Navigate to="/" replace />} />
                     <Route path="/terminal" element={<FunLauncherPage />} />
                     
-                     {/* Chain-specific launch routes */}
-                     <Route path="/launch" element={<Navigate to="/launch/ethereum" replace />} />
-                     <Route path="/launch/solana" element={<Navigate to="/launch/ethereum" replace />} />
-                     <Route path="/launch/bitcoin" element={<Navigate to="/launch/ethereum" replace />} />
-                     <Route path="/launch/:chain" element={<FunLauncherPage />} />
+                     {/* Chain-specific launch routes — deprecated, all launches happen from home */}
+                     <Route path="/launch" element={<Navigate to="/" replace />} />
+                     <Route path="/launch/:chain" element={<Navigate to="/" replace />} />
                     <Route path="/trade/:mintAddress" element={<FunTokenDetailPage />} />
                     <Route path="/launchpad/:mintAddress" element={<LaunchpadRedirect />} />
                     <Route path="/trending" element={<TrendingPage />} />
