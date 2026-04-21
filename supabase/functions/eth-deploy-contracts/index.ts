@@ -491,7 +491,7 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-
+    if (launcherOnly) {
       if (!canPatchLauncher) {
         return new Response(JSON.stringify({
           error: "launcherOnly requires an active deployment with token+factory+vault but no launcher_address. Current state doesn't match.",
