@@ -1063,13 +1063,13 @@
         <div class="fld">
           <div class="fld-label">Coin art <span class="req">*</span><span class="hint">PNG/JPG · 1:1 · ≤ 2MB</span></div>
           <div class="uploader">
-            <div class="upl-preview"><div class="upl-placeholder"><span class="big">🐕</span>drag / drop<br>or click to pick</div></div>
+            <div class="upl-preview" id="uplPreview"><div class="upl-placeholder"><span class="big">🐕</span>drag / drop<br>or click to pick</div></div>
+            <input type="file" id="uplFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />
             <div class="upl-body">
               <div class="upl-actions">
-                <button type="button" class="upl-btn">📁 Upload file</button>
+                <button type="button" class="upl-btn" id="uploadFileBtn">📁 Upload file</button>
                 <button type="button" class="upl-btn" id="aiGenBtn">🎨 Generate with AI</button>
                 <button type="button" class="upl-btn" id="aiRegenBtn" style="display:none">🔄 Regenerate</button>
-                <button type="button" class="upl-btn">🔗 From URL</button>
               </div>
               <div class="upl-specs">
                 <b>Good art = more hold.</b> Square, high-contrast, readable at 32px. No<br>watermarks. No logos you don't own. IPFS-pinned automatically.
@@ -1593,6 +1593,51 @@
   }
   if (aiBtn)      aiBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
   if (aiRegenBtn) aiRegenBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
+
+  // ===== File upload + drag/drop =====
+  const uplFileInput = document.getElementById('uplFileInput');
+  const uploadFileBtn = document.getElementById('uploadFileBtn');
+
+  function loadImageFile(file){
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { applyAiError('Please pick an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { applyAiError('Image too large (max 5MB)'); return; }
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const dataUrl = ev.target && ev.target.result;
+      if (typeof dataUrl !== 'string') return;
+      aiImageDataUrl = dataUrl;
+      if (uplPreview) {
+        uplPreview.innerHTML = '<img src="' + dataUrl + '" alt="Coin art" style="width:100%;height:100%;object-fit:cover" />';
+      }
+      if (aiRegenBtn) aiRegenBtn.style.display = '';
+    };
+    reader.onerror = function(){ applyAiError('Could not read file'); };
+    reader.readAsDataURL(file);
+  }
+
+  if (uploadFileBtn && uplFileInput) {
+    uploadFileBtn.addEventListener('click', function(e){ e.preventDefault(); uplFileInput.click(); });
+  }
+  if (uplPreview && uplFileInput) {
+    uplPreview.style.cursor = 'pointer';
+    uplPreview.addEventListener('click', function(){ uplFileInput.click(); });
+    uplPreview.addEventListener('dragover', function(e){ e.preventDefault(); uplPreview.style.outline = '2px dashed var(--primary)'; });
+    uplPreview.addEventListener('dragleave', function(){ uplPreview.style.outline = ''; });
+    uplPreview.addEventListener('drop', function(e){
+      e.preventDefault();
+      uplPreview.style.outline = '';
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      loadImageFile(file);
+    });
+  }
+  if (uplFileInput) {
+    uplFileInput.addEventListener('change', function(e){
+      const file = e.target.files && e.target.files[0];
+      loadImageFile(file);
+      e.target.value = '';
+    });
+  }
 
   // Listen for the parent's response
   window.addEventListener('message', function(e){
