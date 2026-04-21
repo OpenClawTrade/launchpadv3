@@ -720,6 +720,18 @@ export function EthLauncher() {
           </CardContent>
         </Card>
       </div>
+
+      {deployedTokenAddress && (
+        <EthLaunchSuccessModal
+          open={showSuccessModal}
+          onOpenChange={setShowSuccessModal}
+          tokenAddress={deployedTokenAddress}
+          txHash={launchTxHash}
+          imageUrl={formData.imageUrl}
+          name={formData.name}
+          ticker={formData.ticker}
+        />
+      )}
     </div>
   );
 }
