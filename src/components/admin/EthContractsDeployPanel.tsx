@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck, KeyRound } from "lucide-react";
+import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
