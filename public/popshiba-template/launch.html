@@ -443,6 +443,7 @@
   }
   .switch.on{background:var(--primary)}
   .switch.on::after{transform:translateX(20px);background:var(--ink)}
+  .check-mark{flex:none;width:28px;height:28px;display:grid;place-items:center;background:var(--primary);color:var(--ink);border:2px solid var(--ink);box-shadow:2px 2px 0 var(--ink);font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:16px;line-height:1}
 
   /* launch-cost summary / CTA */
   .launch-cta{
@@ -1187,28 +1188,28 @@
             <div class="tt">ERC-20 deployed on Ethereum</div>
             <div class="ts">Audited template · immutable · no owner</div>
           </div>
-          <div class="switch on"></div>
+          <div class="check-mark" aria-label="included">✓</div>
         </div>
         <div class="toggle-row">
           <div class="body">
             <div class="tt">Uniswap V3 1% pool created</div>
             <div class="ts">Single-sided LP seeded above spot</div>
           </div>
-          <div class="switch on"></div>
+          <div class="check-mark" aria-label="included">✓</div>
         </div>
         <div class="toggle-row">
           <div class="body">
             <div class="tt">You earn 50% of every swap</div>
             <div class="ts">Claimable from your Earnings page</div>
           </div>
-          <div class="switch on"></div>
+          <div class="check-mark" aria-label="included">✓</div>
         </div>
         <div class="toggle-row">
           <div class="body">
             <div class="tt">Dev first-buy in same tx</div>
             <div class="ts">Front-runs snipers — only if you set one</div>
           </div>
-          <div class="switch on"></div>
+          <div class="check-mark" aria-label="included">✓</div>
         </div>
       </div>
 
