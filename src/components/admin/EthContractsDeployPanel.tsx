@@ -35,6 +35,8 @@ interface DryRun {
   ownership: OwnershipStatus | null;
   v2Ready?: boolean;
   v2CanDeploy?: boolean;
+  v3Ready?: boolean;
+  v3CanDeploy?: boolean;
   warning: string | null;
 }
 
@@ -46,6 +48,7 @@ interface DeployResult {
   tx_hashes?: string[];
   gasUsedEth?: string;
   uncxLockFeeWei?: string | null;
+  tfLockFeeWei?: string | null;
   message?: string;
 }
 
@@ -71,13 +74,15 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, []);
 
-  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2") => {
+  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3") => {
     const confirmMsg = mode === "force"
       ? "FORCE redeploy ALL 4 contracts?\n\nThis deactivates the current active deployment and spends gas (~$15–50). Cannot be undone."
       : mode === "launcherOnly"
       ? "Deploy ONLY the missing PopShibaLauncher?\n\nKeeps your existing 3 verified contracts untouched. Just adds the 4th (router) and wires it into the active row. Gas: ~$3–10."
       : mode === "v2"
       ? "Deploy V2 (UNCX-locking) suite?\n\nDeploys PopShibaFeeVaultV2 + PopShibaLauncherV2, reuses existing Token impl + CloneFactory, sets the V2 row as active. New launches will lock LP in UNCX. Gas: ~$8–25."
+      : mode === "v3"
+      ? "Deploy V3 (Team Finance) suite?\n\nDeploys PopShibaFeeVaultV3 + PopShibaLauncherV3, reuses existing Token impl + CloneFactory, sets the V3 row as active. New launches can OPT-IN to Team Finance LP locking per-launch (cheap default = no lock). Gas: ~$8–25."
       : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
     setBusy(true); setErr(null); setResult(null);
@@ -88,6 +93,7 @@ export function EthContractsDeployPanel() {
           force: mode === "force",
           launcherOnly: mode === "launcherOnly",
           v2: mode === "v2",
+          v3: mode === "v3",
         },
       });
       if (error) throw new Error(error.message);
@@ -169,6 +175,15 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Deploy V2 (UNCX Locking) {!dry.v2Ready && "— bytecode missing"}
               </Button>
+              <Button
+                onClick={() => deploy("v3")}
+                disabled={busy || !dry.v3CanDeploy}
+                variant="default"
+                title={dry.v3Ready ? "Deploy Team Finance V3 suite (optional lock)" : "V3 bytecode missing"}
+              >
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Deploy V3 (Team Finance — optional lock) {!dry.v3Ready && "— bytecode missing"}
+              </Button>
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
                 Force Redeploy ALL 4 (fixes user launches)
@@ -248,6 +263,26 @@ export function EthContractsDeployPanel() {
             {dry.v2Ready && (
               <p className="text-muted-foreground leading-relaxed pt-1">
                 Click <strong>Deploy V2 (UNCX Locking)</strong> above. Reuses the existing PopShibaToken impl + CloneFactory; deploys FeeVaultV2 + LauncherV2; sets V2 row as active. Tokens launched after this point will lock LP in UNCX V3 Locker.
+              </p>
+            )}
+          </div>
+        )}
+
+        {dry && hasActive && (
+          <div className={`rounded-md border p-3 text-xs space-y-1 font-mono ${dry.v3Ready ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className={`h-4 w-4 ${dry.v3Ready ? "text-emerald-400" : "text-amber-400"}`} />
+              <span className={`font-semibold ${dry.v3Ready ? "text-emerald-400" : "text-amber-400"}`}>
+                V3 (Team Finance — optional LP lock) {dry.v3Ready ? "ready to deploy" : "bytecode not pasted yet"}
+              </span>
+            </div>
+            {dry.v3Ready ? (
+              <p className="text-muted-foreground leading-relaxed pt-1">
+                Click <strong>Deploy V3 (Team Finance)</strong> above. Reuses existing Token impl + CloneFactory; deploys FeeVaultV3 + LauncherV3; auto-wires <code className="text-foreground">setLauncher</code>; sets V3 as active. Per-launch the user picks whether to lock — default no-lock launches cost only gas; opting in adds the live Team Finance fee (~$150 in ETH) and registers the creator for 50% trading-fee claims.
+              </p>
+            ) : (
+              <p className="text-muted-foreground leading-relaxed pt-1">
+                Compile <code className="text-foreground">contracts/popshiba/PopShibaFeeVaultV3.sol</code> and <code className="text-foreground">PopShibaLauncherV3.sol</code> (Solidity 0.8.20, optimizer 200 runs, viaIR) and paste the runtime bytecode into <code className="text-foreground">supabase/functions/eth-deploy-contracts/v3_bytecode.ts</code>.
               </p>
             )}
           </div>
