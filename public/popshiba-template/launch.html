@@ -1540,7 +1540,7 @@
       twitterUrl: socials[0] ? socials[0].value.trim() : '',
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
-      devBuyEth: parseEthInput(devBuyInput && devBuyInput.value),
+      devBuyEth: devEthFromUsd(parseUsdInput(devBuyInput && devBuyInput.value)),
       imageDataUrl: aiImageDataUrl,
     };
   }
