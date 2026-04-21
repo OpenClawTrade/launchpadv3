@@ -900,8 +900,10 @@
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
         </svg>
       </a>
-      <span class="wallet-pill"><span class="dot"></span>0x7A2f…bE41</span>
-      <button class="btn">+ Create</button>
+      <button id="walletPill" class="wallet-pill" type="button" style="cursor:pointer;background:var(--ink-3);border:1.5px solid var(--primary);color:var(--cream)" title="Connect wallet / View earnings">
+        <span class="dot" id="walletDot" style="background:#888;box-shadow:none"></span><span id="walletLabel">Connect</span>
+      </button>
+      <button class="btn" onclick="document.getElementById('createForm').scrollIntoView({behavior:'smooth',block:'start'})">+ Create</button>
     </div>
   </div>
 </nav>
