@@ -91,6 +91,7 @@ const V2BtcMemeDetailPage = lazyWithRetry(() => import("./pages/V2BtcMemeDetailP
 const TATWhitepaperPage = lazyWithRetry(() => import("./pages/TATWhitepaperPage"));
 const PerpsPage = lazyWithRetry(() => import("./pages/PerpsPage"));
 const SellAllPage = lazyWithRetry(() => import("./pages/SellAllPage"));
+const ApePage = lazyWithRetry(() => import("./pages/ApePage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 const PopshibaLaunchpadPage = lazyWithRetry(() => import("./pages/PopshibaLaunchpadPage"));
@@ -179,6 +180,7 @@ const App = () => (
                     <Route path="/admin/twitter" element={<Navigate to="/admin?tab=xbots" replace />} />
                     <Route path="/admin/treasury" element={<Navigate to="/admin?tab=treasury" replace />} />
                     <Route path="/trade" element={<TradePage />} />
+                    <Route path="/ape" element={<ApePage />} />
                      <Route path="/alpha-tracker" element={<AlphaTrackerPage />} />
                      <Route path="/x-tracker" element={<XTrackerPage />} />
                      <Route path="/discover" element={<DiscoverPage />} />
