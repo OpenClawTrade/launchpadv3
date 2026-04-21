@@ -84,6 +84,80 @@ function progressFor(m: Market | undefined, status: string): number {
   return Math.max(5, Math.min(100, Math.round((liq / GRAD_LIQUIDITY_USD) * 100)));
 }
 
+// SVG path builder for the mini sparkline (matches the template card styling).
+function buildSparkPath(values: number[]): string {
+  if (!values || values.length < 2) return "";
+  const W = 100;
+  const H = 30;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const step = W / (values.length - 1);
+  return values
+    .map((v, i) => {
+      const x = (i * step).toFixed(2);
+      const y = (H - 2 - ((v - min) / range) * (H - 4)).toFixed(2);
+      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+function injectTopTokens(
+  doc: Document,
+  topTokens: Array<{ launch: EthLaunch; market: Market; sparkline: number[]; index: number }>
+) {
+  const list = doc.getElementById("grad-list");
+  if (!list) return;
+  if (topTokens.length === 0) {
+    list.innerHTML = `<div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#fff7e0;opacity:0.7;padding:24px;text-align:center;width:100%">No tokens yet — be the first to launch.</div>`;
+    return;
+  }
+  list.innerHTML = "";
+  topTokens.forEach(({ launch, market, sparkline, index }) => {
+    const av = emojis[index % emojis.length];
+    const bg = palette[index % palette.length];
+    const tick = (launch.token_ticker || "—").toUpperCase().replace(/</g, "&lt;");
+    const name = (launch.token_name || "unnamed").replace(/</g, "&lt;");
+    const mc = market?.marketCap ?? 0;
+    const chg = market?.changeH24 ?? null;
+    const chgColor = chg == null ? "var(--up)" : chg >= 0 ? "var(--up)" : "#ff6b4a";
+    const chgText = chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%`;
+    const path = buildSparkPath(sparkline);
+    const tradeHref = launch.token_address ? `/trade/${launch.token_address}` : "#";
+    const imageHTML = launch.image_url
+      ? `<img src="${launch.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
+      : av;
+    const card = doc.createElement("a");
+    card.className = "grad-card";
+    card.setAttribute("href", tradeHref);
+    card.setAttribute("target", "_top");
+    card.style.textDecoration = "none";
+    card.style.color = "inherit";
+    card.innerHTML = `
+      <div class="top">
+        <div class="av" style="background:${bg};overflow:hidden">${imageHTML}</div>
+        <div><div class="nm">${name}</div><div class="sm">$${tick}</div></div>
+        <span class="badge">◆ TOP</span>
+      </div>
+      <div class="stats-mini">
+        <div><div class="gm">MCAP</div><div class="gv">${fmtUsd(mc)}</div></div>
+        <div><div class="gm">24H</div><div class="gv" style="color:${chgColor}">${chgText}</div></div>
+      </div>
+      <div class="mini-chart">
+        ${
+          path
+            ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                 <path class="fill" d="${path} L 100 30 L 0 30 Z"/>
+                 <path class="ln" d="${path}"/>
+               </svg>`
+            : `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#fff7e0;opacity:0.4;text-align:center;padding-top:12px">no chart yet</div>`
+        }
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
 function injectHeroCard(
   doc: Document,
   latest: EthLaunch | null,
