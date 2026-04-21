@@ -181,6 +181,8 @@ const App = () => (
                     <Route path="/admin/treasury" element={<Navigate to="/admin?tab=treasury" replace />} />
                     <Route path="/trade" element={<TradePage />} />
                     <Route path="/ape" element={<ApePage />} />
+                    <Route path="/ape/:address" element={<ApePage />} />
+                    <Route path="/ape/:chain/:address" element={<ApePage />} />
                      <Route path="/alpha-tracker" element={<AlphaTrackerPage />} />
                      <Route path="/x-tracker" element={<XTrackerPage />} />
                      <Route path="/discover" element={<DiscoverPage />} />

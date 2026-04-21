@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useZeroxSwap, type ApeChain } from "@/hooks/useZeroxSwap";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,13 +43,23 @@ function fmtPct(v?: number): string {
   return `${sign}${v.toFixed(2)}%`;
 }
 
+const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+
 export default function ApePage() {
   const { isAuthenticated } = useAuth();
   const { address: evmAddress } = usePrivyEvmWallet();
   const { executeApeSwap, isLoading } = useZeroxSwap();
 
-  const [chain, setChain] = useState<ApeChain>("eth");
-  const [tokenAddress, setTokenAddress] = useState("");
+  // URL params: /ape, /ape/:address, /ape/:chain/:address
+  const params = useParams<{ address?: string; chain?: string }>();
+  const navigate = useNavigate();
+  const urlChain: ApeChain | null =
+    params.chain === "bnb" || params.chain === "bsc" ? "bnb" :
+    params.chain === "eth" || params.chain === "ethereum" ? "eth" : null;
+  const urlAddress = params.address && ADDR_RE.test(params.address) ? params.address : "";
+
+  const [chain, setChain] = useState<ApeChain>(urlChain ?? "eth");
+  const [tokenAddress, setTokenAddress] = useState(urlAddress);
   const [tokenDecimals, setTokenDecimals] = useState<string>("18");
   const [isBuy, setIsBuy] = useState(true);
   const [amount, setAmount] = useState("0.05");
@@ -64,10 +75,30 @@ export default function ApePage() {
   const chainSymbol = chain === "eth" ? "ETH" : "BNB";
   const presets = PRESETS[chain];
 
-  const isValidAddress = useMemo(
-    () => /^0x[a-fA-F0-9]{40}$/.test(tokenAddress.trim()),
-    [tokenAddress]
-  );
+  const isValidAddress = useMemo(() => ADDR_RE.test(tokenAddress.trim()), [tokenAddress]);
+
+  // Sync state ⇆ URL: when address/chain changes, push a clean URL (no reload)
+  useEffect(() => {
+    if (isValidAddress) {
+      const target = `/ape/${chain}/${tokenAddress.trim().toLowerCase()}`;
+      if (window.location.pathname.toLowerCase() !== target) {
+        navigate(target, { replace: true });
+      }
+    } else if (tokenAddress === "" && (params.address || params.chain)) {
+      navigate("/ape", { replace: true });
+    }
+  }, [tokenAddress, chain, isValidAddress, navigate, params.address, params.chain]);
+
+  // If user navigates between /ape/<addr> links while page is mounted, reflect it
+  useEffect(() => {
+    if (urlAddress && urlAddress.toLowerCase() !== tokenAddress.toLowerCase()) {
+      setTokenAddress(urlAddress);
+    }
+    if (urlChain && urlChain !== chain) {
+      setChain(urlChain);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlAddress, urlChain]);
 
   // Fetch on-chain market data when a valid address is entered (or chain changes)
   useEffect(() => {
