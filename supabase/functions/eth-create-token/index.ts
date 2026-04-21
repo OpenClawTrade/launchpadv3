@@ -22,7 +22,8 @@ interface LaunchBody {
   name: string;
   ticker: string;
   creatorWallet: string;
-  devBuyEth?: number;
+  ethForLPWei?: string; // client-computed: $50 worth of ETH at spot price
+  devBuyEth?: number;   // optional, can be 0
   description?: string | null;
   imageUrl?: string | null;
   websiteUrl?: string | null;
@@ -30,15 +31,27 @@ interface LaunchBody {
   telegramUrl?: string | null;
 }
 
+const MIN_LP_WEI = 1_000_000_000_000_000n; // 0.001 ETH absolute floor (~$3 safety)
+const MAX_LP_WEI = 10_000_000_000_000_000_000n; // 10 ETH cap
+
 function validate(body: any): { ok: true; data: LaunchBody } | { ok: false; error: string } {
   if (!body || typeof body !== "object") return { ok: false, error: "Invalid body" };
-  const { name, ticker, creatorWallet, devBuyEth } = body;
+  const { name, ticker, creatorWallet, devBuyEth, ethForLPWei } = body;
   if (typeof name !== "string" || name.trim().length < 1 || name.length > 32) return { ok: false, error: "Invalid name" };
   if (typeof ticker !== "string" || ticker.trim().length < 1 || ticker.length > 10) return { ok: false, error: "Invalid ticker" };
   if (!isEvmAddress(creatorWallet)) return { ok: false, error: "Invalid creator wallet" };
   if (devBuyEth !== undefined && devBuyEth !== null) {
     if (typeof devBuyEth !== "number" || !isFinite(devBuyEth) || devBuyEth < 0 || devBuyEth > 5) {
       return { ok: false, error: "devBuyEth must be 0..5" };
+    }
+  }
+  if (ethForLPWei !== undefined && ethForLPWei !== null) {
+    if (typeof ethForLPWei !== "string" || !/^\d+$/.test(ethForLPWei)) {
+      return { ok: false, error: "ethForLPWei must be a wei string" };
+    }
+    const v = BigInt(ethForLPWei);
+    if (v < MIN_LP_WEI || v > MAX_LP_WEI) {
+      return { ok: false, error: "ethForLPWei out of bounds (0.001..10 ETH)" };
     }
   }
   return { ok: true, data: body as LaunchBody };
@@ -122,7 +135,9 @@ Deno.serve(async (req) => {
       launchId: launchId ?? "",
     });
 
-    const ethForLPWei = parseEther("0.0005").toString();           // ~$1.50 LP seed
+    // LP seed amount — client computes $50 worth of ETH at spot price and passes here.
+    // Falls back to 0.02 ETH (~$60 @ $3K) if client didn't supply.
+    const ethForLPWei = body.ethForLPWei ?? parseEther("0.02").toString();
     const ethForDevBuyWei = body.devBuyEth && body.devBuyEth > 0
       ? parseEther(String(body.devBuyEth)).toString()
       : "0";

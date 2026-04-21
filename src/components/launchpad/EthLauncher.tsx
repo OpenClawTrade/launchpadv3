@@ -13,14 +13,14 @@ import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem';
+import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type PublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
-const START_MC_USD = 5_000; // $5K starting market cap (single-sided V3)
-const MANDATORY_DEV_BUY_USD = 50; // Required initial dev buy
+const MIN_LP_USD = 50;       // $50 minimum initial LP seed (paired against single-sided V3 supply)
+const MAX_DEV_BUY_USD = 5000; // soft UX cap on dev buy
 
 interface EthLaunchFormData {
   name: string;
@@ -92,14 +92,10 @@ export function EthLauncher() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Auto-set mandatory dev buy = $50 worth of ETH whenever ETH price loads/updates
-  useEffect(() => {
-    if (ethPrice > 0) {
-      const ethAmount = MANDATORY_DEV_BUY_USD / ethPrice;
-      const rounded = Math.ceil(ethAmount * 1e6) / 1e6; // 6 decimals, round up so we always cover $50
-      setFormData(prev => (prev.devBuyEth === rounded ? prev : { ...prev, devBuyEth: rounded }));
-      setDevBuyInput(rounded.toString());
-    }
+  // Compute $50 LP seed in ETH (rounded up to 6 decimals so we always clear $50)
+  const lpEthAmount = useMemo(() => {
+    if (ethPrice <= 0) return 0;
+    return Math.ceil((MIN_LP_USD / ethPrice) * 1e6) / 1e6;
   }, [ethPrice]);
 
   const canLaunch =
@@ -107,7 +103,8 @@ export function EthLauncher() {
     formData.name.trim().length > 0 &&
     formData.ticker.trim().length > 0 &&
     ethPrice > 0 &&
-    formData.devBuyEth > 0;
+    lpEthAmount > 0 &&
+    formData.devBuyEth >= 0;
 
   const handleLaunch = useCallback(async () => {
     if (!canLaunch || !address) return;
@@ -120,12 +117,14 @@ export function EthLauncher() {
 
     let launchId: string | null = null;
     try {
-      // 1. Get launch parameters from server
+      // 1. Get launch parameters from server (LP = $50 worth of ETH, dev buy optional)
+      const ethForLPWeiStr = parseEther(lpEthAmount.toFixed(6)).toString();
       const { data, error } = await supabase.functions.invoke('eth-create-token', {
         body: {
           name: formData.name,
           ticker: formData.ticker.toUpperCase(),
           creatorWallet: address,
+          ethForLPWei: ethForLPWeiStr,
           devBuyEth: formData.devBuyEth || 0,
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
@@ -160,6 +159,8 @@ export function EthLauncher() {
       });
 
       const txHash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
         address: launcher,
         abi: POPSHIBA_LAUNCHER_ABI,
         functionName: 'launch',
@@ -175,7 +176,7 @@ export function EthLauncher() {
       setLaunchTxHash(txHash);
 
       // 4. Wait for receipt + parse TokenLaunched event
-      const result = await waitForLaunchResult(publicClient, launcher, txHash);
+      const result = await waitForLaunchResult(publicClient as unknown as PublicClient, launcher, txHash);
       setDeployedTokenAddress(result.token);
       setPoolAddress(result.pool);
       setIsLive(true);
@@ -373,68 +374,7 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Mandatory Dev Buy — locked at $50 worth of ETH */}
-            <div className="space-y-3 p-4 bg-secondary/30 rounded-lg border border-border/50">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="eth-devbuy" className="flex items-center gap-2 text-base">
-                  <Coins className="h-4 w-4 text-primary" />
-                  Initial Dev Buy
-                  <Badge variant="outline" className="ml-1 text-[10px] uppercase tracking-wide border-primary/40 text-primary">
-                    Required · ${MANDATORY_DEV_BUY_USD}
-                  </Badge>
-                </Label>
-                {ethPrice > 0 && (
-                  <span className="text-xs font-mono text-muted-foreground">
-                    ≈ ${(formData.devBuyEth * ethPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <Input
-                  id="eth-devbuy"
-                  type="text"
-                  value={ethPrice > 0 ? devBuyInput : 'Loading ETH price…'}
-                  readOnly
-                  disabled
-                  className="bg-background/30 pr-14 h-11 text-base font-mono cursor-not-allowed opacity-90"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground pointer-events-none">
-                  ETH
-                </span>
-              </div>
-
-              {/* Live preview: USD cost + supply share */}
-              {formData.devBuyEth > 0 && (() => {
-                const usdCost = ethPrice > 0 ? formData.devBuyEth * ethPrice : 0;
-                const pricePerToken = START_MC_USD / TOTAL_SUPPLY;
-                const tokensReceived = usdCost > 0 ? usdCost / pricePerToken : 0;
-                const pctSupply = (tokensReceived / TOTAL_SUPPLY) * 100;
-                return (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cost</div>
-                      <div className="text-sm font-mono font-semibold text-foreground">
-                        {ethPrice > 0
-                          ? `$${usdCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                          : '—'}
-                      </div>
-                    </div>
-                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply share</div>
-                      <div className="text-sm font-mono font-semibold text-primary">
-                        {pctSupply >= 0.01 ? `~${pctSupply.toFixed(2)}%` : '<0.01%'}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Every launch requires a <span className="text-primary font-semibold">${MANDATORY_DEV_BUY_USD} dev buy</span> to seed
-                price discovery and prevent zero-liquidity snipes. Amount auto-converted to ETH at the current spot price.
-              </p>
-            </div>
+            {/* (LP + Dev Buy panels rendered above) */}
 
             {/* Model explainer */}
             <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
