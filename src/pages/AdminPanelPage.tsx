@@ -305,6 +305,12 @@ export default function AdminPanelPage() {
                   <MentionerTab />
                 </Suspense>
               </TabsContent>
+
+              <TabsContent value="eth-lp-fees" className="mt-6">
+                <Suspense fallback={<TabLoader />}>
+                  <EthLpFeesPanel />
+                </Suspense>
+              </TabsContent>
             </Tabs>
           </div>
         </main>
