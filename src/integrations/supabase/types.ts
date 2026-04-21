@@ -4246,6 +4246,7 @@ export type Database = {
           network: string
           token_impl_address: string | null
           tx_hashes: string[]
+          uncx_lock_fee_wei: number | null
           vault_address: string | null
           verified: boolean
         }
@@ -4261,6 +4262,7 @@ export type Database = {
           network: string
           token_impl_address?: string | null
           tx_hashes: string[]
+          uncx_lock_fee_wei?: number | null
           vault_address?: string | null
           verified?: boolean
         }
@@ -4276,6 +4278,7 @@ export type Database = {
           network?: string
           token_impl_address?: string | null
           tx_hashes?: string[]
+          uncx_lock_fee_wei?: number | null
           vault_address?: string | null
           verified?: boolean
         }
@@ -4305,6 +4308,7 @@ export type Database = {
           token_name: string
           token_ticker: string
           twitter_url: string | null
+          uncx_lock_id: number | null
           uniswap_pool_address: string | null
           updated_at: string
           user_tax_bps: number
@@ -4333,6 +4337,7 @@ export type Database = {
           token_name: string
           token_ticker: string
           twitter_url?: string | null
+          uncx_lock_id?: number | null
           uniswap_pool_address?: string | null
           updated_at?: string
           user_tax_bps?: number
@@ -4361,6 +4366,7 @@ export type Database = {
           token_name?: string
           token_ticker?: string
           twitter_url?: string | null
+          uncx_lock_id?: number | null
           uniswap_pool_address?: string | null
           updated_at?: string
           user_tax_bps?: number

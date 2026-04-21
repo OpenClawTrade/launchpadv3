@@ -2,8 +2,15 @@
 // Used by EthLauncher and any client wanting to call launcher.launch() directly.
 import { decodeEventLog, parseAbi, type Address, type Hash, type PublicClient, type Log } from 'viem';
 
+// V2 launcher ABI — atomic launch + UNCX V3 lock in one tx.
+// Launched(token, creator, pool, lpTokenId) is the canonical "token is live" event.
+// LpLocked(token, uncxLockId, unlockDate) is the new UNCX lock receipt.
 export const POPSHIBA_LAUNCHER_ABI = parseAbi([
-  'function launch(string name, string symbol, string metadataURI, uint256 ethForLP, uint256 ethForDevBuy) payable returns (address token, address pool, uint256 lpTokenId)',
+  'function launch(string name, string symbol, string metadataURI, uint256 ethForLP, uint256 ethForDevBuy) payable returns (address token, address pool, uint256 lpTokenId, uint256 uncxLockId)',
+  'function uncxLockFeeWei() view returns (uint256)',
+  'event Launched(address indexed token, address indexed creator, address pool, uint256 lpTokenId)',
+  'event LpLocked(address indexed token, uint256 indexed uncxLockId, uint256 unlockDate)',
+  // Legacy v1 event — still parsed for backward compatibility on old launcher addresses.
   'event TokenLaunched(address indexed token, address indexed creator, address pool, uint256 lpTokenId, uint256 ethForLP, uint256 ethForDevBuy)',
 ]);
 
@@ -39,10 +46,12 @@ export interface LaunchResult {
   token: Address;
   pool: Address;
   lpTokenId: bigint;
+  /** UNCX V3 locker id. Present when launched via PopShibaLauncherV2. */
+  uncxLockId?: bigint;
   txHash: Hash;
 }
 
-/** Parse the TokenLaunched event from a launch tx receipt. */
+/** Parse Launched / TokenLaunched + LpLocked events from a launch tx receipt. */
 export async function waitForLaunchResult(
   publicClient: PublicClient,
   launcherAddress: Address,
@@ -50,6 +59,11 @@ export async function waitForLaunchResult(
 ): Promise<LaunchResult> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (receipt.status !== 'success') throw new Error('Launch transaction reverted');
+
+  let token: Address | null = null;
+  let pool: Address | null = null;
+  let lpTokenId: bigint | null = null;
+  let uncxLockId: bigint | undefined;
 
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== launcherAddress.toLowerCase()) continue;
@@ -60,22 +74,23 @@ export async function waitForLaunchResult(
         data: anyLog.data,
         topics: anyLog.topics,
       }) as { eventName: string; args: Record<string, unknown> };
-      if (decoded.eventName === 'TokenLaunched') {
-        const args = decoded.args as unknown as {
-          token: Address;
-          pool: Address;
-          lpTokenId: bigint;
-        };
-        return {
-          token: args.token,
-          pool: args.pool,
-          lpTokenId: args.lpTokenId,
-          txHash,
-        };
+
+      if (decoded.eventName === 'Launched' || decoded.eventName === 'TokenLaunched') {
+        const args = decoded.args as unknown as { token: Address; pool: Address; lpTokenId: bigint };
+        token = args.token;
+        pool = args.pool;
+        lpTokenId = args.lpTokenId;
+      } else if (decoded.eventName === 'LpLocked') {
+        const args = decoded.args as unknown as { uncxLockId: bigint };
+        uncxLockId = args.uncxLockId;
       }
     } catch {
       // not our event — ignore
     }
   }
-  throw new Error('TokenLaunched event not found in receipt');
+
+  if (!token || !pool || lpTokenId === null) {
+    throw new Error('Launched event not found in receipt');
+  }
+  return { token, pool, lpTokenId, uncxLockId, txHash };
 }
