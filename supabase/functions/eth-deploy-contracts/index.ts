@@ -7,6 +7,7 @@ import { createWalletClient, createPublicClient, http, parseEther, formatEther }
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
 import solc from "npm:solc@0.8.20";
+import { POPSHIBA_TOKEN_SOL, POPSHIBA_CLONE_FACTORY_SOL, POPSHIBA_FEE_VAULT_SOL } from "./sources.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,10 +18,11 @@ const WETH_MAINNET = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 const UNISWAP_V3_NFPM = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
 const PLATFORM_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
-async function readContract(name: string): Promise<string> {
-  const url = new URL(`./contracts/${name}.sol`, import.meta.url);
-  return await Deno.readTextFile(url);
-}
+const CONTRACT_SOURCES: Record<string, string> = {
+  PopShibaToken: POPSHIBA_TOKEN_SOL,
+  PopShibaCloneFactory: POPSHIBA_CLONE_FACTORY_SOL,
+  PopShibaFeeVault: POPSHIBA_FEE_VAULT_SOL,
+};
 
 function compile(sources: Record<string, string>) {
   const input = {
@@ -133,15 +135,10 @@ Deno.serve(async (req) => {
     }
 
     // ---- Compile ----
-    const [tokenSrc, factorySrc, vaultSrc] = await Promise.all([
-      readContract("PopShibaToken"),
-      readContract("PopShibaCloneFactory"),
-      readContract("PopShibaFeeVault"),
-    ]);
     const out = compile({
-      "PopShibaToken.sol": tokenSrc,
-      "PopShibaCloneFactory.sol": factorySrc,
-      "PopShibaFeeVault.sol": vaultSrc,
+      "PopShibaToken.sol": CONTRACT_SOURCES.PopShibaToken,
+      "PopShibaCloneFactory.sol": CONTRACT_SOURCES.PopShibaCloneFactory,
+      "PopShibaFeeVault.sol": CONTRACT_SOURCES.PopShibaFeeVault,
     });
 
     const tokenContract = out.contracts["PopShibaToken.sol"]["PopShibaToken"];
