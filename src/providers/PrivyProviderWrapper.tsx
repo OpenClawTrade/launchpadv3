@@ -358,12 +358,10 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             theme: "dark",
             accentColor: "#22c55e",
             logo: saturnLogo,
-            // Don't put wallet login first — SIWE signature step often
-            // gets rejected by users, breaking the flow. Email/social
-            // is more reliable; wallet can be linked after login.
-            showWalletLoginFirst: false,
+            // Wallet-first: show installed wallets at top of the modal.
+            showWalletLoginFirst: true,
             walletChainType: "ethereum-only",
-            walletList: ["metamask", "rainbow", "wallet_connect", "coinbase_wallet", "detected_wallets"],
+            walletList: ["detected_wallets", "metamask", "rainbow", "coinbase_wallet", "wallet_connect"],
           },
           embeddedWallets: {
             // ETH-only: do not auto-create Solana embedded wallets
