@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
 
 type EthLaunch = {
@@ -577,14 +577,15 @@ export default function PopshibaLaunchpadPage() {
         className="block w-full border-0"
         style={{ height: "100vh", background: "#f5a524" }}
       />
-      <Dialog open={launcherOpen} onOpenChange={setLauncherOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Launch your coin on Ethereum</DialogTitle>
-          </DialogHeader>
-          <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }} initialLockLP={!!prefill.lockLP} />
-        </DialogContent>
-      </Dialog>
+      {launcherOpen && (
+        <EthLauncher
+          key="auto-launch"
+          initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }}
+          initialLockLP={!!prefill.lockLP}
+          autoLaunch
+          hideUI
+        />
+      )}
     </>
   );
 }
