@@ -46,6 +46,7 @@ type LauncherPrefill = {
   telegramUrl?: string;
   websiteUrl?: string;
   devBuyEth?: number;
+  imageDataUrl?: string;
 };
 
 const palette = ["#8ed36c", "#e8c88a", "#f5d84a", "#cf5f5f", "#f5a524", "#c08fe6", "#7b5dd9", "#a8c27a"];
@@ -327,14 +328,36 @@ export default function PopshibaLaunchpadPage() {
     };
   }, []);
 
-  // postMessage bridge from iframe → open launcher modal prefilled
+  // postMessage bridge from iframe → open launcher modal prefilled / AI meme generation
   useEffect(() => {
+    function reply(type: string, payload: unknown) {
+      const win = ref.current?.contentWindow;
+      if (!win) return;
+      win.postMessage({ source: "popshiba-host", type, ...(type === "ai-meme-error" ? { error: payload } : { payload }) }, "*");
+    }
+    async function handleAiMeme() {
+      try {
+        const { data, error } = await supabase.functions.invoke("popshiba-meme-gen", { body: {} });
+        if (error) throw new Error(error.message || "AI request failed");
+        if (!data?.success) throw new Error(data?.error || "AI request failed");
+        reply("ai-meme-result", {
+          name: data.name,
+          ticker: data.ticker,
+          description: data.description,
+          imageDataUrl: data.imageDataUrl,
+        });
+      } catch (e) {
+        reply("ai-meme-error", e instanceof Error ? e.message : "Generation failed");
+      }
+    }
     function onMessage(e: MessageEvent) {
       const data = e.data;
       if (!data || data.source !== "popshiba-template") return;
       if (data.type === "open-launcher") {
         setPrefill(data.payload || {});
         setLauncherOpen(true);
+      } else if (data.type === "ai-meme-generate") {
+        handleAiMeme();
       }
     }
     window.addEventListener("message", onMessage);
