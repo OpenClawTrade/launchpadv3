@@ -197,9 +197,6 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
             ))}
           </div>
 
-          {/* Leverage Trading Banner - full width */}
-          <LeverageTradingBanner />
-
 
           {token.graduationPercent !== null && !token.completed && !token.migrated && (
             <div className="trade-glass-panel flex items-center gap-4 px-5 py-3">
@@ -703,9 +700,6 @@ export default function FunTokenDetailPage() {
               </div>
             ))}
           </div>
-
-          {/* Leverage Trading Banner - full width */}
-          <LeverageTradingBanner />
 
 
           {priceChange !== 0 && (
