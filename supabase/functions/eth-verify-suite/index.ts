@@ -7,7 +7,7 @@ import {
   POPSHIBA_CLONE_FACTORY_SOL,
   POPSHIBA_FEE_VAULT_SOL,
   POPSHIBA_LAUNCHER_SOL,
-} from "../eth-deploy-contracts/sources.ts";
+} from "./sources.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +33,7 @@ async function submit(addr: string, def: ContractDef, apiKey: string): Promise<{
     sources: { [def.file]: { content: def.source } },
     settings: {
       evmVersion: "paris",
+      viaIR: true,
       optimizer: { enabled: true, runs: 200 },
       outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
     },
