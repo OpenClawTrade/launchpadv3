@@ -282,7 +282,7 @@ function injectLiveData(
       const imageHTML = l.image_url
         ? `<img src="${l.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
         : av;
-      const tradeHref = l.token_address ? `/trade/${l.token_address}` : "#";
+      const tradeHref = l.token_address ? `/ape/${l.token_address}` : "#";
       tr.innerHTML = `
         <td>
           <div class="ll-tok">
