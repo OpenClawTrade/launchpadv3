@@ -174,6 +174,27 @@
     width:62%;
   }
   .hp-bar-labels{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.05em;font-weight:700}
+  .hp-legendary{
+    margin-top:10px;display:flex;align-items:flex-start;gap:8px;
+    background:#fff8e1;border:1.5px solid var(--ink);
+    box-shadow:2px 2px 0 var(--ink);
+    padding:8px 10px;border-radius:2px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.4;
+    color:var(--ink);letter-spacing:0.01em;
+    flex-wrap:wrap;min-width:0;
+  }
+  .hp-legendary-tag{
+    flex-shrink:0;background:var(--lime);color:var(--ink);
+    border:1.5px solid var(--ink);padding:2px 6px;
+    font-family:'Archivo Black',sans-serif;font-size:9px;letter-spacing:0.08em;
+    white-space:nowrap;
+  }
+  .hp-legendary-text{flex:1;min-width:0;word-wrap:break-word;overflow-wrap:anywhere}
+  .hp-legendary-text strong{font-family:'Archivo Black',sans-serif;font-weight:normal}
+  @media(max-width:520px){
+    .hp-legendary{font-size:10px;padding:7px 8px;gap:6px}
+    .hp-legendary-tag{font-size:8px;padding:2px 5px}
+  }
   .hp-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
   .hp-stat{border:1.5px solid var(--ink);background:#fff;padding:8px 10px}
   .hp-stat .k{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--brown);letter-spacing:0.1em;text-transform:uppercase}
@@ -930,6 +951,13 @@
           <div class="hp-bar-labels">
             <span id="hp-bar-left">$0 / $69K MC</span>
             <span id="hp-bar-right">0%</span>
+          </div>
+          <div class="hp-legendary" role="note">
+            <span class="hp-legendary-tag">★ LEGENDARY</span>
+            <span class="hp-legendary-text">
+              A <strong>$3,000 buy &amp; burn</strong> from <strong>POPSHIBA</strong> initiates at
+              <strong>$100,000</strong> market cap.
+            </span>
           </div>
           <div class="hp-stats">
             <div class="hp-stat"><div class="k">Price</div><div class="v" id="hp-price">$—</div></div>
