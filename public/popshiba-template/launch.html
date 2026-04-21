@@ -1694,17 +1694,23 @@
 
 <script>
   (function(){
-    const modal = document.getElementById('soonModal');
-    const titleEl = document.getElementById('soonTitle');
-    const bodyEl = document.getElementById('soonBody');
-    const xLink = document.getElementById('soonX');
+    var modal = document.getElementById('soonModal');
+    var titleEl = document.getElementById('soonTitle');
+    var bodyEl = document.getElementById('soonBody');
+    var xLink = document.getElementById('soonX');
+    var badgeEl = document.getElementById('soonBadge');
     if (!modal || !titleEl) return;
-    function open(label){
-      if (label === 'Holders') {
+
+    function openSoon(rawLabel){
+      var label = String(rawLabel || 'Feature').trim();
+      var key = label.toLowerCase();
+      if (key === 'holders') {
+        if (badgeEl) badgeEl.textContent = 'HOLDERS';
         titleEl.textContent = '🪙 Holders Rewards';
-        bodyEl.innerHTML = 'Holders rewards from fees earned by the platform will be revealed in the upcoming days. <b style="color:var(--ink)">Follow X for news.</b>';
+        bodyEl.innerHTML = 'Holders rewards from fees earned by the platform will be revealed in the upcoming days. <b style="color:var(--ink)">Follow our X for news.</b>';
         if (xLink) xLink.style.display = 'inline-flex';
       } else {
+        if (badgeEl) badgeEl.textContent = 'COMING SOON';
         titleEl.textContent = '⚡ ' + label + ' Terminal';
         bodyEl.innerHTML = 'Axiom-style terminal for ETH is almost ready. <b style="color:var(--ink)">Come back tomorrow.</b>';
         if (xLink) xLink.style.display = 'none';
@@ -1712,20 +1718,20 @@
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
     }
-    function close(){
+    function closeSoon(){
       modal.style.display = 'none';
       document.body.style.overflow = '';
     }
     document.querySelectorAll('a[data-soon]').forEach(function(a){
       a.addEventListener('click', function(e){
         e.preventDefault();
-        open(a.getAttribute('data-soon') || 'Feature');
+        openSoon(a.getAttribute('data-soon'));
       });
     });
-    document.getElementById('soonClose').addEventListener('click', close);
-    document.getElementById('soonOk').addEventListener('click', close);
-    modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
-    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.style.display === 'flex') close(); });
+    document.getElementById('soonClose').addEventListener('click', closeSoon);
+    document.getElementById('soonOk').addEventListener('click', closeSoon);
+    modal.addEventListener('click', function(e){ if (e.target === modal) closeSoon(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.style.display === 'flex') closeSoon(); });
   })();
 </script>
 
