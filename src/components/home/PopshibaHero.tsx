@@ -152,8 +152,9 @@ export function PopshibaHero() {
             {/* kicker */}
             <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-3 py-1.5 mb-5 sm:mb-6 max-w-full">
               <span className="w-2 h-2 rounded-full bg-pop-orange shadow-[0_0_10px_hsl(var(--pop-orange))] animate-pulse shrink-0" />
-              <span className="font-pop-mono text-[9px] sm:text-[11px] tracking-[0.16em] sm:tracking-[0.2em] uppercase truncate">
-                The loudest barking launchpad · trading terminal
+              <span className="font-pop-mono text-[9px] sm:text-[11px] tracking-[0.12em] sm:tracking-[0.2em] uppercase whitespace-nowrap">
+                <span className="sm:hidden">Loudest launchpad · terminal</span>
+                <span className="hidden sm:inline">The loudest barking launchpad · trading terminal</span>
               </span>
             </div>
 
