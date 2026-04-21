@@ -125,11 +125,15 @@ export function EthLauncher() {
     setPoolAddress(null);
     setLaunchError(null);
     setIsLive(false);
+    setDiagLogs([]);
 
     let launchId: string | null = null;
     try {
-      // 1. Get launch parameters from server (LP = $50 worth of ETH, dev buy optional)
+      pushLog(`address=${address}  chainId(wagmi)=${currentChainId}  walletClient=${walletClient ? 'ready' : 'null'}`);
+
+      // 1. Get launch parameters from server
       const ethForLPWeiStr = parseEther(lpEthAmount.toFixed(6)).toString();
+      pushLog(`Requesting launch params: lpEth=${lpEthAmount}  devBuyEth=${formData.devBuyEth || 0}`);
       const { data, error } = await supabase.functions.invoke('eth-create-token', {
         body: {
           name: formData.name,
@@ -152,23 +156,83 @@ export function EthLauncher() {
       const ethForLPWei = BigInt(data.ethForLPWei);
       const ethForDevBuyWei = BigInt(data.ethForDevBuyWei);
       const totalValue = ethForLPWei + ethForDevBuyWei;
+      pushLog(`launcher=${launcher}  ethForLPWei=${ethForLPWei}  ethForDevBuyWei=${ethForDevBuyWei}  total=${totalValue}`);
+      pushLog(`launchId=${launchId}  metadataURI.len=${(data.metadataURI || '').length}`);
 
-      // 2. Use the wagmi-managed wallet client tied to the connector the user actually selected
-      // (MetaMask, Privy, Trust, etc.). Avoid window.ethereum directly — when multiple wallets
-      // are installed they fight over window.ethereum and the wrong one prompts.
+      // 2. Wallet checks
       if (!walletClient) throw new Error('Wallet not ready. Reconnect your wallet and try again.');
-
       if (currentChainId !== mainnet.id) {
+        pushLog(`Wrong chain (${currentChainId}); switching to mainnet…`);
         toast.info('Switching wallet to Ethereum mainnet…');
         await switchChainAsync({ chainId: mainnet.id });
+        pushLog('Switched to mainnet.');
       }
 
       const publicClient = createPublicClient({ chain: mainnet, transport: http() });
 
-      // 3. Single signature: launcher.launch() with msg.value = LP + devBuy
+      // 2b. Verify launcher contract has bytecode (catches wrong-network / wrong-address)
+      const code = await publicClient.getBytecode({ address: launcher });
+      pushLog(`launcher bytecode size=${code ? (code.length - 2) / 2 : 0} bytes`);
+      if (!code || code === '0x') throw new Error(`Launcher contract not deployed at ${launcher} on mainnet`);
+
+      // 2c. Check user balance
+      const bal = await publicClient.getBalance({ address: address as Address });
+      pushLog(`user balance=${bal} wei  needed=${totalValue} wei (excl. gas)`);
+      if (bal < totalValue) throw new Error(`Insufficient ETH: have ${Number(bal) / 1e18}, need ${Number(totalValue) / 1e18} + gas`);
+
+      // 2d. Pre-flight simulation — this catches reverts BEFORE the wallet prompt
+      pushLog('Simulating launch() call…');
+      try {
+        const sim = await publicClient.simulateContract({
+          account: address as Address,
+          address: launcher,
+          abi: POPSHIBA_LAUNCHER_ABI,
+          functionName: 'launch',
+          args: [
+            formData.name.trim(),
+            formData.ticker.trim().toUpperCase(),
+            data.metadataURI as string,
+            ethForLPWei,
+            ethForDevBuyWei,
+          ],
+          value: totalValue,
+        });
+        pushLog(`Simulation OK. result=${JSON.stringify(sim.result)}`);
+      } catch (simErr: any) {
+        const reason = simErr?.shortMessage || simErr?.message || String(simErr);
+        pushLog(`SIMULATION REVERT: ${reason}`);
+        if (simErr?.metaMessages?.length) pushLog(`meta: ${simErr.metaMessages.join(' | ')}`);
+        throw new Error(`Pre-flight simulation reverted: ${reason}`);
+      }
+
+      // 2e. Estimate gas so we know the real cost
+      try {
+        const gas = await publicClient.estimateContractGas({
+          account: address as Address,
+          address: launcher,
+          abi: POPSHIBA_LAUNCHER_ABI,
+          functionName: 'launch',
+          args: [
+            formData.name.trim(),
+            formData.ticker.trim().toUpperCase(),
+            data.metadataURI as string,
+            ethForLPWei,
+            ethForDevBuyWei,
+          ],
+          value: totalValue,
+        });
+        const gasPrice = await publicClient.getGasPrice();
+        const gasCostWei = gas * gasPrice;
+        pushLog(`gas estimate=${gas}  gasPrice=${gasPrice} wei  gasCost=${Number(gasCostWei) / 1e18} ETH`);
+      } catch (gErr: any) {
+        pushLog(`gas estimate failed: ${gErr?.shortMessage || gErr?.message || gErr}`);
+      }
+
+      // 3. Send the tx
       toast.info('Approve in your wallet', {
         description: 'One signature deploys the token, creates the pool, seeds LP, and runs your dev buy.',
       });
+      pushLog('Sending writeContract → wallet should prompt now.');
 
       const txHash = await walletClient.writeContract({
         account: address as Address,
@@ -185,15 +249,17 @@ export function EthLauncher() {
         ],
         value: totalValue,
       });
+      pushLog(`tx submitted: ${txHash}`);
       setLaunchTxHash(txHash);
 
-      // 4. Wait for receipt + parse TokenLaunched event
+      // 4. Wait for receipt
       const result = await waitForLaunchResult(publicClient as unknown as PublicClient, launcher, txHash);
+      pushLog(`token=${result.token}  pool=${result.pool}  lpTokenId=${result.lpTokenId}`);
       setDeployedTokenAddress(result.token);
       setPoolAddress(result.pool);
       setIsLive(true);
 
-      // 5. Persist result server-side
+      // 5. Persist
       await supabase.functions.invoke('eth-launch-finalize', {
         body: {
           launchId,
