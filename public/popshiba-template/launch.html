@@ -1645,14 +1645,8 @@
   if (walletWarnConnect) walletWarnConnect.addEventListener('click', function(){
     try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
   });
-  function syncWarnVisibility(){
-    if (!walletWarn) return;
-    walletWarn.style.display = walletConnected ? 'none' : 'flex';
-  }
-  // Hook into existing applyWalletState by wrapping it
-  const _origApply = applyWalletState;
-  applyWalletState = function(p){ _origApply(p); syncWarnVisibility(); };
-  syncWarnVisibility();
+  // Initial visibility (defaults to "show warning" until wallet-state arrives)
+  if (walletWarn) walletWarn.style.display = walletConnected ? 'none' : 'flex';
   // Top-nav Create button
   document.querySelectorAll('.nav-right .btn').forEach(function(b){
     if (/create/i.test(b.textContent || '')) {
