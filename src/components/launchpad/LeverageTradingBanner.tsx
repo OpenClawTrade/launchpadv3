@@ -1,5 +1,4 @@
 import { useState, memo } from "react";
-import { TrendingUp } from "lucide-react";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 
 export const LeverageTradingBanner = memo(function LeverageTradingBanner() {
@@ -9,20 +8,21 @@ export const LeverageTradingBanner = memo(function LeverageTradingBanner() {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="w-full trade-glass-panel flex items-center gap-3 px-4 py-3 transition-all hover:bg-white/[0.04] active:scale-[0.99] group"
+        className="w-full flex items-center gap-3 px-5 py-3.5 bg-pop-ink text-pop-cream pop-border transition-transform active:translate-x-[1px] active:translate-y-[1px] hover:-translate-x-[1px] hover:-translate-y-[1px]"
+        style={{ boxShadow: "5px 5px 0 0 hsl(var(--pop-cream)), 5px 5px 0 2px hsl(var(--pop-ink))" }}
       >
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/20 shrink-0">
-          <TrendingUp className="h-4 w-4 text-primary" />
+        <div className="h-9 w-9 flex items-center justify-center bg-pop-orange text-pop-ink pop-border shrink-0 font-pop-display text-sm" style={{ boxShadow: "2px 2px 0 0 hsl(var(--pop-cream))" }}>
+          ↗
         </div>
-        <div className="flex-1 text-left">
-          <p className="text-[12px] font-mono font-bold text-foreground/90 tracking-wide">
-            Leverage Trade up to 80×
+        <div className="flex-1 text-left min-w-0">
+          <p className="font-pop-display text-[15px] tracking-tight leading-tight">
+            Leverage trade up to <span className="text-pop-orange">80×</span>
           </p>
-          <p className="text-[10px] font-mono text-muted-foreground/50">
-            Advanced tools & deep liquidity
+          <p className="font-pop-mono text-[10px] uppercase tracking-[0.12em] text-pop-cream/60 mt-0.5 truncate">
+            Advanced tools · Deep liquidity · No order-book slip
           </p>
         </div>
-        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-primary shrink-0 group-hover:underline">
+        <span className="font-pop-mono text-[11px] font-bold uppercase tracking-[0.18em] text-pop-orange shrink-0 px-3 py-2 border border-dashed border-pop-orange">
           Start →
         </span>
       </button>
