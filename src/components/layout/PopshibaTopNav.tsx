@@ -75,8 +75,6 @@ export function PopshibaTopNav() {
               </Link>
             );
           })}
-          <span className="mx-1 h-5 w-px bg-pop-cream/20" />
-          <SocialLinks />
         </nav>
 
         {/* Right (desktop) */}
