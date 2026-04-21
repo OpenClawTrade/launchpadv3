@@ -234,30 +234,10 @@ function WalletPill({ className = "" }: { className?: string }) {
   if (!authenticated || !short) {
     return (
       <button
-        onClick={async () => {
-          try {
-            const eth: any = (window as any).ethereum;
-            const mmProvider =
-              eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
-              (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
-            if (mmProvider?.request) {
-              // Revoke first, then request — forces MetaMask to open
-              // its account picker so the user picks the active account
-              // (otherwise MM silently returns the first permitted account).
-              try {
-                await mmProvider.request({
-                  method: "wallet_revokePermissions",
-                  params: [{ eth_accounts: {} }],
-                });
-              } catch { /* ignore */ }
-              try {
-                await mmProvider.request({
-                  method: "wallet_requestPermissions",
-                  params: [{ eth_accounts: {} }],
-                });
-              } catch { /* user rejected; continue to Privy */ }
-            }
-          } catch { /* ignore */ }
+        onClick={() => {
+          // Open Privy's modal directly. Do not touch window.ethereum
+          // here — that prompts whichever extension is injected (Trust,
+          // Phantom, etc.) before Privy ever appears.
           login();
         }}
         className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors ${className}`}
