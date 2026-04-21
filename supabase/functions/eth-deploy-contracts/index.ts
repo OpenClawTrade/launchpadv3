@@ -12,6 +12,11 @@ import {
   POPSHIBA_CLONE_FACTORY_BYTECODE,
   POPSHIBA_FEE_VAULT_BYTECODE,
 } from "./precompiled_bytecode.ts";
+import {
+  POPSHIBA_FEE_VAULT_V2_BYTECODE,
+  POPSHIBA_LAUNCHER_V2_BYTECODE,
+  V2_BYTECODE_READY,
+} from "./v2_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +44,9 @@ Deno.serve(async (req) => {
   const force: boolean = body.force === true;
   // launcherOnly: keep existing Token impl + CloneFactory + FeeVault, deploy ONLY the missing PopShibaLauncher and patch the active row.
   const launcherOnly: boolean = body.launcherOnly === true;
+  // v2: deploy PopShibaFeeVaultV2 + PopShibaLauncherV2 (UNCX locking suite). Reuses existing
+  // PopShibaToken impl + CloneFactory from the active V1 row, inserts a NEW active eth_deployments row.
+  const v2: boolean = body.v2 === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
