@@ -36,6 +36,7 @@ function compile(sources: Record<string, string>) {
     sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { content: v }])),
     settings: {
       optimizer: { enabled: true, runs: 200 },
+      viaIR: true,
       evmVersion: "paris",
       outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
     },
