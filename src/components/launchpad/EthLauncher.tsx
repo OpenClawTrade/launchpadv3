@@ -37,7 +37,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher({ initialValues, initialLockLP }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean } = {}) {
+export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; autoLaunch?: boolean; hideUI?: boolean } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
