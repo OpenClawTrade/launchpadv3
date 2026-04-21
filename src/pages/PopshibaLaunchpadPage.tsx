@@ -157,14 +157,13 @@ function injectLiveData(
   if (stat) stat.textContent = hero.totalCoins.toLocaleString();
 
   // Hero stats: best-effort updates if those nodes exist in the template.
-  // The template ids may not all exist; we update what we can.
   const setText = (id: string, v: string) => {
     const el = doc.getElementById(id);
     if (el) el.textContent = v;
   };
   setText("stat-volume", fmtUsd(hero.totalVolume));
   setText("stat-mc", fmtUsd(hero.totalMC));
-  setText("stat-grad", `${hero.gradPct.toFixed(0)}%`);
+  setText("stat-grad-count", String(Math.round((hero.gradPct / 100) * launches.length)));
 }
 
 export default function PopshibaLaunchpadPage() {
