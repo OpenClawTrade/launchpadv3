@@ -72,7 +72,17 @@ Deno.serve(async (req) => {
   // One-time setup; after this, ANY user wallet can call launcher.launch() and it works.
   const transferOwnership: boolean = body.transferOwnership === true;
 
-  const account = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`);
+  // Sanitize: strip whitespace, quotes, 0x prefix, then validate length
+  const cleanedPk = pk.trim().replace(/^["']|["']$/g, "").replace(/\s+/g, "").replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(cleanedPk)) {
+    return new Response(
+      JSON.stringify({
+        error: `Invalid ETH_MAINNET_DEPLOYER_PRIVATE_KEY format. Expected 64 hex chars (32 bytes), got ${cleanedPk.length} chars after sanitizing. Make sure you pasted the raw private key, not a mnemonic, JSON keystore, or address.`,
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  const account = privateKeyToAccount(`0x${cleanedPk}` as `0x${string}`);
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
