@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       .from("eth_launch_requests")
       .update(update)
       .eq("id", body.launchId)
-      .select("id, token_address, status")
+      .select("id, token_address, uniswap_pool_address, lp_token_id, creator_wallet, status")
       .single();
 
     if (error) {
@@ -104,6 +104,36 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ success: false, error: error.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ── Register the Uniswap V3 LP NFT so eth-collect-fees can find it. ──────
+    // Without this row, creator fees never accrue in eth_creator_fee_ledger.
+    if (
+      body.status === "live" &&
+      data?.token_address &&
+      data?.uniswap_pool_address &&
+      data?.lp_token_id
+    ) {
+      const { error: lpErr } = await supabase
+        .from("eth_lp_positions")
+        .upsert(
+          {
+            token_address: String(data.token_address).toLowerCase(),
+            pool_address: String(data.uniswap_pool_address).toLowerCase(),
+            lp_token_id: data.lp_token_id,
+            creator_wallet: String(data.creator_wallet).toLowerCase(),
+            platform_owner: "0x8f7017df748db75a58b3aa441ea0886dfec16906",
+            fee_tier: 10000,
+            tick_lower: -887200,
+            tick_upper: 887200,
+            chain_id: 1,
+          },
+          { onConflict: "token_address" }
+        );
+      if (lpErr) {
+        // Don't fail the launch — just log so we can backfill later.
+        console.error("[eth-launch-finalize] eth_lp_positions upsert failed", lpErr);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, launch: data }), {
