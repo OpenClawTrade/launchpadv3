@@ -555,12 +555,13 @@ export function EthLauncher() {
               <div className="text-xs text-foreground/80 leading-relaxed space-y-0.5 font-mono">
                 <div>LP seed: <strong>{lpEthAmount.toFixed(6)} ETH</strong></div>
                 <div>Dev buy: <strong>{(formData.devBuyEth || 0).toFixed(6)} ETH</strong></div>
+                <div>UNCX lock fee: <strong>~0.0001 ETH</strong></div>
                 <div>+ network gas (variable, depends on mainnet conditions)</div>
                 <div className="pt-1 border-t border-primary/20 mt-1">
-                  Total wallet send: <strong>{(lpEthAmount + (formData.devBuyEth || 0)).toFixed(6)} ETH</strong>
+                  Total wallet send: <strong>~{(lpEthAmount + (formData.devBuyEth || 0) + 0.0001).toFixed(6)} ETH</strong>
                 </div>
                 <div className="text-muted-foreground pt-1 normal-case">
-                  LP NFT is held in the platform vault — cannot be rugged. You earn <strong>50% of all 1% swap fees</strong>, claimable on this page.
+                  LP is locked in <strong>UNCX V3 Locker</strong> for 100 years — token launches with the recognized 🔒 LP Locked badge on DEXTools / GMGN. You earn <strong>50% of all 1% swap fees</strong>.
                 </div>
               </div>
             </div>
@@ -628,6 +629,24 @@ export function EthLauncher() {
               </div>
             )}
 
+            {uncxLockId && (
+              <div className="text-xs flex items-center justify-between p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/30">
+                <span className="text-emerald-300 inline-flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" />
+                  LP Locked via UNCX
+                </span>
+                <a
+                  href={`https://app.uncx.network/services/lock-liquidity/uniswap-v3/lock/${uncxLockId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-emerald-300 hover:underline inline-flex items-center gap-1"
+                >
+                  Lock #{uncxLockId}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            )}
+
             {/* Creator earnings panel — appears once contract is on-chain */}
             {deployedTokenAddress && (
               <div className="mt-4">
@@ -652,8 +671,8 @@ export function EthLauncher() {
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-start gap-2"><span className="text-primary font-bold shrink-0">1.</span><p>Fill in your token details. No LP capital required.</p></div>
             <div className="flex items-start gap-2"><span className="text-primary font-bold shrink-0">2.</span><p>ERC-20 deploys, Uniswap V3 1% pool is created and seeded single-sided above spot.</p></div>
-            <div className="flex items-start gap-2"><span className="text-primary font-bold shrink-0">3.</span><p>LP NFT is held in the <strong className="text-foreground">platform vault</strong> — it cannot be rugged, transferred, or burned.</p></div>
-            <div className="flex items-start gap-2"><span className="text-emerald-400 font-bold shrink-0">★</span><p>Every ~6h fees are collected and your <strong className="text-emerald-300">50% share</strong> becomes claimable as ETH.</p></div>
+            <div className="flex items-start gap-2"><span className="text-primary font-bold shrink-0">3.</span><p>LP NFT is locked in <strong className="text-foreground">UNCX V3 Locker</strong> for 100 years — recognized by DEXTools, GMGN &amp; DEXScreener as <strong className="text-emerald-300">🔒 LP Locked</strong>.</p></div>
+            <div className="flex items-start gap-2"><span className="text-emerald-400 font-bold shrink-0">★</span><p>Fees stream from UNCX → platform vault. Your <strong className="text-emerald-300">50% share</strong> is claimable as ETH on this page.</p></div>
           </CardContent>
         </Card>
       </div>
