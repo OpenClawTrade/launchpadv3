@@ -361,7 +361,10 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             theme: "dark",
             accentColor: "#22c55e",
             logo: saturnLogo,
-            showWalletLoginFirst: true,
+            // Don't put wallet login first — SIWE signature step often
+            // gets rejected by users, breaking the flow. Email/social
+            // is more reliable; wallet can be linked after login.
+            showWalletLoginFirst: false,
             walletChainType: "ethereum-only",
             walletList: ["metamask", "rainbow", "wallet_connect", "coinbase_wallet", "detected_wallets"],
           },
