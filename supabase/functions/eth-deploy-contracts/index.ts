@@ -206,6 +206,18 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ---- Compile (only needed for full deploy) ----
+    const out = compile({
+      "PopShibaToken.sol": CONTRACT_SOURCES.PopShibaToken,
+      "PopShibaCloneFactory.sol": CONTRACT_SOURCES.PopShibaCloneFactory,
+      "PopShibaFeeVault.sol": CONTRACT_SOURCES.PopShibaFeeVault,
+      "PopShibaLauncher.sol": CONTRACT_SOURCES.PopShibaLauncher,
+    });
+    const tokenContract = out.contracts["PopShibaToken.sol"]["PopShibaToken"];
+    const factoryContract = out.contracts["PopShibaCloneFactory.sol"]["PopShibaCloneFactory"];
+    const vaultContract = out.contracts["PopShibaFeeVault.sol"]["PopShibaFeeVault"];
+    const launcherContract = out.contracts["PopShibaLauncher.sol"]["PopShibaLauncher"];
+
     // 1. PopShibaToken (impl)
     deployed.PopShibaToken = await deployOne("PopShibaToken", tokenContract.evm.bytecode.object);
 
