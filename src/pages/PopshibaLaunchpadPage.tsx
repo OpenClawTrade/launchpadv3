@@ -258,7 +258,7 @@ export default function PopshibaLaunchpadPage() {
       const [recentRes, totalRes] = await Promise.all([
         supabase
           .from("eth_launch_requests")
-          .select("id, token_name, token_ticker, image_url, status, created_at, token_address")
+          .select("id, token_name, token_ticker, image_url, status, created_at, token_address, twitter_url, telegram_url, website_url")
           .in("status", ["pending", "deploying", "deployed", "live", "graduated"])
           .order("created_at", { ascending: false })
           .limit(8),
