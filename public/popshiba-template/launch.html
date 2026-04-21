@@ -37,8 +37,18 @@
   .brand-frame::after{background:#fff;transform:rotate(3deg);z-index:1}
   .brand-frame img{position:relative;z-index:2;width:86%;height:86%;margin:7%;object-fit:contain;transform:rotate(3deg)}
   .nav-links{display:flex;gap:20px;font-size:13px;font-weight:600;flex-wrap:wrap}
-  .nav-links a{position:relative;padding:4px 2px}
+  .nav-links a{position:relative;padding:4px 2px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:inherit}
+  .nav-links a .ni{display:none;font-size:16px;line-height:1}
+  .nav-links a .nl{display:inline}
   .nav-links a.active::after,.nav-links a:hover::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:3px;background:var(--primary)}
+  /* Awkward zone: full button names wrap ugly between 760 and 1280. Switch to icon-only. */
+  @media(min-width:761px) and (max-width:1280px){
+    .nav-links{gap:14px;flex-wrap:nowrap}
+    .nav-links a{padding:6px 4px}
+    .nav-links a .ni{display:inline-block;font-size:18px}
+    .nav-links a .nl{display:none}
+    .nav-links a.active::after,.nav-links a:hover::after{left:-2px;right:-2px}
+  }
   .nav-right{margin-left:auto;display:flex;gap:10px;align-items:center}
   .wallet-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:var(--ink-3);border:1.5px solid var(--primary);color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase}
   .wallet-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--up);box-shadow:0 0 8px var(--up)}
