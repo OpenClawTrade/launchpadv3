@@ -314,6 +314,10 @@ function injectLiveData(
 
   if (counter) counter.textContent = String(launches.length);
   if (stat) stat.textContent = hero.totalCoins.toLocaleString();
+  const shown = doc.getElementById("ll-shown");
+  const total = doc.getElementById("ll-total");
+  if (shown) shown.textContent = launches.length.toLocaleString();
+  if (total) total.textContent = hero.totalCoins.toLocaleString();
 
   const setText = (id: string, v: string) => {
     const el = doc.getElementById(id);
