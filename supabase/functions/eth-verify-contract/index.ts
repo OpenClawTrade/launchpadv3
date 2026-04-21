@@ -251,7 +251,26 @@ Deno.serve(async (req) => {
       isPopShiba = true;
     }
 
-    const ERC20_SOLIDITY_SOURCE = isPopShiba ? POPSHIBA_SOURCE : SATURN_SOURCE;
+    const baseSource = isPopShiba ? POPSHIBA_SOURCE : SATURN_SOURCE;
+
+    // Build metadata comment header from launch info (comments don't affect bytecode)
+    const sanitize = (s: string) =>
+      String(s || "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
+    const headerLines: string[] = [];
+    headerLines.push(`// ${sanitize(launch.token_name)} ($${sanitize(launch.token_ticker)})`);
+    if (launch.website_url)  headerLines.push(`// Website  - ${sanitize(launch.website_url)}`);
+    if (launch.twitter_url)  headerLines.push(`// X        - ${sanitize(launch.twitter_url)}`);
+    if (launch.telegram_url) headerLines.push(`// Telegram - ${sanitize(launch.telegram_url)}`);
+    if (launch.discord_url)  headerLines.push(`// Discord  - ${sanitize(launch.discord_url)}`);
+    if (launch.description)  headerLines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
+    const metaHeader = headerLines.join("\n") + "\n//\n";
+
+    // Inject header right after the SPDX line (keep SPDX first per Solidity convention)
+    const ERC20_SOLIDITY_SOURCE = baseSource.replace(
+      /^(\/\/ SPDX-License-Identifier:[^\n]*\n)/,
+      `$1${metaHeader}`
+    );
+
     const contractFile = isPopShiba ? "PopShibaLaunchpad.sol" : "SaturnEthV3Token.sol";
     const contractName = isPopShiba ? "PopShibaLaunchpad" : "SaturnEthV3Token";
     const launchpadTag = isPopShiba ? "popshiba-eth-v1" : "saturn-eth-v3";
