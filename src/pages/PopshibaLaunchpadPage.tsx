@@ -535,12 +535,18 @@ export default function PopshibaLaunchpadPage() {
         sendWalletState();
       } else if (data.type === "wallet-connect") {
         if (ready) {
-          // Force MetaMask to re-show the account picker for the currently
-          // active account instead of silently reusing a cached permission.
+          // Force MetaMask to re-show its account picker for the currently
+          // active account. We must target the MetaMask provider directly
+          // (not generic window.ethereum) — otherwise browsers with multiple
+          // wallet extensions (e.g. Phantom + MetaMask) show an extension
+          // picker first, which is not what we want.
           try {
-            const eth = (window as any).ethereum;
-            if (eth?.request) {
-              eth.request({
+            const eth: any = (window as any).ethereum;
+            const mmProvider =
+              eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
+              (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
+            if (mmProvider?.request) {
+              mmProvider.request({
                 method: "wallet_revokePermissions",
                 params: [{ eth_accounts: {} }],
               }).catch(() => {});
