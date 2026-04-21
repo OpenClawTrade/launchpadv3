@@ -193,7 +193,7 @@ export function EthContractsDeployPanel() {
               </div>
             ))}
             {dry.canPatchLauncher ? (
-              <div className="pt-1 text-[10px] text-amber-600 dark:text-amber-500 font-semibold">
+              <div className="pt-1 text-[10px] text-destructive font-semibold">
                 ⚠ Launcher missing. Click "Deploy Launcher Only" to add the 4th contract — your existing 3 stay untouched & verified.
               </div>
             ) : (
