@@ -99,23 +99,34 @@ export default function PopshibaXTrackerPage() {
               <Stat label="CAs found" value={String(latestRun.cas_detected)} compact />
               <Stat label="Inserted" value={String(latestRun.tweets_inserted)} compact />
             </div>
-            {latestRun.errors_count > 0 && errors.length > 0 && (
-              <div className="mt-3 border-2 border-rose-700 bg-rose-50 p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
-                  <span className="font-pop-mono text-[10px] uppercase tracking-[0.1em] text-rose-800 font-bold">
-                    {latestRun.errors_count} errors
-                  </span>
+            {(() => {
+              // Hide third-party billing/credit errors from public visitors —
+              // these are operational issues we handle internally.
+              const visibleErrors = errors.filter((e) => {
+                const msg = (e.error_message || "").toLowerCase();
+                return !msg.includes("credits is not enough")
+                  && !msg.includes("please recharge")
+                  && !msg.includes("http 402");
+              });
+              if (visibleErrors.length === 0) return null;
+              return (
+                <div className="mt-3 border-2 border-rose-700 bg-rose-50 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-700" />
+                    <span className="font-pop-mono text-[10px] uppercase tracking-[0.1em] text-rose-800 font-bold">
+                      {visibleErrors.length} errors
+                    </span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {visibleErrors.slice(0, 5).map((e) => (
+                      <div key={e.id} className="text-[11px] text-rose-900/80 font-pop-mono">
+                        <span className="font-bold">@{e.kol_username}</span>: {e.error_message.substring(0, 150)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {errors.slice(0, 5).map((e) => (
-                    <div key={e.id} className="text-[11px] text-rose-900/80 font-pop-mono">
-                      <span className="font-bold">@{e.kol_username}</span>: {e.error_message.substring(0, 150)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </section>
         )}
 
