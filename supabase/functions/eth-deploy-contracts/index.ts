@@ -214,6 +214,17 @@ Deno.serve(async (req) => {
       const willDeploy = launcherOnly
         ? (canPatchLauncher ? ["PopShibaLauncher"] : [])
         : (existing && !force ? [] : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault", "PopShibaLauncher"]);
+
+      // Include ownership status when an active deployment with launcher exists.
+      let ownership: any = null;
+      if (existing?.launcher_address) {
+        const { factoryOwner, vaultOwner } = await readOwners();
+        const launcher = existing.launcher_address;
+        const factoryOk = !!(factoryOwner && factoryOwner.toLowerCase() === launcher.toLowerCase());
+        const vaultOk = !!(vaultOwner && vaultOwner.toLowerCase() === launcher.toLowerCase());
+        ownership = { factoryOwner, vaultOwner, factoryOk, vaultOk, bothOk: factoryOk && vaultOk };
+      }
+
       return new Response(JSON.stringify({
         dryRun: true,
         deployer: account.address,
@@ -223,6 +234,7 @@ Deno.serve(async (req) => {
         existingDeployment: existing ?? null,
         canPatchLauncher,
         willDeploy,
+        ownership,
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
           : (existing && !force && !launcherOnly ? "ACTIVE deployment already exists. Pass force=true to redeploy or launcherOnly=true to add the missing Launcher." : null),
