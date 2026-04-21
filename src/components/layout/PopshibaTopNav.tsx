@@ -141,7 +141,7 @@ export function PopshibaTopNav() {
               </div>
               <WalletPill className="col-span-2" />
               <Link
-                to="/launch"
+                to="/"
                 className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-ink bg-pop-orange text-pop-ink col-span-2"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={3} />
