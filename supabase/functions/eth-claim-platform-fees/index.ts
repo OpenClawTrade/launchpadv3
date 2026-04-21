@@ -97,21 +97,37 @@ Deno.serve(async (req) => {
           address: NPM, abi: NPM_ABI, functionName: "positions", args: [tokenId],
         }) as any;
         const token0 = (info[2] as string).toLowerCase();
-        const tokensOwed0 = info[10] as bigint;
-        const tokensOwed1 = info[11] as bigint;
+
+        const collectArgs = [{
+          tokenId,
+          recipient: account.address as Address,
+          amount0Max: MAX_UINT128,
+          amount1Max: MAX_UINT128,
+        }] as const;
+
+        // Simulate to get true claimable (tokensOwed is stale until collect()
+        // is invoked — see eth-collect-fees for the same fix).
+        const sim = await pub.simulateContract({
+          account,
+          address: NPM,
+          abi: NPM_ABI,
+          functionName: "collect",
+          args: collectArgs as any,
+        });
+        const [simAmount0, simAmount1] = sim.result as unknown as [bigint, bigint];
 
         let collectedWeth = 0n;
         let collectedToken = 0n;
 
-        if (tokensOwed0 > 0n || tokensOwed1 > 0n) {
+        if (simAmount0 > 0n || simAmount1 > 0n) {
           const collectHash = await wallet.writeContract({
             address: NPM, abi: NPM_ABI, functionName: "collect",
-            args: [{ tokenId, recipient: account.address as Address, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }] as any,
+            args: collectArgs as any,
           });
           await pub.waitForTransactionReceipt({ hash: collectHash });
           const wethIs0 = token0 === WETH.toLowerCase();
-          collectedWeth = wethIs0 ? tokensOwed0 : tokensOwed1;
-          collectedToken = wethIs0 ? tokensOwed1 : tokensOwed0;
+          collectedWeth = wethIs0 ? simAmount0 : simAmount1;
+          collectedToken = wethIs0 ? simAmount1 : simAmount0;
           r.collectHash = collectHash;
         } else {
           r.skipped = "no fees owed";

@@ -1,18 +1,21 @@
 // ============================================================================
 // eth-collect-fees
 //
-// Loops all eth_lp_positions, calls NonfungiblePositionManager.collect() on
-// each NFT. Splits collected WETH/token 50/50 between creator (accrued in
-// eth_creator_fee_ledger as `creator_share_*`) and platform (kept in deployer).
+// Calls PopShibaFeeVault.collect(token) for each registered LP. The vault
+// pulls fees from Uniswap V3, sends platform's 50% straight to treasury, and
+// credits creator's 50% to `creatorOwed[token]` (held in WETH inside vault).
+//
+// We mirror the on-chain state into eth_creator_fee_ledger so the dashboard
+// can show lifetime/owed/paid without RPC calls.
 //
 // Triggers:
-//   - Cron (every ~6h) — POST {} (no body)
+//   - Cron (every ~6h) — POST {} (no body) — collects all positions
 //   - Manual single-token — POST { tokenAddress: "0x..." }
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
-  createPublicClient, createWalletClient, http, parseAbi, getAddress, type Address,
+  createPublicClient, createWalletClient, http, parseAbi, type Address,
 } from "https://esm.sh/viem@2.45.1";
 import { mainnet } from "https://esm.sh/viem@2.45.1/chains";
 import { privateKeyToAccount } from "https://esm.sh/viem@2.45.1/accounts";
@@ -22,13 +25,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const NPM = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88" as const;
-const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as const;
-const MAX_UINT128 = (1n << 128n) - 1n;
-
-const NPM_ABI = parseAbi([
-  "function collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max)) payable returns (uint256 amount0, uint256 amount1)",
-  "function positions(uint256 tokenId) view returns (uint96 nonce,address operator,address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint128 liquidity,uint256 feeGrowthInside0LastX128,uint256 feeGrowthInside1LastX128,uint128 tokensOwed0,uint128 tokensOwed1)",
+const VAULT_ABI = parseAbi([
+  "function collect(address token) returns (uint256 wethCollected)",
+  "function lifetimeCollected(address token) view returns (uint256)",
+  "function creatorOwed(address token) view returns (uint256)",
+  "function creatorPaid(address token) view returns (uint256)",
+  "function platformPaid(address token) view returns (uint256)",
+  "function tokens(address) view returns (uint256 lpTokenId, address creator, bool registered)",
 ]);
 
 Deno.serve(async (req) => {
@@ -37,15 +40,29 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const targetToken: string | undefined = body?.tokenAddress;
 
-    // The LP NFT is owned by 0x8F70…6906, so collect() must be signed by that key.
     const PK = Deno.env.get("ETH_LP_HOLDER_PRIVATE_KEY");
-    if (!PK) throw new Error("Missing ETH_LP_HOLDER_PRIVATE_KEY (LP NFT holder)");
+    if (!PK) throw new Error("Missing ETH_LP_HOLDER_PRIVATE_KEY");
     const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
     const account = privateKeyToAccount(PK.startsWith("0x") ? PK as `0x${string}` : `0x${PK}` as `0x${string}`);
     const wallet = createWalletClient({ account, chain: mainnet, transport: http(RPC) });
     const pub = createPublicClient({ chain: mainnet, transport: http(RPC) });
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Resolve active vault from eth_deployments
+    const { data: deployment } = await supabase
+      .from("eth_deployments")
+      .select("vault_address")
+      .eq("is_active", true)
+      .eq("network", "mainnet")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!deployment?.vault_address) {
+      throw new Error("No active eth_deployments.vault_address");
+    }
+    const VAULT = deployment.vault_address as Address;
 
     let q = supabase.from("eth_lp_positions").select("*").eq("chain_id", 1);
     if (targetToken) q = q.eq("token_address", targetToken.toLowerCase());
@@ -60,57 +77,67 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const pos of positions) {
       try {
-        const tokenId = BigInt(pos.lp_token_id);
-        // Read positions to know token0/token1
-        const info = await pub.readContract({
-          address: NPM, abi: NPM_ABI, functionName: "positions", args: [tokenId],
-        }) as any;
-        const token0 = (info[2] as string).toLowerCase();
-        const token1 = (info[3] as string).toLowerCase();
-        const tokensOwed0 = info[10] as bigint;
-        const tokensOwed1 = info[11] as bigint;
+        const tokenAddr = pos.token_address as Address;
 
-        if (tokensOwed0 === 0n && tokensOwed1 === 0n) {
-          results.push({ tokenAddress: pos.token_address, skipped: true, reason: "no fees owed" });
+        // Verify the token is registered in the vault. If not, skip.
+        const reg = await pub.readContract({
+          address: VAULT, abi: VAULT_ABI, functionName: "tokens", args: [tokenAddr],
+        }) as readonly [bigint, string, boolean];
+        if (!reg[2]) {
+          results.push({ tokenAddress: tokenAddr, skipped: true, reason: "not registered in vault" });
           continue;
         }
 
-        const collectHash = await wallet.writeContract({
-          address: NPM, abi: NPM_ABI, functionName: "collect",
-          args: [{ tokenId, recipient: account.address as Address, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }] as any,
-        });
-        await pub.waitForTransactionReceipt({ hash: collectHash });
+        // Simulate vault.collect — returns wethCollected (already split 50/50).
+        let collectHash: string | undefined;
+        let wethCollected = 0n;
+        try {
+          const sim = await pub.simulateContract({
+            account, address: VAULT, abi: VAULT_ABI, functionName: "collect", args: [tokenAddr],
+          });
+          wethCollected = sim.result as bigint;
+        } catch (simErr) {
+          // Simulation reverted — usually means there's nothing to collect.
+          results.push({
+            tokenAddress: tokenAddr, skipped: true,
+            reason: `simulate reverted: ${simErr instanceof Error ? simErr.message.slice(0, 120) : "unknown"}`,
+          });
+          continue;
+        }
 
-        // Determine which side is WETH and which is the token
-        const wethIs0 = token0 === WETH.toLowerCase();
-        const collectedWeth = wethIs0 ? tokensOwed0 : tokensOwed1;
-        const collectedToken = wethIs0 ? tokensOwed1 : tokensOwed0;
-        const creatorShareWeth = collectedWeth / 2n;
-        const creatorShareToken = collectedToken / 2n;
+        if (wethCollected > 0n) {
+          collectHash = await wallet.writeContract({
+            address: VAULT, abi: VAULT_ABI, functionName: "collect", args: [tokenAddr],
+          });
+          await pub.waitForTransactionReceipt({ hash: collectHash as `0x${string}` });
+        }
 
-        // Fetch current ledger row, accumulate
-        const { data: ledger } = await supabase
-          .from("eth_creator_fee_ledger")
-          .select("*").eq("token_address", pos.token_address).single();
+        // Read authoritative on-chain state and mirror into ledger.
+        const [lifetime, owed, paid] = await Promise.all([
+          pub.readContract({ address: VAULT, abi: VAULT_ABI, functionName: "lifetimeCollected", args: [tokenAddr] }) as Promise<bigint>,
+          pub.readContract({ address: VAULT, abi: VAULT_ABI, functionName: "creatorOwed", args: [tokenAddr] }) as Promise<bigint>,
+          pub.readContract({ address: VAULT, abi: VAULT_ABI, functionName: "creatorPaid", args: [tokenAddr] }) as Promise<bigint>,
+        ]);
 
+        const creatorShareWeth = lifetime / 2n;
         await supabase.from("eth_creator_fee_ledger").upsert({
-          token_address: pos.token_address,
+          token_address: tokenAddr,
           creator_wallet: pos.creator_wallet,
           lp_token_id: pos.lp_token_id,
-          total_collected_weth: ((ledger?.total_collected_weth ? BigInt(ledger.total_collected_weth) : 0n) + collectedWeth).toString(),
-          total_collected_token: ((ledger?.total_collected_token ? BigInt(ledger.total_collected_token) : 0n) + collectedToken).toString(),
-          creator_share_weth: ((ledger?.creator_share_weth ? BigInt(ledger.creator_share_weth) : 0n) + creatorShareWeth).toString(),
-          creator_share_token: ((ledger?.creator_share_token ? BigInt(ledger.creator_share_token) : 0n) + creatorShareToken).toString(),
+          total_collected_weth: lifetime.toString(),
+          creator_share_weth: creatorShareWeth.toString(),
+          creator_paid_weth: paid.toString(),
           last_collect_at: new Date().toISOString(),
           chain_id: 1,
         }, { onConflict: "token_address" });
 
         results.push({
-          tokenAddress: pos.token_address,
+          tokenAddress: tokenAddr,
           collectHash,
-          collectedWeth: collectedWeth.toString(),
-          collectedToken: collectedToken.toString(),
-          creatorShareWeth: creatorShareWeth.toString(),
+          collectedThisCall: wethCollected.toString(),
+          lifetime: lifetime.toString(),
+          creatorOwed: owed.toString(),
+          creatorPaid: paid.toString(),
         });
       } catch (e) {
         console.error("[eth-collect-fees] failed for", pos.token_address, e);
