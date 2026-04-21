@@ -17,6 +17,7 @@ import { createPublicClient, http, parseEther, type Address, type PublicClient }
 import { mainnet } from 'viem/chains';
 import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
+import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
@@ -90,6 +91,7 @@ export function EthLauncher() {
   const [uncxLockId, setUncxLockId] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
     name: '',
     ticker: '',
@@ -318,6 +320,7 @@ export function EthLauncher() {
       setPoolAddress(result.pool);
       if (result.uncxLockId !== undefined) setUncxLockId(result.uncxLockId.toString());
       setIsLive(true);
+      setShowSuccessModal(true);
 
       // 5. Persist
       await supabase.functions.invoke('eth-launch-finalize', {
