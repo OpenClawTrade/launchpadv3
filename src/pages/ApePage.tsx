@@ -74,7 +74,7 @@ export default function ApePage() {
     params.chain === "eth" || params.chain === "ethereum" ? "eth" : null;
   const urlAddress = params.address && ADDR_RE.test(params.address) ? params.address : "";
 
-  const [chain, setChain] = useState<ApeChain>(urlChain ?? "eth");
+  const [chain, setChain] = useState<ApeChain>("eth"); // BNB trading not live — ETH only
   const [tokenAddress, setTokenAddress] = useState(urlAddress);
   const [tokenDecimals, setTokenDecimals] = useState<string>("18");
   const [isBuy, setIsBuy] = useState(true);
@@ -144,7 +144,7 @@ export default function ApePage() {
   useEffect(() => {
     document.title = market?.name
       ? `${market.name} ($${market.symbol}) — Ape Terminal`
-      : "Ape Terminal — Trade Any ETH/BNB Token";
+      : "Ape Terminal — Trade Any ETH Token";
   }, [market]);
 
   const handleSwap = async () => {
