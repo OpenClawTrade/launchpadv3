@@ -92,14 +92,10 @@ export function EthLauncher() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Auto-set mandatory dev buy = $50 worth of ETH whenever ETH price loads/updates
-  useEffect(() => {
-    if (ethPrice > 0) {
-      const ethAmount = MANDATORY_DEV_BUY_USD / ethPrice;
-      const rounded = Math.ceil(ethAmount * 1e6) / 1e6; // 6 decimals, round up so we always cover $50
-      setFormData(prev => (prev.devBuyEth === rounded ? prev : { ...prev, devBuyEth: rounded }));
-      setDevBuyInput(rounded.toString());
-    }
+  // Compute $50 LP seed in ETH (rounded up to 6 decimals so we always clear $50)
+  const lpEthAmount = useMemo(() => {
+    if (ethPrice <= 0) return 0;
+    return Math.ceil((MIN_LP_USD / ethPrice) * 1e6) / 1e6;
   }, [ethPrice]);
 
   const canLaunch =
@@ -107,7 +103,8 @@ export function EthLauncher() {
     formData.name.trim().length > 0 &&
     formData.ticker.trim().length > 0 &&
     ethPrice > 0 &&
-    formData.devBuyEth > 0;
+    lpEthAmount > 0 &&
+    formData.devBuyEth >= 0;
 
   const handleLaunch = useCallback(async () => {
     if (!canLaunch || !address) return;
@@ -120,12 +117,14 @@ export function EthLauncher() {
 
     let launchId: string | null = null;
     try {
-      // 1. Get launch parameters from server
+      // 1. Get launch parameters from server (LP = $50 worth of ETH, dev buy optional)
+      const ethForLPWeiStr = parseEther(lpEthAmount.toFixed(6)).toString();
       const { data, error } = await supabase.functions.invoke('eth-create-token', {
         body: {
           name: formData.name,
           ticker: formData.ticker.toUpperCase(),
           creatorWallet: address,
+          ethForLPWei: ethForLPWeiStr,
           devBuyEth: formData.devBuyEth || 0,
           description: formData.description || null,
           imageUrl: formData.imageUrl || null,
@@ -171,11 +170,12 @@ export function EthLauncher() {
           ethForDevBuyWei,
         ],
         value: totalValue,
+        chain: mainnet,
       });
       setLaunchTxHash(txHash);
 
       // 4. Wait for receipt + parse TokenLaunched event
-      const result = await waitForLaunchResult(publicClient, launcher, txHash);
+      const result = await waitForLaunchResult(publicClient as unknown as PublicClient, launcher, txHash);
       setDeployedTokenAddress(result.token);
       setPoolAddress(result.pool);
       setIsLive(true);
