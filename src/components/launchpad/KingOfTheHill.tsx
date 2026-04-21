@@ -694,7 +694,7 @@ export function KingOfTheHill() {
       {/* ── Empty throne CTA ── */}
       {!isLoading && (!tokens || tokens.length === 0) && (
         <Link
-          to="/launch/ethereum"
+          to="/"
           className="block w-full rounded-2xl p-8 text-center transition-all hover:scale-[1.01]"
           style={{
             background: "linear-gradient(165deg, rgba(15,15,26,0.96) 0%, rgba(5,5,15,0.98) 100%)",
