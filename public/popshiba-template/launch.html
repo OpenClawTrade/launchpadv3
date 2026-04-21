@@ -1053,18 +1053,18 @@
 
 
         <div class="fld">
-          <div class="fld-label">Dev first-buy <span class="hint" id="devBuyHint">optional · max ~$15,000</span></div>
+          <div class="fld-label">Dev first-buy <span class="hint" id="devBuyHint">optional · max $5,000</span></div>
           <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
             <div style="position:relative">
               <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;color:var(--brown);pointer-events:none">$</span>
               <input id="devBuyInput" class="fld-input mono" value="0" inputmode="decimal" style="padding-left:26px" />
             </div>
-            <div style="display:flex;gap:6px" id="devBuyPresets">
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="devBuyPresets">
               <button type="button" class="upl-btn" data-usd="0" style="padding:10px 12px">$0</button>
               <button type="button" class="upl-btn" data-usd="50" style="padding:10px 12px">$50</button>
               <button type="button" class="upl-btn" data-usd="200" style="padding:10px 12px;background:var(--primary)">$200</button>
-              <button type="button" class="upl-btn" data-usd="500" style="padding:10px 12px">$500</button>
               <button type="button" class="upl-btn" data-usd="1000" style="padding:10px 12px">$1K</button>
+              <button type="button" class="upl-btn" data-usd="5000" style="padding:10px 12px">$5K</button>
             </div>
           </div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">≈ <span id="devBuyEthEq">0.000 ETH</span> · Buys your token in the same launch tx so snipers can't front-run you. Counts as your dev allocation.</div>
@@ -1394,7 +1394,7 @@
   const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
   let ethUsd = ETH_USD_FALLBACK;
 
-  const MAX_DEV_ETH  = 5;            // hard cap stays at 5 ETH
+  const MAX_DEV_USD  = 5000;          // matches MAX_DEV_BUY_USD in EthLauncher.tsx
 
   const devBuyInput  = document.getElementById('devBuyInput');
   const devEthEqEl   = document.getElementById('devBuyEthEq');
@@ -1411,27 +1411,31 @@
     if (n >= 1e3) return '$' + Math.round(n/100)/10 + 'K';
     return '$' + Math.round(n).toLocaleString();
   }
-  // Parse the USD input and clamp to the ETH-equivalent cap.
+  // Parse USD input and clamp to MAX_DEV_USD (matches backend cap).
   function parseUsdInput(v){
     const m = String(v||'').replace(/[,$\s]/g, '').match(/-?\d+(\.\d+)?/);
     if (!m) return 0;
     const usd = Math.max(0, parseFloat(m[0]));
-    const maxUsd = MAX_DEV_ETH * ethUsd;
-    return Math.min(usd, maxUsd);
+    return Math.min(usd, MAX_DEV_USD);
   }
   function devEthFromUsd(usd){ return ethUsd > 0 ? usd / ethUsd : 0; }
 
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
     const dev    = devEthFromUsd(devUsd);
+    // Starting market cap is fixed by the LP seed; the dev buy happens AFTER seeding,
+    // so it does NOT change starting MC (it does push the *post-buy* price up).
     const startMcUsd = LP_SEED_USD * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
-    const allocPct = startMcUsd > 0 ? Math.min(100, (devUsd / startMcUsd) * 100) : 0;
+    // Dev allocation %: single-sided Uniswap V3 acts ~ constant-product against the seeded
+    // ETH side, so tokens_received ≈ TOTAL_SUPPLY * devUsd / (LP_USD + devUsd).
+    // → alloc% = 100 * devUsd / (LP_USD + devUsd)
+    const allocPct = devUsd > 0 ? (devUsd / (LP_SEED_USD + devUsd)) * 100 : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
     if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(4) + ' ETH';
-    if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ~' + fmtUsd0(MAX_DEV_ETH * ethUsd);
+    if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
   }
   if (devBuyInput) {
     devBuyInput.addEventListener('input', recomputeEcon);
