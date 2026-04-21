@@ -115,6 +115,8 @@ export default function PopshibaLaunchpadPage() {
   const ref = useRef<HTMLIFrameElement>(null);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [prefill, setPrefill] = useState<LauncherPrefill>({});
+  const [iframeHeight, setIframeHeight] = useState<number>(typeof window !== "undefined" ? window.innerHeight : 1200);
+  const [livePulse, setLivePulse] = useState(false);
 
   // ETH-data injection + polling
   useEffect(() => {
@@ -134,6 +136,9 @@ export default function PopshibaLaunchpadPage() {
       const total = totalRes.count ?? 0;
       const doc = ref.current?.contentDocument;
       if (doc && doc.getElementById("ll-body")) injectLiveData(doc, launches, total);
+      // Flash the live indicator on every successful refresh
+      setLivePulse(true);
+      setTimeout(() => setLivePulse(false), 600);
     }
     function onLoad() { setTimeout(load, 50); }
     const f = ref.current;
@@ -147,7 +152,7 @@ export default function PopshibaLaunchpadPage() {
     };
   }, []);
 
-  // postMessage bridge from iframe → open launcher modal prefilled
+  // postMessage bridge from iframe → open launcher modal prefilled + auto-resize
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       const data = e.data;
@@ -155,6 +160,9 @@ export default function PopshibaLaunchpadPage() {
       if (data.type === "open-launcher") {
         setPrefill(data.payload || {});
         setLauncherOpen(true);
+      } else if (data.type === "resize" && typeof data.height === "number") {
+        // Add a small buffer to avoid sub-pixel scrollbar flicker
+        setIframeHeight(Math.ceil(data.height) + 4);
       }
     }
     window.addEventListener("message", onMessage);
@@ -162,14 +170,27 @@ export default function PopshibaLaunchpadPage() {
   }, []);
 
   return (
-    <>
+    <div className="relative" style={{ background: "#f5a524" }}>
       <iframe
         ref={ref}
         src="/popshiba-template/launch.html"
         title="Popshiba Launchpad"
+        scrolling="no"
         className="block w-full border-0"
-        style={{ height: "100vh", background: "#f5a524" }}
+        style={{ height: `${iframeHeight}px`, background: "#f5a524" }}
       />
+      {/* Live-data indicator: pulses each time we successfully refresh from Supabase */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 font-mono text-[10px] font-bold tracking-[0.15em] uppercase border-2 border-[#0e0b08] bg-[#0e0b08] text-[#f5a524] shadow-[3px_3px_0_#fff4dc] transition-opacity duration-300"
+        style={{ opacity: livePulse ? 1 : 0.55 }}
+      >
+        <span
+          className="inline-block w-2 h-2 rounded-full bg-[#5ce68e]"
+          style={{ boxShadow: livePulse ? "0 0 10px #5ce68e" : "0 0 4px #5ce68e" }}
+        />
+        Live ETH Data
+      </div>
       <Dialog open={launcherOpen} onOpenChange={setLauncherOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -179,6 +200,6 @@ export default function PopshibaLaunchpadPage() {
           <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={prefill} />
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
