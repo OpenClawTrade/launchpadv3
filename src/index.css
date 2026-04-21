@@ -1071,6 +1071,69 @@
 .trade-page-bg .text-yellow-400 { color: #8a5a0b !important; }
 .trade-page-bg .trade-glass-panel-glow .text-foreground { color: hsl(var(--pop-cream)); }
 
+/* ── Ink-styled trade panel (Buy/Sell) — matches poster reference ── */
+.trade-page-bg .trade-trade-panel.trade-glass-panel,
+.trade-page-bg .trade-trade-panel .trade-glass-panel {
+  background: hsl(var(--pop-ink));
+  color: hsl(var(--pop-cream));
+  border: 2px solid hsl(var(--pop-ink));
+  box-shadow: 5px 5px 0 0 hsl(var(--pop-cream)), 5px 5px 0 2px hsl(var(--pop-ink));
+}
+/* Cream-ify everything inside the ink trade panel */
+.trade-page-bg .trade-trade-panel,
+.trade-page-bg .trade-trade-panel * {
+  color: hsl(var(--pop-cream));
+}
+.trade-page-bg .trade-trade-panel .text-muted-foreground,
+.trade-page-bg .trade-trade-panel [class*="text-muted-foreground"],
+.trade-page-bg .trade-trade-panel [class*="text-foreground/"] {
+  color: hsl(var(--pop-cream) / 0.55) !important;
+}
+.trade-page-bg .trade-trade-panel input,
+.trade-page-bg .trade-trade-panel input::placeholder {
+  color: hsl(var(--pop-cream));
+}
+.trade-page-bg .trade-trade-panel input::placeholder {
+  color: hsl(var(--pop-cream) / 0.35);
+}
+/* Soften the green/red accent against ink */
+.trade-page-bg .trade-trade-panel .text-green-400 { color: #5ce68e !important; }
+.trade-page-bg .trade-trade-panel .text-red-400,
+.trade-page-bg .trade-trade-panel .text-destructive { color: #ff8a7a !important; }
+
+/* ── Section label wrapper for poster-style [ TAG / NAME ] ── */
+.trade-page-bg .wf-section { position: relative; }
+.trade-page-bg .wf-section > .wf-label {
+  background: hsl(var(--pop-orange));
+  color: hsl(var(--pop-ink));
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-size: 9px;
+  padding: 0 8px;
+  top: -8px;
+  left: 14px;
+}
+
+/* ── About panel inner dashed metric boxes ── */
+.trade-page-bg .about-metric {
+  border: 1px dashed hsl(var(--pop-cream) / 0.35);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--pop-cream) / 0.7);
+}
+.trade-page-bg .about-metric .v {
+  color: hsl(var(--pop-cream));
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* ── Terminal trust pill ── */
 .terminal-trust-pill {
   display: inline-flex;

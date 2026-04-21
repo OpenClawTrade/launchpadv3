@@ -291,22 +291,57 @@ function ExternalTokenView({ token, mintAddress, solPrice, isBsc = false }: { to
           {/* Desktop layout */}
           <div className="hidden lg:grid grid-cols-12 gap-4 flex-1">
             <div className="col-span-9 flex flex-col gap-4">
-              <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
-                <CodexChart tokenAddress={mintAddress} networkId={networkId} height={420} />
+              <div className="wf-section">
+                <span className="wf-label dark">[ CHART / PRICE ]</span>
+                <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden">
+                  <CodexChart tokenAddress={mintAddress} networkId={networkId} height={420} />
+                </div>
               </div>
-              <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
+              <div className="wf-section">
+                <span className="wf-label">[ ACTIVITY / TRADES ]</span>
+                <TokenDataTabs tokenAddress={mintAddress} holderCount={token.holders} userWallet={solanaAddress || undefined} userWallets={allWalletAddresses} currentPriceUsd={token.priceUsd || 0} isBsc={isBsc} />
+              </div>
             </div>
             <div className="col-span-3 flex flex-col gap-4">
               {privyAvailable && (
-                isBsc
-                  ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
-                  : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                <div className="wf-section trade-trade-panel">
+                  <span className="wf-label">[ BUY / SELL ]</span>
+                  {isBsc
+                    ? <BnbTradePanel tokenAddress={mintAddress} ticker={token.symbol} name={token.name} imageUrl={token.imageUrl} />
+                    : <UniversalTradePanel token={{ mint_address: mintAddress, ticker: token.symbol, name: token.name, decimals: token.decimals, graduated: token.completed || token.migrated, price_sol: solPrice > 0 ? token.priceUsd / solPrice : 0, imageUrl: token.imageUrl }} userTokenBalance={0} />
+                  }
+                </div>
               )}
-              
+
               <EmbeddedWalletCard />
               {!isBsc && /^0x[a-fA-F0-9]{40}$/.test(mintAddress) && (
                 <EthCreatorControls tokenAddress={mintAddress} />
               )}
+            </div>
+          </div>
+
+          {/* Bottom row — About panel (Top Holders already in tabs above) */}
+          <div className="hidden md:block wf-section trade-trade-panel">
+            <span className="wf-label">[ TOKEN / ABOUT ]</span>
+            <div className="trade-glass-panel p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold font-mono">◆ ABOUT ${token.symbol}</span>
+              </div>
+              <p className="text-[13px] leading-relaxed opacity-80 max-w-3xl">
+                {token.name} (${token.symbol}) is an external {isBsc ? 'BNB' : 'Ethereum'} token tracked via Codex.
+                Trade routing is auto-selected for best execution.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                <div className="about-metric"><span>SUPPLY</span><span className="v">{formatUsdCompact(token.marketCapUsd)}</span></div>
+                <div className="about-metric"><span>HOLDERS</span><span className="v">{token.holders.toLocaleString()}</span></div>
+                <div className="about-metric"><span>LIQ</span><span className="v">{formatUsdCompact(token.liquidity)}</span></div>
+                <div className="about-metric"><span>VOL 24H</span><span className="v">{formatUsdCompact(token.volume24hUsd)}</span></div>
+              </div>
+              <div className="about-metric !justify-start gap-3">
+                <span>CA</span>
+                <code className="v truncate flex-1">{mintAddress}</code>
+                <button onClick={copyAddress} className="opacity-70 hover:opacity-100"><Copy className="h-3.5 w-3.5" /></button>
+              </div>
             </div>
           </div>
         </div>
