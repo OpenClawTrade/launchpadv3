@@ -57,6 +57,7 @@ const CompressedDistributePage = lazyWithRetry(() => import("./pages/CompressedD
 const DecompressPage = lazyWithRetry(() => import("./pages/DecompressPage"));
 const FunModePage = lazyWithRetry(() => import("./pages/FunModePage"));
 const AdminPanelPage = lazyWithRetry(() => import("./pages/AdminPanelPage"));
+const PublicDeployPage = lazyWithRetry(() => import("./pages/PublicDeployPage"));
 const BrandingAdminPage = lazyWithRetry(() => import("./pages/BrandingAdminPage"));
 const BrandAssetsPage = lazyWithRetry(() => import("./pages/BrandAssetsPage"));
 
