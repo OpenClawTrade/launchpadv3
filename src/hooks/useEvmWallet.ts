@@ -49,6 +49,7 @@ export function useEvmWallet() {
   };
 
   const connect = () => {
+    if (isConnected) return;
     login();
   };
 
