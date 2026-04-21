@@ -1448,7 +1448,11 @@
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
     const dev    = devEthFromUsd(devUsd);
-    const startMcUsd = LP_SEED_USD * 1000;
+    // Starting MC = LP-implied MC + dev buy impact.
+    // After dev buys $X into a single-sided V3 LP seeded with $LP_SEED_USD worth of tokens,
+    // the new spot price implies MC ≈ (LP_SEED_USD + devUsd)^2 / LP_SEED_USD * (totalSupply / LP-tokens-allocated).
+    // We approximate with the simpler constant-product form: starting MC ≈ (LP_SEED_USD + devUsd) * 1000.
+    const startMcUsd = (LP_SEED_USD + devUsd) * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
     const allocPct = devUsd > 0 ? (devUsd / (LP_SEED_USD + devUsd)) * 100 : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
