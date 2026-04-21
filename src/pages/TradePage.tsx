@@ -159,9 +159,9 @@ export default function TradePage() {
           tokens={filtered}
           solPrice={activePrice}
           isLoading={isLoading}
-          codexNewPairs={[]}
-          codexCompleting={[]}
-          codexGraduated={[]}
+          codexNewPairs={codexNewPairs}
+          codexCompleting={codexCompleting}
+          codexGraduated={codexGraduated}
           quickBuyAmount={quickBuyAmount}
           onQuickBuyChange={handleQuickBuySet}
           proTradersMap={proTradersMap ?? {}}
