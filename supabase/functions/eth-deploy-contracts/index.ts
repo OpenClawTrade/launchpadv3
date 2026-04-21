@@ -75,6 +75,12 @@ Deno.serve(async (req) => {
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
+  // Helper: always fetch latest pending nonce before sending — prevents "nonce too low" desync.
+  async function sendTx(args: { to: `0x${string}` | null; data: `0x${string}`; value?: bigint }): Promise<`0x${string}`> {
+    const n = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+    return await walletClient.sendTransaction({ to: args.to, data: args.data, value: args.value ?? 0n, nonce: n });
+  }
+
   try {
     const balance = await publicClient.getBalance({ address: account.address });
     const nonce = await publicClient.getTransactionCount({ address: account.address });
@@ -174,7 +180,7 @@ Deno.serve(async (req) => {
         }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } else {
         const data = encodeFunctionData({ abi: ownableAbi, functionName: "transferOwnership", args: [launcher] });
-        const hash = await walletClient.sendTransaction({ to: factory, data, value: 0n });
+        const hash = await sendTx({ to: factory, data, value: 0n });
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
         if (receipt.status !== "success") throw new Error(`CloneFactory.transferOwnership reverted: ${hash}`);
         txs.push({ contract: "CloneFactory", tx: hash });
@@ -190,7 +196,7 @@ Deno.serve(async (req) => {
         }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } else {
         const data = encodeFunctionData({ abi: ownableAbi, functionName: "transferOwnership", args: [launcher] });
-        const hash = await walletClient.sendTransaction({ to: vault, data, value: 0n });
+        const hash = await sendTx({ to: vault, data, value: 0n });
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
         if (receipt.status !== "success") throw new Error(`FeeVault.transferOwnership reverted: ${hash}`);
         txs.push({ contract: "FeeVault", tx: hash });
@@ -274,7 +280,7 @@ Deno.serve(async (req) => {
 
       async function deployOneV2(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
         const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
-        const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+        const hash = await sendTx({ to: null, data, value: 0n });
         v2TxHashes.push(hash);
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
         if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
@@ -298,7 +304,7 @@ Deno.serve(async (req) => {
 
       // 3. Wire FeeVaultV2.setLauncher(launcherV2) — required so registerLockedToken() works.
       const setLauncherAbi = parseAbi(["function setLauncher(address) external"]);
-      const setLauncherTx = await walletClient.sendTransaction({
+      const setLauncherTx = await sendTx({
         to: getAddress(vaultV2),
         data: encodeFunctionData({ abi: setLauncherAbi, functionName: "setLauncher", args: [getAddress(launcherV2)] }),
         value: 0n,
@@ -397,7 +403,7 @@ Deno.serve(async (req) => {
 
       async function deployOneV3(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
         const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
-        const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+        const hash = await sendTx({ to: null, data, value: 0n });
         v3TxHashes.push(hash);
         const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
         if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
@@ -421,7 +427,7 @@ Deno.serve(async (req) => {
 
       // 3. Wire FeeVaultV3.setLauncher(launcherV3)
       const setLauncherAbi3 = parseAbi(["function setLauncher(address) external"]);
-      const setLauncherTx3 = await walletClient.sendTransaction({
+      const setLauncherTx3 = await sendTx({
         to: getAddress(vaultV3),
         data: encodeFunctionData({ abi: setLauncherAbi3, functionName: "setLauncher", args: [getAddress(launcherV3)] }),
         value: 0n,
@@ -520,7 +526,7 @@ Deno.serve(async (req) => {
 
     async function deployOne(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
       const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
-      const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+      const hash = await sendTx({ to: null, data, value: 0n });
       txHashes.push(hash);
       const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
       if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
