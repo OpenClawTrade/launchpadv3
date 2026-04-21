@@ -305,22 +305,8 @@ export default function ApePage() {
 
         {/* MAIN GRID: chart + buy panel */}
         <div className="grid">
-          {/* Chart */}
+          {/* Chart — CodexChart provides its own functional toolbar */}
           <section className="chart-panel">
-            <div className="chart-toolbar">
-              {["1s","5s","15s","30s","1m","5m","15m","30m","1h","4h","12h","1D","7D","1M"].map((tf) => (
-                <button key={tf} className={`tf ${tf === "15m" ? "on" : ""}`}>{tf}</button>
-              ))}
-              <span className="tf-sep" />
-              <span className="toolbar-opt"><span className="pre">◧</span>Candlestick</span>
-              <span className="toolbar-opt"><span className="pre">$</span>USD</span>
-              <span className="toolbar-opt"><span className="pre">▼</span>Filtered</span>
-              <span className="toolbar-opt"><span className="pre">▤</span>Vol</span>
-              <div className="toolbar-right">
-                <span className="live"><span className="d" />LIVE</span>
-                <button className="expand">⤢</button>
-              </div>
-            </div>
             <div className="chart-body">
               {isValidAddress ? (
                 <CodexChart
