@@ -1695,9 +1695,19 @@
   (function(){
     const modal = document.getElementById('soonModal');
     const titleEl = document.getElementById('soonTitle');
+    const bodyEl = document.getElementById('soonBody');
+    const xLink = document.getElementById('soonX');
     if (!modal || !titleEl) return;
     function open(label){
-      titleEl.textContent = '⚡ ' + label + ' Terminal';
+      if (label === 'Holders') {
+        titleEl.textContent = '🪙 Holders Rewards';
+        bodyEl.innerHTML = 'Holders rewards from fees earned by the platform will be revealed in the upcoming days. <b style="color:var(--ink)">Follow X for news.</b>';
+        if (xLink) xLink.style.display = 'inline-flex';
+      } else {
+        titleEl.textContent = '⚡ ' + label + ' Terminal';
+        bodyEl.innerHTML = 'Axiom-style terminal for ETH is almost ready. <b style="color:var(--ink)">Come back tomorrow.</b>';
+        if (xLink) xLink.style.display = 'none';
+      }
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
     }
