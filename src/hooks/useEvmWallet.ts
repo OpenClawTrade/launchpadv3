@@ -1,7 +1,7 @@
 import { useAccount, useBalance, useDisconnect, useChainId, useSwitchChain } from 'wagmi';
 import { base, bsc, mainnet } from 'wagmi/chains';
 import { formatEther } from 'viem';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useConnectWallet } from '@privy-io/react-auth';
 import { useChain } from '@/contexts/ChainContext';
 
 export interface EvmWalletState {
@@ -21,6 +21,7 @@ export function useEvmWallet() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const { login, logout, authenticated, ready } = usePrivy();
+  const { connectWallet } = useConnectWallet();
   const { chain } = useChain();
 
   const balanceChainId = chain === 'bnb' ? bsc.id : chain === 'ethereum' ? mainnet.id : base.id;
@@ -49,7 +50,13 @@ export function useEvmWallet() {
   };
 
   const connect = () => {
-    if (!ready || authenticated || isConnected || isConnecting) return;
+    if (!ready || isConnecting) return;
+    // If Privy session exists but no wagmi connector is attached, open the
+    // external-wallet connect modal (MetaMask/Trust/etc) instead of login().
+    if (authenticated) {
+      if (!isConnected) connectWallet();
+      return;
+    }
     login();
   };
 
