@@ -93,13 +93,17 @@ const PerpsPage = lazyWithRetry(() => import("./pages/PerpsPage"));
 const SellAllPage = lazyWithRetry(() => import("./pages/SellAllPage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
+const PopshibaLaunchpadPage = lazyWithRetry(() => import("./pages/PopshibaLaunchpadPage"));
 
 function RouteChainSync() {
   return null;
 }
 
+// `/` now serves the new Popshiba Launchpad (ported from popshiba-site/launch.html).
+// The previous landing is preserved at `/preview-old` and will be re-enabled
+// once the terminal/pulse pages are fully functional.
 function DomainRoot() {
-  return <Suspense fallback={<RouteLoader />}><HomePage /></Suspense>;
+  return <Suspense fallback={<RouteLoader />}><PopshibaLaunchpadPage /></Suspense>;
 }
 
 // Minimal loading spinner for route transitions
@@ -149,10 +153,13 @@ const App = () => (
                    <div className="relative z-[1]">
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
+                    {/* Backup: previous landing kept here while the launchpad-only era is live */}
+                    <Route path="/preview-old" element={<Suspense fallback={<RouteLoader />}><HomePage /></Suspense>} />
                     <Route path="/tokens" element={<AllTokensPage />} />
                     <Route path="/69" element={<SixtyNineListPage />} />
-                    <Route path="/launchpad" element={<CreateTokenPage />} />
-                    <Route path="/launchpad/create" element={<CreateTokenPage />} />
+                    {/* /launchpad → / (the new home IS the launchpad) */}
+                    <Route path="/launchpad" element={<Navigate to="/" replace />} />
+                    <Route path="/launchpad/create" element={<Navigate to="/" replace />} />
                     <Route path="/terminal" element={<FunLauncherPage />} />
                     
                      {/* Chain-specific launch routes */}
