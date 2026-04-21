@@ -1037,14 +1037,14 @@
             <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">fixed · one-billion standard</div>
           </div>
           <div>
-            <div class="fld-label">Grad threshold</div>
-            <input class="fld-input mono" value="$69,000" disabled style="opacity:0.7;cursor:not-allowed" />
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">auto-migrates to Uniswap V4</div>
+            <div class="fld-label">Starting market cap</div>
+            <input class="fld-input mono" id="econStartMc" value="$5,000" disabled style="opacity:0.7;cursor:not-allowed" />
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">~$5 LP seed · single-sided V3</div>
           </div>
           <div>
             <div class="fld-label">Dev allocation</div>
-            <input class="fld-input mono" value="0%" disabled style="opacity:0.7;cursor:not-allowed" />
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">zero. by design.</div>
+            <input class="fld-input mono" id="econDevAlloc" value="0.00%" disabled style="opacity:0.7;cursor:not-allowed" />
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">from your dev first-buy</div>
           </div>
         </div>
 
@@ -1070,17 +1070,18 @@
         </div>
 
         <div class="fld">
-          <div class="fld-label">Dev first-buy <span class="hint">optional · anti-sniper protection</span></div>
+          <div class="fld-label">Dev first-buy <span class="hint">optional · max 5 ETH</span></div>
           <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
-            <input class="fld-input mono" value="0.5 ETH" />
-            <div style="display:flex;gap:6px">
-              <button class="upl-btn" style="padding:10px 12px">0</button>
-              <button class="upl-btn" style="padding:10px 12px">0.1</button>
-              <button class="upl-btn" style="padding:10px 12px;background:var(--primary)">0.5</button>
-              <button class="upl-btn" style="padding:10px 12px">1.0</button>
+            <input id="devBuyInput" class="fld-input mono" value="0.000 ETH" />
+            <div style="display:flex;gap:6px" id="devBuyPresets">
+              <button type="button" class="upl-btn" data-buy="0" style="padding:10px 12px">0</button>
+              <button type="button" class="upl-btn" data-buy="0.01" style="padding:10px 12px">0.01</button>
+              <button type="button" class="upl-btn" data-buy="0.05" style="padding:10px 12px;background:var(--primary)">0.05</button>
+              <button type="button" class="upl-btn" data-buy="0.1" style="padding:10px 12px">0.1</button>
+              <button type="button" class="upl-btn" data-buy="0.5" style="padding:10px 12px">0.5</button>
             </div>
           </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">Buying ≥0.1 ETH on launch locks your tokens for 24h — signals you're not a rugger.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">Buys your token in the same launch tx so snipers can't front-run you. Counts as your dev allocation.</div>
         </div>
       </div>
 
