@@ -80,6 +80,58 @@ function progressFor(m: Market | undefined, status: string): number {
   return Math.max(5, Math.min(100, Math.round((liq / GRAD_LIQUIDITY_USD) * 100)));
 }
 
+function injectHeroCard(
+  doc: Document,
+  latest: EthLaunch | null,
+  market: Market | undefined
+) {
+  if (!latest) return;
+  const set = (id: string, v: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  const setHTML = (id: string, html: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.innerHTML = html;
+  };
+  const tick = (latest.token_ticker || "—").toUpperCase();
+  set("hp-name", latest.token_name || "unnamed");
+  set("hp-tick", `$${tick}`);
+  set("hp-sticker", `NEW · ${ageOf(latest.created_at)} ago`);
+  if (latest.image_url) {
+    setHTML(
+      "hp-avatar",
+      `<img src="${latest.image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit"/>`
+    );
+  } else {
+    set("hp-avatar", (tick[0] || "P").toUpperCase());
+  }
+  const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
+  if (link) link.href = latest.token_address ? `/trade/${latest.token_address}` : "#";
+
+  const price = market?.priceUsd ?? null;
+  const vol = market?.volumeH24 ?? null;
+  const chg = market?.changeH24 ?? null;
+  const mc = market?.marketCap ?? 0;
+  set("hp-price", price != null ? fmtUsd(price) : "$—");
+  set("hp-vol", vol != null ? fmtUsd(vol) : "$—");
+  const chgEl = doc.getElementById("hp-chg");
+  if (chgEl) {
+    chgEl.textContent = fmtPct(chg);
+    (chgEl as HTMLElement).style.color = chg == null ? "" : chg >= 0 ? "#0b8a3a" : "#c8372d";
+  }
+  const pct = Math.max(2, Math.min(100, Math.round((mc / 69_000) * 100)));
+  const fill = doc.getElementById("hp-bar-fill") as HTMLElement | null;
+  if (fill) fill.style.width = `${pct}%`;
+  set("hp-bar-left", `${fmtUsd(mc)} / $69K MC`);
+  set("hp-bar-right", `${pct}%`);
+  const liveEl = doc.getElementById("hp-live");
+  if (liveEl) {
+    liveEl.textContent = market ? "LIVE" : "DEPLOYING";
+    (liveEl as HTMLElement).style.opacity = market ? "1" : "0.65";
+  }
+}
+
 function injectLiveData(
   doc: Document,
   launches: EthLaunch[],
@@ -114,8 +166,9 @@ function injectLiveData(
       const av = emojis[i % emojis.length];
       const bg = palette[i % palette.length];
       const m = l.token_address ? markets[l.token_address.toLowerCase()] : undefined;
-      const prog = progressFor(m, l.status);
-      const status = prog >= 85 ? "NEAR GRAD" : "LIVE";
+      const liq = m?.liquidityUsd ?? 0;
+      const prog = Math.max(5, Math.min(100, Math.round((liq / GRAD_LIQUIDITY_USD) * 100)));
+      const status = liq >= GRAD_LIQUIDITY_USD ? "DEEP LIQ" : "LIVE";
       const change = m?.changeH24 ?? null;
       const changeClass = change == null ? "up" : change >= 0 ? "up" : "down";
       const tr = doc.createElement("tr");
@@ -138,14 +191,14 @@ function injectLiveData(
         <td>
           <div class="ll-progress">
             <div class="ll-bar${prog >= 85 ? " grad" : ""}" style="--w:${prog}%"></div>
-            <span class="ll-pct">${prog}%</span>
+            <span class="ll-pct">${fmtUsd(liq)}</span>
           </div>
         </td>
         <td><span class="ll-time">${fmtUsd(m?.volumeH24)}</span></td>
         <td><span class="ll-status${prog >= 85 ? " grad" : ""}"><span class="dot"></span>${status}</span></td>
         <td style="text-align:right">
           <a href="${tradeHref}" target="_top" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block">
-            ${prog >= 85 ? "APE →" : "Trade"}
+            Trade
           </a>
         </td>
       `;
@@ -156,7 +209,6 @@ function injectLiveData(
   if (counter) counter.textContent = String(launches.length);
   if (stat) stat.textContent = hero.totalCoins.toLocaleString();
 
-  // Hero stats: best-effort updates if those nodes exist in the template.
   const setText = (id: string, v: string) => {
     const el = doc.getElementById(id);
     if (el) el.textContent = v;
