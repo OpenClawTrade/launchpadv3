@@ -493,7 +493,7 @@ export default function PopshibaLaunchpadPage() {
       } else if (data.type === "wallet-connect") {
         if (ready) login();
       } else if (data.type === "open-earnings") {
-        navigate("/popshiba/earnings");
+        navigate("/earnings");
       }
     }
     window.addEventListener("message", onMessage);
