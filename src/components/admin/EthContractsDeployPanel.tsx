@@ -153,15 +153,9 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Verify on Etherscan
               </Button>
-              {needsTransfer && (
-                <Button onClick={transferOwn} disabled={busy} variant="default">
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-                  Hand Over Ownership to Launcher (~$1)
-                </Button>
-              )}
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                Force Redeploy ALL 4
+                Force Redeploy ALL 4 (fixes user launches)
               </Button>
             </>
           )}
