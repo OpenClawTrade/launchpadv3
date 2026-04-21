@@ -843,12 +843,12 @@
   <section class="hero">
     <div class="hero-grid">
       <div>
-        <span class="hero-tag"><span class="d"></span>FAIR LAUNCH · BONDING CURVE · ETHEREUM</span>
+        <span class="hero-tag"><span class="d"></span>FAIR LAUNCH · INSTANT DEX · ETHEREUM</span>
         <h1>Launch your coin in<br><em>60 seconds.</em><br>Fair. Fun. Final.</h1>
-        <p class="lede">No presale. No team allocation. No dev dump. Just a name, a ticker, a picture — and a bonding curve that pops off when you do. When your token graduates at $69K market cap, liquidity locks forever on Uniswap.</p>
+        <p class="lede">No presale. No team allocation. No dev dump. No bonding curve to wait on — your coin is tradable on Uniswap the moment it deploys. Just a name, a ticker, a picture, and you're live.</p>
         <div class="hero-ctas">
           <button class="btn lg" onclick="document.getElementById('createForm').scrollIntoView({behavior:'smooth',block:'start'})">🚀 Start launching</button>
-          <button class="btn lg ghost" onclick="document.getElementById('curveCard').scrollIntoView({behavior:'smooth',block:'start'})">How the curve works</button>
+          <button class="btn lg ghost" onclick="document.getElementById('liveBoard').scrollIntoView({behavior:'smooth',block:'start'})">See what's live</button>
         </div>
         <div class="hero-stats">
           <div class="hero-stat"><div class="v" id="stat-launched">0</div><div class="k">Coins launched</div></div>
@@ -858,30 +858,32 @@
         </div>
       </div>
 
-      <!-- HERO PREVIEW CARD -->
+      <!-- HERO PREVIEW CARD — wired live -->
+      <a id="hp-link" href="#" target="_top" style="text-decoration:none;color:inherit;display:block">
       <div class="hero-preview">
-        <div class="hp-sticker">NEW · 2m AGO</div>
+        <div class="hp-sticker" id="hp-sticker">NEW · just now</div>
         <div class="hp-head">
-          <div class="hp-avatar">P</div>
+          <div class="hp-avatar" id="hp-avatar">P</div>
           <div>
-            <div class="hp-name">your coin</div>
-            <div class="hp-tick">$YOURCOIN</div>
+            <div class="hp-name" id="hp-name">waiting for next launch…</div>
+            <div class="hp-tick" id="hp-tick">$—</div>
           </div>
-          <div class="hp-live">LIVE</div>
+          <div class="hp-live" id="hp-live">LIVE</div>
         </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.12em;text-transform:uppercase;font-weight:700">Progress to graduation</div>
-        <div class="hp-bar"><div class="hp-bar-fill"></div></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.12em;text-transform:uppercase;font-weight:700">Latest launch — tradable now</div>
+        <div class="hp-bar"><div class="hp-bar-fill" id="hp-bar-fill"></div></div>
         <div class="hp-bar-labels">
-          <span>$42.8K / $69K</span>
-          <span>62%</span>
+          <span id="hp-bar-left">$0 / $69K MC</span>
+          <span id="hp-bar-right">0%</span>
         </div>
         <div class="hp-stats">
-          <div class="hp-stat"><div class="k">Price</div><div class="v">$0.0043</div></div>
-          <div class="hp-stat"><div class="k">Holders</div><div class="v">318</div></div>
-          <div class="hp-stat"><div class="k">Vol 24h</div><div class="v">$12K</div></div>
+          <div class="hp-stat"><div class="k">Price</div><div class="v" id="hp-price">$—</div></div>
+          <div class="hp-stat"><div class="k">24h Vol</div><div class="v" id="hp-vol">$—</div></div>
+          <div class="hp-stat"><div class="k">24h</div><div class="v" id="hp-chg">—</div></div>
         </div>
-        <div class="hp-note"><span>◆ Ethereum</span><span>Bonding curve</span><span>LP: locked</span></div>
+        <div class="hp-note"><span>◆ Ethereum</span><span>Instant DEX</span><span>LP: Uniswap</span></div>
       </div>
+      </a>
     </div>
   </section>
 
@@ -1110,8 +1112,8 @@
 
   </div>
 
-  <!-- ===== BONDING CURVE EXPLAINER ===== -->
-  <section class="curve-card" id="curveCard">
+  <!-- ===== HOW IT WORKS — INSTANT DEX ===== -->
+  <section class="curve-card" id="curveCard" style="display:none">
     <div>
       <h2>How the <em>curve</em> works.</h2>
       <p class="lede">Every buy pushes the price up the curve. Every sell pushes it back down. No LPs, no rug — the contract IS the market-maker. At $69K market cap, your coin graduates: liquidity auto-migrates to Uniswap V4 and locks forever. No team ever holds the keys.</p>
@@ -1154,7 +1156,7 @@
   </section>
 
   <!-- ===== LIVE LAUNCHES ===== -->
-  <section class="live-launches">
+  <section class="live-launches" id="liveBoard">
     <div class="ll-head">
       <span class="live-dot"></span>
       <h2>Launching right now</h2>
