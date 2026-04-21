@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Admin password — must match the one used in the admin panel
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

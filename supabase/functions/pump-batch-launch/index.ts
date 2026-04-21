@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const PUMPPORTAL_API_URL = "https://pumpportal.fun/api/trade";
-const ADMIN_PASSWORD = "saturn135@";
+const ADMIN_PASSWORD = "popshiba135@";
 
 function parseDeployerKeypair(privateKey: string): Keypair {
   try {

@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
 
     // ---- ADMIN CREATE (simplified, no vault deposit required) ----
     if (action === "admin_create") {
-      if (adminPassword !== "saturn135@") {
+      if (adminPassword !== "popshiba135@") {
         return new Response(
           JSON.stringify({ success: false, error: "Unauthorized" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
 
     // ---- PAUSE / UNPAUSE ----
     if (action === "toggle_status" && marketId) {
-      if (adminPassword !== "saturn135@") {
+      if (adminPassword !== "popshiba135@") {
         return new Response(
           JSON.stringify({ success: false, error: "Unauthorized" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
