@@ -39,7 +39,7 @@ export function EthLaunchSuccessModal({
 
   const goTrade = () => {
     onOpenChange(false);
-    navigate(`/trade/${tokenAddress}`);
+    navigate(`/ape/${tokenAddress}`);
   };
 
   const short = tokenAddress
