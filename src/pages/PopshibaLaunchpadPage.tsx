@@ -160,7 +160,20 @@ function injectTopTokens(
     const chg = market?.changeH24 ?? null;
     const chgColor = chg == null ? "var(--up)" : chg >= 0 ? "var(--up)" : "#ff6b4a";
     const chgText = chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%`;
-    const path = buildSparkPath(sparkline);
+    // Always render a chart — use real Codex sparkline if we got one,
+    // otherwise generate a deterministic synthetic curve seeded by the token
+    // address so every card matches /trade's pulse-card look.
+    const sparkData =
+      sparkline && sparkline.length >= 2
+        ? sparkline
+        : syntheticSparkline(
+            launch.token_address || launch.id,
+            chg == null ? 0 : Math.max(-1, Math.min(1, chg / 50))
+          );
+    const path = buildSparkPath(sparkData);
+    const isUp = sparkData[sparkData.length - 1] >= sparkData[0];
+    const lineColor = isUp ? "#0ed47a" : "#ff6b4a";
+    const fillColor = isUp ? "rgba(14,212,122,0.18)" : "rgba(255,107,74,0.18)";
     const tradeHref = launch.token_address ? `/ape/${launch.token_address}` : "#";
     const imageHTML = launch.image_url
       ? `<img src="${launch.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
@@ -182,14 +195,10 @@ function injectTopTokens(
         <div><div class="gm">24H</div><div class="gv" style="color:${chgColor}">${chgText}</div></div>
       </div>
       <div class="mini-chart">
-        ${
-          path
-            ? `<svg viewBox="0 0 100 30" preserveAspectRatio="none">
-                 <path class="fill" d="${path} L 100 30 L 0 30 Z"/>
-                 <path class="ln" d="${path}"/>
-               </svg>`
-            : `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#fff7e0;opacity:0.4;text-align:center;padding-top:12px">no chart yet</div>`
-        }
+        <svg viewBox="0 0 100 30" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+          <path d="${path} L 100 30 L 0 30 Z" fill="${fillColor}" stroke="none"/>
+          <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
     `;
     list.appendChild(card);
