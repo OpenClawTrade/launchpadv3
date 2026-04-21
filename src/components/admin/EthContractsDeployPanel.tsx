@@ -179,17 +179,28 @@ export function EthContractsDeployPanel() {
               ["PopShibaToken (impl)", dry.existingDeployment.token_impl_address],
               ["PopShibaCloneFactory", dry.existingDeployment.clone_factory_address],
               ["PopShibaFeeVault", dry.existingDeployment.vault_address],
+              ["PopShibaLauncher", dry.existingDeployment.launcher_address],
             ].map(([name, addr]) => (
               <div key={name} className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">{name}</span>
-                <a href={`https://etherscan.io/address/${addr}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
-                  {addr?.slice(0, 8)}…{addr?.slice(-6)} <ExternalLink className="h-3 w-3" />
-                </a>
+                {addr ? (
+                  <a href={`https://etherscan.io/address/${addr}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                    {addr.slice(0, 8)}…{addr.slice(-6)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <Badge variant="destructive" className="text-[10px]">MISSING — deploy needed</Badge>
+                )}
               </div>
             ))}
-            <div className="pt-1 text-[10px] text-muted-foreground">
-              Duplicate protection active — "Force Redeploy" deactivates this set and deploys a new one.
-            </div>
+            {dry.canPatchLauncher ? (
+              <div className="pt-1 text-[10px] text-amber-600 dark:text-amber-500 font-semibold">
+                ⚠ Launcher missing. Click "Deploy Launcher Only" to add the 4th contract — your existing 3 stay untouched & verified.
+              </div>
+            ) : (
+              <div className="pt-1 text-[10px] text-muted-foreground">
+                All 4 contracts present. "Force Redeploy" replaces the entire set.
+              </div>
+            )}
           </div>
         )}
 
