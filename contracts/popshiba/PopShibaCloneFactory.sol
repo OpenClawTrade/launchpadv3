@@ -2,7 +2,7 @@
 // PopShiba.com — Ethereum Mainnet Launchpad
 // EIP-1167 minimal-proxy factory. Clones the PopShibaToken implementation
 // for ~90% gas saving on every launch (~25k gas vs ~250k for full deploy).
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IPopShibaToken {
     function initialize(

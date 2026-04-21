@@ -15,7 +15,7 @@ const corsHeaders = {
 };
 
 const CHAIN_ID = 1;
-const COMPILER = "v0.8.20+commit.a1b79de6";
+const COMPILER = "v0.8.19+commit.7dd6d404";
 const PLATFORM_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
 interface ContractDef {

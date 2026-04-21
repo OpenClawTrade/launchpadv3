@@ -24,7 +24,7 @@ const corsHeaders = {
 
 const POPSHIBA_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via PopShiba.com Ethereum Launchpad
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract PopShibaLaunchpad {
     string public name;
@@ -79,7 +79,7 @@ contract PopShibaLaunchpad {
 
 const SATURN_SOURCE = `// SPDX-License-Identifier: MIT
 // Launched via Saturn Ethereum V3 Launchpad — https://saturn.trade
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract SaturnEthV3Token {
     string public name;
@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
     form.append("sourceCode", JSON.stringify(standardJson));
     form.append("codeformat", "solidity-standard-json-input");
     form.append("contractname", `${contractFile}:${contractName}`);
-    form.append("compilerversion", "v0.8.20+commit.a1b79de6");
+    form.append("compilerversion", "v0.8.19+commit.7dd6d404");
     form.append("constructorArguements", encodedArgs);
 
     await delay(2000);

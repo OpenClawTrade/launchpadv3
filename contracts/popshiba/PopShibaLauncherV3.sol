@@ -18,7 +18,7 @@
 //
 // Future: when locking becomes mandatory, the UI just stops sending lockLP=false.
 // Zero contract redeploy needed.
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);

@@ -2,7 +2,7 @@
 // PopShiba.com — Ethereum Mainnet Launchpad
 // Clone-master implementation: deployed ONCE, then cloned via EIP-1167
 // minimal proxies for every token launch (~90% gas saving vs full redeploy).
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract PopShibaToken {
     string public name;

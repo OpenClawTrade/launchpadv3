@@ -18,7 +18,7 @@
 // Result: from the moment the token is live, every block-explorer / scanner
 // (DEXTools, GMGN, DEXScreener, Honeypot.is) shows the recognized
 // "🔒 LP Locked via UNCX" badge.
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);

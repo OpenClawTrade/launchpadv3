@@ -2,7 +2,7 @@
 // includes them (raw .sol files are not bundled with the function).
 
 export const POPSHIBA_TOKEN_SOL = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 contract PopShibaToken {
     string public name;
@@ -73,7 +73,7 @@ contract PopShibaToken {
 // Safety: minimal proxy + initialize() pattern; supply is bounded by caller's
 // arg and minted to caller's chosen recipient. No funds custody.
 export const POPSHIBA_CLONE_FACTORY_SOL = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IPopShibaToken {
     function initialize(
@@ -131,7 +131,7 @@ contract PopShibaCloneFactory {
 // works if the LP NFT is already owned by this vault (require check). Fees
 // stay split 50/50 between the registered creator and platformTreasury.
 export const POPSHIBA_FEE_VAULT_SOL = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function transfer(address to, uint256 value) external returns (bool);
@@ -298,7 +298,7 @@ contract PopShibaFeeVault {
 // Stateless, no admin, immutable. ReentrancyGuard inlined.
 // =====================================================================
 export const POPSHIBA_LAUNCHER_SOL = `// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
