@@ -1619,8 +1619,37 @@
   const launchBtn = document.getElementById('popshibaLaunchBtn');
   if (launchBtn) launchBtn.addEventListener('click', function(e){
     e.preventDefault();
+    if (!walletConnected) {
+      // Trigger Privy wallet connect instead of opening launcher
+      try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
+      // Visual nudge to the warning banner
+      const warn = document.getElementById('walletWarn');
+      if (warn) {
+        warn.scrollIntoView({behavior:'smooth', block:'center'});
+        warn.animate(
+          [{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],
+          {duration:340, iterations:2}
+        );
+      }
+      return;
+    }
     postToParent('open-launcher', collectLaunchPayload());
   });
+
+  // Wire up warning-banner connect button + hide once connected
+  const walletWarn = document.getElementById('walletWarn');
+  const walletWarnConnect = document.getElementById('walletWarnConnect');
+  if (walletWarnConnect) walletWarnConnect.addEventListener('click', function(){
+    try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
+  });
+  function syncWarnVisibility(){
+    if (!walletWarn) return;
+    walletWarn.style.display = walletConnected ? 'none' : 'flex';
+  }
+  // Hook into existing applyWalletState by wrapping it
+  const _origApply = applyWalletState;
+  applyWalletState = function(p){ _origApply(p); syncWarnVisibility(); };
+  syncWarnVisibility();
   // Top-nav Create button
   document.querySelectorAll('.nav-right .btn').forEach(function(b){
     if (/create/i.test(b.textContent || '')) {
