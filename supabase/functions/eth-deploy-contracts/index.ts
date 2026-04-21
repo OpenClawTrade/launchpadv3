@@ -1,0 +1,206 @@
+// PopShiba Ethereum Contract Suite — One-shot mainnet deployer.
+// Compiles Solidity in-flight (npm:solc) → deploys Token impl, CloneFactory, FeeVault.
+// Idempotent: refuses to redeploy if active row exists in eth_deployments.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createWalletClient, createPublicClient, http, parseEther, formatEther } from "npm:viem@2.21.0";
+import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
+import { mainnet } from "npm:viem@2.21.0/chains";
+import solc from "npm:solc@0.8.20";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const WETH_MAINNET = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+const UNISWAP_V3_NFPM = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
+const PLATFORM_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
+
+async function readContract(name: string): Promise<string> {
+  const url = new URL(`./contracts/${name}.sol`, import.meta.url);
+  return await Deno.readTextFile(url);
+}
+
+function compile(sources: Record<string, string>) {
+  const input = {
+    language: "Solidity",
+    sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { content: v }])),
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
+      evmVersion: "paris",
+      outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
+    },
+  };
+  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+  if (output.errors?.some((e: any) => e.severity === "error")) {
+    throw new Error("Compile failed: " + output.errors.map((e: any) => e.formattedMessage).join("\n"));
+  }
+  return output;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const pk = Deno.env.get("ETH_MAINNET_DEPLOYER_PRIVATE_KEY");
+  const rpc = Deno.env.get("ETH_MAINNET_RPC_URL");
+  if (!pk || !rpc) {
+    return new Response(JSON.stringify({ error: "Missing ETH_MAINNET_DEPLOYER_PRIVATE_KEY or ETH_MAINNET_RPC_URL" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  let body: any = {};
+  try { body = await req.json(); } catch {}
+  const dryRun: boolean = body.dryRun === true;
+  const force: boolean = body.force === true;
+
+  const account = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`);
+  const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
+  const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
+
+  try {
+    const balance = await publicClient.getBalance({ address: account.address });
+    const nonce = await publicClient.getTransactionCount({ address: account.address });
+
+    // Idempotency: check existing active deployment
+    const { data: existing } = await supabase
+      .from("eth_deployments")
+      .select("id, vault_address, clone_factory_address, token_impl_address, deployed_at")
+      .eq("is_active", true)
+      .not("vault_address", "is", null)
+      .not("clone_factory_address", "is", null)
+      .order("deployed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (dryRun) {
+      return new Response(JSON.stringify({
+        dryRun: true,
+        deployer: account.address,
+        balance: `${formatEther(balance)} ETH`,
+        nonce,
+        ready: balance >= parseEther("0.05"),
+        existingDeployment: existing ?? null,
+        willDeploy: existing && !force
+          ? []
+          : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault"],
+        warning: existing && !force ? "ACTIVE deployment already exists. Pass force=true to redeploy." : null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (existing && !force) {
+      return new Response(JSON.stringify({
+        error: "Active PopShiba deployment already exists. Pass { force: true } to deploy a new set (deactivates the old one).",
+        existing,
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (balance < parseEther("0.05")) {
+      return new Response(JSON.stringify({
+        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for gas.`,
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ---- Compile ----
+    const [tokenSrc, factorySrc, vaultSrc] = await Promise.all([
+      readContract("PopShibaToken"),
+      readContract("PopShibaCloneFactory"),
+      readContract("PopShibaFeeVault"),
+    ]);
+    const out = compile({
+      "PopShibaToken.sol": tokenSrc,
+      "PopShibaCloneFactory.sol": factorySrc,
+      "PopShibaFeeVault.sol": vaultSrc,
+    });
+
+    const tokenContract = out.contracts["PopShibaToken.sol"]["PopShibaToken"];
+    const factoryContract = out.contracts["PopShibaCloneFactory.sol"]["PopShibaCloneFactory"];
+    const vaultContract = out.contracts["PopShibaFeeVault.sol"]["PopShibaFeeVault"];
+
+    // ABI encoder for constructor args (manual minimal — addresses only)
+    const encodeAddr = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
+
+    const txHashes: string[] = [];
+    const deployed: Record<string, string> = {};
+
+    async function deployOne(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
+      const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
+      const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+      txHashes.push(hash);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
+      if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
+      console.log(`[deploy] ${label} → ${receipt.contractAddress} (gas ${receipt.gasUsed})`);
+      return receipt.contractAddress;
+    }
+
+    // 1. PopShibaToken (impl, no ctor args)
+    deployed.PopShibaToken = await deployOne("PopShibaToken", tokenContract.evm.bytecode.object);
+
+    // 2. PopShibaCloneFactory(address implementation)
+    deployed.PopShibaCloneFactory = await deployOne(
+      "PopShibaCloneFactory",
+      factoryContract.evm.bytecode.object,
+      encodeAddr(deployed.PopShibaToken),
+    );
+
+    // 3. PopShibaFeeVault(weth, nfpm, treasury)
+    deployed.PopShibaFeeVault = await deployOne(
+      "PopShibaFeeVault",
+      vaultContract.evm.bytecode.object,
+      encodeAddr(WETH_MAINNET) + encodeAddr(UNISWAP_V3_NFPM) + encodeAddr(PLATFORM_TREASURY),
+    );
+
+    const finalBal = await publicClient.getBalance({ address: account.address });
+    const gasUsedEth = formatEther(balance - finalBal);
+
+    // Deactivate prior rows + insert new one
+    await supabase.from("eth_deployments").update({ is_active: false }).eq("is_active", true);
+    const { data: row, error: insErr } = await supabase.from("eth_deployments").insert({
+      network: "mainnet",
+      deployer: account.address,
+      contracts: {
+        PopShibaToken: deployed.PopShibaToken,
+        PopShibaCloneFactory: deployed.PopShibaCloneFactory,
+        PopShibaFeeVault: deployed.PopShibaFeeVault,
+        weth: WETH_MAINNET,
+        nfpm: UNISWAP_V3_NFPM,
+        treasury: PLATFORM_TREASURY,
+      },
+      tx_hashes: txHashes,
+      vault_address: deployed.PopShibaFeeVault,
+      clone_factory_address: deployed.PopShibaCloneFactory,
+      token_impl_address: deployed.PopShibaToken,
+      is_active: true,
+      verified: false,
+    }).select().single();
+    if (insErr) console.error("[deploy] persist failed", insErr);
+
+    // Fire-and-forget verification
+    EdgeRuntime.waitUntil((async () => {
+      for (const [name, addr] of Object.entries(deployed)) {
+        try {
+          await supabase.functions.invoke("eth-verify-contract", {
+            body: { address: addr, contractName: name },
+          });
+        } catch (e) { console.error(`[verify] ${name}:`, e); }
+      }
+    })());
+
+    return new Response(JSON.stringify({
+      success: true,
+      network: "mainnet",
+      deployer: account.address,
+      contracts: deployed,
+      tx_hashes: txHashes,
+      gasUsedEth,
+      deploymentId: row?.id,
+      message: "✅ Deployed. Etherscan verification running in background.",
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[eth-deploy-contracts] FAIL:", msg);
+    return new Response(JSON.stringify({ error: msg }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+});
