@@ -466,6 +466,9 @@ export default function PopshibaLaunchpadPage() {
         reply("ai-meme-error", e instanceof Error ? e.message : "Generation failed");
       }
     }
+    function sendWalletState() {
+      reply("wallet-state", { connected: !!(authenticated && isConnected && address), address: address || null });
+    }
     function onMessage(e: MessageEvent) {
       const data = e.data;
       if (!data || data.source !== "popshiba-template") return;
@@ -474,11 +477,19 @@ export default function PopshibaLaunchpadPage() {
         setLauncherOpen(true);
       } else if (data.type === "ai-meme-generate") {
         handleAiMeme();
+      } else if (data.type === "wallet-query") {
+        sendWalletState();
+      } else if (data.type === "wallet-connect") {
+        if (ready) login();
+      } else if (data.type === "open-earnings") {
+        navigate("/popshiba/earnings");
       }
     }
     window.addEventListener("message", onMessage);
+    // Push state immediately and whenever wallet changes
+    sendWalletState();
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [authenticated, isConnected, address, ready, login, navigate]);
 
   return (
     <>
