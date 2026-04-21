@@ -328,6 +328,10 @@ export default function PopshibaLaunchpadPage() {
   const ref = useRef<HTMLIFrameElement>(null);
   const [launcherOpen, setLauncherOpen] = useState(false);
   const [prefill, setPrefill] = useState<LauncherPrefill>({});
+  const navigate = useNavigate();
+  const { address, isConnected } = useAccount();
+  const { login, authenticated, ready } = usePrivy();
+
 
   // ETH-data injection + polling
   useEffect(() => {
