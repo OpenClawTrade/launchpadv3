@@ -7,6 +7,8 @@ import { Loader2, Zap, ArrowDownToLine, Shield, Gauge, Settings2, ExternalLink, 
 import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import { supabase } from "@/integrations/supabase/client";
+import { CodexChart } from "@/components/launchpad/CodexChart";
+import { ETH_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 
 const ETH_LOGO = "https://assets.coingecko.com/coins/images/279/small/ethereum.png";
 const BNB_LOGO = "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png";
@@ -92,12 +94,7 @@ export default function ApePage() {
     return () => { cancelled = true; };
   }, [tokenAddress, chain, isValidAddress]);
 
-  // DexScreener embed src — supports ethereum + bsc
-  const chartSrc = useMemo(() => {
-    if (!isValidAddress) return null;
-    const dsChain = chain === "bnb" ? "bsc" : "ethereum";
-    return `https://dexscreener.com/${dsChain}/${tokenAddress.trim()}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=15`;
-  }, [tokenAddress, chain, isValidAddress]);
+  const networkId = chain === "bnb" ? BSC_NETWORK_ID : ETH_NETWORK_ID;
 
   const handleSwap = async () => {
     if (!isAuthenticated) { setShowLoginModal(true); return; }
@@ -232,38 +229,24 @@ export default function ApePage() {
 
         {/* Main 2-column layout: chart left (8) + trade form right (4) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 md:gap-4">
-          {/* CHART (left) */}
+          {/* CHART (left) — same CodexChart used on /trade/:address */}
           <div className="lg:col-span-8 order-2 lg:order-1">
-            <div className="rounded-lg overflow-hidden border border-border/40 bg-[#0F172A]" style={{ minHeight: 520 }}>
-              {chartSrc ? (
-                <div className="relative w-full" style={{ height: "calc(100vh - 280px)", minHeight: 520 }}>
-                  <iframe
-                    key={chartSrc}
-                    src={chartSrc}
-                    className="w-full h-full border-0"
-                    style={{ colorScheme: "dark" }}
-                    title="Token Chart"
-                    allow="clipboard-write"
-                    loading="lazy"
-                  />
-                  {/* Cover DexScreener branding */}
-                  <div
-                    className="absolute bottom-0 left-0 pointer-events-none"
-                    style={{ width: 180, height: 40, background: "linear-gradient(to right, #0b0f1a 70%, transparent)", zIndex: 10 }}
-                  />
-                  <div
-                    className="absolute top-0 right-0 pointer-events-none"
-                    style={{ width: 140, height: 32, background: "linear-gradient(to left, #0b0f1a 60%, transparent)", zIndex: 10 }}
-                  />
-                </div>
+            <div className="trade-glass-panel-glow trade-chart-wrapper overflow-hidden rounded-lg">
+              {isValidAddress ? (
+                <CodexChart
+                  key={`${chain}-${tokenAddress.trim()}`}
+                  tokenAddress={tokenAddress.trim()}
+                  networkId={networkId}
+                  height={560}
+                />
               ) : (
-                <div className="flex flex-col items-center justify-center text-center p-10" style={{ minHeight: 520 }}>
+                <div className="flex flex-col items-center justify-center text-center p-10" style={{ minHeight: 560 }}>
                   <div className="text-5xl mb-3">📊</div>
                   <p className="text-sm font-mono text-muted-foreground/80 mb-1">
                     Paste a token contract on the right
                   </p>
                   <p className="text-[11px] font-mono text-muted-foreground/50">
-                    Live chart, market data & 1-click swap will appear here
+                    Live candles, volume & full market data will appear here
                   </p>
                 </div>
               )}
