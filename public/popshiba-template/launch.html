@@ -1347,6 +1347,40 @@
   }
   inpName.addEventListener('input', updateCta);
   inpTick.addEventListener('input', updateCta);
+
+  // ===== Bridge to parent React (host iframe) =====
+  function collectLaunchPayload(){
+    const socials = document.querySelectorAll('.social-row .social-input input');
+    const desc = document.querySelector('.form-card textarea.fld-input');
+    const devBuyEl = document.querySelector('.fld input.fld-input.mono[value*="ETH"]');
+    return {
+      name: (inpName.value || '').trim(),
+      ticker: (inpTick.value || '').trim().toUpperCase(),
+      description: desc ? desc.value.trim() : '',
+      twitterUrl: socials[0] ? socials[0].value.trim() : '',
+      telegramUrl: socials[1] ? socials[1].value.trim() : '',
+      websiteUrl: socials[2] ? socials[2].value.trim() : '',
+      discordUrl: socials[3] ? socials[3].value.trim() : '',
+      devBuyEth: devBuyEl ? parseFloat(String(devBuyEl.value).replace(/[^0-9.]/g,'')) || 0 : 0,
+    };
+  }
+  function postToParent(type, payload){
+    try { window.parent.postMessage({ source:'popshiba-template', type, payload }, '*'); } catch(_){}
+  }
+  const launchBtn = document.getElementById('popshibaLaunchBtn');
+  if (launchBtn) launchBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    postToParent('open-launcher', collectLaunchPayload());
+  });
+  // Top-nav Create button
+  document.querySelectorAll('.nav-right .btn').forEach(function(b){
+    if (/create/i.test(b.textContent || '')) {
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('createForm').scrollIntoView({behavior:'smooth',block:'start'});
+      });
+    }
+  });
 </script>
 
 </body>
