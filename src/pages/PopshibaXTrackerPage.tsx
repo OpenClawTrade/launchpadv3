@@ -6,6 +6,7 @@ import { useKolTweets, type KolTweet } from "@/hooks/useKolTweets";
 import { useKolScanStatus } from "@/hooks/useKolScanStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { PopshibaFooter } from "@/components/layout/PopshibaFooter";
 import { ArrowLeft, RefreshCw, Radar, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -170,6 +171,7 @@ export default function PopshibaXTrackerPage() {
           </div>
         )}
       </main>
+      <PopshibaFooter />
     </div>
   );
 }
