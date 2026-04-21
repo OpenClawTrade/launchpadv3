@@ -13,6 +13,7 @@ import {
   POPSHIBA_FEE_VAULT_SOL,
   POPSHIBA_LAUNCHER_SOL,
 } from "./sources.ts";
+import { POPSHIBA_LAUNCHER_BYTECODE } from "./launcher_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
