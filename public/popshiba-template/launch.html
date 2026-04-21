@@ -905,32 +905,48 @@
         </div>
       </div>
 
-      <!-- HERO PREVIEW CARD — wired live -->
-      <a id="hp-link" href="#" target="_top" style="text-decoration:none;color:inherit;display:block">
-      <div class="hero-preview">
-        <div class="hp-sticker" id="hp-sticker">NEW · just now</div>
-        <div class="hp-head">
-          <div class="hp-avatar" id="hp-avatar">P</div>
-          <div>
-            <div class="hp-name" id="hp-name">waiting for next launch…</div>
-            <div class="hp-tick" id="hp-tick">$—</div>
+      <!-- HERO PREVIEW CARD — wired live (data-ready flips to "1" once injected) -->
+      <div class="hero-preview" id="hp-card" data-ready="0">
+        <!-- Skeleton shown only while data-ready="0" -->
+        <div class="hp-skeleton">
+          <div class="dot"></div>
+          <div>Loading latest launch…</div>
+        </div>
+
+        <a id="hp-link" href="#" target="_top" style="text-decoration:none;color:inherit;display:block">
+          <div class="hp-sticker" id="hp-sticker">NEW · just now</div>
+          <div class="hp-head">
+            <div class="hp-avatar" id="hp-avatar">P</div>
+            <div style="min-width:0;flex:1">
+              <div class="hp-name" id="hp-name">—</div>
+              <div class="hp-tick" id="hp-tick">$—</div>
+            </div>
+            <div class="hp-live" id="hp-live">LIVE</div>
           </div>
-          <div class="hp-live" id="hp-live">LIVE</div>
-        </div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.12em;text-transform:uppercase;font-weight:700">Latest launch — tradable now</div>
-        <div class="hp-bar"><div class="hp-bar-fill" id="hp-bar-fill"></div></div>
-        <div class="hp-bar-labels">
-          <span id="hp-bar-left">$0 / $69K MC</span>
-          <span id="hp-bar-right">0%</span>
-        </div>
-        <div class="hp-stats">
-          <div class="hp-stat"><div class="k">Price</div><div class="v" id="hp-price">$—</div></div>
-          <div class="hp-stat"><div class="k">24h Vol</div><div class="v" id="hp-vol">$—</div></div>
-          <div class="hp-stat"><div class="k">24h</div><div class="v" id="hp-chg">—</div></div>
-        </div>
-        <div class="hp-note"><span>◆ Ethereum</span><span>Instant DEX</span><span>LP: Uniswap</span></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.12em;text-transform:uppercase;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span>Latest launch — tradable now</span>
+          </div>
+          <div class="hp-bar"><div class="hp-bar-fill" id="hp-bar-fill"></div></div>
+          <div class="hp-bar-labels">
+            <span id="hp-bar-left">$0 / $69K MC</span>
+            <span id="hp-bar-right">0%</span>
+          </div>
+          <div class="hp-stats">
+            <div class="hp-stat"><div class="k">Price</div><div class="v" id="hp-price">$—</div></div>
+            <div class="hp-stat"><div class="k">24h Vol</div><div class="v" id="hp-vol">$—</div></div>
+            <div class="hp-stat"><div class="k">24h</div><div class="v" id="hp-chg">—</div></div>
+          </div>
+          <div class="hp-note">
+            <span>◆ Ethereum</span>
+            <span>Instant DEX</span>
+            <span class="hp-socials" id="hp-socials" onclick="event.stopPropagation();event.preventDefault()">
+              <a id="hp-tw" target="_blank" rel="noopener noreferrer" title="X / Twitter">𝕏</a>
+              <a id="hp-tg" target="_blank" rel="noopener noreferrer" title="Telegram">T</a>
+              <a id="hp-web" target="_blank" rel="noopener noreferrer" title="Website">🌐</a>
+            </span>
+          </div>
+        </a>
       </div>
-      </a>
     </div>
   </section>
 
