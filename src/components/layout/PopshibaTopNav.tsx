@@ -207,18 +207,35 @@ function SocialLinks({ compact = false }: { compact?: boolean }) {
 }
 
 function WalletPill({ className = "" }: { className?: string }) {
-  const { user, login, authenticated } = usePrivy();
+  const { user, login, logout, authenticated } = usePrivy();
+  const [menuOpen, setMenuOpen] = useState(false);
   const evm =
     (user?.wallet?.address as string | undefined) ||
     ((user?.linkedAccounts ?? []).find((a: any) => a?.type === "wallet" && typeof a?.address === "string") as any)
       ?.address as string | undefined;
   const short = evm ? `${evm.slice(0, 6)}…${evm.slice(-4)}` : null;
 
+  // Close on outside click / Esc
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-wallet-pill]")) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
   if (!authenticated || !short) {
     return (
       <button
         onClick={() => login()}
-        className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream ${className}`}
+        className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors ${className}`}
       >
         Connect
       </button>
@@ -226,11 +243,47 @@ function WalletPill({ className = "" }: { className?: string }) {
   }
 
   return (
-    <span
-      className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream ${className}`}
-    >
-      <span className="inline-block w-2 h-2 rounded-full bg-[#5ce68e] shadow-[0_0_8px_#5ce68e]" />
-      {short}
-    </span>
+    <div data-wallet-pill className={`relative inline-block ${className}`}>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        className="inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors w-full justify-center"
+      >
+        <span className="inline-block w-2 h-2 rounded-full bg-[#5ce68e] shadow-[0_0_8px_#5ce68e]" />
+        {short}
+        <svg viewBox="0 0 12 12" className={`w-2.5 h-2.5 transition-transform ${menuOpen ? "rotate-180" : ""}`} fill="currentColor" aria-hidden="true">
+          <path d="M2 4l4 4 4-4z" />
+        </svg>
+      </button>
+      {menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 min-w-[200px] bg-pop-ink border-2 border-pop-orange shadow-[3px_3px_0_hsl(var(--pop-ink))] z-[200] overflow-hidden"
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              if (evm) navigator.clipboard?.writeText(evm).catch(() => {});
+              setMenuOpen(false);
+            }}
+            className="w-full text-left px-3 py-2.5 text-[12px] font-bold text-pop-cream hover:bg-pop-cream/10 transition-colors"
+          >
+            Copy address
+          </button>
+          <button
+            role="menuitem"
+            onClick={async () => {
+              setMenuOpen(false);
+              try { await logout(); } catch (e) { console.error("logout failed", e); }
+            }}
+            className="w-full text-left px-3 py-2.5 text-[12px] font-bold text-pop-ink bg-pop-orange hover:brightness-95 transition-all border-t-2 border-pop-ink"
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
