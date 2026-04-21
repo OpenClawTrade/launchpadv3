@@ -352,10 +352,11 @@ export default function FunTokenDetailPage() {
   // Track this token page visit (debounced per session, deduped per visitor per day server-side)
   useTrackTokenView(mintAddress);
 
-  const isBsc = isEvmAddress(mintAddress || '');
-  // EVM-only: BNB (56) for BSC tokens, Ethereum (1) otherwise
-  const networkId = isBsc ? BSC_NETWORK_ID : 1;
-  const activePrice = isBsc ? bnbPrice : solPrice;
+  const isEvm = isEvmAddress(mintAddress || '');
+  // EVM defaults to Ethereum mainnet; the codex edge function falls back to BSC if not found
+  const networkId = isEvm ? 1 : 1;
+  const isBsc = false; // determined dynamically by external token data
+  const activePrice = isEvm ? bnbPrice : solPrice;
 
   const { data: token, isLoading, refetch } = useFunToken(mintAddress || '');
   const { data: externalToken, isLoading: externalLoading } = useExternalToken(mintAddress || '', !isLoading && !token, networkId);
