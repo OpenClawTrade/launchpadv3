@@ -555,19 +555,54 @@ export function EthLauncher() {
               </div>
             </div>
 
+            {/* LP lock toggle (V3) */}
+            <button
+              type="button"
+              onClick={() => setLockLP((v) => !v)}
+              className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                lockLP
+                  ? 'border-primary/60 bg-primary/10'
+                  : 'border-border bg-background/40 hover:border-primary/40'
+              }`}
+            >
+              <div
+                className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
+                  lockLP ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+                }`}
+              >
+                {lockLP && <span className="text-[10px] text-primary-foreground leading-none">✓</span>}
+              </div>
+              <div className="text-xs space-y-0.5">
+                <div className="font-semibold">
+                  🔒 Lock LP in Team Finance (10 years) — adds ~$150 in ETH
+                </div>
+                <div className="text-muted-foreground leading-relaxed">
+                  {lockLP
+                    ? 'LP NFT will be locked in Team Finance for 10 years. Token gets the recognized 🔒 LP Locked badge on DEXTools / GMGN, and you earn 50% of all 1% swap fees forever (claim anytime).'
+                    : 'No lock — cheapest path. The LP NFT stays in the launcher contract; no scanner badge, no fee claim flow. You can opt in here per-launch.'}
+                </div>
+              </div>
+            </button>
+
             {/* Total cost summary */}
             <div className="flex items-start gap-2 p-3 bg-primary/5 border border-primary/30 rounded-lg">
               <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <div className="text-xs text-foreground/80 leading-relaxed space-y-0.5 font-mono">
                 <div>LP seed: <strong>{lpEthAmount.toFixed(6)} ETH</strong></div>
                 <div>Dev buy: <strong>{(formData.devBuyEth || 0).toFixed(6)} ETH</strong></div>
-                <div>UNCX lock fee: <strong>~0.0001 ETH</strong></div>
+                {lockLP ? (
+                  <div>Team Finance lock fee: <strong>~0.045 ETH</strong> (~$150, live oracle)</div>
+                ) : (
+                  <div>Lock fee: <strong>none</strong> (no-lock launch)</div>
+                )}
                 <div>+ network gas (variable, depends on mainnet conditions)</div>
                 <div className="pt-1 border-t border-primary/20 mt-1">
-                  Total wallet send: <strong>~{(lpEthAmount + (formData.devBuyEth || 0) + 0.0001).toFixed(6)} ETH</strong>
+                  Total wallet send: <strong>~{(lpEthAmount + (formData.devBuyEth || 0) + (lockLP ? 0.045 : 0)).toFixed(6)} ETH</strong>
                 </div>
                 <div className="text-muted-foreground pt-1 normal-case">
-                  LP is locked in <strong>UNCX V3 Locker</strong> for 100 years — token launches with the recognized 🔒 LP Locked badge on DEXTools / GMGN. You earn <strong>50% of all 1% swap fees</strong>.
+                  {lockLP
+                    ? 'LP locked in Team Finance for 10 years — recognized 🔒 LP Locked badge. You earn 50% of all 1% swap fees.'
+                    : 'No LP lock. Faster + cheaper, but no scanner lock badge and no creator fee claim. Toggle the lock on above to enable both.'}
                 </div>
               </div>
             </div>
