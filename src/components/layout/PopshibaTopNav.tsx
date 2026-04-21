@@ -272,6 +272,14 @@ function WalletPill({ className = "" }: { className?: string }) {
           >
             Copy address
           </button>
+          <Link
+            role="menuitem"
+            to="/earnings"
+            onClick={() => setMenuOpen(false)}
+            className="block w-full text-left px-3 py-2.5 text-[12px] font-bold text-pop-cream hover:bg-pop-cream/10 transition-colors border-t border-pop-cream/10"
+          >
+            Earnings
+          </Link>
           <button
             role="menuitem"
             onClick={async () => {

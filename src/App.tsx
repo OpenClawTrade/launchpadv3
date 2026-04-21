@@ -95,6 +95,7 @@ const ApePage = lazyWithRetry(() => import("./pages/ApePage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 const PopshibaLaunchpadPage = lazyWithRetry(() => import("./pages/PopshibaLaunchpadPage"));
+const PopshibaEarnings = lazyWithRetry(() => import("./pages/PopshibaEarnings"));
 
 function RouteChainSync() {
   return null;
@@ -236,7 +237,7 @@ const App = () => (
                      <Route path="/dexlist" element={<DexListPage />} />
                      <Route path="/banner-maker" element={<BannerMakerPage />} />
                      <Route path="/portfolio" element={<PortfolioPage />} />
-                     <Route path="/earnings" element={<Navigate to="/panel?tab=earnings" replace />} />
+                     <Route path="/earnings" element={<PopshibaEarnings />} />
                      <Route path="/punch" element={<Navigate to="/" replace />} />
                      <Route path="/punch-test" element={<Navigate to="/" replace />} />
                      <Route path="/link/:code" element={<ReferralRedirectPage />} />
