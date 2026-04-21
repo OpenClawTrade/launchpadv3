@@ -148,7 +148,7 @@ export function PopshibaHero() {
       <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
         <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)] gap-8 lg:gap-12 items-center">
           {/* LEFT — wire-framed centered hero */}
-          <WireFrame label="[ hero / h1 ]" className="text-center px-5 sm:px-8 lg:px-12 py-8 sm:py-10">
+          <WireFrame label="[ hero / h1 ]" className="text-center px-5 sm:px-8 lg:px-12 py-8 sm:py-10 [container-type:inline-size]">
             {/* kicker */}
             <div className="inline-flex items-center gap-2 bg-pop-ink text-pop-cream px-3 py-1.5 mb-5 sm:mb-6 max-w-full">
               <span className="w-2 h-2 rounded-full bg-pop-orange shadow-[0_0_10px_hsl(var(--pop-orange))] animate-pulse shrink-0" />
@@ -159,14 +159,14 @@ export function PopshibaHero() {
 
             {/* POPSHIBA wordmark with cream highlight */}
             <h1
-              className="font-pop-display text-pop-ink leading-[0.86] tracking-[-0.045em] mb-4 sm:mb-5 whitespace-nowrap"
-              style={{ fontSize: "clamp(48px, 9vw, 112px)" }}
+              className="font-pop-display text-pop-ink leading-[0.86] tracking-[-0.045em] mb-4 sm:mb-5 break-words"
+              style={{ fontSize: "clamp(40px, 11.5cqw, 104px)", containerType: "inline-size" } as React.CSSProperties}
             >
-              POP
+              POP<wbr />
               <span className="relative inline-block">
                 <span className="relative z-10">SHIBA</span>
                 <span
-                  className="absolute left-0 right-0 bottom-[8px] h-[10px] sm:h-[12px] bg-pop-cream -z-0"
+                  className="absolute left-0 right-0 bottom-[6px] h-[8px] sm:h-[10px] lg:h-[12px] bg-pop-cream -z-0"
                   aria-hidden
                 />
               </span>
