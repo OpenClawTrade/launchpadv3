@@ -62,6 +62,8 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch {}
   const dryRun: boolean = body.dryRun === true;
   const force: boolean = body.force === true;
+  // launcherOnly: keep existing Token impl + CloneFactory + FeeVault, deploy ONLY the missing PopShibaLauncher and patch the active row.
+  const launcherOnly: boolean = body.launcherOnly === true;
 
   const account = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`);
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
