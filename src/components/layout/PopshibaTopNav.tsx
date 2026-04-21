@@ -1,19 +1,22 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Menu, X, Plus } from "lucide-react";
+import {
+  Menu, X, Plus,
+  Home as HomeIcon, Activity, LineChart, Rocket, Compass, Sparkles, Twitter, BookOpen,
+} from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import popshibaLogo from "@/assets/popshiba-logo.png";
 import { CreatorFeesPill } from "./CreatorFeesPill";
 
 const NAV_LINKS = [
-  { label: "Home", to: "/" },
-  { label: "Pulse", to: "/launchpad" },
-  { label: "Trade", to: "/trade" },
-  { label: "Launchpad", to: "/launch" },
-  { label: "Discover", to: "/discover" },
-  { label: "Alpha", to: "/alpha-tracker" },
-  { label: "X Tracker", to: "/x-tracker" },
-  { label: "Docs", to: "/docs" },
+  { label: "Home", to: "/", Icon: HomeIcon },
+  { label: "Pulse", to: "/launchpad", Icon: Activity },
+  { label: "Trade", to: "/trade", Icon: LineChart },
+  { label: "Launchpad", to: "/launch", Icon: Rocket },
+  { label: "Discover", to: "/discover", Icon: Compass },
+  { label: "Alpha", to: "/alpha-tracker", Icon: Sparkles },
+  { label: "X Tracker", to: "/x-tracker", Icon: Twitter },
+  { label: "Docs", to: "/docs", Icon: BookOpen },
 ];
 
 /** Tilted brand frame: two stacked rotated squares with the logo on top. */
