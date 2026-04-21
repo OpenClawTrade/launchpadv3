@@ -12,6 +12,11 @@ import {
   POPSHIBA_CLONE_FACTORY_BYTECODE,
   POPSHIBA_FEE_VAULT_BYTECODE,
 } from "./precompiled_bytecode.ts";
+import {
+  POPSHIBA_FEE_VAULT_V2_BYTECODE,
+  POPSHIBA_LAUNCHER_V2_BYTECODE,
+  V2_BYTECODE_READY,
+} from "./v2_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +44,9 @@ Deno.serve(async (req) => {
   const force: boolean = body.force === true;
   // launcherOnly: keep existing Token impl + CloneFactory + FeeVault, deploy ONLY the missing PopShibaLauncher and patch the active row.
   const launcherOnly: boolean = body.launcherOnly === true;
+  // v2: deploy PopShibaFeeVaultV2 + PopShibaLauncherV2 (UNCX locking suite). Reuses existing
+  // PopShibaToken impl + CloneFactory from the active V1 row, inserts a NEW active eth_deployments row.
+  const v2: boolean = body.v2 === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
@@ -218,9 +226,135 @@ Deno.serve(async (req) => {
         canPatchLauncher,
         willDeploy,
         ownership,
+        v2Ready: V2_BYTECODE_READY,
+        v2CanDeploy: V2_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
-          : (existing && !force && !launcherOnly ? "ACTIVE deployment already exists. Pass force=true to redeploy or launcherOnly=true to add the missing Launcher." : null),
+          : (existing && !force && !launcherOnly && !v2 ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, or v2=true to deploy the UNCX-locking V2 suite alongside it." : null),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ============================================================
+    // V2 DEPLOY MODE — UNCX locking suite
+    //   1. Reuses existing PopShibaToken impl + CloneFactory from V1 active row.
+    //   2. Deploys PopShibaFeeVaultV2 (treasury) + PopShibaLauncherV2 (factory, vaultV2).
+    //   3. Calls FeeVaultV2.setLauncher(launcherV2) so registerLockedToken works.
+    //   4. Inserts a NEW active eth_deployments row (deactivates V1 row → frontend
+    //      automatically routes new launches to V2). V1 row stays usable for legacy claims.
+    // ============================================================
+    if (v2) {
+      if (!V2_BYTECODE_READY) {
+        return new Response(JSON.stringify({
+          error: "V2 bytecode not pasted yet. Compile contracts/PopShibaFeeVaultV2.sol + PopShibaLauncherV2.sol (Solidity 0.8.20, optimizer 200 runs) and paste the runtime bytecode into supabase/functions/eth-deploy-contracts/v2_bytecode.ts.",
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!existing?.token_impl_address || !existing?.clone_factory_address) {
+        return new Response(JSON.stringify({
+          error: "V2 deploy requires an existing V1 active row (for the shared PopShibaToken impl + CloneFactory). Deploy V1 first.",
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (balance < parseEther("0.02")) {
+        return new Response(JSON.stringify({
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.02 ETH for V2 deploy.`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const encodeAddrLocal = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
+      const v2TxHashes: string[] = [];
+
+      async function deployOneV2(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
+        const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
+        const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
+        v2TxHashes.push(hash);
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
+        if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
+        console.log(`[deploy v2] ${label} → ${receipt.contractAddress} (gas ${receipt.gasUsed})`);
+        return receipt.contractAddress;
+      }
+
+      // 1. PopShibaFeeVaultV2(treasury)
+      const vaultV2 = await deployOneV2(
+        "PopShibaFeeVaultV2",
+        POPSHIBA_FEE_VAULT_V2_BYTECODE,
+        encodeAddrLocal(PLATFORM_TREASURY),
+      );
+
+      // 2. PopShibaLauncherV2(cloneFactory, vaultV2)
+      const launcherV2 = await deployOneV2(
+        "PopShibaLauncherV2",
+        POPSHIBA_LAUNCHER_V2_BYTECODE,
+        encodeAddrLocal(existing.clone_factory_address) + encodeAddrLocal(vaultV2),
+      );
+
+      // 3. Wire FeeVaultV2.setLauncher(launcherV2) — required so registerLockedToken() works.
+      const setLauncherAbi = parseAbi(["function setLauncher(address) external"]);
+      const setLauncherTx = await walletClient.sendTransaction({
+        to: getAddress(vaultV2),
+        data: encodeFunctionData({ abi: setLauncherAbi, functionName: "setLauncher", args: [getAddress(launcherV2)] }),
+        value: 0n,
+      });
+      v2TxHashes.push(setLauncherTx);
+      const setLauncherReceipt = await publicClient.waitForTransactionReceipt({ hash: setLauncherTx, timeout: 180_000 });
+      if (setLauncherReceipt.status !== "success") throw new Error(`setLauncher reverted: ${setLauncherTx}`);
+
+      // 4. Read uncxLockFeeWei from launcher so we can persist it (no need for client to query).
+      let uncxLockFeeWei: string | null = null;
+      try {
+        const fee = await publicClient.readContract({
+          address: getAddress(launcherV2),
+          abi: parseAbi(["function uncxLockFeeWei() view returns (uint256)"]),
+          functionName: "uncxLockFeeWei",
+        }) as bigint;
+        uncxLockFeeWei = fee.toString();
+      } catch (e) {
+        console.warn("[deploy v2] uncxLockFeeWei read failed (will fall back to 0.0001 ETH):", e);
+      }
+
+      const finalBalV2 = await publicClient.getBalance({ address: account.address });
+
+      // Deactivate prior rows + insert new active V2 row.
+      await supabase.from("eth_deployments").update({ is_active: false }).eq("is_active", true);
+      const { data: rowV2, error: insErrV2 } = await supabase.from("eth_deployments").insert({
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaToken: existing.token_impl_address,
+          PopShibaCloneFactory: existing.clone_factory_address,
+          PopShibaFeeVaultV2: vaultV2,
+          PopShibaLauncherV2: launcherV2,
+          weth: WETH_MAINNET,
+          nfpm: UNISWAP_V3_NFPM,
+          uncx_v3_locker: "0xFD235968e65B0990584585763f837A5b5330e6DE",
+          treasury: PLATFORM_TREASURY,
+          version: "v2",
+        },
+        tx_hashes: v2TxHashes,
+        vault_address: vaultV2,
+        clone_factory_address: existing.clone_factory_address,
+        token_impl_address: existing.token_impl_address,
+        launcher_address: launcherV2,
+        uncx_lock_fee_wei: uncxLockFeeWei,
+        is_active: true,
+        verified: false,
+      }).select().single();
+      if (insErrV2) console.error("[deploy v2] persist failed", insErrV2);
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "v2",
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaToken: existing.token_impl_address,
+          PopShibaCloneFactory: existing.clone_factory_address,
+          PopShibaFeeVaultV2: vaultV2,
+          PopShibaLauncherV2: launcherV2,
+        },
+        tx_hashes: v2TxHashes,
+        gasUsedEth: formatEther(balance - finalBalV2),
+        uncxLockFeeWei,
+        deploymentId: rowV2?.id,
+        message: "✅ V2 (UNCX locking) suite deployed. New launches will use UNCX V3 Locker. V1 vault stays operational for legacy claims.",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
