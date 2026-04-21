@@ -374,68 +374,7 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* Mandatory Dev Buy — locked at $50 worth of ETH */}
-            <div className="space-y-3 p-4 bg-secondary/30 rounded-lg border border-border/50">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="eth-devbuy" className="flex items-center gap-2 text-base">
-                  <Coins className="h-4 w-4 text-primary" />
-                  Initial Dev Buy
-                  <Badge variant="outline" className="ml-1 text-[10px] uppercase tracking-wide border-primary/40 text-primary">
-                    Required · ${MANDATORY_DEV_BUY_USD}
-                  </Badge>
-                </Label>
-                {ethPrice > 0 && (
-                  <span className="text-xs font-mono text-muted-foreground">
-                    ≈ ${(formData.devBuyEth * ethPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </span>
-                )}
-              </div>
-
-              <div className="relative">
-                <Input
-                  id="eth-devbuy"
-                  type="text"
-                  value={ethPrice > 0 ? devBuyInput : 'Loading ETH price…'}
-                  readOnly
-                  disabled
-                  className="bg-background/30 pr-14 h-11 text-base font-mono cursor-not-allowed opacity-90"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground pointer-events-none">
-                  ETH
-                </span>
-              </div>
-
-              {/* Live preview: USD cost + supply share */}
-              {formData.devBuyEth > 0 && (() => {
-                const usdCost = ethPrice > 0 ? formData.devBuyEth * ethPrice : 0;
-                const pricePerToken = START_MC_USD / TOTAL_SUPPLY;
-                const tokensReceived = usdCost > 0 ? usdCost / pricePerToken : 0;
-                const pctSupply = (tokensReceived / TOTAL_SUPPLY) * 100;
-                return (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Cost</div>
-                      <div className="text-sm font-mono font-semibold text-foreground">
-                        {ethPrice > 0
-                          ? `$${usdCost.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-                          : '—'}
-                      </div>
-                    </div>
-                    <div className="rounded-md bg-background/40 border border-border/40 p-2">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Supply share</div>
-                      <div className="text-sm font-mono font-semibold text-primary">
-                        {pctSupply >= 0.01 ? `~${pctSupply.toFixed(2)}%` : '<0.01%'}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Every launch requires a <span className="text-primary font-semibold">${MANDATORY_DEV_BUY_USD} dev buy</span> to seed
-                price discovery and prevent zero-liquidity snipes. Amount auto-converted to ETH at the current spot price.
-              </p>
-            </div>
+            {/* (LP + Dev Buy panels rendered above) */}
 
             {/* Model explainer */}
             <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
