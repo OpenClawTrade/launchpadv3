@@ -439,22 +439,21 @@ export default function PopshibaLaunchpadPage() {
       ).length;
       const gradPct = launches.length > 0 ? (millionCount / launches.length) * 100 : 0;
 
-      // Top-tokens strip: pick the top 4 launches by Codex market cap (desc),
-      // pushing tokens with no market-cap data to the end so they never out-rank
-      // a real number.
+      // Top-tokens strip: show ALL launched tokens, sorted by Codex market cap (desc).
+      // Tokens without market data are kept (mcap treated as 0) so the strip never
+      // shrinks to 1-2 cards just because Codex hasn't indexed the rest yet.
       const topRanked = launches
         .map((l, idx) => ({
           launch: l,
-          market: l.token_address ? markets[l.token_address.toLowerCase()] : undefined,
+          market: (l.token_address ? markets[l.token_address.toLowerCase()] : undefined) as Market,
           index: idx,
         }))
-        .filter((r): r is { launch: EthLaunch; market: Market; index: number } => !!r.market && !!r.launch.token_address)
+        .filter((r) => !!r.launch.token_address)
         .sort((a, b) => {
-          const am = typeof a.market.marketCap === "number" && isFinite(a.market.marketCap) ? a.market.marketCap : -1;
-          const bm = typeof b.market.marketCap === "number" && isFinite(b.market.marketCap) ? b.market.marketCap : -1;
+          const am = typeof a.market?.marketCap === "number" && isFinite(a.market.marketCap) ? a.market.marketCap : -1;
+          const bm = typeof b.market?.marketCap === "number" && isFinite(b.market.marketCap) ? b.market.marketCap : -1;
           return bm - am;
-        })
-        .slice(0, 8);
+        });
 
       let sparklines: Record<string, number[]> = {};
       if (topRanked.length > 0) {
