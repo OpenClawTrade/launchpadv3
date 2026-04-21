@@ -159,14 +159,14 @@ export function PopshibaHero() {
 
             {/* POPSHIBA wordmark with cream highlight */}
             <h1
-              className="font-pop-display text-pop-ink leading-[0.86] tracking-[-0.045em] mb-4 sm:mb-5 whitespace-nowrap"
-              style={{ fontSize: "clamp(48px, 9vw, 112px)" }}
+              className="font-pop-display text-pop-ink leading-[0.86] tracking-[-0.045em] mb-4 sm:mb-5 break-words"
+              style={{ fontSize: "clamp(40px, 11.5cqw, 104px)", containerType: "inline-size" } as React.CSSProperties}
             >
-              POP
+              POP<wbr />
               <span className="relative inline-block">
                 <span className="relative z-10">SHIBA</span>
                 <span
-                  className="absolute left-0 right-0 bottom-[8px] h-[10px] sm:h-[12px] bg-pop-cream -z-0"
+                  className="absolute left-0 right-0 bottom-[6px] h-[8px] sm:h-[10px] lg:h-[12px] bg-pop-cream -z-0"
                   aria-hidden
                 />
               </span>
