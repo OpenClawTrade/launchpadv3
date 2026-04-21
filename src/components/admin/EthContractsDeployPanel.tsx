@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck } from "lucide-react";
+import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,6 +15,14 @@ interface ExistingDeployment {
   deployed_at: string;
 }
 
+interface OwnershipStatus {
+  factoryOwner: string | null;
+  vaultOwner: string | null;
+  factoryOk: boolean;
+  vaultOk: boolean;
+  bothOk: boolean;
+}
+
 interface DryRun {
   dryRun: true;
   deployer: string;
@@ -24,6 +32,7 @@ interface DryRun {
   willDeploy: string[];
   existingDeployment: ExistingDeployment | null;
   canPatchLauncher: boolean;
+  ownership: OwnershipStatus | null;
   warning: string | null;
 }
 
