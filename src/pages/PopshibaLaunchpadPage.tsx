@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
 
 type EthLaunch = {
