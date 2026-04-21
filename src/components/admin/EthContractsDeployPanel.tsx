@@ -114,38 +114,7 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, [checkReadiness]);
 
-  const transferOwn = useCallback(async () => {
-    const ok = confirm(
-      "Hand over ownership of CloneFactory + FeeVault to the Launcher?\n\n" +
-      "This is a ONE-TIME setup that lets ANY user wallet launch tokens directly. " +
-      "Two transactions from the platform deployer wallet, ~$1 total gas. " +
-      "Cannot be undone (Launcher has no transferOwnership exposed)."
-    );
-    if (!ok) return;
-    setBusy(true); setErr(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("eth-deploy-contracts", {
-        body: { transferOwnership: true },
-      });
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const r = data as { success: boolean; txs: { contract: string; tx: string; alreadyTransferred?: boolean }[]; gasUsedEth: string; message: string };
-      const fresh = r.txs.filter(t => !t.alreadyTransferred);
-      toast.success("✅ Ownership transferred", {
-        description: fresh.length ? `${fresh.length} tx · ${parseFloat(r.gasUsedEth).toFixed(5)} ETH gas` : "Already complete",
-      });
-      checkReadiness();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Transfer failed";
-      setErr(msg); toast.error("Transfer failed", { description: msg });
-    } finally { setBusy(false); }
-  }, [checkReadiness]);
-
   const hasActive = !!dry?.existingDeployment;
-  const hasLauncher = !!dry?.existingDeployment?.launcher_address;
-  const ownership = dry?.ownership ?? null;
-  const ownershipReady = !!ownership?.bothOk;
-  const needsTransfer = hasLauncher && ownership && !ownership.bothOk;
 
   return (
     <Card className="border-2">
