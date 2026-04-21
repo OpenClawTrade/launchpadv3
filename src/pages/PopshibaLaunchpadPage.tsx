@@ -216,6 +216,7 @@ function injectLiveData(
   setText("stat-volume", fmtUsd(hero.totalVolume));
   setText("stat-mc", fmtUsd(hero.totalMC));
   setText("stat-grad-count", String(Math.round((hero.gradPct / 100) * launches.length)));
+
 }
 
 export default function PopshibaLaunchpadPage() {
