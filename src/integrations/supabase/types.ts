@@ -4191,6 +4191,48 @@ export type Database = {
         }
         Relationships: []
       }
+      eth_deployment_progress: {
+        Row: {
+          clone_factory_address: string | null
+          created_at: string
+          deployer: string
+          id: string
+          last_error: string | null
+          network: string
+          status: string
+          token_impl_address: string | null
+          tx_hashes: Json
+          updated_at: string
+          vault_address: string | null
+        }
+        Insert: {
+          clone_factory_address?: string | null
+          created_at?: string
+          deployer: string
+          id?: string
+          last_error?: string | null
+          network?: string
+          status?: string
+          token_impl_address?: string | null
+          tx_hashes?: Json
+          updated_at?: string
+          vault_address?: string | null
+        }
+        Update: {
+          clone_factory_address?: string | null
+          created_at?: string
+          deployer?: string
+          id?: string
+          last_error?: string | null
+          network?: string
+          status?: string
+          token_impl_address?: string | null
+          tx_hashes?: Json
+          updated_at?: string
+          vault_address?: string | null
+        }
+        Relationships: []
+      }
       eth_deployments: {
         Row: {
           clone_factory_address: string | null
