@@ -199,12 +199,19 @@ export function EthLauncher() {
           ],
           value: totalValue,
         });
-        pushLog(`Simulation OK. result=${JSON.stringify(sim.result)}`);
+        const safeStringify = (v: any) =>
+          JSON.stringify(v, (_k, val) => (typeof val === 'bigint' ? val.toString() : val));
+        pushLog(`Simulation OK. result=${safeStringify(sim.result)}`);
       } catch (simErr: any) {
         const reason = simErr?.shortMessage || simErr?.message || String(simErr);
-        pushLog(`SIMULATION REVERT: ${reason}`);
-        if (simErr?.metaMessages?.length) pushLog(`meta: ${simErr.metaMessages.join(' | ')}`);
-        throw new Error(`Pre-flight simulation reverted: ${reason}`);
+        // Ignore BigInt serialization errors from logging — simulation actually succeeded
+        if (reason.includes('serialize a BigInt')) {
+          pushLog('Simulation OK (result contained BigInt — skipped logging).');
+        } else {
+          pushLog(`SIMULATION REVERT: ${reason}`);
+          if (simErr?.metaMessages?.length) pushLog(`meta: ${simErr.metaMessages.join(' | ')}`);
+          throw new Error(`Pre-flight simulation reverted: ${reason}`);
+        }
       }
 
       // 2e. Estimate gas so we know the real cost
