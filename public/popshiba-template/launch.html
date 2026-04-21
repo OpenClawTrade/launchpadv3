@@ -1623,5 +1623,52 @@
   });
 </script>
 
+<!-- ===== "Coming Soon" modal (shared, Axiom-style) ===== -->
+<div id="soonModal" role="dialog" aria-modal="true" aria-labelledby="soonTitle"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(14,11,8,0.72);align-items:center;justify-content:center;padding:20px">
+  <div style="position:relative;max-width:460px;width:100%;background:var(--cream);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:30px 28px 26px">
+    <button id="soonClose" aria-label="Close"
+            style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:2px solid var(--ink);background:#fff;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:16px;line-height:1;box-shadow:2px 2px 0 var(--ink)">✕</button>
+    <div style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;background:var(--ink);color:var(--primary);padding:4px 10px;margin-bottom:14px">COMING SOON</div>
+    <h3 id="soonTitle" style="font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.05;letter-spacing:-0.01em;margin:0 0 12px;color:var(--ink)">
+      ⚡ Pulse Terminal
+    </h3>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:var(--brown);margin:0 0 20px">
+      Axiom-style terminal for ETH is almost ready. <b style="color:var(--ink)">Come back tomorrow.</b>
+    </p>
+    <button id="soonOk"
+            style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:0.04em;padding:11px 20px;border:2px solid var(--ink);background:var(--primary);color:var(--ink);box-shadow:3px 3px 0 var(--ink);cursor:pointer">
+      GOT IT
+    </button>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const modal = document.getElementById('soonModal');
+    const titleEl = document.getElementById('soonTitle');
+    if (!modal || !titleEl) return;
+    function open(label){
+      titleEl.textContent = '⚡ ' + label + ' Terminal';
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+    function close(){
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('a[data-soon]').forEach(function(a){
+      a.addEventListener('click', function(e){
+        e.preventDefault();
+        open(a.getAttribute('data-soon') || 'Feature');
+      });
+    });
+    document.getElementById('soonClose').addEventListener('click', close);
+    document.getElementById('soonOk').addEventListener('click', close);
+    modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modal.style.display === 'flex') close(); });
+  })();
+</script>
+
 </body>
 </html>
