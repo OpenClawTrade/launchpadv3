@@ -66,6 +66,11 @@ Deno.serve(async (req) => {
   const force: boolean = body.force === true;
   // launcherOnly: keep existing Token impl + CloneFactory + FeeVault, deploy ONLY the missing PopShibaLauncher and patch the active row.
   const launcherOnly: boolean = body.launcherOnly === true;
+  // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
+  const checkOwnership: boolean = body.checkOwnership === true;
+  // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
+  // One-time setup; after this, ANY user wallet can call launcher.launch() and it works.
+  const transferOwnership: boolean = body.transferOwnership === true;
 
   const account = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`);
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
