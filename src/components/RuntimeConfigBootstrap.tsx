@@ -27,10 +27,28 @@ export function RuntimeConfigBootstrap() {
   useEffect(() => {
     const normalize = (url: string) => url.replace(/\/+$/, "");
 
-    // If we have a cached URL from a previous session, try to use it BUT also
-    // protect against project renames that introduce redirects (redirects break
-    // CORS preflight when we later send custom headers).
-    const existingApiUrl = localStorage.getItem("meteoraApiUrl");
+    // Purge stale cached origins from previous deployments (e.g. clawmode.vercel.app).
+    // Only origins that match popshiba/lovable infrastructure are trusted from cache.
+    const isTrustedCachedOrigin = (url: string): boolean => {
+      if (!url || !url.startsWith("https://")) return false;
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        return (
+          host.endsWith("popshiba.com") ||
+          host.endsWith(".lovable.app") ||
+          host.endsWith(".lovableproject.com") ||
+          host.endsWith(".supabase.co")
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    let existingApiUrl = localStorage.getItem("meteoraApiUrl");
+    if (existingApiUrl && !isTrustedCachedOrigin(existingApiUrl)) {
+      localStorage.removeItem("meteoraApiUrl");
+      existingApiUrl = null;
+    }
 
     const seedFromStorage = async () => {
       if (!existingApiUrl || !existingApiUrl.startsWith("https://")) return;
