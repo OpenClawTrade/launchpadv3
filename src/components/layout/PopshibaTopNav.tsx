@@ -90,7 +90,7 @@ export function PopshibaTopNav() {
           <CreatorFeesPill />
           <WalletPill />
           <Link
-            to="/launch"
+            to="/"
             className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={3} />
