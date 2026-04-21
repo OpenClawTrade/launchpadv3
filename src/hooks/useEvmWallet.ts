@@ -20,7 +20,7 @@ export function useEvmWallet() {
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
-  const { login, logout } = usePrivy();
+  const { login, logout, authenticated, ready } = usePrivy();
   const { chain } = useChain();
 
   const balanceChainId = chain === 'bnb' ? bsc.id : chain === 'ethereum' ? mainnet.id : base.id;
