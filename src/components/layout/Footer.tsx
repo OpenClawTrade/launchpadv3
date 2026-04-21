@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Sticky Footer Menu (sfm) — always pinned to bottom of viewport.
@@ -14,16 +15,70 @@ interface Ticker {
   cx: string;
 }
 
+const COLORS: Record<Ticker["sym"], string> = {
+  BTC: "#f7931a",
+  ETH: "#627eea",
+  BNB: "#f0b90b",
+};
+
 const DEFAULT_TICKERS: Ticker[] = [
-  { sym: "BTC", price: "$75,655", chg: "+0.0%", up: true,  cx: "#f7931a" },
-  { sym: "ETH", price: "$2,312",  chg: "+0.1%", up: true,  cx: "#627eea" },
-  { sym: "BNB", price: "$628.57", chg: "+0.0%", up: true,  cx: "#f0b90b" },
+  { sym: "BTC", price: "—", chg: "—", up: true, cx: COLORS.BTC },
+  { sym: "ETH", price: "—", chg: "—", up: true, cx: COLORS.ETH },
+  { sym: "BNB", price: "—", chg: "—", up: true, cx: COLORS.BNB },
 ];
 
+function fmtPrice(p: number): string {
+  if (!isFinite(p) || p <= 0) return "—";
+  if (p >= 1000) return "$" + p.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (p >= 1) return "$" + p.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return "$" + p.toFixed(4);
+}
+
+function fmtChg(c: number): string {
+  if (!isFinite(c)) return "—";
+  const sign = c >= 0 ? "+" : "";
+  return `${sign}${c.toFixed(2)}%`;
+}
+
 export function Footer() {
-  const [tickers] = useState<Ticker[]>(DEFAULT_TICKERS);
+  const [tickers, setTickers] = useState<Ticker[]>(DEFAULT_TICKERS);
   const [stable, setStable] = useState(true);
-  const [latencyMs] = useState(50);
+  const [latencyMs, setLatencyMs] = useState(50);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const start = Date.now();
+      try {
+        const { data, error } = await supabase.functions.invoke("crypto-prices");
+        if (cancelled) return;
+        if (error || !data) {
+          setStable(false);
+          return;
+        }
+        setLatencyMs(Date.now() - start);
+        setStable(true);
+        const next: Ticker[] = (["BTC", "ETH", "BNB"] as const).map((sym) => {
+          const k = sym.toLowerCase() as "btc" | "eth" | "bnb";
+          const row = (data as any)[k] ?? { price: 0, change24h: 0 };
+          const chg = Number(row.change24h) || 0;
+          return {
+            sym,
+            price: fmtPrice(Number(row.price) || 0),
+            chg: fmtChg(chg),
+            up: chg >= 0,
+            cx: COLORS[sym],
+          };
+        });
+        setTickers(next);
+      } catch {
+        if (!cancelled) setStable(false);
+      }
+    }
+    load();
+    const id = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   // Reserve viewport space so page content is never hidden behind the bar
   useEffect(() => {
