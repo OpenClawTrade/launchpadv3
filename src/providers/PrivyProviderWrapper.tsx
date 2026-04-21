@@ -302,7 +302,12 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
       <PrivyProviderWithGate
         appId={appId}
         config={{
-          loginMethods: ["wallet", "twitter", "email"],
+          // Email + social first; wallet last. SIWE (wallet login) requires a
+          // signature step that many users reject in MetaMask, producing the
+          // "Could not log in with wallet" error. Users can still LINK a wallet
+          // after logging in via email/twitter — that flow uses connectWallet
+          // and never asks for a signature.
+          loginMethods: ["email", "twitter", "wallet"],
           externalWallets: {
             solana: {
               connectors: solanaConnectors,
