@@ -1063,13 +1063,13 @@
         <div class="fld">
           <div class="fld-label">Coin art <span class="req">*</span><span class="hint">PNG/JPG · 1:1 · ≤ 2MB</span></div>
           <div class="uploader">
-            <div class="upl-preview"><div class="upl-placeholder"><span class="big">🐕</span>drag / drop<br>or click to pick</div></div>
+            <div class="upl-preview" id="uplPreview"><div class="upl-placeholder"><span class="big">🐕</span>drag / drop<br>or click to pick</div></div>
+            <input type="file" id="uplFileInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" />
             <div class="upl-body">
               <div class="upl-actions">
-                <button type="button" class="upl-btn">📁 Upload file</button>
+                <button type="button" class="upl-btn" id="uploadFileBtn">📁 Upload file</button>
                 <button type="button" class="upl-btn" id="aiGenBtn">🎨 Generate with AI</button>
                 <button type="button" class="upl-btn" id="aiRegenBtn" style="display:none">🔄 Regenerate</button>
-                <button type="button" class="upl-btn">🔗 From URL</button>
               </div>
               <div class="upl-specs">
                 <b>Good art = more hold.</b> Square, high-contrast, readable at 32px. No<br>watermarks. No logos you don't own. IPFS-pinned automatically.
