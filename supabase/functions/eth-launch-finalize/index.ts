@@ -136,6 +136,31 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Kick off per-token Etherscan verification (fire-and-forget) so the ──
+    // contract source page on Etherscan shows this launch's metadata header
+    // (Name, Website, X, Telegram, Discord, Description) instead of "Similar
+    // Match Source Code" pointing at the impl.
+    if (body.status === "live" && data?.token_address) {
+      try {
+        // @ts-ignore — EdgeRuntime is a Deno deploy global
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            await supabase.functions.invoke("eth-verify-contract", {
+              body: {
+                tokenAddress: data.token_address,
+                launchId: data.id,
+                waitForResult: false,
+              },
+            });
+          } catch (e) {
+            console.error("[eth-launch-finalize] eth-verify-contract invoke failed", e);
+          }
+        })());
+      } catch (e) {
+        console.error("[eth-launch-finalize] failed to schedule verification", e);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, launch: data }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
