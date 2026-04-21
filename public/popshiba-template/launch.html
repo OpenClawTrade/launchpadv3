@@ -1541,12 +1541,14 @@
     });
   });
 
-  // Live ETH/USD price (Coingecko, no key). Falls back to ETH_USD_FALLBACK.
+  // Live ETH/USD price via our backend (CoinGecko blocks direct browser CORS).
   (function fetchEthPrice(){
-    fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd')
-      .then(r => r.ok ? r.json() : null)
-      .then(j => { const p = j && j.ethereum && j.ethereum.usd; if (p && isFinite(p) && p > 0) { ethUsd = p; recomputeEcon(); } })
-      .catch(()=>{});
+    var SUPABASE_URL = (window.__PUBLIC_CONFIG__ && window.__PUBLIC_CONFIG__.supabaseUrl)
+      || 'https://ptwytypavumcrbofspno.supabase.co';
+    fetch(SUPABASE_URL + '/functions/v1/base-eth-price')
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ var p = j && j.price; if (p && isFinite(p) && p > 0) { ethUsd = p; recomputeEcon(); } })
+      .catch(function(){});
   })();
 
   recomputeEcon();
