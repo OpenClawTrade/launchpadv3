@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
       liquidity: marketResult?.liquidity ? parseFloat(marketResult.liquidity) : 0,
       change24h: marketResult?.change24 ? parseFloat(marketResult.change24) : 0,
       priceUsd: marketResult?.priceUSD ? parseFloat(marketResult.priceUSD) : 0,
+      networkId: safeNetworkId,
     };
 
     return new Response(JSON.stringify({ token }), {

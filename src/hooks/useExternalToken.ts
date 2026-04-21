@@ -21,6 +21,7 @@ export interface ExternalToken {
   liquidity: number;
   change24h: number;
   priceUsd: number;
+  networkId?: number;
 }
 
 /**
