@@ -900,8 +900,10 @@
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
         </svg>
       </a>
-      <span class="wallet-pill"><span class="dot"></span>0x7A2f…bE41</span>
-      <button class="btn">+ Create</button>
+      <button id="walletPill" class="wallet-pill" type="button" style="cursor:pointer;background:var(--ink-3);border:1.5px solid var(--primary);color:var(--cream)" title="Connect wallet / View earnings">
+        <span class="dot" id="walletDot" style="background:#888;box-shadow:none"></span><span id="walletLabel">Connect</span>
+      </button>
+      <button class="btn" onclick="document.getElementById('createForm').scrollIntoView({behavior:'smooth',block:'start'})">+ Create</button>
     </div>
   </div>
 </nav>
@@ -1508,7 +1510,36 @@
     if (!d || d.source !== 'popshiba-host') return;
     if (d.type === 'ai-meme-result')  { setAiLoading(false); applyAiResult(d.payload); }
     if (d.type === 'ai-meme-error')   { setAiLoading(false); applyAiError(d.error); }
+    if (d.type === 'wallet-state')    { applyWalletState(d.payload); }
   });
+
+  // ===== Wallet pill: connect / earnings bridge =====
+  const walletPill  = document.getElementById('walletPill');
+  const walletDot   = document.getElementById('walletDot');
+  const walletLabel = document.getElementById('walletLabel');
+  let walletConnected = false;
+  function applyWalletState(p){
+    if (!walletPill) return;
+    walletConnected = !!(p && p.connected);
+    if (walletConnected && p.address) {
+      const a = p.address;
+      walletLabel.textContent = a.slice(0,6) + '…' + a.slice(-4);
+      walletDot.style.background = 'var(--up)';
+      walletDot.style.boxShadow  = '0 0 8px var(--up)';
+      walletPill.title = 'View your earnings';
+    } else {
+      walletLabel.textContent = 'Connect';
+      walletDot.style.background = '#888';
+      walletDot.style.boxShadow  = 'none';
+      walletPill.title = 'Connect wallet';
+    }
+  }
+  if (walletPill) walletPill.addEventListener('click', function(e){
+    e.preventDefault();
+    try { window.parent.postMessage({ source:'popshiba-template', type: walletConnected ? 'open-earnings' : 'wallet-connect' }, '*'); } catch(_){}
+  });
+  // Ask host for current state on load
+  try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-query' }, '*'); } catch(_){}
 
   // ===== Bridge to parent React (host iframe) =====
   function collectLaunchPayload(){
