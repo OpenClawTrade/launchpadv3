@@ -9,12 +9,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const appIdRaw = Deno.env.get("VITE_PRIVY_APP_ID") ?? Deno.env.get("PRIVY_APP_ID") ?? "";
+    // Prefer the runtime-managed PRIVY_APP_ID over the build-time VITE_PRIVY_APP_ID
+    // so updates made via the Secrets manager take effect without redeploying VITE_ envs.
+    const appIdRaw = Deno.env.get("PRIVY_APP_ID") ?? Deno.env.get("VITE_PRIVY_APP_ID") ?? "";
     const privyAppId = appIdRaw.trim();
 
     // Public runtime config (lets the frontend work even when Vite env vars are not injected)
     const meteoraApiUrlRaw =
-      Deno.env.get("VITE_METEORA_API_URL") ?? Deno.env.get("METEORA_API_URL") ?? "";
+      Deno.env.get("METEORA_API_URL") ?? Deno.env.get("VITE_METEORA_API_URL") ?? "";
     const meteoraApiUrl = meteoraApiUrlRaw.trim();
 
     // Get Helius RPC URL from HELIUS_RPC_URL secret (not VITE_ prefixed)
