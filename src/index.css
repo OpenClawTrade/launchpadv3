@@ -1071,37 +1071,112 @@
 .trade-page-bg .text-yellow-400 { color: #8a5a0b !important; }
 .trade-page-bg .trade-glass-panel-glow .text-foreground { color: hsl(var(--pop-cream)); }
 
-/* ── Ink-styled trade panel (Buy/Sell) — matches poster reference ── */
+/* ──────────────────────────────────────────────────────────────────
+ * POSTER-STYLE BUY/SELL PANEL (cream paper, ink border, hard shadow)
+ * Mirrors trade-standalone-src.html `.buy-panel` reference 1:1.
+ * Applied to anything wrapped in `.trade-trade-panel` on /trade.
+ * ──────────────────────────────────────────────────────────────── */
 .trade-page-bg .trade-trade-panel.trade-glass-panel,
 .trade-page-bg .trade-trade-panel .trade-glass-panel {
-  background: hsl(var(--pop-ink));
-  color: hsl(var(--pop-cream));
+  background: hsl(var(--pop-cream));
+  color: hsl(var(--pop-ink));
   border: 2px solid hsl(var(--pop-ink));
-  box-shadow: 5px 5px 0 0 hsl(var(--pop-cream)), 5px 5px 0 2px hsl(var(--pop-ink));
+  border-radius: 0;
+  box-shadow: 5px 5px 0 0 hsl(var(--pop-ink));
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
 }
-/* Cream-ify everything inside the ink trade panel */
+/* Force ink text on every child by default */
 .trade-page-bg .trade-trade-panel,
 .trade-page-bg .trade-trade-panel * {
-  color: hsl(var(--pop-cream));
+  color: hsl(var(--pop-ink));
+  border-radius: 0 !important;
 }
 .trade-page-bg .trade-trade-panel .text-muted-foreground,
 .trade-page-bg .trade-trade-panel [class*="text-muted-foreground"],
 .trade-page-bg .trade-trade-panel [class*="text-foreground/"] {
-  color: hsl(var(--pop-cream) / 0.55) !important;
+  color: #6b5544 !important;
 }
-.trade-page-bg .trade-trade-panel input,
+.trade-page-bg .trade-trade-panel input {
+  background: #fff !important;
+  color: hsl(var(--pop-ink)) !important;
+  border: 2px solid hsl(var(--pop-ink)) !important;
+  box-shadow: 2px 2px 0 0 hsl(var(--pop-ink)) !important;
+  font-family: 'Archivo Black', sans-serif !important;
+  font-size: 18px !important;
+  letter-spacing: -0.01em !important;
+}
 .trade-page-bg .trade-trade-panel input::placeholder {
-  color: hsl(var(--pop-cream));
+  color: hsl(var(--pop-ink) / 0.35) !important;
+  font-family: 'Archivo Black', sans-serif !important;
 }
-.trade-page-bg .trade-trade-panel input::placeholder {
-  color: hsl(var(--pop-cream) / 0.35);
+/* Buy/Sell tab row — green/red highlight, ink underline */
+.trade-page-bg .trade-trade-panel button[class*="border-green"],
+.trade-page-bg .trade-trade-panel button[class*="text-green-400"] {
+  background: #5ce68e !important;
+  color: hsl(var(--pop-ink)) !important;
+  border-color: hsl(var(--pop-ink)) !important;
+  font-family: 'Archivo Black', sans-serif !important;
+  letter-spacing: 0.08em !important;
 }
-/* Soften the green/red accent against ink */
-.trade-page-bg .trade-trade-panel .text-green-400 { color: #5ce68e !important; }
+.trade-page-bg .trade-trade-panel button[class*="border-red"],
+.trade-page-bg .trade-trade-panel button[class*="text-red-400"] {
+  background: #e8605a !important;
+  color: hsl(var(--pop-cream)) !important;
+  border-color: hsl(var(--pop-ink)) !important;
+  font-family: 'Archivo Black', sans-serif !important;
+  letter-spacing: 0.08em !important;
+}
+/* Accent colors stay loud */
+.trade-page-bg .trade-trade-panel .text-green-400 { color: #0b8a3a !important; }
 .trade-page-bg .trade-trade-panel .text-red-400,
-.trade-page-bg .trade-trade-panel .text-destructive { color: #ff8a7a !important; }
+.trade-page-bg .trade-trade-panel .text-destructive { color: #c8372d !important; }
 
-/* ── Section label wrapper for poster-style [ TAG / NAME ] ── */
+/* Slippage + amount chips become flat squares with ink border */
+.trade-page-bg .trade-trade-panel button[class*="rounded-lg"][class*="border"],
+.trade-page-bg .trade-trade-panel button[class*="rounded-md"][class*="border"] {
+  background: #fff !important;
+  border: 1.5px solid hsl(var(--pop-ink)) !important;
+  color: hsl(var(--pop-ink)) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+.trade-page-bg .trade-trade-panel button[class*="rounded-lg"][class*="border-primary"],
+.trade-page-bg .trade-trade-panel button[class*="rounded-md"][class*="border-primary"],
+.trade-page-bg .trade-trade-panel button[class*="bg-primary/15"],
+.trade-page-bg .trade-trade-panel button[class*="bg-primary/8"] {
+  background: hsl(var(--pop-orange)) !important;
+  color: hsl(var(--pop-ink)) !important;
+  box-shadow: 2px 2px 0 0 hsl(var(--pop-ink)) !important;
+}
+
+/* Primary CTA (Quick Buy / Buy / Sell) — ink block, orange shadow */
+.trade-page-bg .trade-trade-panel button[class*="trade-btn-buy"],
+.trade-page-bg .trade-trade-panel button[class*="trade-btn-sell"],
+.trade-page-bg .trade-trade-panel button[class*="w-full"][class*="py-3"],
+.trade-page-bg .trade-trade-panel button[class*="w-full"][class*="py-2.5"] {
+  background: hsl(var(--pop-ink)) !important;
+  color: hsl(var(--pop-orange)) !important;
+  border: 2px solid hsl(var(--pop-ink)) !important;
+  box-shadow: 3px 3px 0 0 hsl(var(--pop-orange)) !important;
+  font-family: 'Archivo Black', sans-serif !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+.trade-page-bg .trade-trade-panel button[class*="w-full"]:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 hsl(var(--pop-orange)) !important;
+}
+
+/* Backgrounds inside the panel — kill the dark muted boxes */
+.trade-page-bg .trade-trade-panel [class*="bg-muted"],
+.trade-page-bg .trade-trade-panel [class*="bg-background"],
+.trade-page-bg .trade-trade-panel [class*="bg-card"] {
+  background: #fff !important;
+  border: 1.5px dashed hsl(var(--pop-ink) / 0.4) !important;
+}
+
+/* Section label wrapper for poster-style [ TAG / NAME ] */
 .trade-page-bg .wf-section { position: relative; }
 .trade-page-bg .wf-section > .wf-label {
   background: hsl(var(--pop-orange));
@@ -1114,9 +1189,10 @@
   left: 14px;
 }
 
-/* ── About panel inner dashed metric boxes ── */
+/* About panel inner dashed metric boxes (kept on cream now) */
 .trade-page-bg .about-metric {
-  border: 1px dashed hsl(var(--pop-cream) / 0.35);
+  border: 1.5px dashed hsl(var(--pop-ink));
+  background: #fff;
   padding: 10px 12px;
   display: flex;
   justify-content: space-between;
@@ -1125,13 +1201,94 @@
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: hsl(var(--pop-cream) / 0.7);
+  color: #6b5544;
 }
 .trade-page-bg .about-metric .v {
-  color: hsl(var(--pop-cream));
+  color: hsl(var(--pop-ink));
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * STICKY FOOTER MENU (sfm) — global, always-pinned bottom bar
+ * Mirrors stickyfooter/sticky-footer.html 1:1.
+ * ──────────────────────────────────────────────────────────────── */
+.sfm {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+  background: hsl(var(--pop-ink));
+  color: hsl(var(--pop-cream));
+  border-top: 2px solid #2b2218;
+  box-shadow: 0 -6px 24px rgba(0,0,0,0.35);
+}
+.sfm-inner {
+  max-width: 1440px; margin: 0 auto;
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 700;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sfm-inner::-webkit-scrollbar { display: none; }
+.sfm-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 9px;
+  border: 1.5px solid #2b2218;
+  background: transparent;
+  color: hsl(var(--pop-cream));
+  letter-spacing: 0.03em;
+  white-space: nowrap; cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.sfm-pill:hover { border-color: hsl(var(--pop-orange)); color: hsl(var(--pop-orange)); }
+.sfm-pill.on {
+  border-color: hsl(var(--pop-orange));
+  color: hsl(var(--pop-orange));
+  background: hsl(var(--pop-orange) / 0.08);
+}
+.sfm-pill.on::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: 50%;
+  background: hsl(var(--pop-orange));
+  box-shadow: 0 0 8px hsl(var(--pop-orange));
+  animation: sfmPulse 1.4s infinite;
+}
+@keyframes sfmPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+.sfm-divider { width: 1px; height: 20px; background: #2b2218; margin: 0 3px; flex-shrink: 0; }
+.sfm-tick {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 6px; white-space: nowrap;
+  color: #a49a8a; flex-shrink: 0;
+}
+.sfm-tick .cx { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sfm-tick .sym { color: hsl(var(--pop-cream)); font-weight: 700; }
+.sfm-tick .px  { color: hsl(var(--pop-cream)); font-weight: 500; }
+.sfm-tick .chg { font-weight: 700; letter-spacing: 0.02em; }
+.sfm-tick .chg.up { color: #5ce68e; }
+.sfm-tick .chg.dn { color: #e8605a; }
+.sfm-spacer { flex: 1; }
+.sfm-ping {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 9px;
+  border: 1.5px solid #5ce68e;
+  color: #5ce68e;
+  background: rgba(92,230,142,0.08);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+.sfm-ping .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #5ce68e;
+  animation: sfmPulse 1.4s infinite;
+  box-shadow: 0 0 6px #5ce68e;
+}
+@media (max-width: 900px) {
+  .sfm-inner { padding: 7px 10px; font-size: 11px; gap: 6px; }
+  .sfm-divider { margin: 0 4px; }
 }
 
 /* ── Terminal trust pill ── */
