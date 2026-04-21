@@ -168,7 +168,9 @@ export function EthLauncher() {
         pushLog('Switched to mainnet.');
       }
 
-      const publicClient = createPublicClient({ chain: mainnet, transport: http() });
+      const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno';
+      const ethRpcUrl = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/eth-rpc`;
+      const publicClient = createPublicClient({ chain: mainnet, transport: http(ethRpcUrl) });
 
       // 2b. Verify launcher contract has bytecode (catches wrong-network / wrong-address)
       const code = await publicClient.getBytecode({ address: launcher });
