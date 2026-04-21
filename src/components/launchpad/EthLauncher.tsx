@@ -262,25 +262,43 @@ export function EthLauncher() {
         `Sending writeContract → wallet should prompt now${gasLimit ? ` (gasLimit=${gasLimit})` : ''}${maxFeePerGas ? ` (maxFeePerGas=${maxFeePerGas}, maxPriorityFeePerGas=${maxPriorityFeePerGas ?? 0n})` : gasPrice ? ` (gasPrice=${gasPrice})` : ''}.`
       );
 
-      const txHash = await walletClient.writeContract({
-        account: address as Address,
-        chain: mainnet,
-        address: launcher,
-        abi: POPSHIBA_LAUNCHER_ABI,
-        functionName: 'launch',
-        args: [
-          formData.name.trim(),
-          formData.ticker.trim().toUpperCase(),
-          data.metadataURI as string,
-          ethForLPWei,
-          ethForDevBuyWei,
-        ],
-        value: totalValue,
-        ...(gasLimit ? { gas: gasLimit } : {}),
-        ...(maxFeePerGas ? { maxFeePerGas } : {}),
-        ...(maxPriorityFeePerGas ? { maxPriorityFeePerGas } : {}),
-        ...(!maxFeePerGas && gasPrice ? { gasPrice } : {}),
-      });
+      const txHash = await (maxFeePerGas
+        ? walletClient.writeContract({
+            account: address as Address,
+            chain: mainnet,
+            address: launcher,
+            abi: POPSHIBA_LAUNCHER_ABI,
+            functionName: 'launch',
+            args: [
+              formData.name.trim(),
+              formData.ticker.trim().toUpperCase(),
+              data.metadataURI as string,
+              ethForLPWei,
+              ethForDevBuyWei,
+            ],
+            value: totalValue,
+            type: 'eip1559',
+            ...(gasLimit ? { gas: gasLimit } : {}),
+            maxFeePerGas,
+            ...(maxPriorityFeePerGas ? { maxPriorityFeePerGas } : {}),
+          })
+        : walletClient.writeContract({
+            account: address as Address,
+            chain: mainnet,
+            address: launcher,
+            abi: POPSHIBA_LAUNCHER_ABI,
+            functionName: 'launch',
+            args: [
+              formData.name.trim(),
+              formData.ticker.trim().toUpperCase(),
+              data.metadataURI as string,
+              ethForLPWei,
+              ethForDevBuyWei,
+            ],
+            value: totalValue,
+            ...(gasLimit ? { gas: gasLimit } : {}),
+            ...(gasPrice ? { gasPrice } : {}),
+          }));
       pushLog(`tx submitted: ${txHash}`);
       setLaunchTxHash(txHash);
 
