@@ -24,6 +24,9 @@ type EthLaunch = {
   status: string;
   created_at: string;
   token_address: string | null;
+  twitter_url: string | null;
+  telegram_url: string | null;
+  website_url: string | null;
 };
 
 type Market = {
