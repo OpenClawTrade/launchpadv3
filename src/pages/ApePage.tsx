@@ -308,10 +308,17 @@ export default function ApePage() {
           {/* Chart */}
           <section className="chart-panel">
             <div className="chart-toolbar">
+              {["1s","5s","15s","30s","1m","5m","15m","30m","1h","4h","12h","1D","7D","1M"].map((tf) => (
+                <button key={tf} className={`tf ${tf === "15m" ? "on" : ""}`}>{tf}</button>
+              ))}
+              <span className="tf-sep" />
               <span className="toolbar-opt"><span className="pre">◧</span>Candlestick</span>
               <span className="toolbar-opt"><span className="pre">$</span>USD</span>
+              <span className="toolbar-opt"><span className="pre">▼</span>Filtered</span>
+              <span className="toolbar-opt"><span className="pre">▤</span>Vol</span>
               <div className="toolbar-right">
                 <span className="live"><span className="d" />LIVE</span>
+                <button className="expand">⤢</button>
               </div>
             </div>
             <div className="chart-body">
@@ -389,24 +396,26 @@ export default function ApePage() {
               <div className="bp-section">
                 <div className="bp-label">Slippage</div>
                 <div className="slippage">
-                  {[50, 100, 300].map((bps) => (
-                    <button
-                      key={bps}
-                      className={`slip ${slippageBps === bps ? "on" : ""}`}
-                      onClick={() => setSlippageBps(bps)}
-                    >
-                      {(bps / 100).toFixed(bps < 100 ? 1 : 0)}%
-                    </button>
-                  ))}
+                  <button className={`slip ${slippageBps === 50 ? "on" : ""}`} onClick={() => setSlippageBps(50)}>0.5%</button>
+                  <button className={`slip ${slippageBps === 100 ? "on" : ""}`} onClick={() => setSlippageBps(100)}>1%</button>
+                  <button className={`slip ${slippageBps === 300 ? "on" : ""}`} onClick={() => setSlippageBps(300)}>AUTO</button>
                 </div>
               </div>
 
-              <div className="bp-stats">
-                <div className="row"><span className="k">You pay</span><span className="v">{amount || "0"} {isBuy ? chainSymbol : (market?.symbol?.toUpperCase() || "TKN")}</span></div>
-                <div className="row"><span className="k">Network</span><span className="v">Ethereum</span></div>
-                <div className="row"><span className="k">Fee</span><span className="v">1%</span></div>
-                <div className="row"><span className="k">Anti-MEV</span><span className="v">ON</span></div>
-              </div>
+              {(() => {
+                const amtN = parseFloat(amount) || 0;
+                const px = market?.priceUsd ?? 0;
+                const ethToUsd = isBuy && px > 0 ? amtN * (market?.priceUsd ?? 0) : 0;
+                const youGet = isBuy && px > 0 ? amtN / px : 0;
+                return (
+                  <div className="bp-stats">
+                    <div className="row"><span className="k">You pay</span><span className="v">{amount || "0"} {isBuy ? chainSymbol : (market?.symbol?.toUpperCase() || "TKN")}</span></div>
+                    <div className="row"><span className="k">You get</span><span className="v">{isBuy && youGet > 0 ? `≈ ${fmtCount(youGet)}` : "—"}</span></div>
+                    <div className="row"><span className="k">Price impact</span><span className="v">{amtN > 0 ? "<0.5%" : "—"}</span></div>
+                    <div className="row"><span className="k">Fee</span><span className="v">1%</span></div>
+                  </div>
+                );
+              })()}
 
               <button
                 className={`buy-cta ${isBuy ? "" : "sell"}`}
@@ -420,7 +429,8 @@ export default function ApePage() {
 
               <div className="bp-links">
                 <a className="bp-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">CONTRACT</a>
-                <a className="bp-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">CHART ↗</a>
+                <a className="bp-link" href={isValidAddress ? `https://app.uniswap.org/explore/tokens/ethereum/${tokenAddress.trim()}` : "#"} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
+                <a className="bp-link" href={isValidAddress ? `https://dexscreener.com/ethereum/${tokenAddress.trim()}` : "#"} target="_blank" rel="noopener noreferrer">CHART ↗</a>
               </div>
             </div>
           </aside>
@@ -436,6 +446,9 @@ export default function ApePage() {
             </button>
             <div className="trades-head-right">
               <span className="filter-chip on">LIVE</span>
+              <span className="filter-chip">&gt; $500</span>
+              <span className="filter-chip">&gt; $5K</span>
+              <span className="filter-chip">WHALES</span>
             </div>
           </div>
 
