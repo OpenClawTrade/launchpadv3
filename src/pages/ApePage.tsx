@@ -13,6 +13,7 @@ import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import { supabase } from "@/integrations/supabase/client";
 import { CodexChart } from "@/components/launchpad/CodexChart";
+import { TokenDataTabs } from "@/components/launchpad/TokenDataTabs";
 import { ETH_NETWORK_ID, BSC_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -619,7 +620,19 @@ export default function ApePage() {
           {/* PHONE */}
           <div className="md:hidden flex flex-col gap-3">
             {mobileTab === "trade" && <TradeSection />}
-            {mobileTab === "chart" && <ChartSection chartHeight={360} />}
+            {mobileTab === "chart" && (
+              <>
+                <ChartSection chartHeight={360} />
+                {isValidAddress && (
+                  <TokenDataTabs
+                    tokenAddress={tokenAddress.trim()}
+                    userWallet={evmAddress ?? undefined}
+                    currentPriceUsd={market?.priceUsd ?? 0}
+                    isBsc={chain === "bnb"}
+                  />
+                )}
+              </>
+            )}
             {mobileTab === "info" && (
               <>
                 <TokenDetailsSection />
@@ -632,6 +645,14 @@ export default function ApePage() {
           <div className="hidden md:grid lg:hidden grid-cols-12 gap-4">
             <div className="col-span-7 flex flex-col gap-4">
               <ChartSection chartHeight={440} />
+              {isValidAddress && (
+                <TokenDataTabs
+                  tokenAddress={tokenAddress.trim()}
+                  userWallet={evmAddress ?? undefined}
+                  currentPriceUsd={market?.priceUsd ?? 0}
+                  isBsc={chain === "bnb"}
+                />
+              )}
               <TokenDetailsSection />
               <ContractSection />
             </div>
@@ -646,6 +667,14 @@ export default function ApePage() {
           <div className="hidden lg:grid grid-cols-12 gap-4 flex-1">
             <div className="col-span-9 flex flex-col gap-4">
               <ChartSection chartHeight={460} />
+              {isValidAddress && (
+                <TokenDataTabs
+                  tokenAddress={tokenAddress.trim()}
+                  userWallet={evmAddress ?? undefined}
+                  currentPriceUsd={market?.priceUsd ?? 0}
+                  isBsc={chain === "bnb"}
+                />
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <TokenDetailsSection />
                 <ContractSection />
