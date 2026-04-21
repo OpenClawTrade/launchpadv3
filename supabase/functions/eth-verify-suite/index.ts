@@ -33,6 +33,7 @@ async function submit(addr: string, def: ContractDef, apiKey: string): Promise<{
     sources: { [def.file]: { content: def.source } },
     settings: {
       evmVersion: "paris",
+      viaIR: true,
       optimizer: { enabled: true, runs: 200 },
       outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
     },
