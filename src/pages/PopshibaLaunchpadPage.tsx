@@ -6,7 +6,7 @@
  *   real data from `eth_launch_requests` joined with on-chain market data
  *   (price / MC / 24h vol / 24h change / liquidity) fetched via the
  *   `eth-batch-market` edge function (DexScreener under the hood).
- * - "Trade" button on each row → /trade/:address (escapes iframe with _top).
+ * - "Trade" button on each row → /ape/:address (escapes iframe with _top).
  * - "🚀 LAUNCH IT" inside iframe → opens real <EthLauncher /> modal,
  *   prefilled from the form values posted up via window.postMessage.
  * - Empty-state CTA when there are no live launches.
