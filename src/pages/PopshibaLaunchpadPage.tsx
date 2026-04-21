@@ -366,8 +366,24 @@ function injectLiveData(
     const el = doc.getElementById(id);
     if (el) el.textContent = v;
   };
-  setText("stat-volume", fmtUsd(hero.totalVolume));
-  setText("stat-mc", fmtUsd(hero.totalMC));
+
+  // All-time totals: hero numbers must never go DOWN as the rolling 24h
+  // window expires old trades. Track running maxima in localStorage and
+  // only ever bump them up. Stable, monotonically increasing "all-time".
+  const ALLTIME_KEY = "popshiba.heroAlltime.v1";
+  let prev: { vol: number; mc: number } = { vol: 0, mc: 0 };
+  try {
+    const raw = localStorage.getItem(ALLTIME_KEY);
+    if (raw) prev = JSON.parse(raw);
+  } catch { /* ignore */ }
+  const allTimeVol = Math.max(prev.vol || 0, hero.totalVolume || 0);
+  const allTimeMc = Math.max(prev.mc || 0, hero.totalMC || 0);
+  try {
+    localStorage.setItem(ALLTIME_KEY, JSON.stringify({ vol: allTimeVol, mc: allTimeMc }));
+  } catch { /* ignore */ }
+
+  setText("stat-volume", fmtUsd(allTimeVol));
+  setText("stat-mc", fmtUsd(allTimeMc));
   setText("stat-grad-count", String(Math.round((hero.gradPct / 100) * launches.length)));
 
 }
