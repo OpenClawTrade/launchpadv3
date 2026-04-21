@@ -237,6 +237,7 @@ export function EthLauncher() {
             data.metadataURI as string,
             ethForLPWei,
             ethForDevBuyWei,
+            lockLP,
           ],
           value: totalValue,
         });
@@ -281,6 +282,7 @@ export function EthLauncher() {
               data.metadataURI as string,
               ethForLPWei,
               ethForDevBuyWei,
+              lockLP,
             ],
             value: totalValue,
             type: 'eip1559',
@@ -300,6 +302,7 @@ export function EthLauncher() {
               data.metadataURI as string,
               ethForLPWei,
               ethForDevBuyWei,
+              lockLP,
             ],
             value: totalValue,
             ...(gasLimit ? { gas: gasLimit } : {}),
