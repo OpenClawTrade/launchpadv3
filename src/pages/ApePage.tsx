@@ -76,12 +76,12 @@ export default function ApePage() {
     }
   };
 
+  useEffect(() => {
+    document.title = "Ape Terminal — Trade Any ETH/BNB Token Instantly";
+  }, []);
+
   return (
     <>
-      <Helmet>
-        <title>Ape Terminal — Trade Any ETH/BNB Token Instantly</title>
-        <meta name="description" content="Trade any ERC20 on Ethereum or BNB Chain via 0x aggregator. Best price routing, MEV protection, instant execution." />
-      </Helmet>
 
       <div className="min-h-screen bg-background py-6 md:py-10 px-4">
         <div className="max-w-2xl mx-auto">
