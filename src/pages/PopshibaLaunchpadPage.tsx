@@ -380,7 +380,9 @@ export default function PopshibaLaunchpadPage() {
       ).length;
       const gradPct = launches.length > 0 ? (millionCount / launches.length) * 100 : 0;
 
-      // Top-tokens strip: pick the top 4 launches by Codex market cap, fetch their sparklines.
+      // Top-tokens strip: pick the top 4 launches by Codex market cap (desc),
+      // pushing tokens with no market-cap data to the end so they never out-rank
+      // a real number.
       const topRanked = launches
         .map((l, idx) => ({
           launch: l,
@@ -388,7 +390,11 @@ export default function PopshibaLaunchpadPage() {
           index: idx,
         }))
         .filter((r): r is { launch: EthLaunch; market: Market; index: number } => !!r.market && !!r.launch.token_address)
-        .sort((a, b) => (b.market.marketCap ?? 0) - (a.market.marketCap ?? 0))
+        .sort((a, b) => {
+          const am = typeof a.market.marketCap === "number" && isFinite(a.market.marketCap) ? a.market.marketCap : -1;
+          const bm = typeof b.market.marketCap === "number" && isFinite(b.market.marketCap) ? b.market.marketCap : -1;
+          return bm - am;
+        })
         .slice(0, 4);
 
       let sparklines: Record<string, number[]> = {};
