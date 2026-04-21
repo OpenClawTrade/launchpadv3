@@ -86,6 +86,7 @@ export function EthLauncher() {
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
   const [launchTxHash, setLaunchTxHash] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
+  const [uncxLockId, setUncxLockId] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [formData, setFormData] = useState<EthLaunchFormData>({
@@ -123,6 +124,7 @@ export function EthLauncher() {
     setDeployedTokenAddress(null);
     setLaunchTxHash(null);
     setPoolAddress(null);
+    setUncxLockId(null);
     setLaunchError(null);
     setIsLive(false);
     setDiagLogs([]);
@@ -155,8 +157,9 @@ export function EthLauncher() {
       const launcher = data.launcher as Address;
       const ethForLPWei = BigInt(data.ethForLPWei);
       const ethForDevBuyWei = BigInt(data.ethForDevBuyWei);
-      const totalValue = ethForLPWei + ethForDevBuyWei;
-      pushLog(`launcher=${launcher}  ethForLPWei=${ethForLPWei}  ethForDevBuyWei=${ethForDevBuyWei}  total=${totalValue}`);
+      const uncxLockFeeWei = data.uncxLockFeeWei ? BigInt(data.uncxLockFeeWei) : 0n;
+      const totalValue = ethForLPWei + ethForDevBuyWei + uncxLockFeeWei;
+      pushLog(`launcher=${launcher}  ethForLPWei=${ethForLPWei}  ethForDevBuyWei=${ethForDevBuyWei}  uncxLockFeeWei=${uncxLockFeeWei}  total=${totalValue}`);
       pushLog(`launchId=${launchId}  metadataURI.len=${(data.metadataURI || '').length}`);
 
       // 2. Wallet checks
@@ -304,9 +307,10 @@ export function EthLauncher() {
 
       // 4. Wait for receipt
       const result = await waitForLaunchResult(publicClient as unknown as PublicClient, launcher, txHash);
-      pushLog(`token=${result.token}  pool=${result.pool}  lpTokenId=${result.lpTokenId}`);
+      pushLog(`token=${result.token}  pool=${result.pool}  lpTokenId=${result.lpTokenId}  uncxLockId=${result.uncxLockId ?? 'n/a'}`);
       setDeployedTokenAddress(result.token);
       setPoolAddress(result.pool);
+      if (result.uncxLockId !== undefined) setUncxLockId(result.uncxLockId.toString());
       setIsLive(true);
 
       // 5. Persist
@@ -318,11 +322,12 @@ export function EthLauncher() {
           tokenAddress: result.token,
           poolAddress: result.pool,
           lpTokenId: result.lpTokenId.toString(),
+          uncxLockId: result.uncxLockId?.toString(),
         },
       });
 
-      toast.success('🎉 Token live on Uniswap V3', {
-        description: 'LP locked in vault. You earn 50% of every 1% swap fee.',
+      toast.success('🎉 Token live · LP locked via UNCX', {
+        description: 'Liquidity locked for 100 years. You earn 50% of every 1% swap fee.',
         action: {
           label: 'Etherscan',
           onClick: () => window.open(`https://etherscan.io/address/${result.token}`, '_blank'),
