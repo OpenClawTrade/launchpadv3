@@ -55,15 +55,35 @@ export default function PopshibaEarnings() {
     if (!address) { setRows([]); return; }
     setLoading(true);
     try {
+      // 1. Pull fee ledger (rows only exist after first fee collection)
       const { data: ledger, error } = await supabase
         .from("eth_creator_fee_ledger")
         .select("token_address,creator_wallet,total_collected_weth,creator_share_weth,creator_paid_weth,last_collect_at,last_claim_at,last_claim_tx")
         .ilike("creator_wallet", address);
       if (error) throw error;
 
-      const ledgerRows = (ledger ?? []) as LedgerRow[];
-      const addrs = ledgerRows.map((r) => r.token_address.toLowerCase());
+      // 2. Pull every successful launch by this wallet — so creators see ALL their tokens,
+      //    even ones that haven't generated fees yet.
+      const { data: launches } = await (supabase as any)
+        .from("eth_launch_requests")
+        .select("token_address,token_name,token_ticker,image_url,status")
+        .ilike("creator_wallet", address)
+        .eq("status", "live")
+        .not("token_address", "is", null);
 
+      const ledgerRows = (ledger ?? []) as LedgerRow[];
+      const ledgerMap = new Map(ledgerRows.map((r) => [r.token_address.toLowerCase(), r]));
+
+      // Merge: every launched token + ledger data when present
+      const allAddrs = new Set<string>(ledgerRows.map((r) => r.token_address.toLowerCase()));
+      const launchMeta = new Map<string, { name: string; ticker: string; image: string | null }>();
+      for (const l of (launches ?? []) as Array<{ token_address: string; token_name: string; token_ticker: string; image_url: string | null }>) {
+        const a = l.token_address.toLowerCase();
+        allAddrs.add(a);
+        launchMeta.set(a, { name: l.token_name, ticker: l.token_ticker, image: l.image_url });
+      }
+
+      const addrs = Array.from(allAddrs);
       let meta: TokenMeta[] = [];
       if (addrs.length > 0) {
         const { data: tokens } = await supabase
@@ -74,14 +94,28 @@ export default function PopshibaEarnings() {
       }
       const metaMap = new Map(meta.map((m) => [m.mint_address.toLowerCase(), m]));
 
-      const enriched: Row[] = ledgerRows.map((r) => {
-        const totalCollectedWei = safeBig(r.total_collected_weth);
-        const shareWei = safeBig(r.creator_share_weth);
-        const paidWei = safeBig(r.creator_paid_weth);
+      const enriched: Row[] = addrs.map((addr) => {
+        const r = ledgerMap.get(addr);
+        const totalCollectedWei = safeBig(r?.total_collected_weth);
+        const shareWei = safeBig(r?.creator_share_weth);
+        const paidWei = safeBig(r?.creator_paid_weth);
         const owedWei = shareWei > paidWei ? shareWei - paidWei : 0n;
+        // Prefer tokens table meta, fall back to launch request data
+        const tokenMeta = metaMap.get(addr);
+        const lm = launchMeta.get(addr);
+        const fallbackMeta: TokenMeta | undefined = tokenMeta ?? (lm ? {
+          mint_address: addr, name: lm.name, ticker: lm.ticker, image_url: lm.image,
+        } : undefined);
         return {
-          ...r,
-          meta: metaMap.get(r.token_address.toLowerCase()),
+          token_address: addr,
+          creator_wallet: r?.creator_wallet ?? address,
+          total_collected_weth: r?.total_collected_weth ?? "0",
+          creator_share_weth: r?.creator_share_weth ?? "0",
+          creator_paid_weth: r?.creator_paid_weth ?? "0",
+          last_collect_at: r?.last_collect_at ?? null,
+          last_claim_at: r?.last_claim_at ?? null,
+          last_claim_tx: r?.last_claim_tx ?? null,
+          meta: fallbackMeta,
           totalCollectedWei, shareWei, paidWei, owedWei,
         };
       });
