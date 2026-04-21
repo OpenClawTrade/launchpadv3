@@ -201,6 +201,7 @@ export function EthLauncher() {
             data.metadataURI as string,
             ethForLPWei,
             ethForDevBuyWei,
+            lockLP,
           ],
           value: totalValue,
         });
