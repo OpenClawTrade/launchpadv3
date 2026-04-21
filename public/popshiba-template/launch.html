@@ -1348,29 +1348,6 @@
   inpName.addEventListener('input', updateCta);
   inpTick.addEventListener('input', updateCta);
 
-  // ===== Auto-size: report content height to parent so iframe can grow =====
-  function reportHeight(){
-    try {
-      const h = Math.max(
-        document.body.scrollHeight,
-        document.documentElement.scrollHeight,
-        document.body.offsetHeight,
-        document.documentElement.offsetHeight
-      );
-      window.parent.postMessage({ source:'popshiba-template', type:'resize', height: h }, '*');
-    } catch(_){}
-  }
-  // Initial + on load + on any DOM mutation + window resize
-  window.addEventListener('load', reportHeight);
-  window.addEventListener('resize', reportHeight);
-  if ('ResizeObserver' in window) {
-    new ResizeObserver(reportHeight).observe(document.body);
-  } else {
-    setInterval(reportHeight, 1000);
-  }
-  setTimeout(reportHeight, 50);
-  setTimeout(reportHeight, 500);
-
   // ===== Bridge to parent React (host iframe) =====
   function collectLaunchPayload(){
     const socials = document.querySelectorAll('.social-row .social-input input');
