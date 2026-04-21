@@ -127,9 +127,15 @@ export function EthContractsDeployPanel() {
             Check Deployer
           </Button>
           {dry && !hasActive && (
-            <Button onClick={() => deploy(false)} disabled={busy || !dry.ready} variant="default">
+            <Button onClick={() => deploy("full")} disabled={busy || !dry.ready} variant="default">
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-              Deploy to Mainnet
+              Deploy All 4 to Mainnet
+            </Button>
+          )}
+          {dry && hasActive && dry.canPatchLauncher && (
+            <Button onClick={() => deploy("launcherOnly")} disabled={busy || !dry.ready} variant="default">
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+              Deploy Launcher Only (~$3–10)
             </Button>
           )}
           {dry && hasActive && (
@@ -138,9 +144,9 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Verify on Etherscan
               </Button>
-              <Button onClick={() => deploy(true)} disabled={busy} variant="destructive">
+              <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                Force Redeploy
+                Force Redeploy ALL 4
               </Button>
             </>
           )}
