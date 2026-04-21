@@ -36,12 +36,16 @@ interface IERC721 {
     function transferFrom(address from, address to, uint256 tokenId) external;
 }
 
-interface IPopShibaToken {
-    function initialize(string memory name_, string memory symbol_, string memory metadataURI_, uint256 totalSupply_, address recipient_) external;
-}
-
 interface IPopShibaCloneFactory {
-    function deploy(address creator) external returns (address token);
+    /// Matches the deployed PopShibaCloneFactory ABI.
+    function createToken(
+        string calldata name,
+        string calldata symbol,
+        address recipient,
+        uint256 supply,
+        string calldata metadataURI,
+        address creator
+    ) external returns (address token);
 }
 
 interface IUniswapV3Factory {
