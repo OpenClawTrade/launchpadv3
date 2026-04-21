@@ -534,7 +534,20 @@ export default function PopshibaLaunchpadPage() {
       } else if (data.type === "wallet-query") {
         sendWalletState();
       } else if (data.type === "wallet-connect") {
-        if (ready) login();
+        if (ready) {
+          // Force MetaMask to re-show the account picker for the currently
+          // active account instead of silently reusing a cached permission.
+          try {
+            const eth = (window as any).ethereum;
+            if (eth?.request) {
+              eth.request({
+                method: "wallet_revokePermissions",
+                params: [{ eth_accounts: {} }],
+              }).catch(() => {});
+            }
+          } catch { /* ignore */ }
+          login();
+        }
       } else if (data.type === "open-earnings") {
         navigate("/earnings");
       } else if (data.type === "wallet-logout") {
