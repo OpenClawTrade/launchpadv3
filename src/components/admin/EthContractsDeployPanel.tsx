@@ -58,8 +58,8 @@ export function EthContractsDeployPanel() {
 
   const deploy = useCallback(async (force: boolean) => {
     const confirmMsg = force
-      ? "FORCE redeploy?\n\nThis deactivates the current active deployment and spends ~$80–150 in gas. Cannot be undone."
-      : "Deploy PopShibaToken + CloneFactory + FeeVault to Ethereum mainnet?\n\nThis spends ~$80–150 in gas. Cannot be undone.";
+      ? "FORCE redeploy?\n\nThis deactivates the current active deployment and spends gas (typically $1–50, can spike higher in congestion). Cannot be undone."
+      : "Deploy PopShibaToken + CloneFactory + FeeVault to Ethereum mainnet?\n\nThis spends gas (typically $1–50, can spike higher in congestion). Cannot be undone.";
     if (!confirm(confirmMsg)) return;
     setBusy(true); setErr(null); setResult(null);
     try {
@@ -78,6 +78,26 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, [checkReadiness]);
 
+  const verifyNow = useCallback(async () => {
+    setBusy(true); setErr(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("eth-verify-suite", {});
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const r = data as { allVerified: boolean; results: Record<string, { verified: boolean; error?: string; message?: string }> };
+      if (r.allVerified) {
+        toast.success("✅ All 3 contracts verified on Etherscan");
+      } else {
+        const failed = Object.entries(r.results).filter(([_, v]) => !v.verified).map(([k, v]) => `${k}: ${v.error || v.message}`).join("; ");
+        toast.warning("Partial verification", { description: failed });
+      }
+      checkReadiness();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Verification failed";
+      setErr(msg); toast.error("Verify failed", { description: msg });
+    } finally { setBusy(false); }
+  }, [checkReadiness]);
+
   const hasActive = !!dry?.existingDeployment;
 
   return (
@@ -90,7 +110,7 @@ export function EthContractsDeployPanel() {
         <CardDescription>
           One-shot deploy: PopShibaToken (clone master) → CloneFactory (EIP-1167) → FeeVault.
           Compiles in-flight, deploys sequentially, auto-verifies on Etherscan.
-          Duplicate-protected: refuses to redeploy if an active set exists.
+          Duplicate-protected: refuses to redeploy if an active set exists. Typical gas cost: $1–50.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
