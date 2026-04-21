@@ -1471,7 +1471,7 @@
     function render(){
       if (check) check.style.display = lockLP ? '' : 'none';
       if (box) box.style.background = lockLP ? 'var(--primary)' : '#fff';
-      if (desc) desc.textContent = lockLP
+      if (desc) desc.innerHTML = lockLP
         ? '<b>Locked for 10 years.</b> The extra ~0.045 ETH is added directly into your starting Uniswap LP (not a fee — it makes your pool deeper). The LP NFT is then time-locked in Team Finance for 10 years. You earn 50% of all 1% swap fees forever (claim anytime), and your token gets the recognized 🔒 LP Locked badge on DEXTools / GMGN.'
         : '<b>How it works:</b> the extra ~0.045 ETH is <b>NOT a fee paid to a locker service</b> — it\'s added directly into your starting Uniswap LP, making your launch deeper and more stable. The LP NFT is then sent to Team Finance and time-locked for 10 years. You keep ownership of the position, you still earn 50% of all 1% swap fees forever (claimable anytime), and your token gets the recognized 🔒 LP Locked badge on DEXTools / GMGN. Toggle off if you want the cheapest path: no lock, no badge, no fee-claim flow.';
       recomputeEcon();
