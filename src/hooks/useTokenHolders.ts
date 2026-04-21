@@ -26,7 +26,7 @@ export function useTokenHolders(mintAddress: string, enabled: boolean) {
       if (error) throw error;
       return data as TokenHoldersResult;
     },
-    enabled: !!mintAddress && enabled,
+    enabled: !!mintAddress && enabled && !mintAddress.startsWith("0x"),
     refetchInterval: enabled ? 30000 : false,
     staleTime: 15000,
   });
