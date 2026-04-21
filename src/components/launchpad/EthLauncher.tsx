@@ -13,14 +13,14 @@ import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem';
+import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type PublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
-const START_MC_USD = 5_000; // $5K starting market cap (single-sided V3)
-const MANDATORY_DEV_BUY_USD = 50; // Required initial dev buy
+const MIN_LP_USD = 50;       // $50 minimum initial LP seed (paired against single-sided V3 supply)
+const MAX_DEV_BUY_USD = 5000; // soft UX cap on dev buy
 
 interface EthLaunchFormData {
   name: string;
