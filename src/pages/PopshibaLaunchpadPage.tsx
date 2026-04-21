@@ -6,7 +6,7 @@
  *   real data from `eth_launch_requests` joined with on-chain market data
  *   (price / MC / 24h vol / 24h change / liquidity) fetched via the
  *   `eth-batch-market` edge function (DexScreener under the hood).
- * - "Trade" button on each row → /trade/:address (escapes iframe with _top).
+ * - "Trade" button on each row → /ape/:address (escapes iframe with _top).
  * - "🚀 LAUNCH IT" inside iframe → opens real <EthLauncher /> modal,
  *   prefilled from the form values posted up via window.postMessage.
  * - Empty-state CTA when there are no live launches.
@@ -126,7 +126,7 @@ function injectTopTokens(
     const chgColor = chg == null ? "var(--up)" : chg >= 0 ? "var(--up)" : "#ff6b4a";
     const chgText = chg == null ? "—" : `${chg >= 0 ? "+" : ""}${chg.toFixed(1)}%`;
     const path = buildSparkPath(sparkline);
-    const tradeHref = launch.token_address ? `/trade/${launch.token_address}` : "#";
+    const tradeHref = launch.token_address ? `/ape/${launch.token_address}` : "#";
     const imageHTML = launch.image_url
       ? `<img src="${launch.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
       : av;
@@ -204,7 +204,7 @@ function injectHeroCard(
     set("hp-avatar", (tick[0] || "P").toUpperCase());
   }
   const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
-  if (link) link.href = latest.token_address ? `/trade/${latest.token_address}` : "#";
+  if (link) link.href = latest.token_address ? `/ape/${latest.token_address}` : "#";
 
   // Socials — wire whatever exists, hide the rest (no flicker of broken links)
   setHref("hp-tw", latest.twitter_url);
@@ -282,7 +282,7 @@ function injectLiveData(
       const imageHTML = l.image_url
         ? `<img src="${l.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
         : av;
-      const tradeHref = l.token_address ? `/trade/${l.token_address}` : "#";
+      const tradeHref = l.token_address ? `/ape/${l.token_address}` : "#";
       tr.innerHTML = `
         <td>
           <div class="ll-tok">
