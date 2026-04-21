@@ -55,7 +55,7 @@ export function PopshibaTopNav() {
         </Link>
 
         {/* Desktop links */}
-        <nav className="hidden lg:flex gap-5 text-[13px] font-bold flex-wrap">
+        <nav className="hidden lg:flex gap-5 text-[13px] font-bold flex-wrap items-center">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
             return (
@@ -75,6 +75,8 @@ export function PopshibaTopNav() {
               </Link>
             );
           })}
+          <span className="mx-1 h-5 w-px bg-pop-cream/20" />
+          <SocialLinks />
         </nav>
 
         {/* Right (desktop) */}
