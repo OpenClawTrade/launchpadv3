@@ -223,10 +223,10 @@ function injectHeroCard(
     chgEl.textContent = fmtPct(chg);
     (chgEl as HTMLElement).style.color = chg == null ? "" : chg >= 0 ? "#0b8a3a" : "#c8372d";
   }
-  const pct = Math.max(2, Math.min(100, Math.round((mc / 69_000) * 100)));
+  const pct = Math.max(2, Math.min(100, Math.round((mc / 100_000) * 100)));
   const fill = doc.getElementById("hp-bar-fill") as HTMLElement | null;
   if (fill) fill.style.width = `${pct}%`;
-  set("hp-bar-left", `${fmtUsd(mc)} / $69K MC`);
+  set("hp-bar-left", `${fmtUsd(mc)} / $100K MC`);
   set("hp-bar-right", `${pct}%`);
   const liveEl = doc.getElementById("hp-live");
   if (liveEl) {
