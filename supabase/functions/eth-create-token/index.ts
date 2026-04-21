@@ -80,10 +80,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch active deployment (launcher address)
+    // Fetch active deployment (V2 launcher address). Prefers explicit V2 column when present.
     const { data: deployment, error: depErr } = await supabase
       .from("eth_deployments")
-      .select("launcher_address, clone_factory_address, vault_address, token_impl_address")
+      .select("launcher_address, clone_factory_address, vault_address, token_impl_address, uncx_lock_fee_wei")
       .eq("is_active", true)
       .not("launcher_address", "is", null)
       .order("deployed_at", { ascending: false })
@@ -124,8 +124,6 @@ Deno.serve(async (req) => {
     const launchId = launchRow?.id ?? null;
 
     // On-chain metadata stored permanently in the token's metadataURI() getter.
-    // Visible on Etherscan "Read Contract" tab → metadataURI() forever.
-    // Image deliberately omitted (lives in Supabase storage, served by frontend).
     const metadataURI = JSON.stringify({
       name: body.name.trim(),
       symbol: body.ticker.trim().toUpperCase(),
@@ -140,12 +138,18 @@ Deno.serve(async (req) => {
       launchId: launchId ?? "",
     });
 
-    // LP seed amount — client computes $50 worth of ETH at spot price and passes here.
-    // Falls back to 0.02 ETH (~$60 @ $3K) if client didn't supply.
+    // LP seed amount (client-supplied, server-floored).
     const ethForLPWei = body.ethForLPWei ?? parseEther("0.02").toString();
     const ethForDevBuyWei = body.devBuyEth && body.devBuyEth > 0
       ? parseEther(String(body.devBuyEth)).toString()
       : "0";
+
+    // UNCX V3 locker flat fee. Stored as a column on eth_deployments so admin
+    // can update it without redeploying. Defaults to 0.0001 ETH (current mainnet
+    // value) to avoid blocking launches if the column was never populated.
+    const uncxLockFeeWei = (deployment as any).uncx_lock_fee_wei
+      ? String((deployment as any).uncx_lock_fee_wei)
+      : parseEther("0.0001").toString();
 
     return new Response(JSON.stringify({
       success: true,
@@ -154,7 +158,7 @@ Deno.serve(async (req) => {
       metadataURI,
       ethForLPWei,
       ethForDevBuyWei,
-      // Expose suite addresses for transparency / explorer links
+      uncxLockFeeWei,
       cloneFactory: deployment.clone_factory_address,
       feeVault: deployment.vault_address,
     }), {

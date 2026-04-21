@@ -46,10 +46,12 @@ export interface LaunchResult {
   token: Address;
   pool: Address;
   lpTokenId: bigint;
+  /** UNCX V3 locker id. Present when launched via PopShibaLauncherV2. */
+  uncxLockId?: bigint;
   txHash: Hash;
 }
 
-/** Parse the TokenLaunched event from a launch tx receipt. */
+/** Parse Launched / TokenLaunched + LpLocked events from a launch tx receipt. */
 export async function waitForLaunchResult(
   publicClient: PublicClient,
   launcherAddress: Address,
@@ -57,6 +59,11 @@ export async function waitForLaunchResult(
 ): Promise<LaunchResult> {
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (receipt.status !== 'success') throw new Error('Launch transaction reverted');
+
+  let token: Address | null = null;
+  let pool: Address | null = null;
+  let lpTokenId: bigint | null = null;
+  let uncxLockId: bigint | undefined;
 
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== launcherAddress.toLowerCase()) continue;
@@ -67,22 +74,23 @@ export async function waitForLaunchResult(
         data: anyLog.data,
         topics: anyLog.topics,
       }) as { eventName: string; args: Record<string, unknown> };
-      if (decoded.eventName === 'TokenLaunched') {
-        const args = decoded.args as unknown as {
-          token: Address;
-          pool: Address;
-          lpTokenId: bigint;
-        };
-        return {
-          token: args.token,
-          pool: args.pool,
-          lpTokenId: args.lpTokenId,
-          txHash,
-        };
+
+      if (decoded.eventName === 'Launched' || decoded.eventName === 'TokenLaunched') {
+        const args = decoded.args as unknown as { token: Address; pool: Address; lpTokenId: bigint };
+        token = args.token;
+        pool = args.pool;
+        lpTokenId = args.lpTokenId;
+      } else if (decoded.eventName === 'LpLocked') {
+        const args = decoded.args as unknown as { uncxLockId: bigint };
+        uncxLockId = args.uncxLockId;
       }
     } catch {
       // not our event — ignore
     }
   }
-  throw new Error('TokenLaunched event not found in receipt');
+
+  if (!token || !pool || lpTokenId === null) {
+    throw new Error('Launched event not found in receipt');
+  }
+  return { token, pool, lpTokenId, uncxLockId, txHash };
 }
