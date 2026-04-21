@@ -17,6 +17,11 @@ import {
   POPSHIBA_LAUNCHER_V2_BYTECODE,
   V2_BYTECODE_READY,
 } from "./v2_bytecode.ts";
+import {
+  POPSHIBA_FEE_VAULT_V3_BYTECODE,
+  POPSHIBA_LAUNCHER_V3_BYTECODE,
+  V3_BYTECODE_READY,
+} from "./v3_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +52,9 @@ Deno.serve(async (req) => {
   // v2: deploy PopShibaFeeVaultV2 + PopShibaLauncherV2 (UNCX locking suite). Reuses existing
   // PopShibaToken impl + CloneFactory from the active V1 row, inserts a NEW active eth_deployments row.
   const v2: boolean = body.v2 === true;
+  // v3: deploy PopShibaFeeVaultV3 + PopShibaLauncherV3 (Team Finance locking suite, optional lock).
+  // Reuses existing PopShibaToken impl + CloneFactory; inserts NEW active row.
+  const v3: boolean = body.v3 === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
@@ -228,9 +236,11 @@ Deno.serve(async (req) => {
         ownership,
         v2Ready: V2_BYTECODE_READY,
         v2CanDeploy: V2_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
+        v3Ready: V3_BYTECODE_READY,
+        v3CanDeploy: V3_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
-          : (existing && !force && !launcherOnly && !v2 ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, or v2=true to deploy the UNCX-locking V2 suite alongside it." : null),
+          : (existing && !force && !launcherOnly && !v2 && !v3 ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, or v3=true for Team Finance-lock suite." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
