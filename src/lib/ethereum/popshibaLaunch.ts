@@ -51,13 +51,14 @@ export async function waitForLaunchResult(
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (receipt.status !== 'success') throw new Error('Launch transaction reverted');
 
-  for (const log of receipt.logs as Log[]) {
+  for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== launcherAddress.toLowerCase()) continue;
+    const anyLog = log as unknown as { data: `0x${string}`; topics: [`0x${string}`, ...`0x${string}`[]] };
     try {
       const decoded = decodeEventLog({
         abi: POPSHIBA_LAUNCHER_ABI,
-        data: log.data,
-        topics: log.topics as [signature: `0x${string}`, ...args: `0x${string}`[]],
+        data: anyLog.data,
+        topics: anyLog.topics,
       }) as { eventName: string; args: Record<string, unknown> };
       if (decoded.eventName === 'TokenLaunched') {
         const args = decoded.args as unknown as {
