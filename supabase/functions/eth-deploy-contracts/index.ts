@@ -3,7 +3,7 @@
 // Idempotent: refuses to redeploy if active row exists in eth_deployments.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { createWalletClient, createPublicClient, http, parseEther, formatEther } from "npm:viem@2.21.0";
+import { createWalletClient, createPublicClient, http, parseEther, formatEther, encodeFunctionData, parseAbi, getAddress } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
 import solc from "npm:solc@0.8.20";
