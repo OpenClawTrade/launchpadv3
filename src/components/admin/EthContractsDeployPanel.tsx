@@ -126,10 +126,16 @@ export function EthContractsDeployPanel() {
             </Button>
           )}
           {dry && hasActive && (
-            <Button onClick={() => deploy(true)} disabled={busy} variant="destructive">
-              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-              Force Redeploy
-            </Button>
+            <>
+              <Button onClick={verifyNow} disabled={busy} variant="secondary">
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Verify on Etherscan
+              </Button>
+              <Button onClick={() => deploy(true)} disabled={busy} variant="destructive">
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                Force Redeploy
+              </Button>
+            </>
           )}
         </div>
 
