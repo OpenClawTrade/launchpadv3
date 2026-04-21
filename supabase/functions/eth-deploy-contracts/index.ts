@@ -102,6 +102,36 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ---- Resume checkpoint: find any in-progress deploy by this deployer ----
+    const { data: checkpoint } = await supabase
+      .from("eth_deployment_progress")
+      .select("id, token_impl_address, clone_factory_address, vault_address, tx_hashes")
+      .eq("deployer", account.address)
+      .eq("network", "mainnet")
+      .eq("status", "in_progress")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let progressId = checkpoint?.id ?? null;
+    const txHashes: string[] = Array.isArray(checkpoint?.tx_hashes) ? [...checkpoint!.tx_hashes as string[]] : [];
+    const deployed: Record<string, string> = {};
+    if (checkpoint?.token_impl_address) deployed.PopShibaToken = checkpoint.token_impl_address;
+    if (checkpoint?.clone_factory_address) deployed.PopShibaCloneFactory = checkpoint.clone_factory_address;
+    if (checkpoint?.vault_address) deployed.PopShibaFeeVault = checkpoint.vault_address;
+
+    if (!progressId) {
+      const { data: newProg } = await supabase.from("eth_deployment_progress").insert({
+        deployer: account.address,
+        network: "mainnet",
+        status: "in_progress",
+        tx_hashes: [],
+      }).select("id").single();
+      progressId = newProg?.id ?? null;
+    } else {
+      console.log(`[deploy] Resuming checkpoint ${progressId}: have ${Object.keys(deployed).join(", ") || "none"}`);
+    }
+
     // ---- Compile ----
     const [tokenSrc, factorySrc, vaultSrc] = await Promise.all([
       readContract("PopShibaToken"),
@@ -121,9 +151,6 @@ Deno.serve(async (req) => {
     // ABI encoder for constructor args (manual minimal — addresses only)
     const encodeAddr = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
 
-    const txHashes: string[] = [];
-    const deployed: Record<string, string> = {};
-
     async function deployOne(label: string, bytecode: string, ctorArgs: string = ""): Promise<string> {
       const data = `0x${bytecode}${ctorArgs}` as `0x${string}`;
       const hash = await walletClient.sendTransaction({ to: null, data, value: 0n });
@@ -134,27 +161,70 @@ Deno.serve(async (req) => {
       return receipt.contractAddress;
     }
 
-    // 1. PopShibaToken (impl, no ctor args)
-    deployed.PopShibaToken = await deployOne("PopShibaToken", tokenContract.evm.bytecode.object);
+    async function checkpointSave(field: "token_impl_address" | "clone_factory_address" | "vault_address", addr: string) {
+      if (!progressId) return;
+      await supabase.from("eth_deployment_progress").update({
+        [field]: addr,
+        tx_hashes: txHashes,
+      }).eq("id", progressId);
+    }
 
-    // 2. PopShibaCloneFactory(address implementation)
-    deployed.PopShibaCloneFactory = await deployOne(
-      "PopShibaCloneFactory",
-      factoryContract.evm.bytecode.object,
-      encodeAddr(deployed.PopShibaToken),
-    );
+    try {
+      // 1. PopShibaToken (impl, no ctor args)
+      if (!deployed.PopShibaToken) {
+        deployed.PopShibaToken = await deployOne("PopShibaToken", tokenContract.evm.bytecode.object);
+        await checkpointSave("token_impl_address", deployed.PopShibaToken);
+      } else {
+        console.log(`[deploy] Skipping PopShibaToken — already deployed at ${deployed.PopShibaToken}`);
+      }
 
-    // 3. PopShibaFeeVault(weth, nfpm, treasury)
-    deployed.PopShibaFeeVault = await deployOne(
-      "PopShibaFeeVault",
-      vaultContract.evm.bytecode.object,
-      encodeAddr(WETH_MAINNET) + encodeAddr(UNISWAP_V3_NFPM) + encodeAddr(PLATFORM_TREASURY),
-    );
+      // 2. PopShibaCloneFactory(address implementation)
+      if (!deployed.PopShibaCloneFactory) {
+        deployed.PopShibaCloneFactory = await deployOne(
+          "PopShibaCloneFactory",
+          factoryContract.evm.bytecode.object,
+          encodeAddr(deployed.PopShibaToken),
+        );
+        await checkpointSave("clone_factory_address", deployed.PopShibaCloneFactory);
+      } else {
+        console.log(`[deploy] Skipping PopShibaCloneFactory — already deployed at ${deployed.PopShibaCloneFactory}`);
+      }
+
+      // 3. PopShibaFeeVault(weth, nfpm, treasury)
+      if (!deployed.PopShibaFeeVault) {
+        deployed.PopShibaFeeVault = await deployOne(
+          "PopShibaFeeVault",
+          vaultContract.evm.bytecode.object,
+          encodeAddr(WETH_MAINNET) + encodeAddr(UNISWAP_V3_NFPM) + encodeAddr(PLATFORM_TREASURY),
+        );
+        await checkpointSave("vault_address", deployed.PopShibaFeeVault);
+      } else {
+        console.log(`[deploy] Skipping PopShibaFeeVault — already deployed at ${deployed.PopShibaFeeVault}`);
+      }
+    } catch (deployErr) {
+      const msg = deployErr instanceof Error ? deployErr.message : String(deployErr);
+      if (progressId) {
+        await supabase.from("eth_deployment_progress").update({
+          status: "failed",
+          last_error: msg,
+          tx_hashes: txHashes,
+        }).eq("id", progressId);
+      }
+      throw new Error(`Partial deploy failed (checkpoint saved, retry to resume): ${msg}`);
+    }
 
     const finalBal = await publicClient.getBalance({ address: account.address });
     const gasUsedEth = formatEther(balance - finalBal);
 
-    // Deactivate prior rows + insert new one
+    // Mark checkpoint completed
+    if (progressId) {
+      await supabase.from("eth_deployment_progress").update({
+        status: "completed",
+        tx_hashes: txHashes,
+      }).eq("id", progressId);
+    }
+
+    // Deactivate prior rows + insert new active deployment
     await supabase.from("eth_deployments").update({ is_active: false }).eq("is_active", true);
     const { data: row, error: insErr } = await supabase.from("eth_deployments").insert({
       network: "mainnet",
