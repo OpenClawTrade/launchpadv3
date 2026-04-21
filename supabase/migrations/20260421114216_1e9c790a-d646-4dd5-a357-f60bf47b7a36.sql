@@ -1,0 +1,2 @@
+UPDATE public.eth_deployments SET is_active = false WHERE id = '675677a1-9e30-4c2a-b0aa-2aa4168dcd3a';
+UPDATE public.eth_deployments SET is_active = true  WHERE id = 'adf2ffe8-b751-4cd9-8998-42571c6de880';
