@@ -230,30 +230,47 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
   const rawAppId = import.meta.env.VITE_PRIVY_APP_ID;
   const buildTimeAppId = (rawAppId ?? "").trim();
 
+  // Runtime config (from public-config edge function → reads PRIVY_APP_ID secret)
+  // is the source of truth. The build-time VITE_PRIVY_APP_ID can become stale
+  // (baked into an old bundle when the secret was different), so we always
+  // prefer the runtime value once it has loaded.
   const [resolvedAppId, setResolvedAppId] = useState<string>(() => {
-    if (isValidPrivyAppId(buildTimeAppId)) return buildTimeAppId;
     const fromWindow = ((window as any)?.__PUBLIC_CONFIG__?.privyAppId as string | undefined) ?? "";
     if (isValidPrivyAppId(fromWindow.trim())) return fromWindow.trim();
+    if (isValidPrivyAppId(buildTimeAppId)) return buildTimeAppId;
     return "";
   });
 
   useEffect(() => {
-    if (isValidPrivyAppId(buildTimeAppId)) {
-      if (!isValidPrivyAppId(resolvedAppId)) setResolvedAppId(buildTimeAppId);
-      return;
-    }
-    if (isValidPrivyAppId(resolvedAppId)) return;
-
     let cancelled = false;
     const startedAt = Date.now();
     const maxWaitMs = 15000;
 
-    const timer = window.setInterval(() => {
-      if (cancelled) return;
+    const tryAdopt = () => {
       const fromWindow = ((window as any)?.__PUBLIC_CONFIG__?.privyAppId as string | undefined) ?? "";
       const candidate = fromWindow.trim();
-      if (isValidPrivyAppId(candidate)) {
+      const runtimeLoaded = !!(window as any)?.__PUBLIC_CONFIG_LOADED__;
+
+      // Once runtime config has loaded, ALWAYS prefer the runtime value
+      // (even if it differs from the build-time one — that means the secret
+      // was rotated and the bundle is stale).
+      if (runtimeLoaded && isValidPrivyAppId(candidate) && candidate !== resolvedAppId) {
         setResolvedAppId(candidate);
+        return true;
+      }
+      // If we still don't have any valid id, accept whichever appears first.
+      if (!isValidPrivyAppId(resolvedAppId) && isValidPrivyAppId(candidate)) {
+        setResolvedAppId(candidate);
+        return true;
+      }
+      return false;
+    };
+
+    if (tryAdopt()) return;
+
+    const timer = window.setInterval(() => {
+      if (cancelled) return;
+      if (tryAdopt()) {
         window.clearInterval(timer);
         return;
       }
