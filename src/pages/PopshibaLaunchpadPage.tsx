@@ -255,18 +255,17 @@ export default function PopshibaLaunchpadPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [recentRes, totalRes] = await Promise.all([
-        supabase
-          .from("eth_launch_requests")
-          .select("id, token_name, token_ticker, image_url, status, created_at, token_address, twitter_url, telegram_url, website_url")
-          .in("status", ["pending", "deploying", "deployed", "live", "graduated"])
-          .order("created_at", { ascending: false })
-          .limit(8),
-        supabase.from("eth_launch_requests").select("id", { count: "exact", head: true }),
-      ]);
+      // Only REAL on-chain coins: must have a token_address AND a non-failed/pending status.
+      const { data: recentData } = await supabase
+        .from("eth_launch_requests")
+        .select("id, token_name, token_ticker, image_url, status, created_at, token_address, twitter_url, telegram_url, website_url")
+        .in("status", ["deployed", "live", "graduated"])
+        .not("token_address", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(200);
       if (cancelled) return;
-      const launches = (recentRes.data ?? []) as EthLaunch[];
-      const totalCoins = totalRes.count ?? 0;
+      const launches = (recentData ?? []) as EthLaunch[];
+      const totalCoins = launches.length;
 
       // Fetch on-chain market data for any tokens we have addresses for
       const addrs = launches.map((l) => l.token_address).filter((a): a is string => !!a);
