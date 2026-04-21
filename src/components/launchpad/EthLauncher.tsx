@@ -13,8 +13,9 @@ import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { createPublicClient, createWalletClient, custom, http, parseEther, type Address, type PublicClient } from 'viem';
+import { createPublicClient, http, parseEther, type Address, type PublicClient } from 'viem';
 import { mainnet } from 'viem/chains';
+import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 
 // Launch parameters — must mirror eth-create-token edge function
