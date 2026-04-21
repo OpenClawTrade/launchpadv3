@@ -250,7 +250,6 @@ export default function ApePage() {
                   </p>
                 </div>
               )}
-              )}
             </div>
           </div>
 
