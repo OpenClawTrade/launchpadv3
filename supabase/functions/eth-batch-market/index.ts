@@ -54,9 +54,14 @@ Deno.serve(async (req) => {
         (a, b) => (b?.liquidity?.usd ?? 0) - (a?.liquidity?.usd ?? 0)
       );
       const p = candidates[0];
+      // Prefer FDV (price × total supply) over circulating marketCap.
+      // For fresh launchpad tokens with the entire 1B supply seeded into a
+      // single-sided V3 LP, DexScreener's `marketCap` collapses to the LP's
+      // USD value (~$5) because nothing is "circulating" yet by their
+      // accounting. FDV is the honest number to display.
       out[addr] = {
         priceUsd: p.priceUsd ? Number(p.priceUsd) : null,
-        marketCap: p.marketCap ?? p.fdv ?? null,
+        marketCap: p.fdv ?? p.marketCap ?? null,
         volumeH24: p.volume?.h24 ?? null,
         changeH24: p.priceChange?.h24 ?? null,
         liquidityUsd: p.liquidity?.usd ?? null,
