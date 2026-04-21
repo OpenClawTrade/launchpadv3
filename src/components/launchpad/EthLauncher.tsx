@@ -281,6 +281,7 @@ export function EthLauncher() {
     } catch (e) {
       console.error('ETH atomic launch error:', e);
       const msg = e instanceof Error ? e.message : 'Unknown error';
+      pushLog(`ERROR: ${msg}`);
       setLaunchError(msg);
       toast.error('Launch failed', { description: msg });
       if (launchId) {
@@ -291,7 +292,7 @@ export function EthLauncher() {
     } finally {
       setIsLaunching(false);
     }
-  }, [canLaunch, address, formData]);
+  }, [canLaunch, address, formData, walletClient, currentChainId, switchChainAsync, lpEthAmount, pushLog]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
