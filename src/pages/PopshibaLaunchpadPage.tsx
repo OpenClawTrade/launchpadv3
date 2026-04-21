@@ -268,6 +268,11 @@ export default function PopshibaLaunchpadPage() {
       const doc = ref.current?.contentDocument;
       if (doc && doc.getElementById("ll-body")) {
         injectLiveData(doc, launches, markets, { totalVolume, totalCoins, gradPct, totalMC });
+        const latest = launches[0] ?? null;
+        const latestMarket = latest?.token_address
+          ? markets[latest.token_address.toLowerCase()]
+          : undefined;
+        injectHeroCard(doc, latest, latestMarket);
       }
     }
     function onLoad() { setTimeout(load, 50); }
@@ -275,10 +280,22 @@ export default function PopshibaLaunchpadPage() {
     f?.addEventListener("load", onLoad);
     if (f?.contentDocument?.readyState === "complete") onLoad();
     const interval = setInterval(load, 30_000);
+
+    // Realtime: any new launch → refresh immediately so all users see it
+    const channel = supabase
+      .channel("popshiba-launches")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "eth_launch_requests" },
+        () => load()
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
       clearInterval(interval);
       f?.removeEventListener("load", onLoad);
+      supabase.removeChannel(channel);
     };
   }, []);
 
