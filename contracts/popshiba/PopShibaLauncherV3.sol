@@ -201,20 +201,20 @@ contract PopShibaLauncherV3 {
         IWETH9(WETH).deposit{value: ethForLP + ethForDevBuy}();
 
         // 3. Create + init pool
-        pool = IUniswapV3Factory(V3_FACTORY).getPool(token, WETH, FEE_TIER);
-        if (pool == address(0)) {
-            pool = IUniswapV3Factory(V3_FACTORY).createPool(token, WETH, FEE_TIER);
-        }
-        try IUniswapV3Pool(pool).initialize(_initialSqrtPriceX96()) {} catch {}
-
-        // 4. Mint single-sided LP position. NFT minted to THIS contract.
-        IERC20(token).approve(NPM, TOTAL_SUPPLY);
-        IERC20(WETH).approve(NPM, ethForLP);
-
         (address t0, address t1) = token < WETH ? (token, WETH) : (WETH, token);
         (uint256 amt0, uint256 amt1) = token < WETH
             ? (TOTAL_SUPPLY, ethForLP)
             : (ethForLP, TOTAL_SUPPLY);
+
+        pool = IUniswapV3Factory(V3_FACTORY).getPool(token, WETH, FEE_TIER);
+        if (pool == address(0)) {
+            pool = IUniswapV3Factory(V3_FACTORY).createPool(token, WETH, FEE_TIER);
+        }
+        try IUniswapV3Pool(pool).initialize(_computeSqrtPriceX96(amt0, amt1)) {} catch {}
+
+        // 4. Mint single-sided LP position. NFT minted to THIS contract.
+        IERC20(token).approve(NPM, TOTAL_SUPPLY);
+        IERC20(WETH).approve(NPM, ethForLP);
 
         (lpTokenId, , , ) = INonfungiblePositionManager(NPM).mint(
             INonfungiblePositionManager.MintParams({
@@ -279,8 +279,29 @@ contract PopShibaLauncherV3 {
         emit Launched(token, msg.sender, pool, lpTokenId, lockLP);
     }
 
-    function _initialSqrtPriceX96() internal pure returns (uint160) {
-        return 79228162514264337593543950336; // 2**96 ≈ 1:1
+    /// @dev sqrtPriceX96 = sqrt(amount1 * 2^192 / amount0).
+    /// Inputs must already be sorted as token0/token1 pool reserves.
+    function _computeSqrtPriceX96(uint256 amount0, uint256 amount1) internal pure returns (uint160) {
+        require(amount0 > 0 && amount1 > 0, "ZERO_AMOUNT");
+        uint256 r1 = _sqrt(_mulDiv(amount1, 1 << 96, amount0));
+        uint256 sqrtPrice = r1 << 48;
+        require(sqrtPrice <= type(uint160).max, "SQRT_OVERFLOW");
+        return uint160(sqrtPrice);
+    }
+
+    function _sqrt(uint256 x) internal pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+
+    function _mulDiv(uint256 a, uint256 b, uint256 d) internal pure returns (uint256) {
+        require(d > 0, "MULDIV_ZERO");
+        return (a * b) / d;
     }
 
     receive() external payable {}
