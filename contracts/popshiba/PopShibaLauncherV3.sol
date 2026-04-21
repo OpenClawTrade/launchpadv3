@@ -192,9 +192,10 @@ contract PopShibaLauncherV3 {
         uint256 lockFee = lockLP ? teamFinanceFeeWei() : 0;
         require(msg.value == ethForLP + ethForDevBuy + lockFee, "BAD_VALUE");
 
-        // 1. Clone & initialize token
-        token = IPopShibaCloneFactory(cloneFactory).deploy(msg.sender);
-        IPopShibaToken(token).initialize(name_, symbol_, metadataURI_, TOTAL_SUPPLY, address(this));
+        // 1. Clone & initialize token (full supply minted to THIS launcher for LP seeding)
+        token = IPopShibaCloneFactory(cloneFactory).createToken(
+            name_, symbol_, address(this), TOTAL_SUPPLY, metadataURI_, msg.sender
+        );
 
         // 2. Wrap LP + dev-buy ETH into WETH
         IWETH9(WETH).deposit{value: ethForLP + ethForDevBuy}();
