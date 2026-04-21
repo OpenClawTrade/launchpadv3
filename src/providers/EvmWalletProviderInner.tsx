@@ -4,12 +4,16 @@ import { base, mainnet, bsc, arbitrum } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Configure wagmi with Base, Ethereum mainnet, BSC, and Arbitrum (for Hyperliquid deposits)
+const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno';
+
 const config = createConfig({
   chains: [base, mainnet, bsc, arbitrum],
   transports: {
     [base.id]: http('https://mainnet.base.org'),
-    [mainnet.id]: http('https://eth.llamarpc.com'),
-    [bsc.id]: http(`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'ptwytypavumcrbofspno'}.supabase.co/functions/v1/bsc-rpc`),
+    // Route ETH mainnet through our edge function so we can use QuickNode/Alchemy server-side
+    // and avoid public-RPC rate limits (eth.llamarpc.com → 429).
+    [mainnet.id]: http(`https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/eth-rpc`),
+    [bsc.id]: http(`https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/bsc-rpc`),
     [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
   },
 });
