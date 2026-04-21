@@ -51,9 +51,14 @@ export function useEvmWallet() {
 
   const revokeMetaMaskPermission = () => {
     try {
-      const eth = (window as any).ethereum;
-      if (eth?.request) {
-        eth.request({
+      const eth: any = (window as any).ethereum;
+      // Target MetaMask provider directly to avoid triggering the
+      // browser's "which extension?" picker when Phantom is also installed.
+      const mmProvider =
+        eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
+        (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
+      if (mmProvider?.request) {
+        mmProvider.request({
           method: "wallet_revokePermissions",
           params: [{ eth_accounts: {} }],
         }).catch(() => {});
@@ -63,8 +68,6 @@ export function useEvmWallet() {
 
   const connect = () => {
     if (!ready || isConnecting) return;
-    // Force MetaMask to re-prompt the account picker for the currently
-    // active account instead of silently reusing a cached permission.
     revokeMetaMaskPermission();
     if (authenticated) {
       if (!isConnected) connectWallet();
