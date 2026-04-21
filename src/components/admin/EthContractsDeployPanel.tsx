@@ -11,6 +11,7 @@ interface ExistingDeployment {
   vault_address: string;
   clone_factory_address: string;
   token_impl_address: string;
+  launcher_address: string | null;
   deployed_at: string;
 }
 
@@ -22,6 +23,7 @@ interface DryRun {
   ready: boolean;
   willDeploy: string[];
   existingDeployment: ExistingDeployment | null;
+  canPatchLauncher: boolean;
   warning: string | null;
 }
 
