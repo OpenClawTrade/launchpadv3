@@ -94,12 +94,7 @@ export default function ApePage() {
     return () => { cancelled = true; };
   }, [tokenAddress, chain, isValidAddress]);
 
-  // DexScreener embed src — supports ethereum + bsc
-  const chartSrc = useMemo(() => {
-    if (!isValidAddress) return null;
-    const dsChain = chain === "bnb" ? "bsc" : "ethereum";
-    return `https://dexscreener.com/${dsChain}/${tokenAddress.trim()}?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=15`;
-  }, [tokenAddress, chain, isValidAddress]);
+  const networkId = chain === "bnb" ? BSC_NETWORK_ID : ETH_NETWORK_ID;
 
   const handleSwap = async () => {
     if (!isAuthenticated) { setShowLoginModal(true); return; }
