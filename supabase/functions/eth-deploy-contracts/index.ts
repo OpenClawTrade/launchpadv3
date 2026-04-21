@@ -1,19 +1,17 @@
 // PopShiba Ethereum Contract Suite — One-shot mainnet deployer.
-// Compiles Solidity in-flight (npm:solc) → deploys Token impl, CloneFactory, FeeVault, Launcher.
+// Uses precompiled bytecode (no solc at runtime → fits in edge CPU budget).
 // Idempotent: refuses to redeploy if active row exists in eth_deployments.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { createWalletClient, createPublicClient, http, parseEther, formatEther, encodeFunctionData, parseAbi, getAddress } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
-import solc from "npm:solc@0.8.20";
-import {
-  POPSHIBA_TOKEN_SOL,
-  POPSHIBA_CLONE_FACTORY_SOL,
-  POPSHIBA_FEE_VAULT_SOL,
-  POPSHIBA_LAUNCHER_SOL,
-} from "./sources.ts";
 import { POPSHIBA_LAUNCHER_BYTECODE } from "./launcher_bytecode.ts";
+import {
+  POPSHIBA_TOKEN_BYTECODE,
+  POPSHIBA_CLONE_FACTORY_BYTECODE,
+  POPSHIBA_FEE_VAULT_BYTECODE,
+} from "./precompiled_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,31 +21,6 @@ const corsHeaders = {
 const WETH_MAINNET = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 const UNISWAP_V3_NFPM = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
 const PLATFORM_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
-
-const CONTRACT_SOURCES: Record<string, string> = {
-  PopShibaToken: POPSHIBA_TOKEN_SOL,
-  PopShibaCloneFactory: POPSHIBA_CLONE_FACTORY_SOL,
-  PopShibaFeeVault: POPSHIBA_FEE_VAULT_SOL,
-  PopShibaLauncher: POPSHIBA_LAUNCHER_SOL,
-};
-
-function compile(sources: Record<string, string>) {
-  const input = {
-    language: "Solidity",
-    sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { content: v }])),
-    settings: {
-      optimizer: { enabled: true, runs: 200 },
-      viaIR: true,
-      evmVersion: "paris",
-      outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
-    },
-  };
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-  if (output.errors?.some((e: any) => e.severity === "error")) {
-    throw new Error("Compile failed: " + output.errors.map((e: any) => e.formattedMessage).join("\n"));
-  }
-  return output;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -347,39 +320,29 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ---- Compile (only needed for full deploy) ----
-    const out = compile({
-      "PopShibaToken.sol": CONTRACT_SOURCES.PopShibaToken,
-      "PopShibaCloneFactory.sol": CONTRACT_SOURCES.PopShibaCloneFactory,
-      "PopShibaFeeVault.sol": CONTRACT_SOURCES.PopShibaFeeVault,
-      "PopShibaLauncher.sol": CONTRACT_SOURCES.PopShibaLauncher,
-    });
-    const tokenContract = out.contracts["PopShibaToken.sol"]["PopShibaToken"];
-    const factoryContract = out.contracts["PopShibaCloneFactory.sol"]["PopShibaCloneFactory"];
-    const vaultContract = out.contracts["PopShibaFeeVault.sol"]["PopShibaFeeVault"];
-    const launcherContract = out.contracts["PopShibaLauncher.sol"]["PopShibaLauncher"];
+    // ---- Full deploy uses precompiled bytecode (no solc at runtime → fits CPU budget) ----
 
     // 1. PopShibaToken (impl)
-    deployed.PopShibaToken = await deployOne("PopShibaToken", tokenContract.evm.bytecode.object);
+    deployed.PopShibaToken = await deployOne("PopShibaToken", POPSHIBA_TOKEN_BYTECODE);
 
     // 2. PopShibaCloneFactory(implementation)
     deployed.PopShibaCloneFactory = await deployOne(
       "PopShibaCloneFactory",
-      factoryContract.evm.bytecode.object,
+      POPSHIBA_CLONE_FACTORY_BYTECODE,
       encodeAddr(deployed.PopShibaToken),
     );
 
     // 3. PopShibaFeeVault(treasury)
     deployed.PopShibaFeeVault = await deployOne(
       "PopShibaFeeVault",
-      vaultContract.evm.bytecode.object,
+      POPSHIBA_FEE_VAULT_BYTECODE,
       encodeAddr(PLATFORM_TREASURY),
     );
 
     // 4. PopShibaLauncher(cloneFactory, feeVault)
     deployed.PopShibaLauncher = await deployOne(
       "PopShibaLauncher",
-      launcherContract.evm.bytecode.object,
+      POPSHIBA_LAUNCHER_BYTECODE,
       encodeAddr(deployed.PopShibaCloneFactory) + encodeAddr(deployed.PopShibaFeeVault),
     );
 
