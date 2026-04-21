@@ -1,15 +1,15 @@
 /**
  * PopshibaLaunchpadPage
- * Phase 4 — pixel-perfect template + live ETH data + real launcher modal.
+ * Pixel-perfect template (iframe) + live ETH data + real launcher modal.
  *
- * Renders /public/popshiba-template/launch.html in an iframe (1:1 design).
- * - Live launches table is replaced with REAL rows from `eth_launch_requests`.
- * - When the user clicks "🚀 LAUNCH IT" inside the iframe, the form values
- *   are postMessage'd up here and we open the existing <EthLauncher /> modal
- *   prefilled — that component runs the real on-chain launch flow.
- *
- * Empty-state contract: if no live launches exist, the table shows
- * a "Be the first → launch your coin" CTA.
+ * - Live launches table, hero stats, and progress bars are populated with
+ *   real data from `eth_launch_requests` joined with on-chain market data
+ *   (price / MC / 24h vol / 24h change / liquidity) fetched via the
+ *   `eth-batch-market` edge function (DexScreener under the hood).
+ * - "Trade" button on each row → /trade/:address (escapes iframe with _top).
+ * - "🚀 LAUNCH IT" inside iframe → opens real <EthLauncher /> modal,
+ *   prefilled from the form values posted up via window.postMessage.
+ * - Empty-state CTA when there are no live launches.
  */
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,15 @@ type EthLaunch = {
   token_address: string | null;
 };
 
+type Market = {
+  priceUsd: number | null;
+  marketCap: number | null;
+  volumeH24: number | null;
+  changeH24: number | null;
+  liquidityUsd: number | null;
+  pairUrl: string | null;
+};
+
 type LauncherPrefill = {
   name?: string;
   ticker?: string;
@@ -39,6 +48,9 @@ type LauncherPrefill = {
 const palette = ["#8ed36c", "#e8c88a", "#f5d84a", "#cf5f5f", "#f5a524", "#c08fe6", "#7b5dd9", "#a8c27a"];
 const emojis = ["🐸", "🦴", "🍌", "🧲", "🌮", "🪩", "🔮", "🐌", "🚀", "🐕", "🌙", "🚂", "🧃", "👽", "🦄"];
 
+// Bonding-curve target (USD liquidity). Tokens at/above this read 100% (graduated).
+const GRAD_LIQUIDITY_USD = 50_000;
+
 function ageOf(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return `${s}s`;
@@ -47,7 +59,33 @@ function ageOf(iso: string) {
   return `${Math.floor(s / 86400)}d`;
 }
 
-function injectLiveData(doc: Document, launches: EthLaunch[], totalCount: number) {
+function fmtUsd(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return "—";
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1) return `$${n.toFixed(2)}`;
+  return `$${n.toPrecision(2)}`;
+}
+
+function fmtPct(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return "—";
+  const sign = n >= 0 ? "▲" : "▼";
+  return `${sign} ${Math.abs(n).toFixed(1)}%`;
+}
+
+function progressFor(m: Market | undefined, status: string): number {
+  if (status === "graduated") return 100;
+  const liq = m?.liquidityUsd ?? 0;
+  if (liq <= 0) return 5;
+  return Math.max(5, Math.min(100, Math.round((liq / GRAD_LIQUIDITY_USD) * 100)));
+}
+
+function injectLiveData(
+  doc: Document,
+  launches: EthLaunch[],
+  markets: Record<string, Market>,
+  hero: { totalVolume: number; totalCoins: number; gradPct: number; totalMC: number }
+) {
   const body = doc.getElementById("ll-body");
   const counter = doc.getElementById("ll-count");
   const stat = doc.getElementById("stat-launched");
@@ -75,14 +113,18 @@ function injectLiveData(doc: Document, launches: EthLaunch[], totalCount: number
     launches.forEach((l, i) => {
       const av = emojis[i % emojis.length];
       const bg = palette[i % palette.length];
-      const prog = l.status === "graduated" ? 100 : l.status === "live" ? 35 : 12;
+      const m = l.token_address ? markets[l.token_address.toLowerCase()] : undefined;
+      const prog = progressFor(m, l.status);
       const status = prog >= 85 ? "NEAR GRAD" : "LIVE";
+      const change = m?.changeH24 ?? null;
+      const changeClass = change == null ? "up" : change >= 0 ? "up" : "down";
       const tr = doc.createElement("tr");
       const safeName = (l.token_name || "unnamed").replace(/</g, "&lt;");
       const safeTick = (l.token_ticker || "—").toUpperCase().replace(/</g, "&lt;");
       const imageHTML = l.image_url
         ? `<img src="${l.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
         : av;
+      const tradeHref = l.token_address ? `/trade/${l.token_address}` : "#";
       tr.innerHTML = `
         <td>
           <div class="ll-tok">
@@ -91,24 +133,37 @@ function injectLiveData(doc: Document, launches: EthLaunch[], totalCount: number
           </div>
         </td>
         <td><span class="ll-time">${ageOf(l.created_at)}</span></td>
-        <td><span class="ll-mc">—</span></td>
-        <td><span class="ll-chg up">▲ —</span></td>
+        <td><span class="ll-mc">${fmtUsd(m?.marketCap)}</span></td>
+        <td><span class="ll-chg ${changeClass}">${fmtPct(change)}</span></td>
         <td>
           <div class="ll-progress">
             <div class="ll-bar${prog >= 85 ? " grad" : ""}" style="--w:${prog}%"></div>
             <span class="ll-pct">${prog}%</span>
           </div>
         </td>
-        <td><span class="ll-time">—</span></td>
+        <td><span class="ll-time">${fmtUsd(m?.volumeH24)}</span></td>
         <td><span class="ll-status${prog >= 85 ? " grad" : ""}"><span class="dot"></span>${status}</span></td>
-        <td style="text-align:right"><button class="ll-go${prog >= 85 ? " grad" : ""}">${prog >= 85 ? "APE →" : "Trade"}</button></td>
+        <td style="text-align:right">
+          <a href="${tradeHref}" target="_top" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block">
+            ${prog >= 85 ? "APE →" : "Trade"}
+          </a>
+        </td>
       `;
       body.appendChild(tr);
     });
   }
 
   if (counter) counter.textContent = String(launches.length);
-  if (stat) stat.textContent = totalCount.toLocaleString();
+  if (stat) stat.textContent = hero.totalCoins.toLocaleString();
+
+  // Hero stats: best-effort updates if those nodes exist in the template.
+  const setText = (id: string, v: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  setText("stat-volume", fmtUsd(hero.totalVolume));
+  setText("stat-mc", fmtUsd(hero.totalMC));
+  setText("stat-grad-count", String(Math.round((hero.gradPct / 100) * launches.length)));
 }
 
 export default function PopshibaLaunchpadPage() {
@@ -124,22 +179,50 @@ export default function PopshibaLaunchpadPage() {
         supabase
           .from("eth_launch_requests")
           .select("id, token_name, token_ticker, image_url, status, created_at, token_address")
-          .in("status", ["pending", "deploying", "deployed", "live"])
+          .in("status", ["pending", "deploying", "deployed", "live", "graduated"])
           .order("created_at", { ascending: false })
           .limit(8),
         supabase.from("eth_launch_requests").select("id", { count: "exact", head: true }),
       ]);
       if (cancelled) return;
       const launches = (recentRes.data ?? []) as EthLaunch[];
-      const total = totalRes.count ?? 0;
+      const totalCoins = totalRes.count ?? 0;
+
+      // Fetch on-chain market data for any tokens we have addresses for
+      const addrs = launches.map((l) => l.token_address).filter((a): a is string => !!a);
+      let markets: Record<string, Market> = {};
+      if (addrs.length > 0) {
+        const { data: mkt } = await supabase.functions.invoke("eth-batch-market", {
+          body: { addresses: addrs },
+        });
+        markets = (mkt?.results ?? {}) as Record<string, Market>;
+      }
+      if (cancelled) return;
+
+      // Hero aggregates
+      const totalVolume = Object.values(markets).reduce(
+        (s, m) => s + (m?.volumeH24 ?? 0),
+        0
+      );
+      const totalMC = Object.values(markets).reduce(
+        (s, m) => s + (m?.marketCap ?? 0),
+        0
+      );
+      const gradCount = launches.filter(
+        (l) => l.status === "graduated" || (markets[l.token_address?.toLowerCase() ?? ""]?.liquidityUsd ?? 0) >= GRAD_LIQUIDITY_USD
+      ).length;
+      const gradPct = launches.length > 0 ? (gradCount / launches.length) * 100 : 0;
+
       const doc = ref.current?.contentDocument;
-      if (doc && doc.getElementById("ll-body")) injectLiveData(doc, launches, total);
+      if (doc && doc.getElementById("ll-body")) {
+        injectLiveData(doc, launches, markets, { totalVolume, totalCoins, gradPct, totalMC });
+      }
     }
     function onLoad() { setTimeout(load, 50); }
     const f = ref.current;
     f?.addEventListener("load", onLoad);
     if (f?.contentDocument?.readyState === "complete") onLoad();
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(load, 30_000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -175,7 +258,6 @@ export default function PopshibaLaunchpadPage() {
           <DialogHeader>
             <DialogTitle>Launch your coin on Ethereum</DialogTitle>
           </DialogHeader>
-          {/* key forces remount with new prefill values each open */}
           <EthLauncher key={launcherOpen ? "open" : "closed"} initialValues={prefill} />
         </DialogContent>
       </Dialog>
