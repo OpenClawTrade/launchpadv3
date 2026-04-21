@@ -185,7 +185,7 @@ export function EthContractsDeployPanel() {
                 Verify on Etherscan
               </Button>
               {needsTransfer && (
-                <Button onClick={transferOwn} disabled={busy} variant="default" className="bg-amber-500 hover:bg-amber-600 text-black">
+                <Button onClick={transferOwn} disabled={busy} variant="default">
                   {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
                   Hand Over Ownership to Launcher (~$1)
                 </Button>
