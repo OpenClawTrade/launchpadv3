@@ -159,6 +159,8 @@ export function EthLauncher() {
       });
 
       const txHash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
         address: launcher,
         abi: POPSHIBA_LAUNCHER_ABI,
         functionName: 'launch',
@@ -170,7 +172,6 @@ export function EthLauncher() {
           ethForDevBuyWei,
         ],
         value: totalValue,
-        chain: mainnet,
       });
       setLaunchTxHash(txHash);
 
