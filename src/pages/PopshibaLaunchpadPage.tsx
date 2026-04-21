@@ -438,7 +438,7 @@ export default function PopshibaLaunchpadPage() {
           const bm = typeof b.market.marketCap === "number" && isFinite(b.market.marketCap) ? b.market.marketCap : -1;
           return bm - am;
         })
-        .slice(0, 4);
+        .slice(0, 8);
 
       let sparklines: Record<string, number[]> = {};
       if (topRanked.length > 0) {
