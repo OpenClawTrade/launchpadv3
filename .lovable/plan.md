@@ -1,37 +1,51 @@
 
 
-## Fix top nav icons: invisible on dark bar + wrong X Tracker icon
+## Why $VITALIK shows $5 market cap (and why it's actually correct)
 
-Two bugs in `public/popshiba-template/launch.html` nav.
+### Investigation results
 
-### Bug 1 — All icons except the active one are invisible
-The nav bar background is `--ink` (near-black). The icon SVGs are styled with `stroke: var(--ink)` (also near-black) → dark-on-dark = invisible. Only the **active** Launchpad rocket shows because `.active .ni svg` switches stroke to `var(--primary)` (orange).
+I tested the live data path end-to-end:
 
-**Fix (CSS, lines 42–43):**
-- Default stroke: `var(--cream)` (matches nav text color, fully visible).
-- Hover/active stroke: `var(--primary)` (orange, kept as-is).
-- Bump default opacity to `0.85` and hover/active to `1` so the active item still pops.
+1. **`eth-batch-market` fix is deployed and working** — it correctly prefers `fdv` over `marketCap`.
+2. **DexScreener is returning `fdv: 5` AND `marketCap: 5`** for this specific token. They're identical, so the FDV preference doesn't change anything here.
+3. **The $5 number is the honest on-chain reality.**
 
-### Bug 2 — X Tracker uses the X (Twitter) logo
-The X logo should be reserved for the actual social link in `.nav-right` (where it correctly leads to x.com/PopShiba_launch). Using it again for an internal "X Tracker" page is confusing.
+### Raw DexScreener data for `0xa0df…3bfe` ($VITALIK)
 
-**Fix (line 906):** Replace the X-cross SVG with a tracker/radar-style icon that matches the rest of the nav set (1.8 stroke, currentColor, line-art). Proposed glyph: a radar dish — concentric arcs + a sweep line — clearly reads as "tracker/monitor" and visually distinct from the Telegram/X social pills on the right.
-
-```svg
-<svg viewBox="0 0 24 24">
-  <circle cx="12" cy="12" r="9"/>
-  <path d="M12 12 L19 7"/>
-  <path d="M5 12a7 7 0 0 1 7-7"/>
-  <path d="M8.5 12a3.5 3.5 0 0 1 3.5-3.5"/>
-</svg>
+```
+priceUsd:    0.000000005046    ($5.046e-9 per token)
+liquidity:   $10.17 USD
+  - base:    999,999,999 VITALIK (entire supply)
+  - quote:   0.002224 WETH (~$10 — basically empty)
+fdv:         5
+marketCap:   5
+priceChange.h24: -87.44%
 ```
 
-### Also worth doing while in there
-- Verify each nav SVG renders cleanly at 20×20 after the stroke fix (Home, Pulse, Trade, Launchpad, Holders, Alpha, X Tracker, Docs). The Trade arrow paths (`M4 7h13l-3-3` / `M20 17H7l3 3`) are unclosed arrows — they'll read fine once visible.
-- Mobile breakpoint (≤760px) and tablet breakpoint (761–980px) both already swap labels for icons, so once the stroke is fixed, all 8 icons will appear in the compact bar instead of just the rocket.
+### What actually happened
 
-### Files
-- `public/popshiba-template/launch.html` — CSS rule on lines 42–43, and the X Tracker `<a>` on line 906.
+The pool was seeded with a small ETH amount (the default minimum is 0.001 ETH = ~$3, configurable up to 10 ETH per launch). After launch, **0.002 WETH** is what's left in the pool against the full 1B supply. With a 24h change of **-87.44%**, this is consistent with sells draining the WETH side of the V3 single-sided position.
 
-No contract, edge function, or React changes.
+Math check: `5.046e-9 × 1,000,000,000 = $5.05` ✅ — that **is** the FDV. The token genuinely trades at $5 FDV right now because the marginal price collapsed. There is no "wrong number" to swap for a "right number".
+
+### Why the previous fix worked for some tokens but not this one
+
+The earlier bug — DexScreener reporting `marketCap` as ~LP value while `fdv` shows the real number — happens on **fresh, untraded tokens** where DexScreener's circulating-supply heuristic excludes the LP-locked tokens. For $VITALIK, **trades have happened** (2 buys, 1 sell in 24h), DexScreener now treats the supply as circulating, and `fdv === marketCap`. Both reflect the post-dump price.
+
+### What to do
+
+Three options, pick one:
+
+**Option A — Do nothing (recommended).** The $5 is accurate. Showing a fake $100K when the token actually trades at $5 FDV would mislead users and erode trust. The `-87.4% / 24h` red ticker already tells the story.
+
+**Option B — Show "intended launch MC" badge.** Add a small "Launched at: $X" label next to the live MC, computed from `lp_eth × ETH_USD × 1B / lp_seed_tokens`. This shows where the token started without lying about where it is now.
+
+**Option C — Hide the hero card when liquidity < $50.** If a token's pool has effectively no liquidity, treat it as "deploying" or "drained" and skip the hero spotlight entirely so dead tokens don't sit at the top of the page. Requires a check on `market.liquidityUsd` in `injectHeroCard`.
+
+### Files involved (no changes needed unless you pick B or C)
+
+- `supabase/functions/eth-batch-market/index.ts` — already correct
+- `src/pages/PopshibaLaunchpadPage.tsx` (`injectHeroCard`, line 218) — would change here for Option B or C
+
+Tell me which option (A / B / C) and I'll implement it.
 
