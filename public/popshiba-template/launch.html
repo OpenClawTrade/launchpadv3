@@ -1626,9 +1626,35 @@
     const _ww = document.getElementById('walletWarn');
     if (_ww) _ww.style.display = walletConnected ? 'none' : 'flex';
   }
+  const walletMenu = document.getElementById('walletMenu');
+  function closeMenu(){ if (walletMenu) walletMenu.style.display = 'none'; }
+  function openMenu(){ if (walletMenu) walletMenu.style.display = 'block'; }
   if (walletPill) walletPill.addEventListener('click', function(e){
     e.preventDefault();
-    try { window.parent.postMessage({ source:'popshiba-template', type: walletConnected ? 'open-earnings' : 'wallet-connect' }, '*'); } catch(_){}
+    e.stopPropagation();
+    if (!walletConnected) {
+      try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
+      return;
+    }
+    if (walletMenu && walletMenu.style.display === 'block') closeMenu(); else openMenu();
+  });
+  if (walletMenu) {
+    walletMenu.addEventListener('click', function(e){
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const act = btn.getAttribute('data-act');
+      closeMenu();
+      try {
+        if (act === 'earnings') window.parent.postMessage({ source:'popshiba-template', type:'open-earnings' }, '*');
+        else if (act === 'logout') window.parent.postMessage({ source:'popshiba-template', type:'wallet-logout' }, '*');
+      } catch(_){}
+    });
+  }
+  document.addEventListener('click', function(e){
+    if (!walletMenu) return;
+    if (walletMenu.style.display !== 'block') return;
+    const wrap = document.getElementById('walletWrap');
+    if (wrap && !wrap.contains(e.target)) closeMenu();
   });
   // Ask host for current state on load
   try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-query' }, '*'); } catch(_){}
