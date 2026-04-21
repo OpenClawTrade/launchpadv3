@@ -4305,6 +4305,7 @@ export type Database = {
           token_name: string
           token_ticker: string
           twitter_url: string | null
+          uncx_lock_id: number | null
           uniswap_pool_address: string | null
           updated_at: string
           user_tax_bps: number
@@ -4333,6 +4334,7 @@ export type Database = {
           token_name: string
           token_ticker: string
           twitter_url?: string | null
+          uncx_lock_id?: number | null
           uniswap_pool_address?: string | null
           updated_at?: string
           user_tax_bps?: number
@@ -4361,6 +4363,7 @@ export type Database = {
           token_name?: string
           token_ticker?: string
           twitter_url?: string | null
+          uncx_lock_id?: number | null
           uniswap_pool_address?: string | null
           updated_at?: string
           user_tax_bps?: number
