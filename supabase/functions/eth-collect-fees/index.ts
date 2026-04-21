@@ -61,30 +61,51 @@ Deno.serve(async (req) => {
     for (const pos of positions) {
       try {
         const tokenId = BigInt(pos.lp_token_id);
-        // Read positions to know token0/token1
+        // Read positions to know token0/token1.
+        // NOTE: tokensOwed0/1 are STALE — they only reflect fees that were
+        // already checkpointed by a prior mint/burn/collect. Active swap fees
+        // live in feeGrowthGlobal until collect() is called. So we cannot
+        // skip on tokensOwed === 0 — we must simulate the collect to know the
+        // true claimable amount.
         const info = await pub.readContract({
           address: NPM, abi: NPM_ABI, functionName: "positions", args: [tokenId],
         }) as any;
         const token0 = (info[2] as string).toLowerCase();
         const token1 = (info[3] as string).toLowerCase();
-        const tokensOwed0 = info[10] as bigint;
-        const tokensOwed1 = info[11] as bigint;
 
-        if (tokensOwed0 === 0n && tokensOwed1 === 0n) {
+        const collectArgs = [{
+          tokenId,
+          recipient: account.address as Address,
+          amount0Max: MAX_UINT128,
+          amount1Max: MAX_UINT128,
+        }] as const;
+
+        // Simulate first to get the actual returned amounts (this triggers
+        // the pool's fee-growth update inside the simulation).
+        const sim = await pub.simulateContract({
+          account,
+          address: NPM,
+          abi: NPM_ABI,
+          functionName: "collect",
+          args: collectArgs as any,
+        });
+        const [simAmount0, simAmount1] = sim.result as unknown as [bigint, bigint];
+
+        if (simAmount0 === 0n && simAmount1 === 0n) {
           results.push({ tokenAddress: pos.token_address, skipped: true, reason: "no fees owed" });
           continue;
         }
 
         const collectHash = await wallet.writeContract({
           address: NPM, abi: NPM_ABI, functionName: "collect",
-          args: [{ tokenId, recipient: account.address as Address, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }] as any,
+          args: collectArgs as any,
         });
         await pub.waitForTransactionReceipt({ hash: collectHash });
 
         // Determine which side is WETH and which is the token
         const wethIs0 = token0 === WETH.toLowerCase();
-        const collectedWeth = wethIs0 ? tokensOwed0 : tokensOwed1;
-        const collectedToken = wethIs0 ? tokensOwed1 : tokensOwed0;
+        const collectedWeth = wethIs0 ? simAmount0 : simAmount1;
+        const collectedToken = wethIs0 ? simAmount1 : simAmount0;
         const creatorShareWeth = collectedWeth / 2n;
         const creatorShareToken = collectedToken / 2n;
 
