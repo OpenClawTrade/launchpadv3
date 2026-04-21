@@ -88,7 +88,12 @@ function injectHeroCard(
   latest: EthLaunch | null,
   market: Market | undefined
 ) {
-  if (!latest) return;
+  const card = doc.getElementById("hp-card");
+  if (!latest) {
+    // No live launches → keep skeleton, don't flash placeholder text.
+    if (card) card.setAttribute("data-ready", "0");
+    return;
+  }
   const set = (id: string, v: string) => {
     const el = doc.getElementById(id);
     if (el) el.textContent = v;
@@ -96,6 +101,17 @@ function injectHeroCard(
   const setHTML = (id: string, html: string) => {
     const el = doc.getElementById(id);
     if (el) el.innerHTML = html;
+  };
+  const setHref = (id: string, href: string | null | undefined) => {
+    const el = doc.getElementById(id) as HTMLAnchorElement | null;
+    if (!el) return;
+    if (href && /^https?:\/\//i.test(href)) {
+      el.setAttribute("href", href);
+      el.style.display = "inline-flex";
+    } else {
+      el.removeAttribute("href");
+      el.style.display = "none";
+    }
   };
   const tick = (latest.token_ticker || "—").toUpperCase();
   set("hp-name", latest.token_name || "unnamed");
@@ -111,6 +127,11 @@ function injectHeroCard(
   }
   const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
   if (link) link.href = latest.token_address ? `/trade/${latest.token_address}` : "#";
+
+  // Socials — wire whatever exists, hide the rest (no flicker of broken links)
+  setHref("hp-tw", latest.twitter_url);
+  setHref("hp-tg", latest.telegram_url);
+  setHref("hp-web", latest.website_url);
 
   const price = market?.priceUsd ?? null;
   const vol = market?.volumeH24 ?? null;
@@ -133,6 +154,9 @@ function injectHeroCard(
     liveEl.textContent = market ? "LIVE" : "DEPLOYING";
     (liveEl as HTMLElement).style.opacity = market ? "1" : "0.65";
   }
+
+  // Reveal the card now that real data is in place.
+  if (card) card.setAttribute("data-ready", "1");
 }
 
 function injectLiveData(
