@@ -15,9 +15,9 @@ import { useClaimableCreatorFees } from "@/hooks/useClaimableCreatorFees";
 interface LedgerRow {
   token_address: string;
   creator_wallet: string;
-  total_collected_weth: string;
-  creator_share_weth: string;
-  creator_paid_weth: string;
+  total_collected_weth: string | number | null;
+  creator_share_weth: string | number | null;
+  creator_paid_weth: string | number | null;
   last_collect_at: string | null;
   last_claim_at: string | null;
   last_claim_tx: string | null;
@@ -412,6 +412,10 @@ function EmptyState() {
 }
 
 function safeBig(v: string | number | null | undefined): bigint {
-  try { return BigInt(v ?? "0"); } catch { return 0n; }
+  try {
+    if (v === null || v === undefined) return 0n;
+    if (typeof v === "number") return BigInt(Math.trunc(v));
+    return BigInt(v);
+  } catch { return 0n; }
 }
 function short(s: string) { return `${s.slice(0, 6)}…${s.slice(-4)}`; }
