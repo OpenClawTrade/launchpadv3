@@ -9,7 +9,7 @@ import {
   lazy,
   Suspense,
 } from "react";
-import saturnLogo from "@/assets/saturn-logo.png";
+import saturnLogo from "@/assets/popshiba-logo-transparent.png";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { BRAND } from "@/config/branding";
