@@ -884,7 +884,7 @@
       <a href="#" data-soon="Pulse">Pulse</a>
       <a href="/" target="_top">Trade</a>
       <a href="/" target="_top" class="active">Launchpad</a>
-      <a href="#">Discover</a>
+      <a href="#" data-soon="Holders">Holders</a>
       <a href="#">Alpha</a>
       <a href="/#xtrack" target="_top">X Tracker</a>
       <a href="/" target="_top">Docs</a>
@@ -1668,17 +1668,26 @@
   <div style="position:relative;max-width:460px;width:100%;background:var(--cream);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);padding:30px 28px 26px">
     <button id="soonClose" aria-label="Close"
             style="position:absolute;top:10px;right:10px;width:34px;height:34px;border:2px solid var(--ink);background:#fff;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:16px;line-height:1;box-shadow:2px 2px 0 var(--ink)">✕</button>
-    <div style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;background:var(--ink);color:var(--primary);padding:4px 10px;margin-bottom:14px">COMING SOON</div>
+    <div id="soonBadge" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.14em;background:var(--ink);color:var(--primary);padding:4px 10px;margin-bottom:14px">COMING SOON</div>
     <h3 id="soonTitle" style="font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.05;letter-spacing:-0.01em;margin:0 0 12px;color:var(--ink)">
       ⚡ Pulse Terminal
     </h3>
-    <p style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:var(--brown);margin:0 0 20px">
+    <p id="soonBody" style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;color:var(--brown);margin:0 0 20px">
       Axiom-style terminal for ETH is almost ready. <b style="color:var(--ink)">Come back tomorrow.</b>
     </p>
-    <button id="soonOk"
-            style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:0.04em;padding:11px 20px;border:2px solid var(--ink);background:var(--primary);color:var(--ink);box-shadow:3px 3px 0 var(--ink);cursor:pointer">
-      GOT IT
-    </button>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button id="soonOk"
+              style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:0.04em;padding:11px 20px;border:2px solid var(--ink);background:var(--primary);color:var(--ink);box-shadow:3px 3px 0 var(--ink);cursor:pointer">
+        GOT IT
+      </button>
+      <a id="soonX" href="https://x.com/PopShiba_launch" target="_blank" rel="noopener noreferrer"
+         aria-label="Follow on X" title="Follow on X"
+         style="display:none;align-items:center;justify-content:center;width:40px;height:40px;border:2px solid var(--ink);background:#fff;color:var(--ink);box-shadow:3px 3px 0 var(--ink);text-decoration:none">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+          <path d="M18.244 2H21l-6.52 7.45L22 22h-6.79l-4.78-6.26L4.86 22H2.1l6.97-7.96L2 2h6.91l4.32 5.71L18.24 2zm-2.38 18h1.74L7.22 4H5.4l10.46 16z"/>
+        </svg>
+      </a>
+    </div>
   </div>
 </div>
 
@@ -1686,9 +1695,19 @@
   (function(){
     const modal = document.getElementById('soonModal');
     const titleEl = document.getElementById('soonTitle');
+    const bodyEl = document.getElementById('soonBody');
+    const xLink = document.getElementById('soonX');
     if (!modal || !titleEl) return;
     function open(label){
-      titleEl.textContent = '⚡ ' + label + ' Terminal';
+      if (label === 'Holders') {
+        titleEl.textContent = '🪙 Holders Rewards';
+        bodyEl.innerHTML = 'Holders rewards from fees earned by the platform will be revealed in the upcoming days. <b style="color:var(--ink)">Follow X for news.</b>';
+        if (xLink) xLink.style.display = 'inline-flex';
+      } else {
+        titleEl.textContent = '⚡ ' + label + ' Terminal';
+        bodyEl.innerHTML = 'Axiom-style terminal for ETH is almost ready. <b style="color:var(--ink)">Come back tomorrow.</b>';
+        if (xLink) xLink.style.display = 'none';
+      }
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
     }
