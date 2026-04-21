@@ -45,6 +45,13 @@ export function EthLauncher() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [diagLogs, setDiagLogs] = useState<string[]>([]);
+  const pushLog = useCallback((line: string) => {
+    const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
+    // eslint-disable-next-line no-console
+    console.log(`[ETH-LAUNCH ${stamp}] ${line}`);
+    setDiagLogs(prev => [...prev, `${stamp}  ${line}`].slice(-200));
+  }, []);
 
   const handleImageUpload = async (file: File) => {
     if (!file) return;
