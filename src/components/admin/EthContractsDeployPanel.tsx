@@ -213,43 +213,6 @@ export function EthContractsDeployPanel() {
           </div>
         )}
 
-        {hasLauncher && ownership && (
-          <div className={`rounded-md border p-3 text-xs space-y-2 font-mono ${
-            ownershipReady ? "border-primary/40 bg-primary/5" : "border-destructive/50 bg-destructive/10"
-          }`}>
-            <div className="flex items-center gap-2 mb-1">
-              <KeyRound className={`h-4 w-4 ${ownershipReady ? "text-primary" : "text-destructive"}`} />
-              <span className={`font-semibold ${ownershipReady ? "text-primary" : "text-destructive"}`}>
-                {ownershipReady ? "User-launch enabled" : "User-launch BLOCKED — ownership not transferred"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">CloneFactory.owner()</span>
-              <span className={ownership.factoryOk ? "text-primary" : "text-destructive"}>
-                {ownership.factoryOwner ? `${ownership.factoryOwner.slice(0, 8)}…${ownership.factoryOwner.slice(-6)}` : "?"}
-                {ownership.factoryOk ? " ✅" : " ❌"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">FeeVault.owner()</span>
-              <span className={ownership.vaultOk ? "text-primary" : "text-destructive"}>
-                {ownership.vaultOwner ? `${ownership.vaultOwner.slice(0, 8)}…${ownership.vaultOwner.slice(-6)}` : "?"}
-                {ownership.vaultOk ? " ✅" : " ❌"}
-              </span>
-            </div>
-            {!ownershipReady && (
-              <div className="pt-1 text-[10px] text-destructive font-semibold">
-                ⚠ Both must equal the Launcher address. Click "Hand Over Ownership" to fix.
-                Without this, every user launch reverts with NOT_OWNER.
-              </div>
-            )}
-            {ownershipReady && (
-              <div className="pt-1 text-[10px] text-muted-foreground">
-                Any user wallet can call launcher.launch() and become the on-chain creator.
-              </div>
-            )}
-          </div>
-        )}
 
         {err && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs flex gap-2">
