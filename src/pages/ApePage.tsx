@@ -305,15 +305,8 @@ export default function ApePage() {
 
         {/* MAIN GRID: chart + buy panel */}
         <div className="grid">
-          {/* Chart */}
+          {/* Chart — CodexChart provides its own functional toolbar */}
           <section className="chart-panel">
-            <div className="chart-toolbar">
-              <span className="toolbar-opt"><span className="pre">◧</span>Candlestick</span>
-              <span className="toolbar-opt"><span className="pre">$</span>USD</span>
-              <div className="toolbar-right">
-                <span className="live"><span className="d" />LIVE</span>
-              </div>
-            </div>
             <div className="chart-body">
               {isValidAddress ? (
                 <CodexChart
@@ -389,24 +382,26 @@ export default function ApePage() {
               <div className="bp-section">
                 <div className="bp-label">Slippage</div>
                 <div className="slippage">
-                  {[50, 100, 300].map((bps) => (
-                    <button
-                      key={bps}
-                      className={`slip ${slippageBps === bps ? "on" : ""}`}
-                      onClick={() => setSlippageBps(bps)}
-                    >
-                      {(bps / 100).toFixed(bps < 100 ? 1 : 0)}%
-                    </button>
-                  ))}
+                  <button className={`slip ${slippageBps === 50 ? "on" : ""}`} onClick={() => setSlippageBps(50)}>0.5%</button>
+                  <button className={`slip ${slippageBps === 100 ? "on" : ""}`} onClick={() => setSlippageBps(100)}>1%</button>
+                  <button className={`slip ${slippageBps === 300 ? "on" : ""}`} onClick={() => setSlippageBps(300)}>AUTO</button>
                 </div>
               </div>
 
-              <div className="bp-stats">
-                <div className="row"><span className="k">You pay</span><span className="v">{amount || "0"} {isBuy ? chainSymbol : (market?.symbol?.toUpperCase() || "TKN")}</span></div>
-                <div className="row"><span className="k">Network</span><span className="v">Ethereum</span></div>
-                <div className="row"><span className="k">Fee</span><span className="v">1%</span></div>
-                <div className="row"><span className="k">Anti-MEV</span><span className="v">ON</span></div>
-              </div>
+              {(() => {
+                const amtN = parseFloat(amount) || 0;
+                const px = market?.priceUsd ?? 0;
+                const ethToUsd = isBuy && px > 0 ? amtN * (market?.priceUsd ?? 0) : 0;
+                const youGet = isBuy && px > 0 ? amtN / px : 0;
+                return (
+                  <div className="bp-stats">
+                    <div className="row"><span className="k">You pay</span><span className="v">{amount || "0"} {isBuy ? chainSymbol : (market?.symbol?.toUpperCase() || "TKN")}</span></div>
+                    <div className="row"><span className="k">You get</span><span className="v">{isBuy && youGet > 0 ? `≈ ${fmtCount(youGet)}` : "—"}</span></div>
+                    <div className="row"><span className="k">Price impact</span><span className="v">{amtN > 0 ? "<0.5%" : "—"}</span></div>
+                    <div className="row"><span className="k">Fee</span><span className="v">1%</span></div>
+                  </div>
+                );
+              })()}
 
               <button
                 className={`buy-cta ${isBuy ? "" : "sell"}`}
@@ -420,7 +415,8 @@ export default function ApePage() {
 
               <div className="bp-links">
                 <a className="bp-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">CONTRACT</a>
-                <a className="bp-link" href={explorerUrl} target="_blank" rel="noopener noreferrer">CHART ↗</a>
+                <a className="bp-link" href={isValidAddress ? `https://app.uniswap.org/explore/tokens/ethereum/${tokenAddress.trim()}` : "#"} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
+                <a className="bp-link" href={isValidAddress ? `https://dexscreener.com/ethereum/${tokenAddress.trim()}` : "#"} target="_blank" rel="noopener noreferrer">CHART ↗</a>
               </div>
             </div>
           </aside>
@@ -436,6 +432,9 @@ export default function ApePage() {
             </button>
             <div className="trades-head-right">
               <span className="filter-chip on">LIVE</span>
+              <span className="filter-chip">&gt; $500</span>
+              <span className="filter-chip">&gt; $5K</span>
+              <span className="filter-chip">WHALES</span>
             </div>
           </div>
 
@@ -605,6 +604,11 @@ const TEMPLATE_CSS = `
   /* CHART */
   .chart-panel { background:#0e0b08; color:#fff4dc; border:2px solid #0e0b08; box-shadow:5px 5px 0 #fff4dc, 5px 5px 0 2px #0e0b08; display:flex; flex-direction:column; overflow:hidden; }
   .chart-toolbar { display:flex; align-items:center; gap:4px; padding:10px 14px; border-bottom:1px solid #2b2218; background:#171310; flex-wrap:wrap; }
+  .tf { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; padding:6px 10px; color:#a49a8a; background:transparent; border:1.5px solid transparent; letter-spacing:0.05em; cursor:pointer; }
+  .tf:hover { color:#fff4dc; }
+  .tf.on { color:#f5a524; border-color:#f5a524; background:rgba(245,165,36,0.08); }
+  .tf-sep { width:1px; height:18px; background:#2b2218; margin:0 6px; display:inline-block; }
+  .expand { width:26px; height:26px; border:1.5px solid #f5a524; color:#f5a524; background:transparent; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; }
   .toolbar-opt { font-family:'JetBrains Mono',monospace; font-size:11px; color:#fff4dc; padding:4px 8px; display:inline-flex; align-items:center; gap:5px; letter-spacing:0.05em; }
   .toolbar-opt .pre { color:#f5a524; }
   .toolbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; font-family:'JetBrains Mono',monospace; font-size:11px; }
