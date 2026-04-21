@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useZeroxSwap, type ApeChain } from "@/hooks/useZeroxSwap";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { useAuth } from "@/hooks/useAuth";
