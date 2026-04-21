@@ -49,6 +49,7 @@ type LauncherPrefill = {
   telegramUrl?: string;
   websiteUrl?: string;
   devBuyEth?: number;
+  lockLP?: boolean;
   imageDataUrl?: string;
 };
 
