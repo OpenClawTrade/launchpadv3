@@ -204,7 +204,7 @@ function injectHeroCard(
     set("hp-avatar", (tick[0] || "P").toUpperCase());
   }
   const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
-  if (link) link.href = latest.token_address ? `/trade/${latest.token_address}` : "#";
+  if (link) link.href = latest.token_address ? `/ape/${latest.token_address}` : "#";
 
   // Socials — wire whatever exists, hide the rest (no flicker of broken links)
   setHref("hp-tw", latest.twitter_url);
