@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck, KeyRound } from "lucide-react";
+import { Loader2, Rocket, AlertCircle, CheckCircle2, ExternalLink, Wallet, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -114,38 +114,7 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, [checkReadiness]);
 
-  const transferOwn = useCallback(async () => {
-    const ok = confirm(
-      "Hand over ownership of CloneFactory + FeeVault to the Launcher?\n\n" +
-      "This is a ONE-TIME setup that lets ANY user wallet launch tokens directly. " +
-      "Two transactions from the platform deployer wallet, ~$1 total gas. " +
-      "Cannot be undone (Launcher has no transferOwnership exposed)."
-    );
-    if (!ok) return;
-    setBusy(true); setErr(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("eth-deploy-contracts", {
-        body: { transferOwnership: true },
-      });
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const r = data as { success: boolean; txs: { contract: string; tx: string; alreadyTransferred?: boolean }[]; gasUsedEth: string; message: string };
-      const fresh = r.txs.filter(t => !t.alreadyTransferred);
-      toast.success("✅ Ownership transferred", {
-        description: fresh.length ? `${fresh.length} tx · ${parseFloat(r.gasUsedEth).toFixed(5)} ETH gas` : "Already complete",
-      });
-      checkReadiness();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Transfer failed";
-      setErr(msg); toast.error("Transfer failed", { description: msg });
-    } finally { setBusy(false); }
-  }, [checkReadiness]);
-
   const hasActive = !!dry?.existingDeployment;
-  const hasLauncher = !!dry?.existingDeployment?.launcher_address;
-  const ownership = dry?.ownership ?? null;
-  const ownershipReady = !!ownership?.bothOk;
-  const needsTransfer = hasLauncher && ownership && !ownership.bothOk;
 
   return (
     <Card className="border-2">
@@ -184,15 +153,9 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Verify on Etherscan
               </Button>
-              {needsTransfer && (
-                <Button onClick={transferOwn} disabled={busy} variant="default">
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
-                  Hand Over Ownership to Launcher (~$1)
-                </Button>
-              )}
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                Force Redeploy ALL 4
+                Force Redeploy ALL 4 (fixes user launches)
               </Button>
             </>
           )}
@@ -250,43 +213,6 @@ export function EthContractsDeployPanel() {
           </div>
         )}
 
-        {hasLauncher && ownership && (
-          <div className={`rounded-md border p-3 text-xs space-y-2 font-mono ${
-            ownershipReady ? "border-primary/40 bg-primary/5" : "border-destructive/50 bg-destructive/10"
-          }`}>
-            <div className="flex items-center gap-2 mb-1">
-              <KeyRound className={`h-4 w-4 ${ownershipReady ? "text-primary" : "text-destructive"}`} />
-              <span className={`font-semibold ${ownershipReady ? "text-primary" : "text-destructive"}`}>
-                {ownershipReady ? "User-launch enabled" : "User-launch BLOCKED — ownership not transferred"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">CloneFactory.owner()</span>
-              <span className={ownership.factoryOk ? "text-primary" : "text-destructive"}>
-                {ownership.factoryOwner ? `${ownership.factoryOwner.slice(0, 8)}…${ownership.factoryOwner.slice(-6)}` : "?"}
-                {ownership.factoryOk ? " ✅" : " ❌"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-muted-foreground">FeeVault.owner()</span>
-              <span className={ownership.vaultOk ? "text-primary" : "text-destructive"}>
-                {ownership.vaultOwner ? `${ownership.vaultOwner.slice(0, 8)}…${ownership.vaultOwner.slice(-6)}` : "?"}
-                {ownership.vaultOk ? " ✅" : " ❌"}
-              </span>
-            </div>
-            {!ownershipReady && (
-              <div className="pt-1 text-[10px] text-destructive font-semibold">
-                ⚠ Both must equal the Launcher address. Click "Hand Over Ownership" to fix.
-                Without this, every user launch reverts with NOT_OWNER.
-              </div>
-            )}
-            {ownershipReady && (
-              <div className="pt-1 text-[10px] text-muted-foreground">
-                Any user wallet can call launcher.launch() and become the on-chain creator.
-              </div>
-            )}
-          </div>
-        )}
 
         {err && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs flex gap-2">
