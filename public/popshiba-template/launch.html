@@ -1010,11 +1010,10 @@
 
         <div class="fld">
           <div class="fld-label">Socials <span class="hint">optional but recommended</span></div>
-          <div class="social-row">
+          <div class="social-row" style="grid-template-columns:repeat(3,1fr)">
             <div class="social-input"><span class="ic">𝕏</span><input placeholder="x.com/handle" /></div>
             <div class="social-input"><span class="ic">T</span><input placeholder="t.me/group" /></div>
             <div class="social-input"><span class="ic">🌐</span><input placeholder="yoursite.xyz" /></div>
-            <div class="social-input"><span class="ic">💬</span><input placeholder="discord" /></div>
           </div>
         </div>
       </div>
@@ -1038,14 +1037,14 @@
             <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">fixed · one-billion standard</div>
           </div>
           <div>
-            <div class="fld-label">Grad threshold</div>
-            <input class="fld-input mono" value="$69,000" disabled style="opacity:0.7;cursor:not-allowed" />
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">auto-migrates to Uniswap V4</div>
+            <div class="fld-label">Starting market cap</div>
+            <input class="fld-input mono" id="econStartMc" value="$5,000" disabled style="opacity:0.7;cursor:not-allowed" />
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">~$5 LP seed · single-sided V3</div>
           </div>
           <div>
             <div class="fld-label">Dev allocation</div>
-            <input class="fld-input mono" value="0%" disabled style="opacity:0.7;cursor:not-allowed" />
-            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">zero. by design.</div>
+            <input class="fld-input mono" id="econDevAlloc" value="0.00%" disabled style="opacity:0.7;cursor:not-allowed" />
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:4px">from your dev first-buy</div>
           </div>
         </div>
 
@@ -1071,17 +1070,18 @@
         </div>
 
         <div class="fld">
-          <div class="fld-label">Dev first-buy <span class="hint">optional · anti-sniper protection</span></div>
+          <div class="fld-label">Dev first-buy <span class="hint">optional · max 5 ETH</span></div>
           <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
-            <input class="fld-input mono" value="0.5 ETH" />
-            <div style="display:flex;gap:6px">
-              <button class="upl-btn" style="padding:10px 12px">0</button>
-              <button class="upl-btn" style="padding:10px 12px">0.1</button>
-              <button class="upl-btn" style="padding:10px 12px;background:var(--primary)">0.5</button>
-              <button class="upl-btn" style="padding:10px 12px">1.0</button>
+            <input id="devBuyInput" class="fld-input mono" value="0.000 ETH" />
+            <div style="display:flex;gap:6px" id="devBuyPresets">
+              <button type="button" class="upl-btn" data-buy="0" style="padding:10px 12px">0</button>
+              <button type="button" class="upl-btn" data-buy="0.01" style="padding:10px 12px">0.01</button>
+              <button type="button" class="upl-btn" data-buy="0.05" style="padding:10px 12px;background:var(--primary)">0.05</button>
+              <button type="button" class="upl-btn" data-buy="0.1" style="padding:10px 12px">0.1</button>
+              <button type="button" class="upl-btn" data-buy="0.5" style="padding:10px 12px">0.5</button>
             </div>
           </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">Buying ≥0.1 ETH on launch locks your tokens for 24h — signals you're not a rugger.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brown);letter-spacing:0.06em;margin-top:6px">Buys your token in the same launch tx so snipers can't front-run you. Counts as your dev allocation.</div>
         </div>
       </div>
 
@@ -1114,49 +1114,49 @@
           <span class="v">$0.00</span>
         </div>
         <div class="fee-row">
-          <span class="k">Dev first-buy</span>
-          <span class="v" id="buy-amt">0.5 ETH</span>
+          <span class="k">LP seed (V3 single-sided)</span>
+          <span class="v">~0.001 ETH</span>
         </div>
         <div class="fee-row">
-          <span class="k">Curve liquidity (seeded)</span>
-          <span class="v">auto</span>
+          <span class="k">Dev first-buy</span>
+          <span class="v" id="buy-amt">0.000 ETH</span>
         </div>
         <div class="fee-row total">
           <span class="k">TOTAL TO LAUNCH</span>
-          <span class="v">≈ 0.502 ETH</span>
+          <span class="v" id="total-cost">≈ 0.001 ETH</span>
         </div>
       </div>
 
-      <!-- Settings card -->
+      <!-- What you get card -->
       <div class="side-card">
-        <h3>Launch settings</h3>
-        <div class="h-sub">Toggle what you need</div>
+        <h3>What ships at launch</h3>
+        <div class="h-sub">Every box ticked, on-chain</div>
 
         <div class="toggle-row">
           <div class="body">
-            <div class="tt">Hide from feed for 60s</div>
-            <div class="ts">Quiet deploy — you announce it</div>
-          </div>
-          <div class="switch"></div>
-        </div>
-        <div class="toggle-row">
-          <div class="body">
-            <div class="tt">Invite-only presale (1h)</div>
-            <div class="ts">Whitelist up to 50 wallets</div>
-          </div>
-          <div class="switch"></div>
-        </div>
-        <div class="toggle-row">
-          <div class="body">
-            <div class="tt">Anti-sniper (first 30s)</div>
-            <div class="ts">Cap buys at 0.5% of supply</div>
+            <div class="tt">ERC-20 deployed on Ethereum</div>
+            <div class="ts">Audited template · immutable · no owner</div>
           </div>
           <div class="switch on"></div>
         </div>
         <div class="toggle-row">
           <div class="body">
-            <div class="tt">Link to X on launch</div>
-            <div class="ts">Auto-tweet from @popshiba_eth</div>
+            <div class="tt">Uniswap V3 1% pool created</div>
+            <div class="ts">Single-sided LP seeded above spot</div>
+          </div>
+          <div class="switch on"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="body">
+            <div class="tt">You earn 50% of every swap</div>
+            <div class="ts">Claimable from your Earnings page</div>
+          </div>
+          <div class="switch on"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="body">
+            <div class="tt">Dev first-buy in same tx</div>
+            <div class="ts">Front-runs snipers — only if you set one</div>
           </div>
           <div class="switch on"></div>
         </div>
@@ -1400,11 +1400,75 @@
   inpName.addEventListener('input', updateCta);
   inpTick.addEventListener('input', updateCta);
 
+  // ===== Dev first-buy: presets, dynamic dev allocation %, total cost =====
+  // Constants mirrored from src/components/launchpad/EthLauncher.tsx
+  const TOTAL_SUPPLY = 1_000_000_000;
+  const LP_SEED_ETH  = 0.001;       // ~$5 single-sided V3 seed
+  const LP_SEED_USD  = 5;
+  const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
+  let ethUsd = ETH_USD_FALLBACK;
+
+  const devBuyInput  = document.getElementById('devBuyInput');
+  const devAllocEl   = document.getElementById('econDevAlloc');
+  const startMcEl    = document.getElementById('econStartMc');
+  const buyAmtEl     = document.getElementById('buy-amt');
+  const totalCostEl  = document.getElementById('total-cost');
+
+  function fmtEth(n){ return (Math.max(0, n) || 0).toFixed(3) + ' ETH'; }
+  function fmtUsd0(n){
+    if (!isFinite(n) || n <= 0) return '$0';
+    if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + Math.round(n/100)/10 + 'K';
+    return '$' + Math.round(n).toLocaleString();
+  }
+  function parseEthInput(v){
+    const m = String(v||'').replace(',', '.').match(/-?\d+(\.\d+)?/);
+    return m ? Math.max(0, Math.min(5, parseFloat(m[0]))) : 0;
+  }
+  function recomputeEcon(){
+    const dev = parseEthInput(devBuyInput && devBuyInput.value);
+    // Starting market cap = LP_USD scaled by supply / LP fraction.
+    // With single-sided V3 the LP value at spot ≈ LP_SEED_USD, and starting MC tracks roughly LP_USD * 1000 (matches live launches).
+    const startMcUsd = LP_SEED_USD * 1000;
+    if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
+    // Dev allocation % = how much of total supply the dev buy purchases at the starting price.
+    // tokensBought ≈ devUsd / startingPrice ; startingPrice = startMcUsd / TOTAL_SUPPLY → alloc% = devUsd / startMcUsd
+    const devUsd = dev * ethUsd;
+    const allocPct = startMcUsd > 0 ? Math.min(100, (devUsd / startMcUsd) * 100) : 0;
+    if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
+    if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev).toFixed(3) + ' ETH';
+  }
+  if (devBuyInput) {
+    devBuyInput.addEventListener('input', recomputeEcon);
+    devBuyInput.addEventListener('blur', () => { devBuyInput.value = fmtEth(parseEthInput(devBuyInput.value)); recomputeEcon(); });
+  }
+  document.querySelectorAll('#devBuyPresets [data-buy]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const v = parseFloat(btn.getAttribute('data-buy')) || 0;
+      if (devBuyInput) devBuyInput.value = fmtEth(v);
+      document.querySelectorAll('#devBuyPresets [data-buy]').forEach(x => x.style.background = '');
+      btn.style.background = 'var(--primary)';
+      recomputeEcon();
+    });
+  });
+  recomputeEcon();
+
+  // ===== "Generate with AI" sample preview =====
+  const aiBtn = Array.from(document.querySelectorAll('.upl-btn')).find(b => /generate with ai/i.test(b.textContent || ''));
+  const uplPreview = document.querySelector('.upl-preview');
+  if (aiBtn && uplPreview) {
+    aiBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      uplPreview.innerHTML = '<img src="/popshiba-template/meme-ai-sample.png" alt="AI generated meme" style="width:100%;height:100%;object-fit:cover" />';
+    });
+  }
+
   // ===== Bridge to parent React (host iframe) =====
   function collectLaunchPayload(){
     const socials = document.querySelectorAll('.social-row .social-input input');
     const desc = document.querySelector('.form-card textarea.fld-input');
-    const devBuyEl = document.querySelector('.fld input.fld-input.mono[value*="ETH"]');
     return {
       name: (inpName.value || '').trim(),
       ticker: (inpTick.value || '').trim().toUpperCase(),
@@ -1412,8 +1476,7 @@
       twitterUrl: socials[0] ? socials[0].value.trim() : '',
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
-      discordUrl: socials[3] ? socials[3].value.trim() : '',
-      devBuyEth: devBuyEl ? parseFloat(String(devBuyEl.value).replace(/[^0-9.]/g,'')) || 0 : 0,
+      devBuyEth: parseEthInput(devBuyInput && devBuyInput.value),
     };
   }
   function postToParent(type, payload){
