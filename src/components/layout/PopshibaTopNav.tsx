@@ -234,7 +234,18 @@ function WalletPill({ className = "" }: { className?: string }) {
   if (!authenticated || !short) {
     return (
       <button
-        onClick={() => login()}
+        onClick={() => {
+          try {
+            const eth = (window as any).ethereum;
+            if (eth?.request) {
+              eth.request({
+                method: "wallet_revokePermissions",
+                params: [{ eth_accounts: {} }],
+              }).catch(() => {});
+            }
+          } catch { /* ignore */ }
+          login();
+        }}
         className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors ${className}`}
       >
         Connect
