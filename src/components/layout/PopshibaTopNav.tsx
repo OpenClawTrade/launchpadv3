@@ -1,13 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Plus } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
 import popshibaLogo from "@/assets/popshiba-logo.png";
 import { CreatorFeesPill } from "./CreatorFeesPill";
 
 const NAV_LINKS = [
   { label: "Home", to: "/" },
   { label: "Pulse", to: "/launchpad" },
-  { label: "Tokens", to: "/tokens" },
+  { label: "Trade", to: "/trade" },
   { label: "Launchpad", to: "/launch" },
   { label: "Discover", to: "/discover" },
   { label: "Alpha", to: "/alpha-tracker" },
@@ -79,17 +80,13 @@ export function PopshibaTopNav() {
         {/* Right (desktop) */}
         <div className="hidden md:flex ml-auto items-center gap-2.5">
           <CreatorFeesPill />
-          <Link
-            to="/trade"
-            className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-cream text-pop-cream bg-transparent shadow-[3px_3px_0_hsl(var(--pop-orange))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-orange))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-orange))] transition-all"
-          >
-            Launch app
-          </Link>
+          <WalletPill />
           <Link
             to="/launch"
             className="inline-flex items-center gap-2 font-bold text-[12px] lg:text-[13px] px-3 lg:px-4 py-2 lg:py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0_hsl(var(--pop-ink))] transition-all"
           >
-            + Create
+            <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+            Create
           </Link>
         </div>
 
@@ -130,22 +127,47 @@ export function PopshibaTopNav() {
               );
             })}
             <div className="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-pop-cream/10">
-              <Link
-                to="/trade"
-                className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-cream text-pop-cream"
-              >
-                Launch app
-              </Link>
+              <WalletPill className="col-span-2" />
               <Link
                 to="/launch"
-                className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-ink bg-pop-orange text-pop-ink"
+                className="inline-flex items-center justify-center gap-2 font-bold text-[13px] px-4 py-3 border-2 border-pop-ink bg-pop-orange text-pop-ink col-span-2"
               >
-                + Create
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} />
+                Create
               </Link>
             </div>
           </nav>
         </div>
       )}
     </header>
+  );
+}
+
+function WalletPill({ className = "" }: { className?: string }) {
+  const { user, login, authenticated } = usePrivy();
+  const evm =
+    (user?.wallet?.address as string | undefined) ||
+    ((user?.linkedAccounts ?? []).find((a: any) => a?.type === "wallet" && typeof a?.address === "string") as any)
+      ?.address as string | undefined;
+  const short = evm ? `${evm.slice(0, 6)}…${evm.slice(-4)}` : null;
+
+  if (!authenticated || !short) {
+    return (
+      <button
+        onClick={() => login()}
+        className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream ${className}`}
+      >
+        Connect
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream ${className}`}
+    >
+      <span className="inline-block w-2 h-2 rounded-full bg-[#5ce68e] shadow-[0_0_8px_#5ce68e]" />
+      {short}
+    </span>
   );
 }
