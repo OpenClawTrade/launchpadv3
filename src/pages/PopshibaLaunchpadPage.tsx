@@ -535,24 +535,34 @@ export default function PopshibaLaunchpadPage() {
         sendWalletState();
       } else if (data.type === "wallet-connect") {
         if (ready) {
-          // Force MetaMask to re-show its account picker for the currently
-          // active account. We must target the MetaMask provider directly
-          // (not generic window.ethereum) — otherwise browsers with multiple
-          // wallet extensions (e.g. Phantom + MetaMask) show an extension
-          // picker first, which is not what we want.
-          try {
-            const eth: any = (window as any).ethereum;
-            const mmProvider =
-              eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
-              (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
-            if (mmProvider?.request) {
-              mmProvider.request({
-                method: "wallet_revokePermissions",
-                params: [{ eth_accounts: {} }],
-              }).catch(() => {});
-            }
-          } catch { /* ignore */ }
-          login();
+          // Force MetaMask account picker so the user picks WHICH account
+          // to connect (their currently selected account in MM, not just
+          // the first already-permitted one). Target MetaMask provider
+          // directly to avoid the browser's "which extension?" dialog
+          // when other wallets like Phantom are installed.
+          (async () => {
+            try {
+              const eth: any = (window as any).ethereum;
+              const mmProvider =
+                eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
+                (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
+              if (mmProvider?.request) {
+                try {
+                  await mmProvider.request({
+                    method: "wallet_revokePermissions",
+                    params: [{ eth_accounts: {} }],
+                  });
+                } catch { /* ignore */ }
+                try {
+                  await mmProvider.request({
+                    method: "wallet_requestPermissions",
+                    params: [{ eth_accounts: {} }],
+                  });
+                } catch { /* user rejected; continue */ }
+              }
+            } catch { /* ignore */ }
+            login();
+          })();
         }
       } else if (data.type === "open-earnings") {
         navigate("/earnings");

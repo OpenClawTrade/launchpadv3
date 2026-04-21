@@ -234,19 +234,28 @@ function WalletPill({ className = "" }: { className?: string }) {
   if (!authenticated || !short) {
     return (
       <button
-        onClick={() => {
+        onClick={async () => {
           try {
             const eth: any = (window as any).ethereum;
-            // Target MetaMask provider directly to avoid the browser's
-            // "which extension?" picker when Phantom is also installed.
             const mmProvider =
               eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
               (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
             if (mmProvider?.request) {
-              mmProvider.request({
-                method: "wallet_revokePermissions",
-                params: [{ eth_accounts: {} }],
-              }).catch(() => {});
+              // Revoke first, then request — forces MetaMask to open
+              // its account picker so the user picks the active account
+              // (otherwise MM silently returns the first permitted account).
+              try {
+                await mmProvider.request({
+                  method: "wallet_revokePermissions",
+                  params: [{ eth_accounts: {} }],
+                });
+              } catch { /* ignore */ }
+              try {
+                await mmProvider.request({
+                  method: "wallet_requestPermissions",
+                  params: [{ eth_accounts: {} }],
+                });
+              } catch { /* user rejected; continue to Privy */ }
             }
           } catch { /* ignore */ }
           login();

@@ -49,30 +49,44 @@ export function useEvmWallet() {
     if (switchChain) await switchChain({ chainId: bsc.id });
   };
 
-  const revokeMetaMaskPermission = () => {
+  // Force MetaMask to show its account picker so the user can choose
+  // which account to connect (instead of MetaMask silently returning
+  // the first already-permitted account).
+  const promptMetaMaskAccountPicker = async () => {
     try {
       const eth: any = (window as any).ethereum;
-      // Target MetaMask provider directly to avoid triggering the
-      // browser's "which extension?" picker when Phantom is also installed.
       const mmProvider =
         eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
         (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
-      if (mmProvider?.request) {
-        mmProvider.request({
+      if (!mmProvider?.request) return;
+      // Step 1: revoke existing permissions (forces fresh consent).
+      try {
+        await mmProvider.request({
           method: "wallet_revokePermissions",
           params: [{ eth_accounts: {} }],
-        }).catch(() => {});
-      }
+        });
+      } catch { /* not all MM versions support revoke; ignore */ }
+      // Step 2: request permissions — this ALWAYS opens MM account picker.
+      try {
+        await mmProvider.request({
+          method: "wallet_requestPermissions",
+          params: [{ eth_accounts: {} }],
+        });
+      } catch { /* user rejected or other error; let Privy flow continue */ }
     } catch { /* ignore */ }
   };
 
-  const connect = () => {
+  const connect = async () => {
     if (!ready || isConnecting) return;
-    revokeMetaMaskPermission();
     if (authenticated) {
+      // Already logged into Privy → opening wallet connector.
+      // Force MM account picker BEFORE Privy reads selected account.
+      await promptMetaMaskAccountPicker();
       if (!isConnected) connectWallet();
       return;
     }
+    // First-time login: trigger MM picker first, then Privy login.
+    await promptMetaMaskAccountPicker();
     login();
   };
 
