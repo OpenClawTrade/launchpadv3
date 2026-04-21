@@ -13,6 +13,9 @@ import { useEvmWallet } from '@/hooks/useEvmWallet';
 import { useEthPrice } from '@/hooks/useBaseTokens';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem';
+import { mainnet } from 'viem/chains';
+import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
@@ -70,7 +73,7 @@ export function EthLauncher() {
     }
   };
   const [deployedTokenAddress, setDeployedTokenAddress] = useState<string | null>(null);
-  const [deployTxHash, setDeployTxHash] = useState<string | null>(null);
+  const [launchTxHash, setLaunchTxHash] = useState<string | null>(null);
   const [poolAddress, setPoolAddress] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
@@ -110,16 +113,14 @@ export function EthLauncher() {
     if (!canLaunch || !address) return;
     setIsLaunching(true);
     setDeployedTokenAddress(null);
-    setDeployTxHash(null);
+    setLaunchTxHash(null);
     setPoolAddress(null);
     setLaunchError(null);
     setIsLive(false);
 
+    let launchId: string | null = null;
     try {
-      toast.info('🛠 Deploying on Ethereum mainnet…', {
-        description: 'Compiling ERC-20, creating Uniswap V3 1% pool, minting LP NFT to vault.',
-      });
-
+      // 1. Get launch parameters from server
       const { data, error } = await supabase.functions.invoke('eth-create-token', {
         body: {
           name: formData.name,
@@ -133,46 +134,81 @@ export function EthLauncher() {
           telegramUrl: formData.telegramUrl || null,
         },
       });
-
       if (error) throw new Error(error.message);
-      if (!data?.success || !data?.launchId) throw new Error(data?.error || 'Failed to start deploy');
+      if (!data?.success || !data?.launcher) throw new Error(data?.error || 'Failed to fetch launcher params');
 
-      const launchId = data.launchId as string;
+      launchId = data.launchId as string;
+      const launcher = data.launcher as Address;
+      const ethForLPWei = BigInt(data.ethForLPWei);
+      const ethForDevBuyWei = BigInt(data.ethForDevBuyWei);
+      const totalValue = ethForLPWei + ethForDevBuyWei;
 
-      // Poll eth_launch_requests — surface deploy_tx_hash & token_address as soon as they appear
-      let row: any = null;
-      const started = Date.now();
-      while (Date.now() - started < 180_000) {
-        await new Promise((r) => setTimeout(r, 3000));
-        const { data: r } = await supabase
-          .from('eth_launch_requests')
-          .select('status, token_address, deploy_tx_hash, error_message')
-          .eq('id', launchId)
-          .maybeSingle();
-        if (r?.deploy_tx_hash && !deployTxHash) setDeployTxHash(r.deploy_tx_hash);
-        if (r?.token_address) setDeployedTokenAddress(r.token_address);
-        if (r?.status === 'live' || r?.status === 'failed') { row = r; break; }
-      }
+      // 2. Get the user's injected EVM provider
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) throw new Error('No Ethereum wallet detected. Install MetaMask, Rabby, or similar.');
 
-      if (!row) throw new Error('Deployment timed out (still processing on-chain — check Etherscan in a minute)');
-      if (row.status === 'failed') throw new Error(row.error_message || 'Deployment failed');
+      const walletClient = createWalletClient({
+        account: address as Address,
+        chain: mainnet,
+        transport: custom(ethereum),
+      });
+      const publicClient = createPublicClient({ chain: mainnet, transport: http() });
 
-      setDeployedTokenAddress(row.token_address);
-      setDeployTxHash(row.deploy_tx_hash);
+      // 3. Single signature: launcher.launch() with msg.value = LP + devBuy
+      toast.info('Approve in your wallet', {
+        description: 'One signature deploys the token, creates the pool, seeds LP, and runs your dev buy.',
+      });
+
+      const txHash = await walletClient.writeContract({
+        address: launcher,
+        abi: POPSHIBA_LAUNCHER_ABI,
+        functionName: 'launch',
+        args: [
+          formData.name.trim(),
+          formData.ticker.trim().toUpperCase(),
+          data.metadataURI as string,
+          ethForLPWei,
+          ethForDevBuyWei,
+        ],
+        value: totalValue,
+      });
+      setLaunchTxHash(txHash);
+
+      // 4. Wait for receipt + parse TokenLaunched event
+      const result = await waitForLaunchResult(publicClient, launcher, txHash);
+      setDeployedTokenAddress(result.token);
+      setPoolAddress(result.pool);
       setIsLive(true);
 
+      // 5. Persist result server-side
+      await supabase.functions.invoke('eth-launch-finalize', {
+        body: {
+          launchId,
+          status: 'live',
+          launchTxHash: txHash,
+          tokenAddress: result.token,
+          poolAddress: result.pool,
+          lpTokenId: result.lpTokenId.toString(),
+        },
+      });
+
       toast.success('🎉 Token live on Uniswap V3', {
-        description: `Pool seeded at 1% fee tier. ${formData.devBuyEth > 0 ? `Dev buy of ${formData.devBuyEth} ETH delivered.` : 'No dev buy.'}`,
+        description: 'LP locked in vault. You earn 50% of every 1% swap fee.',
         action: {
-          label: 'View on Etherscan',
-          onClick: () => window.open(`https://etherscan.io/address/${row.token_address}`, '_blank'),
+          label: 'Etherscan',
+          onClick: () => window.open(`https://etherscan.io/address/${result.token}`, '_blank'),
         },
       });
     } catch (e) {
-      console.error('ETH V3 launch error:', e);
+      console.error('ETH atomic launch error:', e);
       const msg = e instanceof Error ? e.message : 'Unknown error';
       setLaunchError(msg);
       toast.error('Launch failed', { description: msg });
+      if (launchId) {
+        await supabase.functions.invoke('eth-launch-finalize', {
+          body: { launchId, status: 'failed', errorMessage: msg },
+        }).catch(() => {});
+      }
     } finally {
       setIsLaunching(false);
     }
@@ -432,9 +468,8 @@ export function EthLauncher() {
             {/* Step-by-step launch progress (with CA reveal at the end) */}
             <EthLaunchProgress
               isLaunching={isLaunching}
-              hasDevBuy={formData.devBuyEth > 0}
               tokenAddress={deployedTokenAddress}
-              deployTxHash={deployTxHash}
+              launchTxHash={launchTxHash}
               isLive={isLive}
               errorMessage={launchError}
             />

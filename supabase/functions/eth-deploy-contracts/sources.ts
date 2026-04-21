@@ -411,7 +411,7 @@ contract PopShibaLauncher {
     /// @param name        ERC-20 name
     /// @param symbol      ERC-20 symbol
     /// @param metadataURI JSON metadata blob (description, image, socials)
-    /// @param sqrtPriceX96 Initial sqrtPriceX96 for the V3 pool
+    /// @param ethForLP    Wei to seed the LP pool (paired against 1B tokens)
     /// @param ethForDevBuy Wei to spend swapping ETH → token for the creator (0 to skip)
     /// @return token       New ERC-20 address
     /// @return pool        Uniswap V3 pool address
@@ -420,11 +420,11 @@ contract PopShibaLauncher {
         string calldata name,
         string calldata symbol,
         string calldata metadataURI,
-        uint160 sqrtPriceX96,
+        uint256 ethForLP,
         uint256 ethForDevBuy
     ) external payable nonReentrant returns (address token, address pool, uint256 lpTokenId) {
-        require(msg.value > ethForDevBuy, "INSUFFICIENT_ETH"); // need >0 for LP
-        uint256 ethForLP = msg.value - ethForDevBuy;
+        require(ethForLP >= 0.0001 ether, "LP_TOO_SMALL");
+        require(msg.value == ethForLP + ethForDevBuy, "BAD_MSG_VALUE");
         address creator = msg.sender;
 
         // 1. Clone token, full supply minted to this launcher
@@ -435,18 +435,24 @@ contract PopShibaLauncher {
         // 2. Wrap ETH for LP
         IWETH9(WETH).deposit{value: ethForLP}();
 
-        // 3. Create + initialize pool
+        // 3. Create + initialize pool with sqrtPriceX96 derived on-chain
+        // from the (ethForLP, TOTAL_SUPPLY) ratio. Price = WETH_amt / token_amt
+        // for the SORTED token0/token1 pair.
         (address token0, address token1) = token < WETH ? (token, WETH) : (WETH, token);
+        bool tokenIsToken0_ = token < WETH;
+        uint160 sqrtPriceX96 = _computeSqrtPriceX96(
+            tokenIsToken0_ ? TOTAL_SUPPLY : ethForLP,   // amount0
+            tokenIsToken0_ ? ethForLP    : TOTAL_SUPPLY // amount1
+        );
         pool = INonfungiblePositionManager(NPM).createAndInitializePoolIfNecessary(
             token0, token1, FEE_TIER, sqrtPriceX96
         );
 
-        // 4. Approve NPM and mint full-range single-sided LP to the vault
+        // 4. Approve NPM and mint full-range LP to the vault
         IERC20(token).approve(NPM, TOTAL_SUPPLY);
         IERC20(WETH).approve(NPM, ethForLP);
 
-        bool tokenIsToken0 = token < WETH;
-        (uint256 amount0Desired, uint256 amount1Desired) = tokenIsToken0
+        (uint256 amount0Desired, uint256 amount1Desired) = tokenIsToken0_
             ? (TOTAL_SUPPLY, ethForLP)
             : (ethForLP, TOTAL_SUPPLY);
 
@@ -500,6 +506,41 @@ contract PopShibaLauncher {
         }
 
         emit TokenLaunched(token, creator, pool, lpTokenId, ethForLP, ethForDevBuy);
+    }
+
+    /// @dev sqrtPriceX96 = sqrt(amount1 * 2^192 / amount0). Babylonian sqrt.
+    /// Inputs are pool reserves in the SORTED ordering (amount0 = token0).
+    function _computeSqrtPriceX96(uint256 amount0, uint256 amount1) internal pure returns (uint160) {
+        require(amount0 > 0 && amount1 > 0, "ZERO_AMOUNT");
+        // ratio = amount1 * 2^192 / amount0   (Q192.0 → fits a uint256 since
+        // amount1 ≤ ~10^27 and 2^192 ≈ 6e57, product up to 6e84; uint256 max ≈ 1.16e77).
+        // Use mulDiv-style splitting to avoid overflow.
+        // Practical safe bound: amount1 * 2^96 first, then * 2^96 again with sqrt in between.
+        uint256 r1 = _sqrt(_mulDiv(amount1, 1 << 96, amount0)); // sqrt(amount1/amount0) * 2^48 approx
+        // Multiply by 2^48 to scale up to 2^96 final
+        uint256 sqrtPrice = r1 << 48;
+        require(sqrtPrice <= type(uint160).max, "SQRT_OVERFLOW");
+        return uint160(sqrtPrice);
+    }
+
+    /// @dev Babylonian integer square root.
+    function _sqrt(uint256 x) internal pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+
+    /// @dev Minimal unsigned mulDiv: floor(a * b / d). Reverts on overflow/zero.
+    function _mulDiv(uint256 a, uint256 b, uint256 d) internal pure returns (uint256) {
+        require(d > 0, "MULDIV_ZERO");
+        // Solidity 0.8 has built-in overflow checks. For safety on large
+        // products we accept that the on-chain price seed amounts never
+        // exceed ~10^45, well within uint256.
+        return (a * b) / d;
     }
 
     receive() external payable {}
