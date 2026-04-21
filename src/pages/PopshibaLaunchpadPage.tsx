@@ -215,7 +215,7 @@ function injectHeroCard(
   const vol = market?.volumeH24 ?? null;
   const chg = market?.changeH24 ?? null;
   const mc = market?.marketCap ?? 0;
-  set("hp-price", price != null ? fmtUsd(price) : "$—");
+  set("hp-price", mc > 0 ? fmtUsd(mc) : "$—");
   set("hp-vol", vol != null ? fmtUsd(vol) : "$—");
   const chgEl = doc.getElementById("hp-chg");
   if (chgEl) {
