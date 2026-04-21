@@ -11,6 +11,7 @@ interface ExistingDeployment {
   vault_address: string;
   clone_factory_address: string;
   token_impl_address: string;
+  launcher_address: string | null;
   deployed_at: string;
 }
 
@@ -22,6 +23,7 @@ interface DryRun {
   ready: boolean;
   willDeploy: string[];
   existingDeployment: ExistingDeployment | null;
+  canPatchLauncher: boolean;
   warning: string | null;
 }
 
@@ -56,21 +58,26 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, []);
 
-  const deploy = useCallback(async (force: boolean) => {
-    const confirmMsg = force
-      ? "FORCE redeploy?\n\nThis deactivates the current active deployment and spends gas (typically $1–50, can spike higher in congestion). Cannot be undone."
-      : "Deploy PopShibaToken + CloneFactory + FeeVault to Ethereum mainnet?\n\nThis spends gas (typically $1–50, can spike higher in congestion). Cannot be undone.";
+  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly") => {
+    const confirmMsg = mode === "force"
+      ? "FORCE redeploy ALL 4 contracts?\n\nThis deactivates the current active deployment and spends gas (~$15–50). Cannot be undone."
+      : mode === "launcherOnly"
+      ? "Deploy ONLY the missing PopShibaLauncher?\n\nKeeps your existing 3 verified contracts untouched. Just adds the 4th (router) and wires it into the active row. Gas: ~$3–10."
+      : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
     setBusy(true); setErr(null); setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("eth-deploy-contracts", {
-        body: { dryRun: false, force },
+        body: {
+          dryRun: false,
+          force: mode === "force",
+          launcherOnly: mode === "launcherOnly",
+        },
       });
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error((data as any).error);
       setResult(data as DeployResult);
-      toast.success("✅ Contracts deployed", { description: "Verification running in background" });
-      // Refresh dry-run so panel shows new active row
+      toast.success("✅ Deployed", { description: (data as any)?.message || "Verification running in background" });
       checkReadiness();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Deployment failed";
@@ -120,9 +127,15 @@ export function EthContractsDeployPanel() {
             Check Deployer
           </Button>
           {dry && !hasActive && (
-            <Button onClick={() => deploy(false)} disabled={busy || !dry.ready} variant="default">
+            <Button onClick={() => deploy("full")} disabled={busy || !dry.ready} variant="default">
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-              Deploy to Mainnet
+              Deploy All 4 to Mainnet
+            </Button>
+          )}
+          {dry && hasActive && dry.canPatchLauncher && (
+            <Button onClick={() => deploy("launcherOnly")} disabled={busy || !dry.ready} variant="default">
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+              Deploy Launcher Only (~$3–10)
             </Button>
           )}
           {dry && hasActive && (
@@ -131,9 +144,9 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Verify on Etherscan
               </Button>
-              <Button onClick={() => deploy(true)} disabled={busy} variant="destructive">
+              <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                Force Redeploy
+                Force Redeploy ALL 4
               </Button>
             </>
           )}
@@ -166,17 +179,28 @@ export function EthContractsDeployPanel() {
               ["PopShibaToken (impl)", dry.existingDeployment.token_impl_address],
               ["PopShibaCloneFactory", dry.existingDeployment.clone_factory_address],
               ["PopShibaFeeVault", dry.existingDeployment.vault_address],
+              ["PopShibaLauncher", dry.existingDeployment.launcher_address],
             ].map(([name, addr]) => (
               <div key={name} className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">{name}</span>
-                <a href={`https://etherscan.io/address/${addr}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
-                  {addr?.slice(0, 8)}…{addr?.slice(-6)} <ExternalLink className="h-3 w-3" />
-                </a>
+                {addr ? (
+                  <a href={`https://etherscan.io/address/${addr}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                    {addr.slice(0, 8)}…{addr.slice(-6)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <Badge variant="destructive" className="text-[10px]">MISSING — deploy needed</Badge>
+                )}
               </div>
             ))}
-            <div className="pt-1 text-[10px] text-muted-foreground">
-              Duplicate protection active — "Force Redeploy" deactivates this set and deploys a new one.
-            </div>
+            {dry.canPatchLauncher ? (
+              <div className="pt-1 text-[10px] text-destructive font-semibold">
+                ⚠ Launcher missing. Click "Deploy Launcher Only" to add the 4th contract — your existing 3 stay untouched & verified.
+              </div>
+            ) : (
+              <div className="pt-1 text-[10px] text-muted-foreground">
+                All 4 contracts present. "Force Redeploy" replaces the entire set.
+              </div>
+            )}
           </div>
         )}
 

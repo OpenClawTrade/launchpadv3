@@ -62,6 +62,8 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch {}
   const dryRun: boolean = body.dryRun === true;
   const force: boolean = body.force === true;
+  // launcherOnly: keep existing Token impl + CloneFactory + FeeVault, deploy ONLY the missing PopShibaLauncher and patch the active row.
+  const launcherOnly: boolean = body.launcherOnly === true;
 
   const account = privateKeyToAccount((pk.startsWith("0x") ? pk : `0x${pk}`) as `0x${string}`);
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
@@ -83,31 +85,49 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // Existing active row already has token+factory+vault but is missing launcher → user can do "launcher-only" patch.
+    const canPatchLauncher = !!(existing && !existing.launcher_address &&
+      existing.token_impl_address && existing.clone_factory_address && existing.vault_address);
+
     if (dryRun) {
+      const willDeploy = launcherOnly
+        ? (canPatchLauncher ? ["PopShibaLauncher"] : [])
+        : (existing && !force ? [] : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault", "PopShibaLauncher"]);
       return new Response(JSON.stringify({
         dryRun: true,
         deployer: account.address,
         balance: `${formatEther(balance)} ETH`,
         nonce,
-        ready: balance >= parseEther("0.05"),
+        ready: balance >= parseEther(launcherOnly ? "0.01" : "0.05"),
         existingDeployment: existing ?? null,
-        willDeploy: existing && !force
-          ? []
-          : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault", "PopShibaLauncher"],
-        warning: existing && !force ? "ACTIVE deployment already exists. Pass force=true to redeploy." : null,
+        canPatchLauncher,
+        willDeploy,
+        warning: launcherOnly && !canPatchLauncher
+          ? "Cannot patch: no active row with token/factory/vault but missing launcher."
+          : (existing && !force && !launcherOnly ? "ACTIVE deployment already exists. Pass force=true to redeploy or launcherOnly=true to add the missing Launcher." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (existing && !force) {
+    if (launcherOnly) {
+      if (!canPatchLauncher) {
+        return new Response(JSON.stringify({
+          error: "launcherOnly requires an active deployment with token+factory+vault but no launcher_address. Current state doesn't match.",
+          existing,
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (balance < parseEther("0.01")) {
+        return new Response(JSON.stringify({
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.01 ETH for launcher-only deploy.`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } else if (existing && !force) {
       return new Response(JSON.stringify({
-        error: "Active PopShiba deployment already exists. Pass { force: true } to deploy a new set (deactivates the old one).",
+        error: "Active PopShiba deployment already exists. Pass { launcherOnly: true } to add only the missing Launcher (recommended), or { force: true } to redeploy ALL contracts (deactivates the old set).",
         existing,
       }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (balance < parseEther("0.05")) {
+    } else if (balance < parseEther("0.05")) {
       return new Response(JSON.stringify({
-        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for gas.`,
+        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for full deploy.`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -136,6 +156,64 @@ Deno.serve(async (req) => {
       if (!receipt.contractAddress) throw new Error(`${label} deploy: no contract address in receipt`);
       console.log(`[deploy] ${label} → ${receipt.contractAddress} (gas ${receipt.gasUsed})`);
       return receipt.contractAddress;
+    }
+
+    // ============= LAUNCHER-ONLY MODE: keep existing 3 contracts, deploy ONLY the missing PopShibaLauncher =============
+    if (launcherOnly && existing) {
+      const launcherAddr = await deployOne(
+        "PopShibaLauncher",
+        launcherContract.evm.bytecode.object,
+        encodeAddr(existing.clone_factory_address!) + encodeAddr(existing.vault_address!),
+      );
+
+      const finalBalLO = await publicClient.getBalance({ address: account.address });
+      const gasUsedEthLO = formatEther(balance - finalBalLO);
+
+      // Patch the existing active row — DO NOT deactivate it, DO NOT touch the other 3 addresses.
+      const { error: updErr } = await supabase
+        .from("eth_deployments")
+        .update({
+          launcher_address: launcherAddr,
+          contracts: {
+            PopShibaToken: existing.token_impl_address,
+            PopShibaCloneFactory: existing.clone_factory_address,
+            PopShibaFeeVault: existing.vault_address,
+            PopShibaLauncher: launcherAddr,
+            weth: WETH_MAINNET,
+            nfpm: UNISWAP_V3_NFPM,
+            treasury: PLATFORM_TREASURY,
+          },
+          tx_hashes: txHashes,
+          verified: false,
+        })
+        .eq("id", existing.id);
+      if (updErr) console.error("[deploy launcher-only] patch failed", updErr);
+
+      // Verify just the launcher in background
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          await supabase.functions.invoke("eth-verify-suite", {
+            body: { deploymentId: existing.id, only: ["PopShibaLauncher"] },
+          });
+        } catch (e) { console.error("[verify-suite] invoke failed:", e); }
+      })());
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "launcher-only",
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaToken: existing.token_impl_address,
+          PopShibaCloneFactory: existing.clone_factory_address,
+          PopShibaFeeVault: existing.vault_address,
+          PopShibaLauncher: launcherAddr,
+        },
+        tx_hashes: txHashes,
+        gasUsedEth: gasUsedEthLO,
+        deploymentId: existing.id,
+        message: "✅ Launcher deployed and wired to existing 3 contracts. The previous 3 contracts are untouched & still verified.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // 1. PopShibaToken (impl)
