@@ -5,7 +5,7 @@
 // the Uniswap NonfungiblePositionManager directly.
 //
 // Per-token accounting & creator claim flow are byte-for-byte identical to v1.
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function transfer(address to, uint256 value) external returns (bool);

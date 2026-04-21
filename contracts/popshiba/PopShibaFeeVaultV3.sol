@@ -9,7 +9,7 @@
 // Critical Team Finance fact: collectUniswapV3LPFees sweeps fees to the
 // withdrawal address recorded on the lock — which MUST be this vault — so
 // fees land here in WETH. We then split 50/50 just like V2.
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 interface IERC20 {
     function transfer(address to, uint256 value) external returns (bool);
