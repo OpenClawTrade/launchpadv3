@@ -1594,6 +1594,51 @@
   if (aiBtn)      aiBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
   if (aiRegenBtn) aiRegenBtn.addEventListener('click', function(e){ e.preventDefault(); requestAiGen(); });
 
+  // ===== File upload + drag/drop =====
+  const uplFileInput = document.getElementById('uplFileInput');
+  const uploadFileBtn = document.getElementById('uploadFileBtn');
+
+  function loadImageFile(file){
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { applyAiError('Please pick an image file'); return; }
+    if (file.size > 5 * 1024 * 1024) { applyAiError('Image too large (max 5MB)'); return; }
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      const dataUrl = ev.target && ev.target.result;
+      if (typeof dataUrl !== 'string') return;
+      aiImageDataUrl = dataUrl;
+      if (uplPreview) {
+        uplPreview.innerHTML = '<img src="' + dataUrl + '" alt="Coin art" style="width:100%;height:100%;object-fit:cover" />';
+      }
+      if (aiRegenBtn) aiRegenBtn.style.display = '';
+    };
+    reader.onerror = function(){ applyAiError('Could not read file'); };
+    reader.readAsDataURL(file);
+  }
+
+  if (uploadFileBtn && uplFileInput) {
+    uploadFileBtn.addEventListener('click', function(e){ e.preventDefault(); uplFileInput.click(); });
+  }
+  if (uplPreview && uplFileInput) {
+    uplPreview.style.cursor = 'pointer';
+    uplPreview.addEventListener('click', function(){ uplFileInput.click(); });
+    uplPreview.addEventListener('dragover', function(e){ e.preventDefault(); uplPreview.style.outline = '2px dashed var(--primary)'; });
+    uplPreview.addEventListener('dragleave', function(){ uplPreview.style.outline = ''; });
+    uplPreview.addEventListener('drop', function(e){
+      e.preventDefault();
+      uplPreview.style.outline = '';
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      loadImageFile(file);
+    });
+  }
+  if (uplFileInput) {
+    uplFileInput.addEventListener('change', function(e){
+      const file = e.target.files && e.target.files[0];
+      loadImageFile(file);
+      e.target.value = '';
+    });
+  }
+
   // Listen for the parent's response
   window.addEventListener('message', function(e){
     var d = e.data;
