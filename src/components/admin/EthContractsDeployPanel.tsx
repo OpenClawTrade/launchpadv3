@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,7 @@ export function EthContractsDeployPanel() {
   const [dry, setDry] = useState<DryRun | null>(null);
   const [result, setResult] = useState<DeployResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const checkReadiness = useCallback(async () => {
     setBusy(true); setErr(null); setDry(null); setResult(null);
@@ -75,6 +76,8 @@ export function EthContractsDeployPanel() {
   }, []);
 
   const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3") => {
+    if (inFlightRef.current) return;
+
     const confirmMsg = mode === "force"
       ? "FORCE redeploy ALL 4 contracts?\n\nThis deactivates the current active deployment and spends gas (~$15–50). Cannot be undone."
       : mode === "launcherOnly"
@@ -85,6 +88,8 @@ export function EthContractsDeployPanel() {
       ? "Deploy V3 (Team Finance) suite?\n\nDeploys PopShibaFeeVaultV3 + PopShibaLauncherV3, reuses existing Token impl + CloneFactory, sets the V3 row as active. New launches can OPT-IN to Team Finance LP locking per-launch (cheap default = no lock). Gas: ~$8–25."
       : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
+
+    inFlightRef.current = true;
     setBusy(true); setErr(null); setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("eth-deploy-contracts", {
@@ -104,7 +109,10 @@ export function EthContractsDeployPanel() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Deployment failed";
       setErr(msg); toast.error("Deploy failed", { description: msg });
-    } finally { setBusy(false); }
+    } finally {
+      inFlightRef.current = false;
+      setBusy(false);
+    }
   }, [checkReadiness]);
 
   const verifyNow = useCallback(async () => {
