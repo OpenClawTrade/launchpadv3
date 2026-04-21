@@ -317,7 +317,7 @@ export default function PopshibaLaunchpadPage() {
     <>
       <iframe
         ref={ref}
-        src="/popshiba-template/launch.html"
+        src={`/popshiba-template/launch.html?v=${Date.now()}`}
         title="Popshiba Launchpad"
         className="block w-full border-0"
         style={{ height: "100vh", background: "#f5a524" }}
