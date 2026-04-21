@@ -368,6 +368,32 @@ export default function PopshibaLaunchpadPage() {
       ).length;
       const gradPct = launches.length > 0 ? (millionCount / launches.length) * 100 : 0;
 
+      // Top-tokens strip: pick the top 4 launches by Codex market cap, fetch their sparklines.
+      const topRanked = launches
+        .map((l, idx) => ({
+          launch: l,
+          market: l.token_address ? markets[l.token_address.toLowerCase()] : undefined,
+          index: idx,
+        }))
+        .filter((r): r is { launch: EthLaunch; market: Market; index: number } => !!r.market && !!r.launch.token_address)
+        .sort((a, b) => (b.market.marketCap ?? 0) - (a.market.marketCap ?? 0))
+        .slice(0, 4);
+
+      let sparklines: Record<string, number[]> = {};
+      if (topRanked.length > 0) {
+        try {
+          const { data: sparkData } = await supabase.functions.invoke("codex-sparklines", {
+            body: {
+              addresses: topRanked.map((r) => r.launch.token_address as string),
+              networkId: 1, // Ethereum
+            },
+          });
+          sparklines = (sparkData?.sparklines ?? {}) as Record<string, number[]>;
+        } catch (e) {
+          console.warn("[popshiba] sparkline fetch failed", e);
+        }
+      }
+
       const doc = ref.current?.contentDocument;
       if (doc && doc.getElementById("ll-body")) {
         injectLiveData(doc, launches, markets, { totalVolume, totalCoins, gradPct, totalMC });
@@ -376,6 +402,15 @@ export default function PopshibaLaunchpadPage() {
           ? markets[latest.token_address.toLowerCase()]
           : undefined;
         injectHeroCard(doc, latest, latestMarket);
+        injectTopTokens(
+          doc,
+          topRanked.map((r) => ({
+            launch: r.launch,
+            market: r.market,
+            sparkline: sparklines[(r.launch.token_address as string).toLowerCase()] ?? sparklines[r.launch.token_address as string] ?? [],
+            index: r.index,
+          }))
+        );
       }
     }
     function onLoad() { setTimeout(load, 50); }
