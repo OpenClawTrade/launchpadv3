@@ -453,16 +453,61 @@ export function EthLauncher() {
               </div>
             </div>
 
-            {/* (LP + Dev Buy panels rendered above) */}
+            {/* LP seed + Optional Dev Buy */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-1">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                  <span>Initial LP seed</span>
+                  <span>required</span>
+                </div>
+                <div className="text-base font-mono text-foreground">
+                  {lpEthAmount.toFixed(6)} ETH <span className="text-muted-foreground text-xs">(~${MIN_LP_USD})</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Seeds the Uniswap V3 1% pool. Paired against single-sided supply above spot.
+                </p>
+              </div>
+              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-2">
+                <Label htmlFor="eth-dev-buy" className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                  Optional dev buy (ETH)
+                </Label>
+                <Input
+                  id="eth-dev-buy"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={MAX_DEV_BUY}
+                  step="0.001"
+                  placeholder="0"
+                  value={devBuyInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDevBuyInput(val);
+                    const n = parseFloat(val);
+                    handleInputChange('devBuyEth', !isNaN(n) && n >= 0 ? n : 0);
+                  }}
+                  className="bg-background/50 h-9 font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Buys your token in the same tx — anti-snipe. Max {MAX_DEV_BUY} ETH.
+                </p>
+              </div>
+            </div>
 
-            {/* Model explainer */}
-            <div className="flex items-start gap-2 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-              <Info className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-emerald-200/90 leading-relaxed">
-                <strong>Zero capital launch.</strong> You don't pay for LP. Token mints to a Uniswap V3 1% pool — single-sided above spot.
-                The LP NFT is held in the platform vault so it can't be rugged. You earn{' '}
-                <strong>50% of all 1% swap fees</strong>, claimable any time on this page.
-              </p>
+            {/* Total cost summary */}
+            <div className="flex items-start gap-2 p-3 bg-primary/5 border border-primary/30 rounded-lg">
+              <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="text-xs text-foreground/80 leading-relaxed space-y-0.5 font-mono">
+                <div>LP seed: <strong>{lpEthAmount.toFixed(6)} ETH</strong></div>
+                <div>Dev buy: <strong>{(formData.devBuyEth || 0).toFixed(6)} ETH</strong></div>
+                <div>+ network gas (variable, depends on mainnet conditions)</div>
+                <div className="pt-1 border-t border-primary/20 mt-1">
+                  Total wallet send: <strong>{(lpEthAmount + (formData.devBuyEth || 0)).toFixed(6)} ETH</strong>
+                </div>
+                <div className="text-muted-foreground pt-1 normal-case">
+                  LP NFT is held in the platform vault — cannot be rugged. You earn <strong>50% of all 1% swap fees</strong>, claimable on this page.
+                </div>
+              </div>
             </div>
 
             {/* Launch */}
