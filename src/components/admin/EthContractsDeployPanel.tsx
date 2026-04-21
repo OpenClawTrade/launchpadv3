@@ -230,6 +230,29 @@ export function EthContractsDeployPanel() {
         )}
 
 
+        {dry && hasActive && (
+          <div className={`rounded-md border p-3 text-xs space-y-1 font-mono ${dry.v2Ready ? "border-emerald-500/40 bg-emerald-500/5" : "border-amber-500/40 bg-amber-500/5"}`}>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className={`h-4 w-4 ${dry.v2Ready ? "text-emerald-400" : "text-amber-400"}`} />
+              <span className={`font-semibold ${dry.v2Ready ? "text-emerald-400" : "text-amber-400"}`}>
+                V2 (UNCX LP Locking) {dry.v2Ready ? "ready to deploy" : "bytecode not pasted yet"}
+              </span>
+            </div>
+            {!dry.v2Ready && (
+              <p className="text-muted-foreground leading-relaxed pt-1">
+                Compile <code className="text-foreground">contracts/popshiba/PopShibaFeeVaultV2.sol</code> and{" "}
+                <code className="text-foreground">PopShibaLauncherV2.sol</code> (Solidity 0.8.20, optimizer 200 runs) and paste the runtime bytecode into{" "}
+                <code className="text-foreground">supabase/functions/eth-deploy-contracts/v2_bytecode.ts</code>. Then come back here.
+              </p>
+            )}
+            {dry.v2Ready && (
+              <p className="text-muted-foreground leading-relaxed pt-1">
+                Click <strong>Deploy V2 (UNCX Locking)</strong> above. Reuses the existing PopShibaToken impl + CloneFactory; deploys FeeVaultV2 + LauncherV2; sets V2 row as active. Tokens launched after this point will lock LP in UNCX V3 Locker.
+              </p>
+            )}
+          </div>
+        )}
+
         {err && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs flex gap-2">
             <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
