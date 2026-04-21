@@ -85,31 +85,49 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    // Existing active row already has token+factory+vault but is missing launcher → user can do "launcher-only" patch.
+    const canPatchLauncher = !!(existing && !existing.launcher_address &&
+      existing.token_impl_address && existing.clone_factory_address && existing.vault_address);
+
     if (dryRun) {
+      const willDeploy = launcherOnly
+        ? (canPatchLauncher ? ["PopShibaLauncher"] : [])
+        : (existing && !force ? [] : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault", "PopShibaLauncher"]);
       return new Response(JSON.stringify({
         dryRun: true,
         deployer: account.address,
         balance: `${formatEther(balance)} ETH`,
         nonce,
-        ready: balance >= parseEther("0.05"),
+        ready: balance >= parseEther(launcherOnly ? "0.01" : "0.05"),
         existingDeployment: existing ?? null,
-        willDeploy: existing && !force
-          ? []
-          : ["PopShibaToken", "PopShibaCloneFactory", "PopShibaFeeVault", "PopShibaLauncher"],
-        warning: existing && !force ? "ACTIVE deployment already exists. Pass force=true to redeploy." : null,
+        canPatchLauncher,
+        willDeploy,
+        warning: launcherOnly && !canPatchLauncher
+          ? "Cannot patch: no active row with token/factory/vault but missing launcher."
+          : (existing && !force && !launcherOnly ? "ACTIVE deployment already exists. Pass force=true to redeploy or launcherOnly=true to add the missing Launcher." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (existing && !force) {
+    if (launcherOnly) {
+      if (!canPatchLauncher) {
+        return new Response(JSON.stringify({
+          error: "launcherOnly requires an active deployment with token+factory+vault but no launcher_address. Current state doesn't match.",
+          existing,
+        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (balance < parseEther("0.01")) {
+        return new Response(JSON.stringify({
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.01 ETH for launcher-only deploy.`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } else if (existing && !force) {
       return new Response(JSON.stringify({
-        error: "Active PopShiba deployment already exists. Pass { force: true } to deploy a new set (deactivates the old one).",
+        error: "Active PopShiba deployment already exists. Pass { launcherOnly: true } to add only the missing Launcher (recommended), or { force: true } to redeploy ALL contracts (deactivates the old set).",
         existing,
       }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    if (balance < parseEther("0.05")) {
+    } else if (balance < parseEther("0.05")) {
       return new Response(JSON.stringify({
-        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for gas.`,
+        error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.05 ETH for full deploy.`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
