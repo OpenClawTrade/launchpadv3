@@ -535,34 +535,11 @@ export default function PopshibaLaunchpadPage() {
         sendWalletState();
       } else if (data.type === "wallet-connect") {
         if (ready) {
-          // Force MetaMask account picker so the user picks WHICH account
-          // to connect (their currently selected account in MM, not just
-          // the first already-permitted one). Target MetaMask provider
-          // directly to avoid the browser's "which extension?" dialog
-          // when other wallets like Phantom are installed.
-          (async () => {
-            try {
-              const eth: any = (window as any).ethereum;
-              const mmProvider =
-                eth?.providers?.find((p: any) => p?.isMetaMask && !p?.isPhantom) ||
-                (eth?.isMetaMask && !eth?.isPhantom ? eth : null);
-              if (mmProvider?.request) {
-                try {
-                  await mmProvider.request({
-                    method: "wallet_revokePermissions",
-                    params: [{ eth_accounts: {} }],
-                  });
-                } catch { /* ignore */ }
-                try {
-                  await mmProvider.request({
-                    method: "wallet_requestPermissions",
-                    params: [{ eth_accounts: {} }],
-                  });
-                } catch { /* user rejected; continue */ }
-              }
-            } catch { /* ignore */ }
-            login();
-          })();
+          // Open Privy's modal directly. Do NOT touch window.ethereum
+          // here — that would prompt whichever extension is injected
+          // (Trust, Phantom, MetaMask...) before Privy's modal opens,
+          // which is exactly the bug we're fixing.
+          login();
         }
       } else if (data.type === "open-earnings") {
         navigate("/earnings");
