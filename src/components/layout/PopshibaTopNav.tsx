@@ -147,7 +147,8 @@ function WalletPill({ className = "" }: { className?: string }) {
   const { user, login, authenticated } = usePrivy();
   const evm =
     (user?.wallet?.address as string | undefined) ||
-    (user?.linkedAccounts?.find((a: any) => a.type === "wallet")?.address as string | undefined);
+    ((user?.linkedAccounts ?? []).find((a: any) => a?.type === "wallet" && typeof a?.address === "string") as any)
+      ?.address as string | undefined;
   const short = evm ? `${evm.slice(0, 6)}…${evm.slice(-4)}` : null;
 
   if (!authenticated || !short) {
