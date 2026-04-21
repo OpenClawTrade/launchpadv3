@@ -510,3 +510,6 @@ verify_jwt = false
 
 [functions.btc-trade]
 verify_jwt = false
+
+[functions.eth-rpc]
+verify_jwt = false
