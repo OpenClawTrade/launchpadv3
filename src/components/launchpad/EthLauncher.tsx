@@ -214,8 +214,11 @@ export function EthLauncher() {
         }
       }
 
-      // 2e. Estimate gas so we know the real cost and can pass it to the wallet
+      // 2e. Estimate gas + EIP-1559 fees and pass the exact values to the wallet
       let gasLimit: bigint | undefined;
+      let maxFeePerGas: bigint | undefined;
+      let maxPriorityFeePerGas: bigint | undefined;
+      let gasPrice: bigint | undefined;
       try {
         const gas = await publicClient.estimateContractGas({
           account: address as Address,
@@ -231,10 +234,22 @@ export function EthLauncher() {
           ],
           value: totalValue,
         });
-        gasLimit = (gas * 115n) / 100n; // 15% buffer so wallet doesn't re-fallback to a worst-case estimate
-        const gasPrice = await publicClient.getGasPrice();
-        const gasCostWei = gasLimit * gasPrice;
-        pushLog(`gas estimate=${gas}  gasLimit=${gasLimit}  gasPrice=${gasPrice} wei  gasCost≈${Number(gasCostWei) / 1e18} ETH`);
+        gasLimit = (gas * 105n) / 100n; // keep the wallet quote close to the real requirement
+
+        const feeEstimate = await publicClient.estimateFeesPerGas();
+        maxFeePerGas = feeEstimate.maxFeePerGas;
+        maxPriorityFeePerGas = feeEstimate.maxPriorityFeePerGas;
+        gasPrice = feeEstimate.gasPrice;
+
+        const effectivePrice = maxFeePerGas ?? gasPrice;
+        if (effectivePrice) {
+          const gasCostWei = gasLimit * effectivePrice;
+          pushLog(
+            `gas estimate=${gas}  gasLimit=${gasLimit}  ${maxFeePerGas ? `maxFeePerGas=${maxFeePerGas} wei  maxPriorityFeePerGas=${maxPriorityFeePerGas ?? 0n} wei` : `gasPrice=${gasPrice} wei`}  maxGasCost≈${Number(gasCostWei) / 1e18} ETH`
+          );
+        } else {
+          pushLog(`gas estimate=${gas}  gasLimit=${gasLimit}`);
+        }
       } catch (gErr: any) {
         pushLog(`gas estimate failed: ${gErr?.shortMessage || gErr?.message || gErr}`);
       }
@@ -243,7 +258,9 @@ export function EthLauncher() {
       toast.info('Approve in your wallet', {
         description: 'One signature deploys the token, creates the pool, seeds LP, and runs your dev buy.',
       });
-      pushLog(`Sending writeContract → wallet should prompt now${gasLimit ? ` (gasLimit=${gasLimit})` : ''}.`);
+      pushLog(
+        `Sending writeContract → wallet should prompt now${gasLimit ? ` (gasLimit=${gasLimit})` : ''}${maxFeePerGas ? ` (maxFeePerGas=${maxFeePerGas}, maxPriorityFeePerGas=${maxPriorityFeePerGas ?? 0n})` : gasPrice ? ` (gasPrice=${gasPrice})` : ''}.`
+      );
 
       const txHash = await walletClient.writeContract({
         account: address as Address,
@@ -260,6 +277,9 @@ export function EthLauncher() {
         ],
         value: totalValue,
         ...(gasLimit ? { gas: gasLimit } : {}),
+        ...(maxFeePerGas ? { maxFeePerGas } : {}),
+        ...(maxPriorityFeePerGas ? { maxPriorityFeePerGas } : {}),
+        ...(!maxFeePerGas && gasPrice ? { gasPrice } : {}),
       });
       pushLog(`tx submitted: ${txHash}`);
       setLaunchTxHash(txHash);
