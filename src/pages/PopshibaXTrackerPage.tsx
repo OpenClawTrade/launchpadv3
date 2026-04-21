@@ -171,6 +171,7 @@ export default function PopshibaXTrackerPage() {
           </div>
         )}
       </main>
+      <PopshibaFooter />
     </div>
   );
 }

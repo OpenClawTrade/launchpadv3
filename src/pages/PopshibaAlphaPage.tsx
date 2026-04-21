@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { PopshibaFooter } from "@/components/layout/PopshibaFooter";
 import { ArrowLeft, ExternalLink, RefreshCw, TrendingUp, TrendingDown, Loader2, Activity } from "lucide-react";
 
 interface AlphaTradeRow {
@@ -242,6 +243,7 @@ export default function PopshibaAlphaPage() {
           Trades are recorded after each swap on /ape · feed updates live every 15s
         </p>
       </main>
+      <PopshibaFooter />
     </div>
   );
 }
