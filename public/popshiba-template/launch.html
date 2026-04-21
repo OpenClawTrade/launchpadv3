@@ -1335,21 +1335,8 @@
   // sticky footer pills
   document.querySelectorAll('.sfm-pill').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
 
-  // live counter tick
-  const counter = document.getElementById('stat-launched');
-  const llCount = document.getElementById('ll-count');
-  let launched = 12847, live = 47;
-  setInterval(()=>{
-    launched += Math.floor(Math.random()*3);
-    counter.textContent = launched.toLocaleString();
-    counter.parentElement.classList.add('flash');
-    setTimeout(()=>counter.parentElement.classList.remove('flash'),800);
-    if(Math.random()>0.5){
-      live += Math.random()>0.5?1:-1;
-      live = Math.max(40, Math.min(60, live));
-      llCount.textContent = live;
-    }
-  }, 3500);
+  // Live counters are populated by the React parent (real on-chain data
+  // from eth_launch_requests + eth-batch-market). No fake interval here.
 
   // reflect name/ticker in CTA
   const inpName = document.getElementById('inp-name');
