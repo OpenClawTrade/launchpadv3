@@ -49,6 +49,7 @@ const AgentConnectPage = lazyWithRetry(() => import("./pages/AgentConnectPage"))
 const BagsAgentsPage = lazyWithRetry(() => import("./pages/BagsAgentsPage"));
 const TradingAgentProfilePage = lazyWithRetry(() => import("./pages/TradingAgentProfilePage"));
 const WhitepaperPage = lazyWithRetry(() => import("./pages/WhitepaperPage"));
+const PopshibaDocsPage = lazyWithRetry(() => import("./pages/PopshibaDocsPage"));
 
 const CareersPage = lazyWithRetry(() => import("./pages/CareersPage"));
 const SaturnModePage = lazyWithRetry(() => import("./pages/SaturnModePage"));
@@ -212,6 +213,7 @@ const App = () => (
                     
                     <Route path="/partnerfees" element={<Navigate to="/admin?tab=partner-fees" replace />} />
                     <Route path="/whitepaper" element={<WhitepaperPage />} />
+                    <Route path="/docs" element={<PopshibaDocsPage />} />
                     
                      <Route path="/sdk" element={<Navigate to="/" replace />} />
                      <Route path="/opentuna" element={<Navigate to="/" replace />} />
