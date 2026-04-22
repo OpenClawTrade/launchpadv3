@@ -284,9 +284,11 @@ Deno.serve(async (req) => {
         v3CanDeploy: V3_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
         v2burnReady: V2BURN_BYTECODE_READY,
         v2burnCanDeploy: V2BURN_BYTECODE_READY && !!existing?.clone_factory_address,
+        v2feesReady: V2FEES_READY,
+        v2feesCanDeploy: V2FEES_READY,
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
-          : (existing && !force && !launcherOnly && !v2 && !v3 && !v2burn ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, v3=true for Team Finance-lock suite, or v2burn=true for fee-free V2 burn launcher." : null),
+          : (existing && !force && !launcherOnly && !v2 && !v3 && !v2burn && !v2fees ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, v3=true for Team Finance-lock suite, v2burn=true for fee-free V2 burn launcher, or v2fees=true for V2 launcher with fixed 1% swap-fee." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
