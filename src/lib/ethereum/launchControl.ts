@@ -110,6 +110,24 @@ export const UNISWAP_V2_ROUTER_ABI = [
     ],
     outputs: [{ type: "uint256" }],
   },
+  {
+    type: "function",
+    name: "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "token", type: "address" },
+      { name: "liquidity", type: "uint256" },
+      { name: "amountTokenMin", type: "uint256" },
+      { name: "amountETHMin", type: "uint256" },
+      { name: "to", type: "address" },
+      { name: "deadline", type: "uint256" },
+      { name: "approveMax", type: "bool" },
+      { name: "v", type: "uint8" },
+      { name: "r", type: "bytes32" },
+      { name: "s", type: "bytes32" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
 ] as const;
 
 export const ETHERSCAN_TX = (h: string) => `https://etherscan.io/tx/${h}`;
