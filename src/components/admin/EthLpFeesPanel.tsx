@@ -154,12 +154,10 @@ export function EthLpFeesPanel() {
   };
 
   const sweepOne = async (tokenAddress: string) => {
-    if (!adminSecret) return toast.error("Admin secret required");
     setBusyToken(`sweep:${tokenAddress}`);
     try {
       const { data, error } = await supabase.functions.invoke("eth-claim-platform-fees", {
         body: { tokenAddress },
-        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -174,12 +172,10 @@ export function EthLpFeesPanel() {
   };
 
   const sweepAll = async () => {
-    if (!adminSecret) return toast.error("Admin secret required");
     setBusyAll(true);
     try {
       const { data, error } = await supabase.functions.invoke("eth-claim-platform-fees", {
         body: {},
-        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -232,23 +228,12 @@ export function EthLpFeesPanel() {
             </p>
           </div>
 
-          <div>
-            <Label className="text-xs">Admin secret</Label>
-            <Input
-              type="password"
-              value={adminSecret}
-              onChange={(e) => setAdminSecret(e.target.value)}
-              placeholder="TWITTER_BOT_ADMIN_SECRET"
-              className="font-mono text-xs"
-            />
-          </div>
-
           <div className="flex flex-wrap gap-2">
-            <Button onClick={fetchStatus} disabled={loadingStatus || !adminSecret} variant="secondary">
+            <Button onClick={fetchStatus} disabled={loadingStatus} variant="secondary">
               {loadingStatus ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
               Refresh status
             </Button>
-            <Button onClick={sweepAll} disabled={busyAll || !adminSecret || !status}>
+            <Button onClick={sweepAll} disabled={busyAll || !status}>
               {busyAll ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowDownToLine className="w-4 h-4 mr-2" />}
               Sweep ALL → main wallet
             </Button>

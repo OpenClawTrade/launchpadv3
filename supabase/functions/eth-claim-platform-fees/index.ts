@@ -18,7 +18,7 @@
 // the resulting ETH to MAIN_WALLET in one transfer.
 //
 // Body: {} | { tokenAddress?: "0x..." }   (optional single-token override)
-// Headers: { "x-admin-secret": TWITTER_BOT_ADMIN_SECRET }
+// Open endpoint — no auth required (admin panel only).
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -57,14 +57,6 @@ const ERC20_ABI = parseAbi([
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const adminSecret = req.headers.get("x-admin-secret");
-    const expected = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    if (!expected || adminSecret !== expected) {
-      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json().catch(() => ({}));
     const targetToken: string | undefined = body?.tokenAddress?.toLowerCase?.();
 
