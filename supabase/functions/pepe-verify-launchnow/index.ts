@@ -10,6 +10,14 @@ const corsHeaders = {
 
 const CHAIN_ID = 1;
 const COMPILER = "v0.8.28+commit.7893614a";
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const ZERO_TOPIC = `0x${"0".repeat(64)}`;
+const ETH_RPC_URLS = [
+  "https://ethereum-rpc.publicnode.com",
+  "https://eth.llamarpc.com",
+  "https://rpc.ankr.com/eth",
+  "https://cloudflare-eth.com",
+];
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -142,6 +150,42 @@ async function isAlreadyVerified(addr: string, apiKey: string): Promise<boolean>
   }
 }
 
+async function rpcCall<T>(method: string, params: unknown[]): Promise<T> {
+  let lastError: Error | null = null;
+  for (const url of ETH_RPC_URLS) {
+    try {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      const j = await r.json();
+      if (j?.error) throw new Error(String(j.error?.message || "RPC error"));
+      return j.result as T;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  throw lastError ?? new Error(`RPC ${method} failed`);
+}
+
+async function resolveInitialSupplyFromLogs(tokenAddress: string): Promise<bigint | null> {
+  try {
+    const logs = await rpcCall<Array<{ data?: string }>>("eth_getLogs", [{
+      address: tokenAddress,
+      fromBlock: "0x0",
+      toBlock: "latest",
+      topics: [TRANSFER_TOPIC, ZERO_TOPIC],
+    }]);
+    const mintLog = logs.find((log) => typeof log?.data === "string" && /^0x[0-9a-fA-F]+$/.test(log.data));
+    if (!mintLog?.data) return null;
+    return BigInt(mintLog.data);
+  } catch (err) {
+    console.warn("[pepe-verify] failed to resolve initial supply from logs", err);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -157,7 +201,7 @@ Deno.serve(async (req) => {
     const tokenAddress: string | undefined = body?.tokenAddress;
     const name: string | undefined = body?.name;
     const symbol: string | undefined = body?.symbol;
-    const supply: string | undefined = body?.totalSupply; // decimal string of raw uint256
+    const supply: string | undefined = body?.totalSupply; // optional current supply; verifier resolves initial mint when possible
     const header: string | undefined = body?.header;
     const waitForResult: boolean = body?.waitForResult !== false;
 
@@ -166,8 +210,8 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!name || !symbol || !supply) {
-      return new Response(JSON.stringify({ success: false, error: "Missing name/symbol/totalSupply" }), {
+    if (!name || !symbol) {
+      return new Response(JSON.stringify({ success: false, error: "Missing name/symbol" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -210,7 +254,16 @@ Deno.serve(async (req) => {
       },
     };
 
-    const ctorArgsHex = encodeConstructorArgs(sanitize(name), sanitize(symbol), BigInt(supply));
+    const resolvedInitialSupply = await resolveInitialSupplyFromLogs(tokenAddress);
+    const ctorSupply = resolvedInitialSupply ?? (supply ? BigInt(supply) : null);
+    if (ctorSupply == null) {
+      return new Response(JSON.stringify({ success: false, error: "Could not resolve the token's original launch supply for verification" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[pepe-verify] using constructor supply ${ctorSupply.toString()}${resolvedInitialSupply ? " (resolved from mint log)" : " (from request)"}`);
+    const ctorArgsHex = encodeConstructorArgs(sanitize(name), sanitize(symbol), ctorSupply);
 
     const buildForm = () => {
       const form = new URLSearchParams();
