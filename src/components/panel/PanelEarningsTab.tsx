@@ -62,6 +62,20 @@ export default function PanelEarningsTab() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto pb-8">
+      {/* ETH-only legacy notice */}
+      {chainConfig.id === 1 && (
+        <Card className="p-3 bg-amber-500/5 border-amber-500/30">
+          <div className="flex gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-amber-100/90 leading-relaxed">
+              <strong className="text-amber-300">Heads up:</strong> tokens you launched on Ethereum
+              before our recent vault upgrade were not registered with the fee splitter on-chain,
+              so creator fees can't be credited for those legacy tokens. Tokens launched after the
+              upgrade accrue claimable fees normally — open the token's trade page to claim.
+            </div>
+          </div>
+        </Card>
+      )}
       {/* Summary */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-2"><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
