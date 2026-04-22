@@ -142,6 +142,9 @@ export default function LaunchNowPage() {
   const [deploying, setDeploying] = useState(false);
   const [lastDeployedCA, setLastDeployedCA] = useState<string | null>(null);
   const [lastDeployTx, setLastDeployTx] = useState<string | null>(null);
+  const [deployHeader, setDeployHeader] = useState<string>(
+    "// Launched with Popshiba — https://popshiba.com\n// Built different. Built on Ethereum.\n// gm."
+  );
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
