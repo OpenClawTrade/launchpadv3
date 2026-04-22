@@ -53,7 +53,7 @@ type LauncherPrefill = {
   lockLP?: boolean;
   imageDataUrl?: string;
   lpEthAmount?: number;
-  version?: 'v3' | 'v2burn';
+  version?: 'v3' | 'v2burn' | 'v2fees';
 };
 
 const palette = ["#8ed36c", "#e8c88a", "#f5d84a", "#cf5f5f", "#f5a524", "#c08fe6", "#7b5dd9", "#a8c27a"];
