@@ -143,8 +143,8 @@ export function Footer() {
           )}
         </div>
 
-        <Link to="/launchpad" className="sfm-pill">🚀 Launch</Link>
-        <Link to="/" className="sfm-pill">⚡ Pulse</Link>
+        <Link to="/launch" className="sfm-pill">🚀 Launch</Link>
+        <Link to="/tokens" className="sfm-pill">⚡ Pulse</Link>
 
         <span className="sfm-divider" />
 
