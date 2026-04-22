@@ -186,14 +186,9 @@ export default function LaunchNowPage() {
     header?: string;
     source: "auto" | "manual";
   }) => {
-    if (params.source === "manual" && isVerifyCompatible === false) {
-      const msg = "This token was deployed from an older or different LaunchNow contract build, so the in-app verifier cannot match its bytecode. Use the Etherscan verifier for that specific build.";
-      setAutoVerifiedAddr(params.tokenAddress);
-      setAutoVerifyStatus("fail");
-      setAutoVerifyMsg(msg);
-      toast.error(msg);
-      return;
-    }
+    // Always allow the user to attempt manual verification — even if our local
+    // bytecode comparison thinks it won't match. Etherscan is the source of
+    // truth, not our cached runtime hash.
 
     setAutoVerifiedAddr(params.tokenAddress);
     setAutoVerifyStatus("submitting");
