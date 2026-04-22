@@ -142,6 +142,9 @@ export default function LaunchNowPage() {
   const [deploying, setDeploying] = useState(false);
   const [lastDeployedCA, setLastDeployedCA] = useState<string | null>(null);
   const [lastDeployTx, setLastDeployTx] = useState<string | null>(null);
+  const [deployHeader, setDeployHeader] = useState<string>(
+    "// Launched with Popshiba — https://popshiba.com\n// Built different. Built on Ethereum.\n// gm."
+  );
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -703,6 +706,71 @@ export default function LaunchNowPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* ---- Solidity header comment editor ---- */}
+              <div className="mt-5">
+                <Label htmlFor="d-header" className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Solidity header comment (top of contract source)
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  These <code>//</code> lines are prepended to the verified Solidity source shown on Etherscan after you verify. They don't change the bytecode — pure on-source signature / shoutout block.
+                </p>
+                <textarea
+                  id="d-header"
+                  value={deployHeader}
+                  onChange={(e) => setDeployHeader(e.target.value)}
+                  rows={4}
+                  spellCheck={false}
+                  placeholder={"// Comment here\n// Comment here\n// Comment here"}
+                  className="mt-2 w-full rounded-md border border-border bg-background/50 px-3 py-2 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                />
+                <div className="mt-2 rounded-md border border-border/40 bg-background/60 p-3 font-mono text-[11px] leading-relaxed overflow-x-auto">
+                  <div className="text-muted-foreground mb-1">// preview — top of TokenName.sol</div>
+                  <pre className="whitespace-pre-wrap text-foreground/90">
+{(deployHeader.trim()
+  ? deployHeader
+      .split("\n")
+      .map((l) => {
+        const t = l.trim();
+        if (!t) return "//";
+        return t.startsWith("//") ? t : `// ${t}`;
+      })
+      .join("\n") + "\n"
+  : "")}{`// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
+                  </pre>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        deployHeader
+                          .split("\n")
+                          .map((l) => {
+                            const t = l.trim();
+                            if (!t) return "//";
+                            return t.startsWith("//") ? t : `// ${t}`;
+                          })
+                          .join("\n")
+                      );
+                      toast.success("Header copied — paste at the top of the source on Etherscan");
+                    }}
+                    className="px-2 py-1 rounded border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+                  >
+                    <Copy className="h-3 w-3" /> Copy header
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeployHeader("")}
+                    className="px-2 py-1 rounded border border-border/40 hover:border-primary/40 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
 
