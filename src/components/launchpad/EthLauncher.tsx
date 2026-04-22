@@ -51,6 +51,8 @@ interface EthLaunchFormData {
   twitterUrl: string;
   telegramUrl: string;
   devBuyEth: number;
+  /** Optional: override LP seed (ETH). When set, used instead of the preset chooser. */
+  lpEthAmount?: number;
 }
 
 const MAX_DEV_BUY = 5;
@@ -65,8 +67,13 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [lockLP, setLockLP] = useState(!!initialLockLP); // V3: opt-in Team Finance LP lock
-  const [lpPresetId, setLpPresetId] = useState<LpPresetId>('suggested');
-  const [lpCustomInput, setLpCustomInput] = useState('');
+  // If host (Popshiba landing iframe) sent an explicit lpEthAmount, switch to
+  // 'custom' and pre-fill the input so the autoLaunch flow uses exactly that.
+  const initialLpOverride = typeof initialValues?.lpEthAmount === 'number' && initialValues.lpEthAmount > 0
+    ? initialValues.lpEthAmount
+    : null;
+  const [lpPresetId, setLpPresetId] = useState<LpPresetId>(initialLpOverride != null ? 'custom' : 'suggested');
+  const [lpCustomInput, setLpCustomInput] = useState(initialLpOverride != null ? String(initialLpOverride) : '');
   const [diagLogs, setDiagLogs] = useState<string[]>([]);
   const pushLog = useCallback((line: string) => {
     const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
