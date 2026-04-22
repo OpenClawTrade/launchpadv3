@@ -94,7 +94,7 @@ async function waitForCode(addr: string, apiKey: string): Promise<boolean> {
   for (let i = 0; i < 24; i++) {
     if (i > 0) await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=proxy&action=eth_getCode&address=${addr}&tag=latest&apikey=${apiKey}`,
       );
       const j = await r.json();
