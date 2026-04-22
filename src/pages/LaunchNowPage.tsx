@@ -1,4 +1,4 @@
-import { Helmet } from "react-helmet-async";
+import { useEffect } from "react";
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
 import { Card } from "@/components/ui/card";
 import { Rocket, Zap, Shield, CheckCircle2 } from "lucide-react";
@@ -17,17 +17,24 @@ import { Rocket, Zap, Shield, CheckCircle2 } from "lucide-react";
  * Everything happens in ONE wallet confirmation.
  */
 export default function LaunchNowPage() {
+  // Lightweight SEO without react-helmet
+  useEffect(() => {
+    const prevTitle = document.title;
+    document.title = "Launch Now — 1-Click ETH Token Launch | Popshiba";
+    const meta = document.querySelector('meta[name="description"]');
+    const prevDesc = meta?.getAttribute("content") ?? "";
+    meta?.setAttribute(
+      "content",
+      "Deploy an ERC-20, create the Uniswap pool, add liquidity and burn/lock LP — all in a single transaction."
+    );
+    return () => {
+      document.title = prevTitle;
+      meta?.setAttribute("content", prevDesc);
+    };
+  }, []);
+
   return (
     <>
-      <Helmet>
-        <title>Launch Now — 1-Click ETH Token Launch | Popshiba</title>
-        <meta
-          name="description"
-          content="Deploy an ERC-20, create the Uniswap pool, add liquidity and burn/lock LP — all in a single transaction. No Remix, no manual steps."
-        />
-        <link rel="canonical" href="https://popshiba.com/launchnow" />
-      </Helmet>
-
       <main className="min-h-screen bg-background">
         <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
           {/* Hero */}
@@ -64,7 +71,7 @@ export default function LaunchNowPage() {
                 "Submit token info to DexScreener",
               ].map((step) => (
                 <div key={step} className="flex items-start gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                   <span>{step}</span>
                 </div>
               ))}

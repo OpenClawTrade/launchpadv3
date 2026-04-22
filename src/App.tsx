@@ -96,6 +96,7 @@ const ApePage = lazyWithRetry(() => import("./pages/ApePage"));
 
 const HomePage = lazyWithRetry(() => import("./pages/HomePage"));
 const PopshibaLaunchpadPage = lazyWithRetry(() => import("./pages/PopshibaLaunchpadPage"));
+const LaunchNowPage = lazyWithRetry(() => import("./pages/LaunchNowPage"));
 const PopshibaEarnings = lazyWithRetry(() => import("./pages/PopshibaEarnings"));
 const PopshibaAlphaPage = lazyWithRetry(() => import("./pages/PopshibaAlphaPage"));
 const PopshibaXTrackerPage = lazyWithRetry(() => import("./pages/PopshibaXTrackerPage"));
@@ -158,6 +159,7 @@ const App = () => (
                    <div className="relative z-[1]">
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
+                    <Route path="/launchnow" element={<LaunchNowPage />} />
                     {/* Backup: previous landing kept here while the launchpad-only era is live */}
                     <Route path="/preview-old" element={<Suspense fallback={<RouteLoader />}><HomePage /></Suspense>} />
                     <Route path="/tokens" element={<AllTokensPage />} />
