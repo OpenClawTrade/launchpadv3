@@ -21,23 +21,23 @@ import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
-const MIN_LP_USD = 5;        // $5 demo-tier minimum LP seed (server floor: 0.001 ETH ≈ $3)
+const MIN_LP_USD = 50;       // $50 minimum LP seed — below this GMGN/Banana refuse to route trades.
 const MAX_DEV_BUY_USD = 5000; // soft UX cap on dev buy
 
-// LP seed presets — user picks one (or types custom). Values are in ETH except $5 which is USD-denominated.
+// LP seed presets — user picks one (or types custom). Values are in ETH except $50 which is USD-denominated.
 type LpPresetId = 'demo' | 'suggested' | 'recommended' | 'custom';
 interface LpPreset {
   id: LpPresetId;
   label: string;
   badge?: string;
-  /** Fixed ETH amount; null = USD-denominated ($5) */
+  /** Fixed ETH amount; null = USD-denominated ($50) */
   eth: number | null;
-  /** USD floor (used only for the $5 demo tier) */
+  /** USD floor (used only for the $50 demo tier) */
   usd?: number;
   desc: string;
 }
 const LP_PRESETS: LpPreset[] = [
-  { id: 'demo',        label: 'Demo tier',       badge: 'cheapest', eth: null, usd: MIN_LP_USD, desc: 'Just to showcase the platform — minimum to ship a real launch. Does NOT guarantee success.' },
+  { id: 'demo',        label: 'Starter',         badge: 'cheapest', eth: null, usd: MIN_LP_USD, desc: 'Minimum LP that aggregators (GMGN, Banana, DEXTools) will route through. Anything thinner gets blocked by their safety wallets.' },
   { id: 'suggested',   label: 'Suggested',       badge: 'good',     eth: 0.5,                   desc: 'Healthy starting depth. Tighter spreads, fewer reverts on small buys.' },
   { id: 'recommended', label: 'Highly suggested',badge: 'best',     eth: 1,                     desc: 'Pro tier. Holders see real liquidity from block 1 — projects that start here last longer.' },
 ];
