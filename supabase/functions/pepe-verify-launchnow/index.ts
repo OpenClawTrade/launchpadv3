@@ -65,7 +65,8 @@ async function pollStatus(guid: string, apiKey: string): Promise<{ verified: boo
   return { verified: false, msg: "timeout" };
 }
 
-async function waitForIndex(addr: string, apiKey: string): Promise<boolean> {
+// eth_getCode tells us the chain has the contract.
+async function waitForCode(addr: string, apiKey: string): Promise<boolean> {
   for (let i = 0; i < 24; i++) {
     if (i > 0) await delay(5000);
     try {
@@ -78,6 +79,43 @@ async function waitForIndex(addr: string, apiKey: string): Promise<boolean> {
     } catch {/* retry */}
   }
   return false;
+}
+
+// getsourcecode tells us Etherscan's *verification* indexer can see the contract.
+// This is the index used by verifysourcecode — RPC eth_getCode is not enough.
+async function waitForVerifyIndex(addr: string, apiKey: string): Promise<boolean> {
+  for (let i = 0; i < 36; i++) {
+    if (i > 0) await delay(5000);
+    try {
+      const r = await fetch(
+        `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
+      );
+      const j = await r.json();
+      const arr = Array.isArray(j?.result) ? j.result : [];
+      const item = arr[0];
+      if (item && typeof item === "object") {
+        // Once Etherscan recognizes the address (verified or not) it returns an object
+        // with at least an ABI / SourceCode field present (possibly empty strings).
+        // The presence of the result row itself is the signal we need.
+        return true;
+      }
+    } catch {/* retry */}
+  }
+  return false;
+}
+
+async function isAlreadyVerified(addr: string, apiKey: string): Promise<boolean> {
+  try {
+    const r = await fetch(
+      `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
+    );
+    const j = await r.json();
+    const item = Array.isArray(j?.result) ? j.result[0] : null;
+    const src = item?.SourceCode ?? "";
+    return typeof src === "string" && src.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 Deno.serve(async (req) => {
