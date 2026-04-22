@@ -184,6 +184,14 @@ function injectTopTokens(
     card.setAttribute("target", "_top");
     card.style.textDecoration = "none";
     card.style.color = "inherit";
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    });
     card.innerHTML = `
       <div class="top">
         <div class="av" style="background:${bg};overflow:hidden">${imageHTML}</div>
@@ -558,6 +566,9 @@ export default function PopshibaLaunchpadPage() {
         }
       } else if (data.type === "open-earnings") {
         navigate("/earnings");
+      } else if (data.type === "navigate") {
+        const to = data?.payload?.to;
+        if (typeof to === "string" && to.startsWith("/")) navigate(to);
       } else if (data.type === "wallet-logout") {
         logout().catch(() => {});
       }
