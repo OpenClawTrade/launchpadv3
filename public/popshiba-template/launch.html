@@ -1682,10 +1682,27 @@
   // ===== Dev first-buy: presets, dynamic dev allocation %, total cost =====
   // Constants mirrored from src/components/launchpad/EthLauncher.tsx
   const TOTAL_SUPPLY = 1_000_000_000;
-  const LP_SEED_ETH  = 0.001;       // ~$5 single-sided V3 seed
-  const LP_SEED_USD  = 5;
+  const LP_SEED_USD_DEMO = 5;        // "Demo" tier — USD-pinned, converts to ETH live
   const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
   let ethUsd = ETH_USD_FALLBACK;
+
+  // ===== LP seed preset selector =====
+  // Mirrors LP_PRESETS in src/components/launchpad/EthLauncher.tsx so the on-chain
+  // tx uses exactly what the user picks here.
+  let lpPresetId = 'suggested';   // default
+  let lpCustomEth = 0;            // only used when lpPresetId === 'custom'
+  function currentLpEth() {
+    if (lpPresetId === 'custom') return lpCustomEth > 0 ? lpCustomEth : 0;
+    if (lpPresetId === 'suggested')   return 0.5;
+    if (lpPresetId === 'recommended') return 1;
+    // demo — USD-pinned
+    if (ethUsd <= 0) return 0;
+    return Math.ceil((LP_SEED_USD_DEMO / ethUsd) * 1e6) / 1e6;
+  }
+  function currentLpUsd() {
+    const eth = currentLpEth();
+    return ethUsd > 0 ? eth * ethUsd : 0;
+  }
 
   const MAX_DEV_USD  = 5000;          // matches MAX_DEV_BUY_USD in EthLauncher.tsx
 
