@@ -3,7 +3,8 @@
 //
 // Verifies either:
 // 1) legacy PopShiba clone tokens, or
-// 2) standalone V2-burn tokens deployed by PopShibaBurnLauncherV2.
+// 2) standalone V2-burn tokens deployed by PopShibaBurnLauncherV2, or
+// 3) standalone V2-fees tokens deployed by PopShibaFeesLauncherV2 (1% swap fee).
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -15,6 +16,7 @@ import {
   parseAbiParameters,
 } from "https://esm.sh/viem@2.45.1";
 import { mainnet } from "https://esm.sh/viem@2.45.1/chains";
+import { POPSHIBA_FEES_LAUNCHER_V2_SOURCE } from "../eth-deploy-contracts/v2fees_compile.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
