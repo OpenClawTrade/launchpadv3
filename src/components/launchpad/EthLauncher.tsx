@@ -409,7 +409,7 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
     } finally {
       setIsLaunching(false);
     }
-  }, [canLaunch, address, formData, walletClient, currentChainId, switchChainAsync, lpEthAmount, pushLog]);
+  }, [canLaunch, address, formData, walletClient, currentChainId, switchChainAsync, lpEthAmount, pushLog, lockLP, launcherVersion]);
 
   // Auto-fire launch (used by the Popshiba "1-click" landing flow). Waits until
   // wallet client + ETH price are loaded so canLaunch can flip true.
@@ -433,16 +433,65 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Rocket className="h-5 w-5 text-primary" />
-                  Launch on Ethereum (Uniswap V3)
+                  Launch on Ethereum {launcherVersion === 'v3' ? '(Uniswap V3)' : '(Uniswap V2 · Fair Launch)'}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Single-sided V3 pool · 1% trading fee · You earn 50% of every swap.
+                  {launcherVersion === 'v3'
+                    ? 'Single-sided V3 pool · 1% trading fee · You earn 50% of every swap.'
+                    : 'Standard V2 pool · LP auto-burned to dead address · Zero protocol fees · All scanner green checkmarks.'}
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30">
                 Ethereum
               </Badge>
             </div>
+
+            {/* V3 vs V2-burn launcher version tabs */}
+            <div className="mt-4 grid grid-cols-2 gap-2 p-1 rounded-lg bg-background/40 border border-border/40">
+              <button
+                type="button"
+                onClick={() => setLauncherVersion('v3')}
+                className={`px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
+                  launcherVersion === 'v3'
+                    ? 'bg-primary text-primary-foreground shadow'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                V3 · Earn Fees
+                <span className="block text-[9px] font-normal normal-case tracking-normal mt-0.5 opacity-80">
+                  Lock LP (Team Finance) · earn 50% of trading fees
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLauncherVersion('v2burn')}
+                className={`px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
+                  launcherVersion === 'v2burn'
+                    ? 'bg-primary text-primary-foreground shadow'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                V2 · Burn LP 🔥
+                <span className="block text-[9px] font-normal normal-case tracking-normal mt-0.5 opacity-80">
+                  Pure fair launch · no fees · ✅ all green checkmarks
+                </span>
+              </button>
+            </div>
+
+            {launcherVersion === 'v2burn' && (
+              <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs space-y-1">
+                <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> V2 Burn Launch — what you get
+                </div>
+                <ul className="text-muted-foreground space-y-0.5 ml-5 list-disc">
+                  <li>Standard Uniswap V2 pool · all 1B supply paired with your ETH</li>
+                  <li>LP tokens auto-burned to <code className="text-foreground">0x…dEaD</code> on launch</li>
+                  <li>DEXTools, GMGN, DEXScreener, GoPlus all show ✅ <strong>LP Burned</strong></li>
+                  <li><strong>No platform fee, no locker fee</strong> — you only pay gas (~$15–25)</li>
+                  <li className="text-amber-400">⚠ Trading fees stay locked in the LP forever (nobody collects)</li>
+                </ul>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Token Basics */}
