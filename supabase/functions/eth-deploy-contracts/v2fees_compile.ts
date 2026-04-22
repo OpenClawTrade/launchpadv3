@@ -270,7 +270,6 @@ async function loadSolc(): Promise<any> {
 
 export async function compilePopShibaFeesLauncherV2(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
   const solc = await loadSolc();
-  const compile = solc.cwrap("solidity_compile", "string", ["string", "number", "number"]);
 
   const input = JSON.stringify({
     language: "Solidity",
@@ -283,8 +282,9 @@ export async function compilePopShibaFeesLauncherV2(): Promise<{ abi: any[]; byt
   });
 
   const t1 = Date.now();
-  const output = JSON.parse(compile(input, 0, 0));
+  const output = JSON.parse(solc.compile(input));
   console.log(`[v2fees-compile] solidity_compile done in ${Date.now() - t1}ms`);
+
 
   if (output.errors) {
     const errors = output.errors.filter((e: any) => e.severity === "error");
