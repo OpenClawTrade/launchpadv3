@@ -23,9 +23,13 @@ import {
   V3_BYTECODE_READY,
 } from "./v3_bytecode.ts";
 import { POPSHIBA_BURN_LAUNCHER_V2_BYTECODE } from "./v2burn_bytecode.ts";
+import { compilePopShibaFeesLauncherV2 } from "./v2fees_compile.ts";
 
 // V2-burn bytecode is always shipped (compiled in-tree). Treat as ready when non-empty.
 const V2BURN_BYTECODE_READY = POPSHIBA_BURN_LAUNCHER_V2_BYTECODE.length > 4;
+// V2-fees compiles in-flight via solc — always considered ready (the deploy step
+// will surface a compile error if the source is broken).
+const V2FEES_READY = true;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,6 +66,9 @@ Deno.serve(async (req) => {
   // v2burn: deploy PopShibaBurnLauncherV2 (Uniswap V2, auto-burn LP, NO fees).
   // Reuses existing CloneFactory; no fee vault needed (LP is burned, no fees to collect).
   const v2burn: boolean = body.v2burn === true;
+  // v2fees: deploy PopShibaFeesLauncherV2 (Uniswap V2, auto-burn LP, fixed 1% swap fee → platform wallet).
+  // Standalone, in-flight compiled. Has its own active row tagged version="v2fees".
+  const v2fees: boolean = body.v2fees === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
@@ -277,9 +284,11 @@ Deno.serve(async (req) => {
         v3CanDeploy: V3_BYTECODE_READY && !!(existing?.token_impl_address && existing?.clone_factory_address),
         v2burnReady: V2BURN_BYTECODE_READY,
         v2burnCanDeploy: V2BURN_BYTECODE_READY && !!existing?.clone_factory_address,
+        v2feesReady: V2FEES_READY,
+        v2feesCanDeploy: V2FEES_READY,
         warning: launcherOnly && !canPatchLauncher
           ? "Cannot patch: no active row with token/factory/vault but missing launcher."
-          : (existing && !force && !launcherOnly && !v2 && !v3 && !v2burn ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, v3=true for Team Finance-lock suite, or v2burn=true for fee-free V2 burn launcher." : null),
+          : (existing && !force && !launcherOnly && !v2 && !v3 && !v2burn && !v2fees ? "ACTIVE deployment already exists. Pass force=true to redeploy, launcherOnly=true to add the missing Launcher, v2=true for UNCX-lock suite, v3=true for Team Finance-lock suite, v2burn=true for fee-free V2 burn launcher, or v2fees=true for V2 launcher with fixed 1% swap-fee." : null),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
