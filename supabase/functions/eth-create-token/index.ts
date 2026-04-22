@@ -89,7 +89,10 @@ Deno.serve(async (req) => {
     // Resolve which active deployment row to use based on requested version.
     // V3 (default): pick the active row whose contracts->>version is null OR "v3".
     // V2-burn: pick the active row whose contracts->>version === "v2burn".
-    const requestedVersion = body.version === "v2burn" ? "v2burn" : "v3";
+    // V2-fees: pick the active row whose contracts->>version === "v2fees".
+    const requestedVersion: "v3" | "v2burn" | "v2fees" =
+      body.version === "v2burn" ? "v2burn" :
+      body.version === "v2fees" ? "v2fees" : "v3";
 
     const { data: rows, error: depErr } = await supabase
       .from("eth_deployments")
@@ -106,6 +109,7 @@ Deno.serve(async (req) => {
     const matches = (rows || []).filter((r) => {
       const v = (r.contracts as any)?.version;
       if (requestedVersion === "v2burn") return v === "v2burn";
+      if (requestedVersion === "v2fees") return v === "v2fees";
       // v3 path: explicit "v3" OR legacy rows with no version field
       return v === "v3" || v == null;
     });
