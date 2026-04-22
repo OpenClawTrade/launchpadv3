@@ -130,8 +130,17 @@ function ActionCard({ title, description, icon: Icon, status, statusLabel, child
 /* -------------------------------------------------------------------------- */
 
 export default function LaunchNowPage() {
+  const [tab, setTab] = useState<"manage" | "launch">("manage");
   const [caInput, setCaInput] = useState("");
   const [activeCA, setActiveCA] = useState<string | null>(null);
+
+  // ---- Launch (deploy new token) state ----
+  const [deployName, setDeployName] = useState("");
+  const [deploySymbol, setDeploySymbol] = useState("");
+  const [deploySupply, setDeploySupply] = useState("420690000000000"); // PEPE-style default (whole tokens, 18d)
+  const [deploying, setDeploying] = useState(false);
+  const [lastDeployedCA, setLastDeployedCA] = useState<string | null>(null);
+  const [lastDeployTx, setLastDeployTx] = useState<string | null>(null);
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
