@@ -1256,6 +1256,8 @@ export default function LaunchNowPage() {
             </p>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
