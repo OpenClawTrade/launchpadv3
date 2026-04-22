@@ -127,11 +127,30 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Compute $50 LP seed in ETH (rounded up to 6 decimals so we always clear $50)
+  // Active LP preset object
+  const activeLpPreset = useMemo(
+    () => LP_PRESETS.find(p => p.id === lpPresetId),
+    [lpPresetId],
+  );
+
+  // LP seed in ETH — derived from preset (or custom input).
+  // Demo tier is USD-pinned ($5 → ETH at live price); presets are fixed ETH; custom is user input.
   const lpEthAmount = useMemo(() => {
+    if (lpPresetId === 'custom') {
+      const n = parseFloat(lpCustomInput);
+      return !isNaN(n) && n > 0 ? n : 0;
+    }
+    if (activeLpPreset?.eth != null) return activeLpPreset.eth;
+    // Demo tier — USD-denominated, recompute from live ETH price (rounded up)
     if (ethPrice <= 0) return 0;
-    return Math.ceil((MIN_LP_USD / ethPrice) * 1e6) / 1e6;
-  }, [ethPrice]);
+    const usd = activeLpPreset?.usd ?? MIN_LP_USD;
+    return Math.ceil((usd / ethPrice) * 1e6) / 1e6;
+  }, [lpPresetId, lpCustomInput, activeLpPreset, ethPrice]);
+
+  const lpUsdValue = useMemo(
+    () => (ethPrice > 0 ? lpEthAmount * ethPrice : 0),
+    [ethPrice, lpEthAmount],
+  );
 
   const canLaunch =
     isConnected &&
