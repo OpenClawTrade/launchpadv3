@@ -594,6 +594,141 @@ export default function LaunchNowPage() {
           </div>
         </Card>
 
+        {/* Tabs: Manage existing | Launch new */}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "manage" | "launch")} className="mb-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="manage" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Manage existing
+            </TabsTrigger>
+            <TabsTrigger value="launch" className="flex items-center gap-2">
+              <Rocket className="h-4 w-4" />
+              Launch new token
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="launch" className="mt-4">
+            <Card className="bg-card/40 border-border/40 p-5">
+              <div className="mb-4">
+                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                  <Rocket className="h-5 w-5 text-primary" />
+                  Deploy a new ERC-20 (PepeToken-style)
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Same contract pattern as the popular PEPE launches: <strong>Ownable</strong> + <strong>setRule</strong> (anti-bot max wallet) + <strong>blacklist</strong> + <strong>burn</strong>. After deploy, the token lands directly into the Manage tab so you can add LP, open trading, renounce, and burn LP from the same page.
+                </p>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="d-name" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Token name
+                  </Label>
+                  <Input
+                    id="d-name"
+                    placeholder="e.g. Popshiba"
+                    value={deployName}
+                    onChange={(e) => setDeployName(e.target.value)}
+                    className="mt-1 bg-background/50"
+                    maxLength={32}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="d-symbol" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Ticker / symbol
+                  </Label>
+                  <Input
+                    id="d-symbol"
+                    placeholder="e.g. POPSHIBA"
+                    value={deploySymbol}
+                    onChange={(e) => setDeploySymbol(e.target.value.toUpperCase())}
+                    className="mt-1 bg-background/50 font-mono"
+                    maxLength={12}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="d-supply" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Total supply (whole tokens — 18 decimals applied automatically)
+                  </Label>
+                  <Input
+                    id="d-supply"
+                    placeholder="420690000000000"
+                    value={deploySupply}
+                    onChange={(e) => setDeploySupply(e.target.value.replace(/[^\d]/g, ""))}
+                    className="mt-1 bg-background/50 font-mono"
+                    inputMode="numeric"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    {[
+                      { label: "1B", v: "1000000000" },
+                      { label: "1T", v: "1000000000000" },
+                      { label: "PEPE-style 420.69T", v: "420690000000000" },
+                    ].map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => setDeploySupply(p.v)}
+                        className="px-2 py-1 rounded border border-border/40 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-lg bg-background/40 border border-border/40 p-3 text-xs text-muted-foreground space-y-1">
+                <div>• Contract owner = your connected wallet.</div>
+                <div>• Trading is locked until you set a Uniswap V2 pair via <code>setRule</code> (built into Manage tab).</div>
+                <div>• Solidity 0.8.20, optimizer on (200 runs). Verify from the Manage tab after deploy.</div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleDeploy}
+                  disabled={deploying || !isConnected || !deployName.trim() || !deploySymbol.trim() || !deploySupply.trim()}
+                  size="lg"
+                >
+                  {deploying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deploying…
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="h-4 w-4" />
+                      Deploy token
+                    </>
+                  )}
+                </Button>
+                {!isConnected && (
+                  <span className="text-xs text-muted-foreground">Connect a wallet first.</span>
+                )}
+                {lastDeployTx && (
+                  <a
+                    href={ETHERSCAN_TX(lastDeployTx)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline inline-flex items-center gap-1"
+                  >
+                    Last deploy tx <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {lastDeployedCA && (
+                  <a
+                    href={ETHERSCAN_TOKEN(lastDeployedCA)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline inline-flex items-center gap-1"
+                  >
+                    Contract: {shortAddr(lastDeployedCA)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="manage" className="mt-4 space-y-4">
         {/* Your tokens (auto-detected) */}
         {isConnected && (
           <Card className="bg-card/40 border-border/40 p-5 mb-4">
