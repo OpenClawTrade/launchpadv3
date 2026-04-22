@@ -66,7 +66,9 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [lockLP, setLockLP] = useState(!!initialLockLP); // V3: opt-in Team Finance LP lock
+  // V3: Team Finance LP lock — default ON so aggregators (GMGN, DEXTools, Banana) show
+  // the "LP Locked" trust checkmark and route trades immediately. User can still uncheck.
+  const [lockLP, setLockLP] = useState(initialLockLP ?? true);
   // If host (Popshiba landing iframe) sent an explicit lpEthAmount, switch to
   // 'custom' and pre-fill the input so the autoLaunch flow uses exactly that.
   const initialLpOverride = typeof initialValues?.lpEthAmount === 'number' && initialValues.lpEthAmount > 0
