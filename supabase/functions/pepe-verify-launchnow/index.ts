@@ -76,7 +76,7 @@ async function pollStatus(guid: string, apiKey: string): Promise<{ verified: boo
   for (let i = 0; i < 30; i++) {
     await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${apiKey}`,
       );
       const j = await r.json();
