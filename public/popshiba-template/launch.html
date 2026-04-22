@@ -1204,6 +1204,46 @@
         </div>
       </div>
 
+      <!-- Step: LP Seed selector (Demo / Suggested / Highly suggested / Custom) -->
+      <div class="form-card" style="margin-bottom:18px">
+        <div class="fld-label">
+          LP seed size
+          <span class="hint">how much liquidity you pair with your token at launch</span>
+        </div>
+        <div id="lpPresets" style="display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:10px;margin-top:8px">
+          <button type="button" class="lp-preset" data-lp="demo" data-eth=""
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Demo · $5</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ — ETH</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Showcase only. <b>Will not</b> guarantee a successful launch.</div>
+          </button>
+          <button type="button" class="lp-preset" data-lp="suggested" data-eth="0.5"
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:var(--primary);cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Suggested · 0.5 ETH</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ $—</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Healthy starting depth. Good for serious launches.</div>
+          </button>
+          <button type="button" class="lp-preset" data-lp="recommended" data-eth="1"
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Highly suggested · 1 ETH</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ $—</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Pro tier. Real liquidity from block 1 — projects last longer.</div>
+          </button>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:12px">
+          <button type="button" class="lp-preset" data-lp="custom"
+                  style="padding:10px 12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'Archivo Black',sans-serif;font-size:12px">Custom</button>
+          <div style="position:relative">
+            <input id="lpCustomInput" class="fld-input mono" placeholder="0.25" inputmode="decimal" disabled style="opacity:.6" />
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;color:var(--brown);pointer-events:none;font-size:11px">ETH</span>
+          </div>
+          <span id="lpCustomUsd" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brown);min-width:60px;text-align:right">≈ $0</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brown);line-height:1.5;letter-spacing:0.02em;margin-top:10px;padding:10px;border-left:3px solid var(--primary);background:#fff8e6">
+          <b>ETH ≠ Solana.</b> Real on-chain liquidity is what makes a token survive — not vibes. The deeper your starting LP, the less every $100 buy/sell moves the price, and the longer your chart stays alive. $5 is a demo to show that the platform works, not a serious launch.
+        </div>
+      </div>
+
       <!-- Step: LP Locker (Team Finance) -->
       <div class="form-card" style="margin-bottom:18px">
         <div class="fld-label">LP Locker <span class="hint">optional · adds ~0.045 ETH to your starting LP</span></div>
@@ -1253,7 +1293,7 @@
         </div>
         <div class="fee-row">
           <span class="k">LP seed (V3 single-sided)</span>
-          <span class="v">~0.001 ETH</span>
+          <span class="v" id="lp-seed-fee">~0.5 ETH</span>
         </div>
         <div class="fee-row">
           <span class="k">Dev first-buy</span>
@@ -1642,10 +1682,27 @@
   // ===== Dev first-buy: presets, dynamic dev allocation %, total cost =====
   // Constants mirrored from src/components/launchpad/EthLauncher.tsx
   const TOTAL_SUPPLY = 1_000_000_000;
-  const LP_SEED_ETH  = 0.001;       // ~$5 single-sided V3 seed
-  const LP_SEED_USD  = 5;
+  const LP_SEED_USD_DEMO = 5;        // "Demo" tier — USD-pinned, converts to ETH live
   const ETH_USD_FALLBACK = 3500;    // only used until live price arrives
   let ethUsd = ETH_USD_FALLBACK;
+
+  // ===== LP seed preset selector =====
+  // Mirrors LP_PRESETS in src/components/launchpad/EthLauncher.tsx so the on-chain
+  // tx uses exactly what the user picks here.
+  let lpPresetId = 'suggested';   // default
+  let lpCustomEth = 0;            // only used when lpPresetId === 'custom'
+  function currentLpEth() {
+    if (lpPresetId === 'custom') return lpCustomEth > 0 ? lpCustomEth : 0;
+    if (lpPresetId === 'suggested')   return 0.5;
+    if (lpPresetId === 'recommended') return 1;
+    // demo — USD-pinned
+    if (ethUsd <= 0) return 0;
+    return Math.ceil((LP_SEED_USD_DEMO / ethUsd) * 1e6) / 1e6;
+  }
+  function currentLpUsd() {
+    const eth = currentLpEth();
+    return ethUsd > 0 ? eth * ethUsd : 0;
+  }
 
   const MAX_DEV_USD  = 5000;          // matches MAX_DEV_BUY_USD in EthLauncher.tsx
 
@@ -1679,22 +1736,76 @@
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
     const dev    = devEthFromUsd(devUsd);
-    // Starting MC = LP-implied MC + dev buy impact.
-    // After dev buys $X into a single-sided V3 LP seeded with $LP_SEED_USD worth of tokens,
-    // the new spot price implies MC ≈ (LP_SEED_USD + devUsd)^2 / LP_SEED_USD * (totalSupply / LP-tokens-allocated).
-    // We approximate with the simpler constant-product form: starting MC ≈ (LP_SEED_USD + devUsd) * 1000.
-    const startMcUsd = (LP_SEED_USD + devUsd) * 1000;
+    const lpEth  = currentLpEth();
+    const lpUsd  = currentLpUsd();
+    // Starting MC ≈ (LP_USD + devUsd) * 1000  (single-sided V3, full-range, 1B supply)
+    const startMcUsd = (lpUsd + devUsd) * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
-    const allocPct = devUsd > 0 ? (devUsd / (LP_SEED_USD + devUsd)) * 100 : 0;
+    const allocPct = devUsd > 0 ? (devUsd / (lpUsd + devUsd)) * 100 : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
     const lockFee = lockLP ? LOCKER_FEE_ETH : 0;
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev + lockFee).toFixed(4) + ' ETH';
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (lpEth + dev + lockFee).toFixed(4) + ' ETH';
     if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
     const feeRow = document.getElementById('lockerFeeRow');
     if (feeRow) feeRow.style.display = lockLP ? '' : 'none';
+    // LP seed fee row
+    const lpSeedFeeEl = document.getElementById('lp-seed-fee');
+    if (lpSeedFeeEl) lpSeedFeeEl.textContent = lpEth.toFixed(4) + ' ETH ≈ ' + fmtUsd0(lpUsd);
+    // Refresh per-preset USD/ETH labels
+    document.querySelectorAll('#lpPresets .lp-preset').forEach(function(btn){
+      const id = btn.getAttribute('data-lp');
+      const ethAttr = btn.getAttribute('data-eth');
+      const ethVal = id === 'demo'
+        ? (ethUsd > 0 ? Math.ceil((LP_SEED_USD_DEMO / ethUsd) * 1e6) / 1e6 : 0)
+        : parseFloat(ethAttr || '0');
+      const lbl = btn.querySelector('.lp-preset-eth');
+      if (!lbl) return;
+      if (id === 'demo') {
+        lbl.textContent = ethVal > 0 ? ('≈ ' + ethVal.toFixed(6) + ' ETH') : '≈ — ETH';
+      } else {
+        lbl.textContent = ethUsd > 0 ? ('≈ $' + Math.round(ethVal * ethUsd).toLocaleString()) : '≈ $—';
+      }
+    });
+    const usdEl = document.getElementById('lpCustomUsd');
+    if (usdEl) usdEl.textContent = lpPresetId === 'custom' && lpCustomEth > 0 && ethUsd > 0
+      ? '≈ $' + Math.round(lpCustomEth * ethUsd).toLocaleString()
+      : '≈ $0';
   }
+
+  // ===== LP preset selector wiring =====
+  (function(){
+    const buttons = document.querySelectorAll('#lpPresets .lp-preset, .lp-preset[data-lp="custom"]');
+    const customInput = document.getElementById('lpCustomInput');
+    function paint(){
+      buttons.forEach(function(b){
+        const id = b.getAttribute('data-lp');
+        b.style.background = (id === lpPresetId) ? 'var(--primary)' : '#fff';
+      });
+      if (customInput) {
+        const isCustom = lpPresetId === 'custom';
+        customInput.disabled = !isCustom;
+        customInput.style.opacity = isCustom ? '1' : '0.6';
+      }
+    }
+    buttons.forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        lpPresetId = b.getAttribute('data-lp');
+        paint();
+        recomputeEcon();
+      });
+    });
+    if (customInput) {
+      customInput.addEventListener('input', function(){
+        const n = parseFloat(customInput.value);
+        lpCustomEth = isNaN(n) || n < 0 ? 0 : n;
+        recomputeEcon();
+      });
+    }
+    paint();
+  })();
 
   // LP Locker toggle wiring
   (function(){
@@ -1913,6 +2024,7 @@
       devBuyEth: devEthFromUsd(parseUsdInput(devBuyInput && devBuyInput.value)),
       lockLP: lockLP,
       imageDataUrl: aiImageDataUrl,
+      lpEthAmount: currentLpEth(),
     };
   }
   function postToParent(type, payload){
