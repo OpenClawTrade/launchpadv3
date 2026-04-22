@@ -212,45 +212,48 @@ function buildMetadataHeader(launch: any): string {
   return lines.length ? lines.join("\n") + "\n//\n" : "";
 }
 
-async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn"> {
-  if (launch?.burn_lp) return "v2burn";
-
+async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn" | "v2fees"> {
+  // Try to find the launcher row by tx hash regardless of burn_lp flag (which is shared
+  // between v2burn and v2fees) so we can distinguish the two.
   const txHash = launch?.launch_tx_hash || launch?.deploy_tx_hash;
-  if (!txHash || typeof txHash !== "string") return "clone";
-
-  const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
-  const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
-
-  try {
-    const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
-    if (!tx.to) return "clone";
-    const { data: rows } = await supabase
-      .from("eth_deployments")
-      .select("launcher_address, contracts")
-      .eq("is_active", true);
-    const matched = (rows || []).find((r: any) =>
-      String(r.launcher_address || "").toLowerCase() === String(tx.to).toLowerCase()
-    );
-    return (matched?.contracts as any)?.version === "v2burn" ? "v2burn" : "clone";
-  } catch (e) {
-    console.error("[eth-verify] failed to infer token kind from tx", e);
-    return "clone";
+  if (txHash && typeof txHash === "string") {
+    const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
+    const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
+    try {
+      const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
+      if (tx.to) {
+        const { data: rows } = await supabase
+          .from("eth_deployments")
+          .select("launcher_address, contracts")
+          .eq("is_active", true);
+        const matched = (rows || []).find((r: any) =>
+          String(r.launcher_address || "").toLowerCase() === String(tx.to).toLowerCase()
+        );
+        const v = (matched?.contracts as any)?.version;
+        if (v === "v2fees") return "v2fees";
+        if (v === "v2burn") return "v2burn";
+      }
+    } catch (e) {
+      console.error("[eth-verify] failed to infer token kind from tx", e);
+    }
   }
+  if (launch?.burn_lp) return "v2burn";
+  return "clone";
 }
 
-async function buildConstructorArgsHex(launch: any, tokenKind: "clone" | "v2burn"): Promise<string> {
+async function buildConstructorArgsHex(launch: any, tokenKind: "clone" | "v2burn" | "v2fees"): Promise<string> {
   if (tokenKind === "clone") return "";
 
   const txHash = launch?.launch_tx_hash || launch?.deploy_tx_hash;
   if (!txHash || typeof txHash !== "string") {
-    throw new Error("Missing launch transaction hash for V2-burn verification");
+    throw new Error("Missing launch transaction hash for verification");
   }
 
   const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
   const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
   if (!tx.to) {
-    throw new Error("Could not determine V2-burn launcher address from launch tx");
+    throw new Error("Could not determine launcher address from launch tx");
   }
 
   const metadataURI = await publicClient.readContract({
@@ -259,14 +262,34 @@ async function buildConstructorArgsHex(launch: any, tokenKind: "clone" | "v2burn
     functionName: "metadataURI",
   });
 
+  if (tokenKind === "v2burn") {
+    return encodeAbiParameters(
+      parseAbiParameters("string,string,string,uint256,address"),
+      [
+        String(launch.token_name || ""),
+        String(launch.token_ticker || ""),
+        String(metadataURI || ""),
+        TOTAL_SUPPLY,
+        tx.to,
+      ]
+    ).slice(2);
+  }
+
+  // v2fees: constructor(name, symbol, metadataURI, totalSupply, recipient, feeRecipient, router, weth)
+  const FEE_RECIPIENT = "0x9FD5f2E480F43320E8F65072A739c941cb5b10B0";
+  const V2_ROUTER = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
+  const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
   return encodeAbiParameters(
-    parseAbiParameters("string,string,string,uint256,address"),
+    parseAbiParameters("string,string,string,uint256,address,address,address,address"),
     [
       String(launch.token_name || ""),
       String(launch.token_ticker || ""),
       String(metadataURI || ""),
       TOTAL_SUPPLY,
       tx.to,
+      FEE_RECIPIENT as `0x${string}`,
+      V2_ROUTER as `0x${string}`,
+      WETH as `0x${string}`,
     ]
   ).slice(2);
 }
