@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
         console.log(`[pepe-verify] submit retry ${attempt} (after "${lastMsg}")`);
         await delay(8000);
       }
-      const resp = await fetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
+      const resp = await etherscanFetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
         method: "POST",
         body: buildForm(),
       });
