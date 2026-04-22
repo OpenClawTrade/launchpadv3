@@ -44,6 +44,7 @@ import {
   DEXSCREENER_URL,
   UNISWAP_ADD_URL,
 } from "@/lib/ethereum/launchControl";
+import { supabase } from "@/integrations/supabase/client";
 
 /* -------------------------------------------------------------------------- */
 /*                                Tiny helpers                                */
