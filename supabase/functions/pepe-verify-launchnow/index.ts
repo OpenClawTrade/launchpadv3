@@ -13,6 +13,30 @@ const COMPILER = "v0.8.28+commit.7893614a";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Etherscan free tier: 5 req/sec hard cap. We stay safely under at ~1.5 req/sec.
+let lastEtherscanCall = 0;
+const ETHERSCAN_MIN_GAP_MS = 700;
+async function etherscanFetch(url: string, init?: RequestInit): Promise<Response> {
+  const now = Date.now();
+  const wait = lastEtherscanCall + ETHERSCAN_MIN_GAP_MS - now;
+  if (wait > 0) await delay(wait);
+  lastEtherscanCall = Date.now();
+  const r = await fetch(url, init);
+  // If we still hit the rate limit, back off and retry once.
+  try {
+    const cloned = r.clone();
+    const j = await cloned.json();
+    const msg = String(j?.result || j?.message || "");
+    if (/max calls per sec|rate limit/i.test(msg)) {
+      console.warn("[etherscan] rate limited, backing off 2s");
+      await delay(2000);
+      lastEtherscanCall = Date.now();
+      return await fetch(url, init);
+    }
+  } catch { /* not json, ignore */ }
+  return r;
+}
+
 function sanitize(s: unknown): string {
   return String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
 }
@@ -52,7 +76,7 @@ async function pollStatus(guid: string, apiKey: string): Promise<{ verified: boo
   for (let i = 0; i < 30; i++) {
     await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=checkverifystatus&guid=${guid}&apikey=${apiKey}`,
       );
       const j = await r.json();
@@ -70,7 +94,7 @@ async function waitForCode(addr: string, apiKey: string): Promise<boolean> {
   for (let i = 0; i < 24; i++) {
     if (i > 0) await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=proxy&action=eth_getCode&address=${addr}&tag=latest&apikey=${apiKey}`,
       );
       const j = await r.json();
@@ -87,7 +111,7 @@ async function waitForVerifyIndex(addr: string, apiKey: string): Promise<boolean
   for (let i = 0; i < 36; i++) {
     if (i > 0) await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
       );
       const j = await r.json();
@@ -106,7 +130,7 @@ async function waitForVerifyIndex(addr: string, apiKey: string): Promise<boolean
 
 async function isAlreadyVerified(addr: string, apiKey: string): Promise<boolean> {
   try {
-    const r = await fetch(
+    const r = await etherscanFetch(
       `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
     );
     const j = await r.json();
@@ -211,7 +235,7 @@ Deno.serve(async (req) => {
         console.log(`[pepe-verify] submit retry ${attempt} (after "${lastMsg}")`);
         await delay(8000);
       }
-      const resp = await fetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
+      const resp = await etherscanFetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
         method: "POST",
         body: buildForm(),
       });
