@@ -484,7 +484,7 @@ export default function LaunchNowPage() {
     }
   };
 
-  /* -------------------------- Action: Remove LP -------------------------- */
+  /* -------------------------- Action: Remove LP (1 tx, EIP-2612 permit) -------------------------- */
   const [removingLp, setRemovingLp] = useState(false);
   const handleRemoveLp = async () => {
     if (!walletClient || !address || !token?.pairAddress || !token.userLpBalance) return;
@@ -492,39 +492,92 @@ export default function LaunchNowPage() {
       toast.error("You don't hold any LP tokens");
       return;
     }
-    if (!confirm("Remove ALL your liquidity? This withdraws your share of tokens + ETH from the pool.")) return;
+    if (!confirm("Remove ALL your liquidity in 1 transaction? Uses max slippage so it lands instantly.")) return;
     if (!(await ensureChain())) return;
     setRemovingLp(true);
     try {
       const liquidity = token.userLpBalance;
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 30);
 
-      // 1. Approve router to spend LP tokens
-      toast.info("Step 1/2: Approve router to spend your LP tokens…");
-      await walletClient.writeContract({
+      const { createPublicClient, http } = await import("viem");
+      const pc = createPublicClient({ chain: mainnet, transport: http() });
+
+      // Read pair name + current nonce for the EIP-2612 permit signature
+      toast.info("Preparing permit signature…");
+      const [pairName, nonce] = await Promise.all([
+        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "name" } as any) as Promise<string>,
+        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "nonces", args: [address as Address] } as any) as Promise<bigint>,
+      ]);
+
+      // EIP-712 typed data — Uniswap V2 LP tokens implement EIP-2612
+      const domain = {
+        name: pairName,
+        version: "1",
+        chainId: 1,
+        verifyingContract: token.pairAddress,
+      } as const;
+      const types = {
+        Permit: [
+          { name: "owner", type: "address" },
+          { name: "spender", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      } as const;
+      const message = {
+        owner: address as Address,
+        spender: UNISWAP_V2_ROUTER,
+        value: liquidity,
+        nonce,
+        deadline,
+      };
+
+      const signature = await walletClient.signTypedData({
         account: address as Address,
-        chain: mainnet,
-        address: token.pairAddress,
-        abi: UNISWAP_V2_PAIR_ABI,
-        functionName: "approve",
-        args: [UNISWAP_V2_ROUTER, liquidity],
-      } as any);
+        domain,
+        types,
+        primaryType: "Permit",
+        message,
+      });
 
-      await new Promise((r) => setTimeout(r, 4000));
+      // Split sig into r, s, v
+      const sig = signature.startsWith("0x") ? signature.slice(2) : signature;
+      const r = ("0x" + sig.slice(0, 64)) as `0x${string}`;
+      const s = ("0x" + sig.slice(64, 128)) as `0x${string}`;
+      let v = parseInt(sig.slice(128, 130), 16);
+      if (v < 27) v += 27;
 
-      // 2. Remove
-      toast.info("Step 2/2: Removing liquidity…");
+      // Suggest aggressive gas — fetch current basefee + tip a fat priority fee
+      let maxFeePerGas: bigint | undefined;
+      let maxPriorityFeePerGas: bigint | undefined;
+      try {
+        const block = await pc.getBlock();
+        const baseFee = block.baseFeePerGas ?? 1_000_000_000n;
+        // 20 gwei priority tip — guarantees fast inclusion
+        maxPriorityFeePerGas = 20_000_000_000n;
+        // 2x basefee + tip — handles spikes, refunds the rest
+        maxFeePerGas = baseFee * 2n + maxPriorityFeePerGas;
+        const totalGwei = Number(maxFeePerGas / 1_000_000_000n);
+        toast.info(`Submitting at ~${totalGwei} gwei (priority +20 gwei) for instant inclusion…`);
+      } catch {
+        // fallback: let the wallet decide
+      }
+
+      // Single tx: permit + remove with max slippage (0,0 = accept any output)
       const hash = await walletClient.writeContract({
         account: address as Address,
         chain: mainnet,
         address: UNISWAP_V2_ROUTER,
         abi: UNISWAP_V2_ROUTER_ABI,
-        functionName: "removeLiquidityETHSupportingFeeOnTransferTokens",
-        args: [token.address, liquidity, 0n, 0n, address as Address, deadline],
-      });
+        functionName: "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens",
+        args: [token.address, liquidity, 0n, 0n, address as Address, deadline, false, v, r, s],
+        ...(maxFeePerGas && maxPriorityFeePerGas ? { maxFeePerGas, maxPriorityFeePerGas } : {}),
+      } as any);
+
       toast.success(
         <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
-          Liquidity removed — view tx
+          Liquidity removed in 1 tx — view
         </a>
       );
       setTimeout(() => refetch(), 8000);
