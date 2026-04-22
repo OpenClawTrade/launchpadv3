@@ -151,6 +151,52 @@ export default function LaunchNowPage() {
   const [autoVerifyMsg, setAutoVerifyMsg] = useState<string>("");
   const [autoVerifiedAddr, setAutoVerifiedAddr] = useState<string | null>(null);
 
+  // Shared verify runner — used by both post-deploy auto-verify and the manual "Verify now" button.
+  const runVerify = async (params: {
+    tokenAddress: string;
+    name: string;
+    symbol: string;
+    totalSupply: string;
+    header?: string;
+    source: "auto" | "manual";
+  }) => {
+    setAutoVerifiedAddr(params.tokenAddress);
+    setAutoVerifyStatus("submitting");
+    setAutoVerifyMsg(
+      params.source === "auto"
+        ? "Waiting for Etherscan to index the contract…"
+        : "Submitting source to Etherscan…"
+    );
+    toast.info(params.source === "auto" ? "Auto-verifying on Etherscan…" : "Verifying on Etherscan…");
+    try {
+      const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
+        body: {
+          tokenAddress: params.tokenAddress,
+          name: params.name,
+          symbol: params.symbol,
+          totalSupply: params.totalSupply,
+          header: params.header ?? deployHeader,
+          waitForResult: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.verified) {
+        setAutoVerifyStatus("ok");
+        setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
+        toast.success("Contract verified on Etherscan ✓");
+      } else {
+        setAutoVerifyStatus("fail");
+        setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
+        toast.error(`Verify failed: ${data?.error || data?.message || "unknown"}`);
+      }
+    } catch (err: any) {
+      console.error("[verify]", err);
+      setAutoVerifyStatus("fail");
+      setAutoVerifyMsg(err?.message || "Verification error");
+      toast.error(`Verify error: ${err?.message || "unknown"}`);
+    }
+  };
+
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
   const { switchChainAsync } = useSwitchChain();
