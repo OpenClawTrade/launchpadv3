@@ -517,10 +517,10 @@ export default function LaunchNowPage() {
             Token Finalizer · Helper
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Finalize your already-deployed ETH token
+            Launch &amp; manage your ETH token
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
-            This is a <strong>helper page</strong> for tokens you've <strong>already deployed</strong> (e.g. via Remix). Paste the contract address and we'll detect what's still needed — verify, add liquidity, open trading, renounce, burn or remove LP — and walk you through each step with MetaMask. <em>This page does not deploy new tokens.</em>
+            One control center for ERC-20s on Ethereum Mainnet. <strong>Launch new token</strong> deploys a PEPE-style contract (Ownable + setRule + blacklist + burn) straight from your wallet. <strong>Manage existing</strong> detects what's still needed for any token you own — verify, add liquidity, open trading, renounce, burn or remove LP — and walks you through each step with MetaMask.
           </p>
         </header>
 
