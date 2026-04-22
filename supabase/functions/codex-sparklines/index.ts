@@ -60,6 +60,13 @@ serve(async (req) => {
     if (!response.ok) {
       const text = await response.text();
       console.error("Codex API error:", response.status, text);
+      // Quota / auth issues: degrade gracefully so the UI doesn't blank out
+      if (response.status === 403 || response.status === 429 || response.status === 401) {
+        return new Response(
+          JSON.stringify({ sparklines: {}, degraded: true, reason: "quota_or_auth" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: "Codex API error", status: response.status }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
