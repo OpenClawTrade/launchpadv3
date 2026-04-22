@@ -268,6 +268,43 @@ export default function LaunchNowPage() {
   const verifyState: "ok" | "pending" | "unknown" =
     token?.isVerified === true ? "ok" : token?.isVerified === false ? "pending" : "unknown";
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkVerifyCompatibility = async () => {
+      if (!token?.address) {
+        setIsVerifyCompatible(null);
+        return;
+      }
+
+      if (verifyState === "ok") {
+        setIsVerifyCompatible(true);
+        return;
+      }
+
+      try {
+        const { createPublicClient, http } = await import("viem");
+        const pc = createPublicClient({ chain: mainnet, transport: http() });
+        const bytecode = await pc.getBytecode({ address: token.address as Address });
+        const runtime = bytecode ? String(bytecode).replace(/^0x/, "") : "";
+        if (!cancelled) {
+          setIsVerifyCompatible(runtime === CURRENT_LAUNCHNOW_RUNTIME);
+        }
+      } catch (error) {
+        console.error("[verify-compat]", error);
+        if (!cancelled) {
+          setIsVerifyCompatible(null);
+        }
+      }
+    };
+
+    void checkVerifyCompatibility();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token?.address, verifyState]);
+
   /* -------------------------- Action: Add LP ----------------------------- */
   const [lpTokenAmount, setLpTokenAmount] = useState("");
   const [lpEthAmount, setLpEthAmount] = useState("");
