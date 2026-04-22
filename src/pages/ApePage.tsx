@@ -288,11 +288,53 @@ export default function ApePage() {
     }
   }, [isEvm, authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, chain, toast]);
 
+  const symbol = token?.symbol || "—";
+  const name = token?.name || (tokenLoading ? "Loading…" : "Unknown token");
+  const priceUsd = token?.priceUsd ?? 0;
+  const isPriceUp = (token?.change24h ?? 0) >= 0;
+
+  const filteredTrades = useMemo(() => {
+    let list = trades;
+    if (tradesTab === "yours") {
+      const me = (evmAddress || "").toLowerCase();
+      list = me ? list.filter((t) => t.maker?.toLowerCase() === me) : [];
+    }
+    if (filter === "500") list = list.filter((t) => t.totalUsd >= 500);
+    if (filter === "5k") list = list.filter((t) => t.totalUsd >= 5_000);
+    if (filter === "whales") list = list.filter((t) => t.totalUsd >= 25_000);
+    return list.slice(0, 30);
+  }, [trades, filter, tradesTab, evmAddress]);
+
+  const copyAddress = () => {
+    navigator.clipboard.writeText(address);
+    toast({ title: "Address copied" });
+  };
+  const shareToken = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({ title: "Link copied" });
+  };
+
   const estimatedTokens = isEvm
     ? buyAmountFmt
     : (priceUsd > 0 && numericAmount > 0
         ? (numericAmount * (chain === "bsc" ? 600 : 150)) / priceUsd
         : 0);
+
+  const ctaLabel = !isEvm
+    ? `◆ ${side === "buy" ? "BUY" : "SELL"} ON ${dexNameFor(chain).toUpperCase()}`
+    : !privyReady
+      ? "LOADING…"
+      : !authenticated
+        ? "CONNECT WALLET"
+        : swapping
+          ? "SWAPPING…"
+          : insufficient
+            ? "INSUFFICIENT BALANCE"
+            : needsApproval
+              ? `◆ APPROVE & SELL $${symbol}`
+              : `◆ ${side === "buy" ? "BUY" : "SELL"} $${symbol}`;
+
+  const ctaDisabled = isEvm && (swapping || insufficient);
 
   return (
     <div className={styles.root}>
