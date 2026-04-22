@@ -578,10 +578,25 @@ export default function PopshibaLaunchpadPage() {
       }
     }
     window.addEventListener("message", onMessage);
-    // Push state immediately and whenever wallet changes
     sendWalletState();
     return () => window.removeEventListener("message", onMessage);
   }, [authenticated, isConnected, address, ready, login, logout, navigate]);
+
+  // Push wallet state to the iframe whenever Privy/wagmi flips, without
+  // re-mounting the iframe (which is what made the page look like it
+  // "refreshed many times" before showing data).
+  useEffect(() => {
+    const win = ref.current?.contentWindow;
+    if (!win) return;
+    win.postMessage(
+      {
+        source: "popshiba-host",
+        type: "wallet-state",
+        payload: { connected: !!(authenticated && isConnected && address), address: address || null },
+      },
+      "*"
+    );
+  }, [authenticated, isConnected, address]);
 
   return (
     <>
