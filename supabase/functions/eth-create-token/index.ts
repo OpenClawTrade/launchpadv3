@@ -32,7 +32,9 @@ interface LaunchBody {
   telegramUrl?: string | null;
 }
 
-const MIN_LP_WEI = 1_000_000_000_000_000n; // 0.001 ETH absolute floor (~$3 safety)
+// LP floor — below this, GMGN/Banana refuse to route trades through the pool.
+// 0.015 ETH ≈ $50 at typical mainnet prices.
+const MIN_LP_WEI = 15_000_000_000_000_000n; // 0.015 ETH
 const MAX_LP_WEI = 10_000_000_000_000_000_000n; // 10 ETH cap
 
 function validate(body: any): { ok: true; data: LaunchBody } | { ok: false; error: string } {
@@ -52,7 +54,7 @@ function validate(body: any): { ok: true; data: LaunchBody } | { ok: false; erro
     }
     const v = BigInt(ethForLPWei);
     if (v < MIN_LP_WEI || v > MAX_LP_WEI) {
-      return { ok: false, error: "ethForLPWei out of bounds (0.001..10 ETH)" };
+      return { ok: false, error: "ethForLPWei out of bounds (0.015..10 ETH). Below 0.015 ETH (~$50) GMGN/Banana will block trades on this pool." };
     }
   }
   return { ok: true, data: body as LaunchBody };
