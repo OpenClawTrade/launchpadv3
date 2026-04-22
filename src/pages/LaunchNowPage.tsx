@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "./launchnow-popshiba.css";
 import { isAddress, parseEther, parseUnits, formatUnits, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
@@ -150,10 +151,19 @@ export default function LaunchNowPage() {
   const { data: token, isLoading, refetch, isFetching } = useTokenInspector(activeCA, address);
   const { data: heldTokens, isLoading: heldLoading, refetch: refetchHeld } = useWalletTokens(address);
 
-  // SEO
+  // SEO + load Popshiba fonts (Archivo Black + Space Grotesk + JetBrains Mono)
   useEffect(() => {
     const prev = document.title;
     document.title = "Launch Control — Manage your ETH token | Popshiba";
+    const FONT_ID = "popshiba-launchnow-fonts";
+    if (!document.getElementById(FONT_ID)) {
+      const l = document.createElement("link");
+      l.id = FONT_ID;
+      l.rel = "stylesheet";
+      l.href =
+        "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap";
+      document.head.appendChild(l);
+    }
     return () => { document.title = prev; };
   }, []);
 
@@ -526,19 +536,20 @@ export default function LaunchNowPage() {
   /* -------------------------------------------------------------------- */
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="popshiba-launchnow min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-10 sm:py-14">
-        {/* Hero */}
-        <header className="mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
+        {/* Hero — Popshiba brutalist style */}
+        <header className="pop-hero mb-7">
+          <div className="pop-tag">
+            <span className="d" />
             <ShieldCheck className="h-3.5 w-3.5" />
-            Token Finalizer · Helper
+            Launch Control · Ethereum Mainnet
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Launch &amp; manage your ETH token
+          <h1>
+            Launch &amp; manage <em>your ETH token</em>
           </h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            One control center for ERC-20s on Ethereum Mainnet. <strong>Launch new token</strong> deploys a PEPE-style contract (Ownable + setRule + blacklist + burn) straight from your wallet. <strong>Manage existing</strong> detects what's still needed for any token you own — verify, add liquidity, open trading, renounce, burn or remove LP — and walks you through each step with MetaMask.
+          <p className="lede mt-3">
+            One control center for ERC-20s on Ethereum. <strong>Launch new token</strong> deploys a PEPE-style contract (Ownable + setRule + blacklist + burn) straight from your wallet. <strong>Manage existing</strong> detects what's still needed for any token you own — verify, add liquidity, open trading, renounce, burn or remove LP — and walks you through each step with MetaMask.
           </p>
         </header>
 
