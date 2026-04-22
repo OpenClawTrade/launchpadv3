@@ -317,7 +317,7 @@ export default function ApePage() {
   const estimatedTokens = isEvm
     ? buyAmountFmt
     : (priceUsd > 0 && numericAmount > 0
-        ? (numericAmount * (chain === "bsc" ? 600 : 150)) / priceUsd
+        ? (numericAmount * 150) / priceUsd
         : 0);
 
   const ctaLabel = !isEvm
