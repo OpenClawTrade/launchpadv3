@@ -217,6 +217,70 @@ export default function LaunchNowPage() {
     return true;
   };
 
+  /* ----------------------- Action: Deploy new token ---------------------- */
+  const handleDeploy = async () => {
+    if (!walletClient || !address) {
+      toast.error("Connect a wallet first");
+      return;
+    }
+    const name = deployName.trim();
+    const symbol = deploySymbol.trim();
+    const supplyStr = deploySupply.trim();
+    if (!name || name.length > 32) { toast.error("Enter a name (1–32 chars)"); return; }
+    if (!symbol || symbol.length > 12) { toast.error("Enter a symbol (1–12 chars)"); return; }
+    let supplyWhole: bigint;
+    try {
+      supplyWhole = BigInt(supplyStr.replace(/[, _]/g, ""));
+      if (supplyWhole <= 0n) throw new Error("supply must be > 0");
+    } catch {
+      toast.error("Supply must be a whole number > 0");
+      return;
+    }
+    if (!(await ensureChain())) return;
+
+    setDeploying(true);
+    setLastDeployedCA(null);
+    setLastDeployTx(null);
+    try {
+      const totalSupplyWei = supplyWhole * 10n ** 18n;
+      toast.info("Confirm the deploy in your wallet…");
+      const hash = await walletClient.deployContract({
+        account: address as Address,
+        chain: mainnet,
+        abi: PEPE_LIKE_ABI as any,
+        bytecode: PEPE_LIKE_BYTECODE,
+        args: [name, symbol, totalSupplyWei],
+      } as any);
+      setLastDeployTx(hash);
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Deploy submitted — view tx
+        </a>
+      );
+      // Wait for receipt to grab the contract address.
+      const { createPublicClient, http } = await import("viem");
+      const pc = createPublicClient({ chain: mainnet, transport: http() });
+      const receipt = await pc.waitForTransactionReceipt({ hash });
+      const ca = receipt.contractAddress;
+      if (ca) {
+        setLastDeployedCA(ca);
+        toast.success(`Deployed at ${ca.slice(0, 10)}…`);
+        // Auto-load it into the Manage tab.
+        setCaInput(ca);
+        setActiveCA(ca);
+        setTab("manage");
+        setTimeout(() => refetchHeld(), 4000);
+      } else {
+        toast.warning("Deploy tx mined but no contract address found in receipt.");
+      }
+    } catch (e: any) {
+      console.error("[deploy]", e);
+      toast.error(e?.shortMessage || e?.message || "Deploy failed");
+    } finally {
+      setDeploying(false);
+    }
+  };
+
   const handleAddLp = async () => {
     if (!walletClient || !address || !token) return;
     const tokenAmt = Number(lpTokenAmount);
