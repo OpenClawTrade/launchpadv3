@@ -26,7 +26,7 @@ interface LaunchBody {
   devBuyEth?: number;   // optional, can be 0
   lockLP?: boolean;     // V3 only — opt-in Team Finance LP lock (ignored by v2burn)
   /** Selects which active deployment row to use. Defaults to "v3" for backward compat. */
-  version?: "v3" | "v2burn";
+  version?: "v3" | "v2burn" | "v2fees";
   description?: string | null;
   imageUrl?: string | null;
   websiteUrl?: string | null;
