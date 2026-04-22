@@ -79,7 +79,7 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, []);
 
-  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3" | "v2burn") => {
+  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3" | "v2burn" | "v2fees") => {
     if (inFlightRef.current) return;
 
     const confirmMsg = mode === "force"
@@ -92,6 +92,8 @@ export function EthContractsDeployPanel() {
       ? "Deploy V3 (Team Finance) suite?\n\nDeploys PopShibaFeeVaultV3 + PopShibaLauncherV3, reuses existing Token impl + CloneFactory, sets the V3 row as active. New launches can OPT-IN to Team Finance LP locking per-launch (cheap default = no lock). Gas: ~$8–25."
       : mode === "v2burn"
       ? "Deploy V2-BURN launcher?\n\nFully standalone — deploys ONE contract with no constructor args. Zero shared infrastructure with V3 (V3 keeps working). New launches via V2-burn: pure fair launch, all-supply LP on Uniswap V2, LP auto-burned, no fees. Gas: ~$5–15."
+      : mode === "v2fees"
+      ? "Deploy V2-FEES launcher?\n\nStandalone V2 launcher with fixed 1% swap fee → platform wallet (0x9FD5…10B0). LP auto-burned. Compiles in-flight via solc. Gas: ~$5–15."
       : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
 
@@ -106,6 +108,7 @@ export function EthContractsDeployPanel() {
           v2: mode === "v2",
           v3: mode === "v3",
           v2burn: mode === "v2burn",
+          v2fees: mode === "v2fees",
         },
       });
       if (error) throw new Error(error.message);
