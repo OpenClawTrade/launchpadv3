@@ -63,7 +63,7 @@ export default function PanelEarningsTab() {
   return (
     <div className="space-y-4 max-w-2xl mx-auto pb-8">
       {/* ETH-only legacy notice */}
-      {chainConfig.id === 1 && (
+      {chainConfig.id === "ethereum" && (
         <Card className="p-3 bg-amber-500/5 border-amber-500/30">
           <div className="flex gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
