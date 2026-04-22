@@ -22,18 +22,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { address, networkId = SOLANA_NETWORK_ID } = await req.json().catch(() => ({}));
-    
+    const body = await req.json().catch(() => ({}));
+    const rawAddress = body?.address;
+    const networkId = body?.networkId ?? SOLANA_NETWORK_ID;
+
     // Validate address: Solana base58 or EVM hex
-    const isSolanaAddr = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/.test(address || '');
-    const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(address || '');
-    
-    if (!address || typeof address !== "string" || (!isSolanaAddr && !isEvmAddr)) {
+    const isSolanaAddr = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/.test(rawAddress || '');
+    const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(rawAddress || '');
+
+    if (!rawAddress || typeof rawAddress !== "string" || (!isSolanaAddr && !isEvmAddr)) {
       return new Response(
         JSON.stringify({ error: "Invalid address" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Codex requires lowercase for EVM addresses; Solana addresses are case-sensitive (keep as-is).
+    const address = isEvmAddr ? rawAddress.toLowerCase() : rawAddress;
 
     const requestedNetworkId = Number(networkId) || SOLANA_NETWORK_ID;
 
