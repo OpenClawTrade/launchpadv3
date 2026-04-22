@@ -26,6 +26,7 @@ import {
   Copy,
   RefreshCw,
   Rocket,
+  Check,
 } from "lucide-react";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
