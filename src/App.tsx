@@ -107,7 +107,7 @@ function RouteChainSync() {
 // `/` serves the real React launcher page so launch UI updates land immediately.
 // The previous iframe-based landing is preserved at `/preview-old`.
 function DomainRoot() {
-  return <Suspense fallback={<RouteLoader />}><CreateTokenPage /></Suspense>;
+  return <Suspense fallback={<RouteLoader />}><PopshibaLaunchpadPage /></Suspense>;
 }
 
 // Minimal loading spinner for route transitions
