@@ -566,6 +566,9 @@ export default function PopshibaLaunchpadPage() {
         }
       } else if (data.type === "open-earnings") {
         navigate("/earnings");
+      } else if (data.type === "navigate") {
+        const to = data?.payload?.to;
+        if (typeof to === "string" && to.startsWith("/")) navigate(to);
       } else if (data.type === "wallet-logout") {
         logout().catch(() => {});
       }
