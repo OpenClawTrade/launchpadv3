@@ -567,45 +567,117 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
               </div>
             </div>
 
-            {/* LP seed + Optional Dev Buy */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-1">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-                  <span>Initial LP seed</span>
-                  <span>required</span>
-                </div>
-                <div className="text-base font-mono text-foreground">
-                  {lpEthAmount.toFixed(6)} ETH <span className="text-muted-foreground text-xs">(~${MIN_LP_USD})</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Seeds the Uniswap V3 1% pool. Paired against single-sided supply above spot.
-                </p>
+            {/* LP seed selector — 3 presets + custom */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                <span>Initial LP seed</span>
+                <span>{lpEthAmount > 0 ? `${lpEthAmount.toFixed(6)} ETH ≈ $${lpUsdValue.toFixed(2)}` : 'required'}</span>
               </div>
-              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-2">
-                <Label htmlFor="eth-dev-buy" className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-                  Optional dev buy (ETH)
-                </Label>
-                <Input
-                  id="eth-dev-buy"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={MAX_DEV_BUY}
-                  step="0.001"
-                  placeholder="0"
-                  value={devBuyInput}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDevBuyInput(val);
-                    const n = parseFloat(val);
-                    handleInputChange('devBuyEth', !isNaN(n) && n >= 0 ? n : 0);
-                  }}
-                  className="bg-background/50 h-9 font-mono"
-                />
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Buys your token in the same tx — anti-snipe. Max {MAX_DEV_BUY} ETH.
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {LP_PRESETS.map((p) => {
+                  const eth = p.eth ?? (ethPrice > 0 ? Math.ceil((p.usd! / ethPrice) * 1e6) / 1e6 : 0);
+                  const usd = p.eth != null ? p.eth * ethPrice : (p.usd ?? 0);
+                  const active = lpPresetId === p.id;
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => setLpPresetId(p.id)}
+                      className={`text-left p-3 rounded-lg border transition-colors ${
+                        active ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider">{p.label}</span>
+                        {p.badge && (
+                          <span className={`text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded ${
+                            p.id === 'recommended' ? 'bg-primary/20 text-primary' :
+                            p.id === 'suggested' ? 'bg-emerald-500/20 text-emerald-400' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{p.badge}</span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-base font-mono text-foreground">
+                        {eth > 0 ? `${eth.toFixed(p.eth != null ? 2 : 6)} ETH` : '—'}
+                        <span className="text-muted-foreground text-xs ml-1">
+                          {ethPrice > 0 ? `≈ $${usd.toFixed(2)}` : ''}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">{p.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Custom amount */}
+              <button
+                type="button"
+                onClick={() => setLpPresetId('custom')}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  lpPresetId === 'custom' ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:border-primary/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Custom amount</span>
+                  <span className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">power user</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g. 2.5"
+                    value={lpCustomInput}
+                    onClick={(e) => { e.stopPropagation(); setLpPresetId('custom'); }}
+                    onChange={(e) => { setLpCustomInput(e.target.value); setLpPresetId('custom'); }}
+                    className="bg-background/50 h-9 font-mono max-w-[160px]"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">
+                    ETH {lpPresetId === 'custom' && lpEthAmount > 0 && ethPrice > 0 ? `≈ $${(lpEthAmount * ethPrice).toFixed(2)}` : ''}
+                  </span>
+                </div>
+              </button>
+
+              {/* Honest disclaimer + ETH ≠ Solana joke */}
+              <div className="text-[11px] text-muted-foreground leading-relaxed p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-1.5">
+                <div>
+                  💡 <strong className="text-foreground">$5 minimum exists to showcase the platform.</strong>{' '}
+                  It will <em>not</em> guarantee your token succeeds — thin LP means brutal slippage and zero scanner credibility.
+                </div>
+                <div>
+                  🐕 <strong className="text-foreground">ETH is not Solana.</strong>{' '}
+                  Here, holders and devs who seed real liquidity build products that actually <em>last</em>.
+                  A higher initial LP isn't a tax — it's the receipt that says you're not here to rug.
+                </div>
+              </div>
+            </div>
+
+            {/* Optional dev buy */}
+            <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-2">
+              <Label htmlFor="eth-dev-buy" className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                Optional dev buy (ETH)
+              </Label>
+              <Input
+                id="eth-dev-buy"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={MAX_DEV_BUY}
+                step="0.001"
+                placeholder="0"
+                value={devBuyInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDevBuyInput(val);
+                  const n = parseFloat(val);
+                  handleInputChange('devBuyEth', !isNaN(n) && n >= 0 ? n : 0);
+                }}
+                className="bg-background/50 h-9 font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Buys your token in the same tx — anti-snipe. Max {MAX_DEV_BUY} ETH.
+              </p>
             </div>
 
             {/* LP lock toggle (V3) */}
