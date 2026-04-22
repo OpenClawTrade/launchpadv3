@@ -76,7 +76,19 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const update: Record<string, unknown> = { status: body.status };
+    const { data: existingLaunch } = await supabase
+      .from("eth_launch_requests")
+      .select("id, burn_lp, creator_wallet")
+      .eq("id", body.launchId)
+      .maybeSingle();
+
+    const isBurnLaunch = !!existingLaunch?.burn_lp;
+
+    const update: Record<string, unknown> = {
+      status: body.status,
+      renounce: body.status === "live" && isBurnLaunch ? true : undefined,
+    };
+    if (update.renounce === undefined) delete update.renounce;
     if (body.launchTxHash) {
       update.launch_tx_hash = body.launchTxHash;
       update.deploy_tx_hash = body.launchTxHash; // legacy column
@@ -107,12 +119,13 @@ Deno.serve(async (req) => {
     }
 
     // ── Register the Uniswap V3 LP NFT so eth-collect-fees can find it. ──────
-    // Without this row, creator fees never accrue in eth_creator_fee_ledger.
+    // Burn launches have no claimable LP NFT and must NOT be inserted here.
     if (
       body.status === "live" &&
       data?.token_address &&
       data?.uniswap_pool_address &&
-      data?.lp_token_id
+      data?.lp_token_id &&
+      !isBurnLaunch
     ) {
       const { error: lpErr } = await supabase
         .from("eth_lp_positions")
