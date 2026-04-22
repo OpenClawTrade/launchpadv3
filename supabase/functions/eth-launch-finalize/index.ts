@@ -76,7 +76,19 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const update: Record<string, unknown> = { status: body.status };
+    const { data: existingLaunch } = await supabase
+      .from("eth_launch_requests")
+      .select("id, burn_lp, creator_wallet")
+      .eq("id", body.launchId)
+      .maybeSingle();
+
+    const isBurnLaunch = !!existingLaunch?.burn_lp;
+
+    const update: Record<string, unknown> = {
+      status: body.status,
+      renounce: body.status === "live" && isBurnLaunch ? true : undefined,
+    };
+    if (update.renounce === undefined) delete update.renounce;
     if (body.launchTxHash) {
       update.launch_tx_hash = body.launchTxHash;
       update.deploy_tx_hash = body.launchTxHash; // legacy column
