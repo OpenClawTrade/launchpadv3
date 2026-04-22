@@ -360,13 +360,25 @@ Deno.serve(async (req) => {
 
     const tokenKind = await inferTokenKind(supabase, launch);
     const metaHeader = buildMetadataHeader(launch);
-    const baseSource = tokenKind === "v2burn" ? POPSHIBA_BURN_TOKEN_SOURCE : POPSHIBA_TOKEN_BASE_SOURCE;
+    const baseSource = tokenKind === "v2burn"
+      ? POPSHIBA_BURN_TOKEN_SOURCE
+      : tokenKind === "v2fees"
+      ? POPSHIBA_FEES_LAUNCHER_V2_SOURCE
+      : POPSHIBA_TOKEN_BASE_SOURCE;
     const sourceWithHeader = metaHeader
       ? baseSource.replace(/^(\/\/ SPDX-License-Identifier:[^\n]*\n)/, `$1${metaHeader}`)
       : baseSource;
 
-    const contractFile = tokenKind === "v2burn" ? "PopShibaBurnToken.sol" : "PopShibaToken.sol";
-    const contractName = tokenKind === "v2burn" ? "PopShibaBurnToken" : "PopShibaToken";
+    const contractFile = tokenKind === "v2burn"
+      ? "PopShibaBurnToken.sol"
+      : tokenKind === "v2fees"
+      ? "PopShibaFeesLauncherV2.sol"
+      : "PopShibaToken.sol";
+    const contractName = tokenKind === "v2burn"
+      ? "PopShibaBurnToken"
+      : tokenKind === "v2fees"
+      ? "PopShibaFeesToken"
+      : "PopShibaToken";
     const constructorArgsHex = await buildConstructorArgsHex({ ...launch, token_address: tokenAddress }, tokenKind);
 
     const standardJson = {
