@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
         lp_eth: 0,
         user_tax_bps: 0,
         platform_tax_bps: 0,
-        burn_lp: requestedVersion === "v2burn",
+        burn_lp: requestedVersion === "v2burn" || requestedVersion === "v2fees",
         renounce: false,
         status: "awaiting_signature",
       })
