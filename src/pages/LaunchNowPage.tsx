@@ -136,6 +136,7 @@ export default function LaunchNowPage() {
   const currentChainId = useChainId();
 
   const { data: token, isLoading, refetch, isFetching } = useTokenInspector(activeCA, address);
+  const { data: heldTokens, isLoading: heldLoading, refetch: refetchHeld } = useWalletTokens(address);
 
   // SEO
   useEffect(() => {
