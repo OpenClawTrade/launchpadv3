@@ -397,10 +397,25 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
       });
     } catch (e) {
       console.error('ETH atomic launch error:', e);
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      pushLog(`ERROR: ${msg}`);
-      setLaunchError(msg);
-      toast.error('Launch failed', { description: msg });
+      const rawMsg = e instanceof Error ? e.message : 'Unknown error';
+
+      // Detect MetaMask / wallet user-rejection and short-circuit to a clean message
+      const code = (e as any)?.code;
+      const isUserReject =
+        code === 4001 ||
+        code === 'ACTION_REJECTED' ||
+        /user rejected|user denied|rejected the request|request rejected/i.test(rawMsg);
+
+      const friendly = isUserReject
+        ? 'Transaction cancelled in wallet'
+        : rawMsg.length > 140 ? rawMsg.slice(0, 140) + '…' : rawMsg;
+
+      pushLog(`ERROR: ${friendly}`);
+      setLaunchError(friendly);
+      toast.error(isUserReject ? 'Launch cancelled' : 'Launch failed', {
+        description: friendly,
+      });
+      const msg = friendly;
       if (launchId) {
         await supabase.functions.invoke('eth-launch-finalize', {
           body: { launchId, status: 'failed', errorMessage: msg },
