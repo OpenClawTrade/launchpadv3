@@ -111,7 +111,7 @@ async function waitForVerifyIndex(addr: string, apiKey: string): Promise<boolean
   for (let i = 0; i < 36; i++) {
     if (i > 0) await delay(5000);
     try {
-      const r = await fetch(
+      const r = await etherscanFetch(
         `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
       );
       const j = await r.json();
