@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { NewPairsPanel } from "./NewPairsPanel";
+import { WalletTrackerPanel } from "./WalletTrackerPanel";
 
 /**
  * Sticky Footer Menu (sfm) — always pinned to bottom of viewport.
- * Mirrors the standalone `sticky-footer.html` reference 1:1.
+ * Realtime BTC/ETH/BNB tickers + Tracker / New Pairs popovers (Ethereum).
  */
 
 interface Ticker {
@@ -44,6 +46,10 @@ export function Footer() {
   const [tickers, setTickers] = useState<Ticker[]>(DEFAULT_TICKERS);
   const [stable, setStable] = useState(true);
   const [latencyMs, setLatencyMs] = useState(50);
+  const [trackerOpen, setTrackerOpen] = useState(false);
+  const [newPairsOpen, setNewPairsOpen] = useState(false);
+  const trackerRef = useRef<HTMLDivElement | null>(null);
+  const newPairsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +82,8 @@ export function Footer() {
       }
     }
     load();
-    const id = setInterval(load, 60_000);
+    // Realtime: refresh every 15s so prices feel live, not stale-by-the-minute
+    const id = setInterval(load, 15_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
@@ -87,14 +94,57 @@ export function Footer() {
     return () => { document.body.style.paddingBottom = orig; };
   }, []);
 
+  // Click-outside to close popovers
+  useEffect(() => {
+    if (!trackerOpen && !newPairsOpen) return;
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (trackerOpen && trackerRef.current && !trackerRef.current.contains(t)) setTrackerOpen(false);
+      if (newPairsOpen && newPairsRef.current && !newPairsRef.current.contains(t)) setNewPairsOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [trackerOpen, newPairsOpen]);
+
   const pings = useMemo(() => `Eth-E ${latencyMs}ms`, [latencyMs]);
+
+  const noop = (_e: React.MouseEvent) => {};
 
   return (
     <div className="sfm">
       <div className="sfm-inner">
+        {/* Tracker — opens wallet tracker popover */}
+        <div ref={trackerRef} style={{ position: "relative" }}>
+          <button
+            className={`sfm-pill ${trackerOpen ? "on" : ""}`}
+            onClick={() => { setTrackerOpen(v => !v); setNewPairsOpen(false); }}
+          >
+            Tracker
+          </button>
+          {trackerOpen && (
+            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 100000 }}>
+              <WalletTrackerPanel onRefresh={noop} refreshing={false} chain="ethereum" />
+            </div>
+          )}
+        </div>
+
+        {/* New Pairs — opens Codex new pairs popover (Ethereum) */}
+        <div ref={newPairsRef} style={{ position: "relative" }}>
+          <button
+            className={`sfm-pill ${newPairsOpen ? "on" : ""}`}
+            onClick={() => { setNewPairsOpen(v => !v); setTrackerOpen(false); }}
+          >
+            + New Pairs
+          </button>
+          {newPairsOpen && (
+            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 100000 }}>
+              <NewPairsPanel onRefresh={noop} refreshing={false} defaultChain="ethereum" />
+            </div>
+          )}
+        </div>
+
         <Link to="/launchpad" className="sfm-pill">🚀 Launch</Link>
         <Link to="/" className="sfm-pill">⚡ Pulse</Link>
-        <Link to="/tokens" className="sfm-pill">+ New Pairs</Link>
 
         <span className="sfm-divider" />
 
