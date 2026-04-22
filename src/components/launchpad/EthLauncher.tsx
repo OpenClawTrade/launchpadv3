@@ -370,6 +370,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
           }));
       pushLog(`tx submitted: ${txHash}`);
       setLaunchTxHash(txHash);
+      toast.dismiss(approveToastId);
 
       // 4. Wait for receipt
       const result = await waitForLaunchResult(publicClient as unknown as PublicClient, launcher, txHash);
