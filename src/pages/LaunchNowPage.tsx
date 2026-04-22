@@ -1182,12 +1182,42 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                         {showAutoStatus && autoVerifyStatus === "fail" && (
                           <p className="text-xs text-destructive font-mono break-all">{autoVerifyMsg}</p>
                         )}
-                        <Button asChild variant="outline">
-                          <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                            Open Etherscan verifier
-                          </a>
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="default"
+                            disabled={autoVerifyStatus === "submitting" || autoVerifyStatus === "polling"}
+                            onClick={() =>
+                              runVerify({
+                                tokenAddress: token.address,
+                                name: token.name,
+                                symbol: token.symbol,
+                                totalSupply: token.totalSupply.toString(),
+                                source: "manual",
+                              })
+                            }
+                          >
+                            {autoVerifyStatus === "submitting" || autoVerifyStatus === "polling" ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Verifying…
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-4 w-4" />
+                                Verify now
+                              </>
+                            )}
+                          </Button>
+                          <Button asChild variant="outline">
+                            <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                              Open Etherscan verifier
+                            </a>
+                          </Button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Auto-verify only works for tokens launched after the latest contract update. Older tokens may need the manual verifier.
+                        </p>
                       </div>
                     )}
                   </ActionCard>
