@@ -29,6 +29,7 @@ import {
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
 import { useWalletTokens } from "@/hooks/useWalletTokens";
+import { PEPE_LIKE_ABI, PEPE_LIKE_BYTECODE } from "@/lib/ethereum/pepeLikeToken";
 import {
   ERC20_ABI,
   UNISWAP_V2_PAIR_ABI,
