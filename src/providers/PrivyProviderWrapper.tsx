@@ -381,12 +381,17 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
             walletList: ["detected_wallets", "metamask", "rainbow", "coinbase_wallet", "wallet_connect"],
           },
           embeddedWallets: {
-            // ETH-only: do not auto-create Solana embedded wallets
+            // /launchnow is external-wallet-first: do not auto-create embedded wallets
+            // there after MetaMask/Rainbow/Coinbase login, otherwise Privy can get
+            // stuck on its own "Creating your wallet" modal.
             solana: {
               createOnLogin: "off",
             },
             ethereum: {
-              createOnLogin: "all-users",
+              createOnLogin:
+                typeof window !== "undefined" && window.location.pathname.startsWith("/launchnow")
+                  ? "off"
+                  : "all-users",
             },
           },
           legal: {
