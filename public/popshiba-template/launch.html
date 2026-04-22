@@ -1313,7 +1313,7 @@
         </div>
         <div class="fee-row total">
           <span class="k">TOTAL TO LAUNCH</span>
-          <span class="v" id="total-cost">≈ 0.001 ETH</span>
+          <span class="v"><span id="total-cost">≈ 0.001 ETH</span> <span id="total-cost-usd" style="opacity:0.75;font-size:0.78em;margin-left:6px">≈ $—</span></span>
         </div>
       </div>
 
@@ -1754,7 +1754,10 @@
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
     const lockFee = lockLP ? LOCKER_FEE_ETH : 0;
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (lpEth + dev + lockFee).toFixed(4) + ' ETH';
+    const totalEth = lpEth + dev + lockFee;
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + totalEth.toFixed(4) + ' ETH';
+    const totalUsdEl = document.getElementById('total-cost-usd');
+    if (totalUsdEl) totalUsdEl.textContent = ethUsd > 0 ? '≈ ' + fmtUsd0(totalEth * ethUsd) : '≈ $—';
     if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
     const feeRow = document.getElementById('lockerFeeRow');
     if (feeRow) feeRow.style.display = lockLP ? '' : 'none';
