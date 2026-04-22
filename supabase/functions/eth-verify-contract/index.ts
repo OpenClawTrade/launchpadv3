@@ -7,7 +7,13 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { createPublicClient, getTransaction, http } from "https://esm.sh/viem@2.45.1";
+import {
+  createPublicClient,
+  encodeAbiParameters,
+  http,
+  parseAbi,
+  parseAbiParameters,
+} from "https://esm.sh/viem@2.45.1";
 import { mainnet } from "https://esm.sh/viem@2.45.1/chains";
 
 const corsHeaders = {
@@ -17,6 +23,7 @@ const corsHeaders = {
 
 const ETHEREUM_CHAIN_ID = 1;
 const COMPILER_VERSION = "v0.8.20+commit.a1b79de6";
+const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;
 
 const POPSHIBA_TOKEN_BASE_SOURCE = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
@@ -149,6 +156,7 @@ contract PopShibaBurnToken {
 }
 `;
 
+const METADATA_ABI = parseAbi(["function metadataURI() view returns (string)"]);
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, maxRetries = 20): Promise<boolean> {
@@ -160,7 +168,10 @@ async function waitForEtherscanIndexing(tokenAddress: string, apiKey: string, ma
       );
       const json = await resp.json();
       const code = json?.result || "0x";
-      if (code && code !== "0x" && code.length > 10) return true;
+      if (code && code !== "0x" && code.length > 10) {
+        console.log(`[eth-verify] contract indexed after ${i + 1} attempts`);
+        return true;
+      }
     } catch (_) {}
     console.log(`[eth-verify] waiting for indexing... attempt ${i + 1}/${maxRetries}`);
   }
@@ -185,7 +196,8 @@ async function pollVerificationStatus(guid: string, apiKey: string, maxRetries =
 }
 
 function buildMetadataHeader(launch: any): string {
-  const sanitize = (s: unknown) => String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
+  const sanitize = (s: unknown) =>
+    String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
   const lines: string[] = [];
   const nm = sanitize(launch.token_name);
   const tk = sanitize(launch.token_ticker);
@@ -198,31 +210,63 @@ function buildMetadataHeader(launch: any): string {
   return lines.length ? lines.join("\n") + "\n//\n" : "";
 }
 
-async function inferTokenKind(launch: any, tokenAddress: string): Promise<"clone" | "v2burn"> {
+async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn"> {
   if (launch?.burn_lp) return "v2burn";
 
-  const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
-  const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
   const txHash = launch?.launch_tx_hash || launch?.deploy_tx_hash;
   if (!txHash || typeof txHash !== "string") return "clone";
 
+  const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
+  const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
+
   try {
     const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
-    if (tx.to) {
-      const { data: rows } = await createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-      )
-        .from("eth_deployments")
-        .select("launcher_address, contracts")
-        .eq("is_active", true);
-      const matched = (rows || []).find((r: any) => String(r.launcher_address || "").toLowerCase() === String(tx.to).toLowerCase());
-      if ((matched?.contracts as any)?.version === "v2burn") return "v2burn";
-    }
+    if (!tx.to) return "clone";
+    const { data: rows } = await supabase
+      .from("eth_deployments")
+      .select("launcher_address, contracts")
+      .eq("is_active", true);
+    const matched = (rows || []).find((r: any) =>
+      String(r.launcher_address || "").toLowerCase() === String(tx.to).toLowerCase()
+    );
+    return (matched?.contracts as any)?.version === "v2burn" ? "v2burn" : "clone";
   } catch (e) {
     console.error("[eth-verify] failed to infer token kind from tx", e);
+    return "clone";
   }
-  return "clone";
+}
+
+async function buildConstructorArgsHex(launch: any, tokenKind: "clone" | "v2burn"): Promise<string> {
+  if (tokenKind === "clone") return "";
+
+  const txHash = launch?.launch_tx_hash || launch?.deploy_tx_hash;
+  if (!txHash || typeof txHash !== "string") {
+    throw new Error("Missing launch transaction hash for V2-burn verification");
+  }
+
+  const rpc = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
+  const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
+  const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
+  if (!tx.to) {
+    throw new Error("Could not determine V2-burn launcher address from launch tx");
+  }
+
+  const metadataURI = await publicClient.readContract({
+    address: launch.token_address as `0x${string}`,
+    abi: METADATA_ABI,
+    functionName: "metadataURI",
+  });
+
+  return encodeAbiParameters(
+    parseAbiParameters("string,string,string,uint256,address"),
+    [
+      String(launch.token_name || ""),
+      String(launch.token_ticker || ""),
+      String(metadataURI || ""),
+      TOTAL_SUPPLY,
+      tx.to,
+    ]
+  ).slice(2);
 }
 
 Deno.serve(async (req) => {
@@ -232,7 +276,8 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("ETHERSCAN_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ success: false, error: "ETHERSCAN_API_KEY not set" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -243,7 +288,8 @@ Deno.serve(async (req) => {
 
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -256,7 +302,8 @@ Deno.serve(async (req) => {
     const indexed = await waitForEtherscanIndexing(tokenAddress, apiKey);
     if (!indexed) {
       return new Response(JSON.stringify({ success: false, error: "Etherscan did not index contract in time" }), {
-        status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 408,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -264,7 +311,7 @@ Deno.serve(async (req) => {
     if (launchId) {
       const { data } = await supabase
         .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
         .eq("id", launchId)
         .maybeSingle();
       launch = data;
@@ -272,7 +319,7 @@ Deno.serve(async (req) => {
     if (!launch) {
       const { data } = await supabase
         .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
         .ilike("token_address", tokenAddress)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -281,11 +328,12 @@ Deno.serve(async (req) => {
     }
     if (!launch) {
       return new Response(JSON.stringify({ success: false, error: "Launch row not found for token" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const tokenKind = await inferTokenKind(launch, tokenAddress);
+    const tokenKind = await inferTokenKind(supabase, launch);
     const metaHeader = buildMetadataHeader(launch);
     const baseSource = tokenKind === "v2burn" ? POPSHIBA_BURN_TOKEN_SOURCE : POPSHIBA_TOKEN_BASE_SOURCE;
     const sourceWithHeader = metaHeader
@@ -294,6 +342,7 @@ Deno.serve(async (req) => {
 
     const contractFile = tokenKind === "v2burn" ? "PopShibaBurnToken.sol" : "PopShibaToken.sol";
     const contractName = tokenKind === "v2burn" ? "PopShibaBurnToken" : "PopShibaToken";
+    const constructorArgsHex = await buildConstructorArgsHex({ ...launch, token_address: tokenAddress }, tokenKind);
 
     const standardJson = {
       language: "Solidity",
@@ -316,7 +365,7 @@ Deno.serve(async (req) => {
     form.append("codeformat", "solidity-standard-json-input");
     form.append("contractname", `${contractFile}:${contractName}`);
     form.append("compilerversion", COMPILER_VERSION);
-    form.append("constructorArguements", "");
+    form.append("constructorArguements", constructorArgsHex);
 
     await delay(2000);
     const resp = await fetch(verifyUrl, { method: "POST", body: form });
@@ -327,11 +376,13 @@ Deno.serve(async (req) => {
       const msg = String(result.result || result.message || "Unknown");
       if (/already verified/i.test(msg)) {
         return new Response(JSON.stringify({ success: true, verified: true, alreadyVerified: true, tokenKind }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       return new Response(JSON.stringify({ success: false, error: msg, raw: result, tokenKind }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -346,12 +397,14 @@ Deno.serve(async (req) => {
         tokenKind,
         message: pollResult.message,
       }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ success: true, guid, tokenKind, message: "Verification submitted" }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[eth-verify-contract] error", err);
