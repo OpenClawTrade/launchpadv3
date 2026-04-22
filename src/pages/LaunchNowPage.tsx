@@ -505,8 +505,8 @@ export default function LaunchNowPage() {
       // Read pair name + current nonce for the EIP-2612 permit signature
       toast.info("Preparing permit signature…");
       const [pairName, nonce] = await Promise.all([
-        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "name" }) as Promise<string>,
-        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "nonces", args: [address as Address] }) as Promise<bigint>,
+        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "name" } as any) as Promise<string>,
+        pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "nonces", args: [address as Address] } as any) as Promise<bigint>,
       ]);
 
       // EIP-712 typed data — Uniswap V2 LP tokens implement EIP-2612
