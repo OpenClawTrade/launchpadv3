@@ -1397,7 +1397,25 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
               >
                 <div className="grid sm:grid-cols-3 gap-3">
                   <div>
-                    <Label className="text-xs">ETH amount</Label>
+                    <Label className="text-xs flex items-center justify-between gap-2">
+                      <span>ETH amount</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Wallet: {isConnected ? `${balance} ETH` : "—"}
+                        {isConnected && Number(balance) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Reserve ~0.005 ETH for gas
+                              const max = Math.max(0, Number(balance) - 0.005);
+                              setLpEthAmount(max > 0 ? max.toFixed(6) : "0");
+                            }}
+                            className="ml-1.5 px-1.5 py-0.5 rounded border border-primary/40 text-primary uppercase tracking-wider text-[9px] hover:bg-primary/10"
+                          >
+                            Max
+                          </button>
+                        )}
+                      </span>
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
