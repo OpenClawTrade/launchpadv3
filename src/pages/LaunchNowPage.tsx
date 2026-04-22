@@ -26,10 +26,12 @@ import {
   Copy,
   RefreshCw,
   Rocket,
+  Check,
 } from "lucide-react";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
 import { useWalletTokens } from "@/hooks/useWalletTokens";
+import { useTokensLiquidity } from "@/hooks/useTokensLiquidity";
 import { PEPE_LIKE_ABI, PEPE_LIKE_BYTECODE } from "@/lib/ethereum/pepeLikeToken";
 import {
   ERC20_ABI,
@@ -238,6 +240,7 @@ export default function LaunchNowPage() {
 
   const { data: token, isLoading, refetch, isFetching } = useTokenInspector(activeCA, address);
   const { data: heldTokens, isLoading: heldLoading, refetch: refetchHeld } = useWalletTokens(address);
+  const { data: liquidityMap } = useTokensLiquidity(heldTokens?.map((t) => t.address));
   const [isVerifyCompatible, setIsVerifyCompatible] = useState<boolean | null>(null);
 
   // SEO + load Popshiba fonts (Archivo Black + Space Grotesk + JetBrains Mono)
@@ -1072,6 +1075,7 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
                 {heldTokens.filter((t) => !!t?.address).map((t) => {
                   const selected = activeCA?.toLowerCase() === t.address.toLowerCase();
+                  const hasLiquidity = liquidityMap?.[t.address.toLowerCase()] === true;
                   return (
                     <button
                       key={t.address}
@@ -1083,11 +1087,23 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                       className={`text-left rounded-lg border p-3 transition-colors ${
                         selected
                           ? "border-primary bg-primary/5"
+                          : hasLiquidity
+                          ? "border-green-500/60 bg-green-500/5 hover:border-green-500"
                           : "border-border/40 hover:border-border bg-background/40"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-semibold text-sm truncate">{t.symbol}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="font-semibold text-sm truncate">{t.symbol}</div>
+                          {hasLiquidity && (
+                            <span
+                              title="Has Uniswap V2 liquidity"
+                              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500/20 text-green-500 shrink-0"
+                            >
+                              <Check className="h-3 w-3" strokeWidth={3} />
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground tabular-nums">{t.balance}</div>
                       </div>
                       <div className="text-xs text-muted-foreground truncate">{t.name}</div>
