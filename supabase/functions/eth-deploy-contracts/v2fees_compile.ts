@@ -248,22 +248,25 @@ contract PopShibaFeesLauncherV2 {
 
 let cachedSolc: any = null;
 
+/**
+ * Load solc inside Deno. soljson.js (the raw emscripten build) references
+ * Node-only globals like `__dirname` / `process`, which blow up in the Deno
+ * sandbox with "__dirname is not defined". The `solc` npm wrapper handles
+ * those shims for us, so we use `npm:solc@0.8.20` directly.
+ */
 async function loadSolc(): Promise<any> {
   if (cachedSolc) return cachedSolc;
-  console.log("[v2fees-compile] fetching soljson...");
+  console.log("[v2fees-compile] loading npm:solc@0.8.20...");
   const t0 = Date.now();
-  const resp = await fetch(SOLC_URL);
-  if (!resp.ok) throw new Error(`Failed to fetch soljson: HTTP ${resp.status}`);
-  const code = await resp.text();
-  console.log(`[v2fees-compile] soljson fetched in ${Date.now() - t0}ms`);
-
-  const moduleObj: any = { exports: {} };
-  const fn = new Function("module", "exports", "require", code + "\n//# sourceURL=soljson.js");
-  fn(moduleObj, moduleObj.exports, () => ({}));
-  if (!moduleObj.exports?.cwrap) throw new Error("soljson init failed (no cwrap)");
-  cachedSolc = moduleObj.exports;
+  const mod: any = await import("npm:solc@0.8.20");
+  cachedSolc = mod.default ?? mod;
+  if (typeof cachedSolc.compile !== "function") {
+    throw new Error("solc loaded but .compile is not a function");
+  }
+  console.log(`[v2fees-compile] solc ready in ${Date.now() - t0}ms`);
   return cachedSolc;
 }
+
 
 export async function compilePopShibaFeesLauncherV2(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
   const solc = await loadSolc();
