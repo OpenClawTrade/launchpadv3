@@ -129,7 +129,7 @@ export default function LaunchNowPage() {
   const [caInput, setCaInput] = useState("");
   const [activeCA, setActiveCA] = useState<string | null>(null);
 
-  const { address, isConnected, connect } = useEvmWallet();
+  const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
   const { switchChainAsync } = useSwitchChain();
   const currentChainId = useChainId();
