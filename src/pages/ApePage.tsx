@@ -460,19 +460,34 @@ export default function ApePage() {
               </div>
 
               <div className={styles.bpStats}>
-                <div className="row"><span className="k">You pay</span><span className="v">{numericAmount} {nativeSym}</span></div>
-                <div className="row"><span className="k">You get</span><span className="v">≈ {fmtCount(estimatedTokens)}</span></div>
+                <div className="row"><span className="k">You pay</span><span className="v">{numericAmount} {side === "buy" ? nativeSym : symbol}</span></div>
+                <div className="row">
+                  <span className="k">You get</span>
+                  <span className="v">
+                    {quoting && isEvm ? "Quoting…" : `≈ ${fmtCount(estimatedTokens)} ${side === "buy" ? symbol : nativeSym}`}
+                  </span>
+                </div>
+                {isEvm && quote && (
+                  <>
+                    <div className="row"><span className="k">Min received</span><span className="v">{fmtCount(minBuyFmt)} {side === "buy" ? symbol : nativeSym}</span></div>
+                    <div className="row"><span className="k">Network fee</span><span className="v">≈ {networkFeeFmt.toFixed(6)} {nativeSym}</span></div>
+                  </>
+                )}
                 <div className="row"><span className="k">Slippage</span><span className="v">{slip === "AUTO" ? "Auto" : `${slip}%`}</span></div>
-                <div className="row"><span className="k">Route</span><span className="v">{dexNameFor(chain)}</span></div>
+                <div className="row"><span className="k">Route</span><span className="v">{isEvm ? routeName : dexNameFor(chain)}</span></div>
               </div>
 
-              <a
+              <button
                 className={styles.buyCta}
-                href={dexFor(chain, address)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >◆ {side === "buy" ? "BUY" : "SELL"} ${symbol}</a>
-              <div className={styles.routeNote}>Swap via <b>{dexNameFor(chain)}</b> · Best route auto-selected</div>
+                onClick={handleSwap}
+                disabled={ctaDisabled}
+                style={ctaDisabled ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
+              >{ctaLabel}</button>
+              <div className={styles.routeNote}>
+                {isEvm
+                  ? <>Swap via <b>0x</b> · {routeName} · 1% platform fee</>
+                  : <>Swap via <b>{dexNameFor(chain)}</b> · Best route auto-selected</>}
+              </div>
 
               <div className={styles.bpLinks}>
                 <button className={styles.bpLink} onClick={copyAddress}>CONTRACT</button>
