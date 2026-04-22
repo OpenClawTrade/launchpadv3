@@ -130,7 +130,7 @@ async function waitForVerifyIndex(addr: string, apiKey: string): Promise<boolean
 
 async function isAlreadyVerified(addr: string, apiKey: string): Promise<boolean> {
   try {
-    const r = await fetch(
+    const r = await etherscanFetch(
       `https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}&module=contract&action=getsourcecode&address=${addr}&apikey=${apiKey}`,
     );
     const j = await r.json();
