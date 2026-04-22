@@ -7,10 +7,12 @@
 // - Top-bar "Sweep All" runs the full eth-claim-platform-fees flow.
 // - Top-bar "Refresh" re-reads on-chain state.
 //
-// Open admin panel — no secret required.
+// Backend secret stays in localStorage; sent as x-admin-secret header.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Coins, ExternalLink, RefreshCw, Download, ArrowDownToLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +97,7 @@ function shortAddr(a: string) {
 }
 
 export function EthLpFeesPanel() {
+  const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem("admin_secret") || "");
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [busyToken, setBusyToken] = useState<string | null>(null);
@@ -111,10 +114,16 @@ export function EthLpFeesPanel() {
   }, []);
 
   const fetchStatus = useCallback(async () => {
+    if (!adminSecret) {
+      toast.error("Enter admin secret first");
+      return;
+    }
     setLoadingStatus(true);
     try {
+      localStorage.setItem("admin_secret", adminSecret);
       const { data, error } = await supabase.functions.invoke("eth-platform-fees-status", {
         body: {},
+        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -125,11 +134,11 @@ export function EthLpFeesPanel() {
     } finally {
       setLoadingStatus(false);
     }
-  }, []);
+  }, [adminSecret]);
 
-  // Auto-load on mount
+  // Auto-load if secret already cached
   useEffect(() => {
-    fetchStatus();
+    if (adminSecret && !status && !loadingStatus) fetchStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -154,10 +163,12 @@ export function EthLpFeesPanel() {
   };
 
   const sweepOne = async (tokenAddress: string) => {
+    if (!adminSecret) return toast.error("Admin secret required");
     setBusyToken(`sweep:${tokenAddress}`);
     try {
       const { data, error } = await supabase.functions.invoke("eth-claim-platform-fees", {
         body: { tokenAddress },
+        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -172,10 +183,12 @@ export function EthLpFeesPanel() {
   };
 
   const sweepAll = async () => {
+    if (!adminSecret) return toast.error("Admin secret required");
     setBusyAll(true);
     try {
       const { data, error } = await supabase.functions.invoke("eth-claim-platform-fees", {
         body: {},
+        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -228,12 +241,23 @@ export function EthLpFeesPanel() {
             </p>
           </div>
 
+          <div>
+            <Label className="text-xs">Admin secret</Label>
+            <Input
+              type="password"
+              value={adminSecret}
+              onChange={(e) => setAdminSecret(e.target.value)}
+              placeholder="TWITTER_BOT_ADMIN_SECRET"
+              className="font-mono text-xs"
+            />
+          </div>
+
           <div className="flex flex-wrap gap-2">
-            <Button onClick={fetchStatus} disabled={loadingStatus} variant="secondary">
+            <Button onClick={fetchStatus} disabled={loadingStatus || !adminSecret} variant="secondary">
               {loadingStatus ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
               Refresh status
             </Button>
-            <Button onClick={sweepAll} disabled={busyAll || !status}>
+            <Button onClick={sweepAll} disabled={busyAll || !adminSecret || !status}>
               {busyAll ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ArrowDownToLine className="w-4 h-4 mr-2" />}
               Sweep ALL → main wallet
             </Button>
@@ -345,7 +369,7 @@ export function EthLpFeesPanel() {
                               <Button
                                 size="sm"
                                 onClick={() => sweepOne(p.tokenAddress)}
-                                disabled={isSweeping || isCollecting || (platOwedEmpty && uncollectedEmpty)}
+                                disabled={isSweeping || isCollecting || (platOwedEmpty && uncollectedEmpty) || !adminSecret}
                                 title="Collect + sweep platform share to main wallet"
                               >
                                 {isSweeping ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowDownToLine className="w-3 h-3" />}
