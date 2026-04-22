@@ -37,6 +37,8 @@ interface DryRun {
   v2CanDeploy?: boolean;
   v3Ready?: boolean;
   v3CanDeploy?: boolean;
+  v2burnReady?: boolean;
+  v2burnCanDeploy?: boolean;
   warning: string | null;
 }
 
@@ -75,7 +77,7 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, []);
 
-  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3") => {
+  const deploy = useCallback(async (mode: "full" | "force" | "launcherOnly" | "v2" | "v3" | "v2burn") => {
     if (inFlightRef.current) return;
 
     const confirmMsg = mode === "force"
@@ -86,6 +88,8 @@ export function EthContractsDeployPanel() {
       ? "Deploy V2 (UNCX-locking) suite?\n\nDeploys PopShibaFeeVaultV2 + PopShibaLauncherV2, reuses existing Token impl + CloneFactory, sets the V2 row as active. New launches will lock LP in UNCX. Gas: ~$8–25."
       : mode === "v3"
       ? "Deploy V3 (Team Finance) suite?\n\nDeploys PopShibaFeeVaultV3 + PopShibaLauncherV3, reuses existing Token impl + CloneFactory, sets the V3 row as active. New launches can OPT-IN to Team Finance LP locking per-launch (cheap default = no lock). Gas: ~$8–25."
+      : mode === "v2burn"
+      ? "Deploy V2-BURN launcher?\n\nFully standalone — deploys ONE contract with no constructor args. Zero shared infrastructure with V3 (V3 keeps working). New launches via V2-burn: pure fair launch, all-supply LP on Uniswap V2, LP auto-burned, no fees. Gas: ~$5–15."
       : "Deploy all 4 contracts to Ethereum mainnet?\n\nGas: ~$15–50. Cannot be undone.";
     if (!confirm(confirmMsg)) return;
 
@@ -99,6 +103,7 @@ export function EthContractsDeployPanel() {
           launcherOnly: mode === "launcherOnly",
           v2: mode === "v2",
           v3: mode === "v3",
+          v2burn: mode === "v2burn",
         },
       });
       if (error) throw new Error(error.message);
@@ -191,6 +196,15 @@ export function EthContractsDeployPanel() {
               >
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Deploy V3 (Team Finance — optional lock) {!dry.v3Ready && "— bytecode missing"}
+              </Button>
+              <Button
+                onClick={() => deploy("v2burn")}
+                disabled={busy || !dry.v2burnCanDeploy}
+                variant="default"
+                title={dry.v2burnReady ? "Deploy fee-free V2-burn launcher (standalone)" : "V2-burn bytecode missing"}
+              >
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                Deploy V2-Burn (no fees · auto-burn LP) {!dry.v2burnReady && "— bytecode missing"}
               </Button>
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}

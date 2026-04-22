@@ -531,11 +531,12 @@ Deno.serve(async (req) => {
     }
 
     // ============================================================
-    // V2-BURN DEPLOY MODE — fee-free Uniswap V2 launcher with auto-burn LP
-    //   1. Reuses existing PopShibaToken impl + CloneFactory (active row).
-    //   2. Deploys ONLY PopShibaBurnLauncherV2(cloneFactory). No fee vault — LP is burned, no fees collectable.
-    //   3. Inserts a NEW active eth_deployments row tagged version="v2burn".
-    //      Frontend routes launches with version="v2burn" to this launcher.
+    // V2-BURN DEPLOY MODE — fully standalone, fee-free V2 launcher with auto-burn LP
+    //   1. Deploys PopShibaBurnLauncherV2() with NO constructor args.
+    //   2. Standalone: deploys its own ERC20 inline, no CloneFactory dependency,
+    //      zero shared state with V3 — V3 launches keep working untouched.
+    //   3. Inserts a NEW eth_deployments row tagged version="v2burn" alongside
+    //      existing V3 row (V3 row stays active too — frontend picks by version).
     // ============================================================
     if (v2burn) {
       if (!V2BURN_BYTECODE_READY) {
@@ -543,22 +544,16 @@ Deno.serve(async (req) => {
           error: "V2-burn bytecode missing from v2burn_bytecode.ts. Recompile contracts/PopShibaBurnLauncherV2.sol.",
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      if (!existing?.clone_factory_address || !existing?.token_impl_address) {
+      if (balance < parseEther("0.005")) {
         return new Response(JSON.stringify({
-          error: "V2-burn deploy requires an existing active row with PopShibaToken impl + CloneFactory. Deploy V1 first.",
-        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      if (balance < parseEther("0.01")) {
-        return new Response(JSON.stringify({
-          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.01 ETH for V2-burn deploy.`,
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.005 ETH for V2-burn deploy.`,
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const encodeAddrBurn = (a: string) => a.toLowerCase().replace("0x", "").padStart(64, "0");
       const burnTxHashes: string[] = [];
 
-      // Single-contract deploy: PopShibaBurnLauncherV2(cloneFactory)
-      const burnLauncherData = `0x${POPSHIBA_BURN_LAUNCHER_V2_BYTECODE.replace(/^0x/, "")}${encodeAddrBurn(existing.clone_factory_address)}` as `0x${string}`;
+      // Single-contract deploy: PopShibaBurnLauncherV2() — no constructor args.
+      const burnLauncherData = `0x${POPSHIBA_BURN_LAUNCHER_V2_BYTECODE.replace(/^0x/, "")}` as `0x${string}`;
       const burnHash = await sendTx({ to: null, data: burnLauncherData, value: 0n });
       burnTxHashes.push(burnHash);
       const burnReceipt = await publicClient.waitForTransactionReceipt({ hash: burnHash, timeout: 180_000 });
@@ -566,48 +561,14 @@ Deno.serve(async (req) => {
       const burnLauncher = burnReceipt.contractAddress;
       console.log(`[deploy v2burn] PopShibaBurnLauncherV2 → ${burnLauncher} (gas ${burnReceipt.gasUsed})`);
 
-      // Transfer CloneFactory ownership to the new burn launcher so it can call deploy().
-      // (Or keep existing owner if it's already a launcher — but we need this launcher to call it.)
-      // Simpler: leave CloneFactory ownership untouched. The deploy() function on PopShibaCloneFactory
-      // is `onlyOwner` — meaning only the OLD launcher can mint. We must transfer ownership to the burn launcher.
-      // BUT that breaks V3 launches! Resolution: we need a CloneFactory that has multiple authorized callers.
-      //
-      // Workaround for ship-now: emit a warning but still register the launcher row. The user must call
-      // setCloneFactory() in the burn launcher to point at a NEW dedicated CloneFactory if they want both
-      // V3 and V2-burn to work simultaneously. For now, the LAST deployed launcher owns the factory.
-      //
-      // SHIP-CORRECT path: transfer CloneFactory ownership from old launcher → new burn launcher. This
-      // means new V3 launches will FAIL until ownership is transferred back. We log this loudly.
-      const transferData = encodeFunctionData({
-        abi: parseAbi(["function transferOwnership(address newOwner) external"]),
-        functionName: "transferOwnership",
-        args: [getAddress(burnLauncher)],
-      });
-      // Try transfer — only works if deployer wallet still owns the factory directly. If a previous
-      // launcher owns it, this reverts. We catch and warn instead of failing the whole deploy.
-      let ownershipTransferred = false;
-      let ownershipWarning: string | null = null;
-      try {
-        const transferHash = await sendTx({ to: getAddress(existing.clone_factory_address), data: transferData, value: 0n });
-        burnTxHashes.push(transferHash);
-        const tReceipt = await publicClient.waitForTransactionReceipt({ hash: transferHash, timeout: 180_000 });
-        if (tReceipt.status === "success") ownershipTransferred = true;
-        else ownershipWarning = "CloneFactory.transferOwnership reverted — burn launcher cannot mint tokens until ownership is transferred manually.";
-      } catch (e) {
-        ownershipWarning = `CloneFactory ownership transfer failed (likely owned by a different launcher): ${e instanceof Error ? e.message : String(e)}. The burn launcher cannot mint until this is resolved — typically by calling transferOwnership(burnLauncher) from the current factory owner.`;
-        console.warn("[deploy v2burn]", ownershipWarning);
-      }
-
       const finalBalBurn = await publicClient.getBalance({ address: account.address });
 
-      // Deactivate prior rows + insert new active V2-burn row.
-      await supabase.from("eth_deployments").update({ is_active: false }).eq("is_active", true);
+      // IMPORTANT: do NOT deactivate the existing V3 row. We want both V3 and V2-burn
+      // rows active simultaneously. Frontend selects by version field.
       const { data: rowBurn, error: insErrBurn } = await supabase.from("eth_deployments").insert({
         network: "mainnet",
         deployer: account.address,
         contracts: {
-          PopShibaToken: existing.token_impl_address,
-          PopShibaCloneFactory: existing.clone_factory_address,
           PopShibaBurnLauncherV2: burnLauncher,
           weth: WETH_MAINNET,
           v2_router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
@@ -617,9 +578,9 @@ Deno.serve(async (req) => {
           locker: "burn",
         },
         tx_hashes: burnTxHashes,
-        vault_address: existing.vault_address, // legacy column — reuse old vault address (not actually used)
-        clone_factory_address: existing.clone_factory_address,
-        token_impl_address: existing.token_impl_address,
+        vault_address: burnLauncher,            // schema requires NOT NULL — burn launcher is its own "vault"
+        clone_factory_address: burnLauncher,    // schema requires NOT NULL — standalone, points to itself
+        token_impl_address: burnLauncher,       // schema requires NOT NULL — inline ERC20, no impl
         launcher_address: burnLauncher,
         uncx_lock_fee_wei: "0",
         is_active: true,
@@ -632,21 +593,14 @@ Deno.serve(async (req) => {
         mode: "v2burn",
         network: "mainnet",
         deployer: account.address,
-        contracts: {
-          PopShibaToken: existing.token_impl_address,
-          PopShibaCloneFactory: existing.clone_factory_address,
-          PopShibaBurnLauncherV2: burnLauncher,
-        },
+        contracts: { PopShibaBurnLauncherV2: burnLauncher },
         tx_hashes: burnTxHashes,
         gasUsedEth: formatEther(balance - finalBalBurn),
-        ownershipTransferred,
-        ownershipWarning,
         deploymentId: rowBurn?.id,
-        message: ownershipTransferred
-          ? "✅ V2-burn launcher deployed. CloneFactory ownership transferred. New launches: pure fair-launch, no fees, LP burned to dead address — all aggregator green checkmarks."
-          : "⚠️ V2-burn launcher deployed BUT CloneFactory ownership NOT transferred. The launcher cannot mint tokens until you transfer ownership of the CloneFactory to the new launcher address. This may break V3 launches — coordinate carefully.",
+        message: "✅ V2-burn launcher deployed. Pure fair-launch, no fees, auto-burn LP — all aggregator green checkmarks. V3 launcher untouched.",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     if (launcherOnly) {
       if (!canPatchLauncher) {
