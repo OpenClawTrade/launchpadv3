@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "./launchnow-popshiba.css";
 import { isAddress, parseEther, parseUnits, formatUnits, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
