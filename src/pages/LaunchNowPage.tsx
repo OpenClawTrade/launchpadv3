@@ -151,6 +151,52 @@ export default function LaunchNowPage() {
   const [autoVerifyMsg, setAutoVerifyMsg] = useState<string>("");
   const [autoVerifiedAddr, setAutoVerifiedAddr] = useState<string | null>(null);
 
+  // Shared verify runner — used by both post-deploy auto-verify and the manual "Verify now" button.
+  const runVerify = async (params: {
+    tokenAddress: string;
+    name: string;
+    symbol: string;
+    totalSupply: string;
+    header?: string;
+    source: "auto" | "manual";
+  }) => {
+    setAutoVerifiedAddr(params.tokenAddress);
+    setAutoVerifyStatus("submitting");
+    setAutoVerifyMsg(
+      params.source === "auto"
+        ? "Waiting for Etherscan to index the contract…"
+        : "Submitting source to Etherscan…"
+    );
+    toast.info(params.source === "auto" ? "Auto-verifying on Etherscan…" : "Verifying on Etherscan…");
+    try {
+      const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
+        body: {
+          tokenAddress: params.tokenAddress,
+          name: params.name,
+          symbol: params.symbol,
+          totalSupply: params.totalSupply,
+          header: params.header ?? deployHeader,
+          waitForResult: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.verified) {
+        setAutoVerifyStatus("ok");
+        setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
+        toast.success("Contract verified on Etherscan ✓");
+      } else {
+        setAutoVerifyStatus("fail");
+        setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
+        toast.error(`Verify failed: ${data?.error || data?.message || "unknown"}`);
+      }
+    } catch (err: any) {
+      console.error("[verify]", err);
+      setAutoVerifyStatus("fail");
+      setAutoVerifyMsg(err?.message || "Verification error");
+      toast.error(`Verify error: ${err?.message || "unknown"}`);
+    }
+  };
+
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
   const { switchChainAsync } = useSwitchChain();
@@ -292,39 +338,14 @@ export default function LaunchNowPage() {
         setTimeout(() => refetchHeld(), 4000);
 
         // 🔥 Auto-verify on Etherscan (fire-and-forget)
-        setAutoVerifiedAddr(ca);
-        setAutoVerifyStatus("submitting");
-        setAutoVerifyMsg("Waiting for Etherscan to index the contract…");
-        toast.info("Auto-verifying on Etherscan…");
-        (async () => {
-          try {
-            const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
-              body: {
-                tokenAddress: ca,
-                name,
-                symbol,
-                totalSupply: totalSupplyWei.toString(),
-                header: deployHeader,
-                waitForResult: true,
-              },
-            });
-            if (error) throw error;
-            if (data?.verified) {
-              setAutoVerifyStatus("ok");
-              setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
-              toast.success("Contract verified on Etherscan ✓");
-            } else {
-              setAutoVerifyStatus("fail");
-              setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
-              toast.error(`Auto-verify failed: ${data?.error || data?.message || "unknown"}`);
-            }
-          } catch (err: any) {
-            console.error("[auto-verify]", err);
-            setAutoVerifyStatus("fail");
-            setAutoVerifyMsg(err?.message || "Verification error");
-            toast.error(`Auto-verify error: ${err?.message || "unknown"}`);
-          }
-        })();
+        runVerify({
+          tokenAddress: ca,
+          name,
+          symbol,
+          totalSupply: totalSupplyWei.toString(),
+          header: deployHeader,
+          source: "auto",
+        });
       } else {
         toast.warning("Deploy tx mined but no contract address found in receipt.");
       }
@@ -1161,12 +1182,42 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                         {showAutoStatus && autoVerifyStatus === "fail" && (
                           <p className="text-xs text-destructive font-mono break-all">{autoVerifyMsg}</p>
                         )}
-                        <Button asChild variant="outline">
-                          <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                            Open Etherscan verifier
-                          </a>
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="default"
+                            disabled={autoVerifyStatus === "submitting" || autoVerifyStatus === "polling"}
+                            onClick={() =>
+                              runVerify({
+                                tokenAddress: token.address,
+                                name: token.name,
+                                symbol: token.symbol,
+                                totalSupply: token.totalSupply.toString(),
+                                source: "manual",
+                              })
+                            }
+                          >
+                            {autoVerifyStatus === "submitting" || autoVerifyStatus === "polling" ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Verifying…
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-4 w-4" />
+                                Verify now
+                              </>
+                            )}
+                          </Button>
+                          <Button asChild variant="outline">
+                            <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                              Open Etherscan verifier
+                            </a>
+                          </Button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Auto-verify only works for tokens launched after the latest contract update. Older tokens may need the manual verifier.
+                        </p>
                       </div>
                     )}
                   </ActionCard>
