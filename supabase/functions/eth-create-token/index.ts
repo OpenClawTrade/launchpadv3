@@ -26,7 +26,7 @@ interface LaunchBody {
   devBuyEth?: number;   // optional, can be 0
   lockLP?: boolean;     // V3 only — opt-in Team Finance LP lock (ignored by v2burn)
   /** Selects which active deployment row to use. Defaults to "v3" for backward compat. */
-  version?: "v3" | "v2burn";
+  version?: "v3" | "v2burn" | "v2fees";
   description?: string | null;
   imageUrl?: string | null;
   websiteUrl?: string | null;
@@ -89,7 +89,10 @@ Deno.serve(async (req) => {
     // Resolve which active deployment row to use based on requested version.
     // V3 (default): pick the active row whose contracts->>version is null OR "v3".
     // V2-burn: pick the active row whose contracts->>version === "v2burn".
-    const requestedVersion = body.version === "v2burn" ? "v2burn" : "v3";
+    // V2-fees: pick the active row whose contracts->>version === "v2fees".
+    const requestedVersion: "v3" | "v2burn" | "v2fees" =
+      body.version === "v2burn" ? "v2burn" :
+      body.version === "v2fees" ? "v2fees" : "v3";
 
     const { data: rows, error: depErr } = await supabase
       .from("eth_deployments")
@@ -106,6 +109,7 @@ Deno.serve(async (req) => {
     const matches = (rows || []).filter((r) => {
       const v = (r.contracts as any)?.version;
       if (requestedVersion === "v2burn") return v === "v2burn";
+      if (requestedVersion === "v2fees") return v === "v2fees";
       // v3 path: explicit "v3" OR legacy rows with no version field
       return v === "v3" || v == null;
     });
@@ -116,6 +120,8 @@ Deno.serve(async (req) => {
         success: false,
         error: requestedVersion === "v2burn"
           ? "No active V2-burn launcher deployed. Admin must deploy it from the contracts panel."
+          : requestedVersion === "v2fees"
+          ? "No active V2-fees launcher deployed. Admin must deploy it from the contracts panel."
           : "No active V3 launcher deployment found. Admin must deploy the contract suite first.",
       }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -138,7 +144,7 @@ Deno.serve(async (req) => {
         lp_eth: 0,
         user_tax_bps: 0,
         platform_tax_bps: 0,
-        burn_lp: requestedVersion === "v2burn",
+        burn_lp: requestedVersion === "v2burn" || requestedVersion === "v2fees",
         renounce: false,
         status: "awaiting_signature",
       })

@@ -58,7 +58,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher({ initialValues, initialLockLP, initialVersion, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; initialVersion?: 'v3' | 'v2burn'; autoLaunch?: boolean; hideUI?: boolean } = {}) {
+export function EthLauncher({ initialValues, initialLockLP, initialVersion, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; initialVersion?: 'v3' | 'v2burn' | 'v2fees'; autoLaunch?: boolean; hideUI?: boolean } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -67,12 +67,13 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
   const [isLaunching, setIsLaunching] = useState(false);
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  // Launcher version: 'v3' (Team Finance, optional lock, $200 lock fee) or
-  // 'v2burn' (pure fair-launch on Uniswap V2, auto-burn LP, NO fees, all green checkmarks).
-  const [launcherVersion, setLauncherVersion] = useState<'v3' | 'v2burn'>(initialVersion ?? 'v3');
+  // Launcher version: 'v3' (Team Finance, optional lock, $200 lock fee),
+  // 'v2burn' (pure fair-launch on Uniswap V2, auto-burn LP, NO fees), or
+  // 'v2fees' (Uniswap V2, auto-burn LP, fixed 1% swap fee → platform wallet).
+  const [launcherVersion, setLauncherVersion] = useState<'v3' | 'v2burn' | 'v2fees'>(initialVersion ?? 'v3');
   // V3: Team Finance LP lock — default ON so aggregators (GMGN, DEXTools, Banana) show
   // the "LP Locked" trust checkmark and route trades immediately. User can still uncheck.
-  // (Ignored when launcherVersion === 'v2burn'.)
+  // (Ignored when launcherVersion !== 'v3'.)
   const [lockLP, setLockLP] = useState(initialLockLP ?? true);
   // If host (Popshiba landing iframe) sent an explicit lpEthAmount, switch to
   // 'custom' and pre-fill the input so the autoLaunch flow uses exactly that.
@@ -492,11 +493,13 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Rocket className="h-5 w-5 text-primary" />
-                  Launch on Ethereum {launcherVersion === 'v3' ? '(Uniswap V3)' : '(Uniswap V2 · Fair Launch)'}
+                  Launch on Ethereum {launcherVersion === 'v3' ? '(Uniswap V3)' : launcherVersion === 'v2fees' ? '(Uniswap V2 · 1% Fee)' : '(Uniswap V2 · Fair Launch)'}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   {launcherVersion === 'v3'
                     ? 'Single-sided V3 pool · 1% trading fee · You earn 50% of every swap.'
+                    : launcherVersion === 'v2fees'
+                    ? 'Standard V2 pool · LP auto-burned · 1% of every swap auto-sent (in ETH) to the platform wallet.'
                     : 'Standard V2 pool · LP auto-burned to dead address · Zero protocol fees · All scanner green checkmarks.'}
                 </CardDescription>
               </div>
@@ -505,12 +508,12 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
               </Badge>
             </div>
 
-            {/* V3 vs V2-burn launcher version tabs */}
-            <div className="mt-4 grid grid-cols-2 gap-2 p-1 rounded-lg bg-background/40 border border-border/40">
+            {/* V3 vs V2-burn vs V2-fees launcher version tabs */}
+            <div className="mt-4 grid grid-cols-3 gap-2 p-1 rounded-lg bg-background/40 border border-border/40">
               <button
                 type="button"
                 onClick={() => setLauncherVersion('v3')}
-                className={`px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`px-2 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-colors ${
                   launcherVersion === 'v3'
                     ? 'bg-primary text-primary-foreground shadow'
                     : 'text-muted-foreground hover:text-foreground'
@@ -518,13 +521,13 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
               >
                 V3 · Earn Fees
                 <span className="block text-[9px] font-normal normal-case tracking-normal mt-0.5 opacity-80">
-                  Lock LP (Team Finance) · earn 50% of trading fees
+                  Lock LP · earn 50% of trading fees
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => setLauncherVersion('v2burn')}
-                className={`px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`px-2 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-colors ${
                   launcherVersion === 'v2burn'
                     ? 'bg-primary text-primary-foreground shadow'
                     : 'text-muted-foreground hover:text-foreground'
@@ -532,7 +535,21 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
               >
                 V2 · Burn LP 🔥
                 <span className="block text-[9px] font-normal normal-case tracking-normal mt-0.5 opacity-80">
-                  Pure fair launch · no fees · ✅ all green checkmarks
+                  Pure fair launch · no fees
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLauncherVersion('v2fees')}
+                className={`px-2 py-2 rounded-md text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                  launcherVersion === 'v2fees'
+                    ? 'bg-primary text-primary-foreground shadow'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                V2 · Fees 1%
+                <span className="block text-[9px] font-normal normal-case tracking-normal mt-0.5 opacity-80">
+                  Burn LP · 1% swap fee → platform
                 </span>
               </button>
             </div>
@@ -548,6 +565,21 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
                   <li>DEXTools, GMGN, DEXScreener, GoPlus all show ✅ <strong>LP Burned</strong></li>
                   <li><strong>No platform fee, no locker fee</strong> — you only pay gas (~$15–25)</li>
                   <li className="text-amber-400">⚠ Trading fees stay locked in the LP forever (nobody collects)</li>
+                </ul>
+              </div>
+            )}
+
+            {launcherVersion === 'v2fees' && (
+              <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 text-xs space-y-1">
+                <div className="font-semibold text-blue-400 flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> V2 Fees Launch — what you get
+                </div>
+                <ul className="text-muted-foreground space-y-0.5 ml-5 list-disc">
+                  <li>Standard Uniswap V2 pool · all 1B supply paired with your ETH</li>
+                  <li>LP tokens auto-burned on launch (✅ LP Burned)</li>
+                  <li><strong>1% fee on every swap</strong> auto-swapped to ETH and sent to the platform wallet</li>
+                  <li>No creator fees · no locker fee · you only pay gas</li>
+                  <li className="text-muted-foreground">Fee recipient: <code className="text-foreground">0x9FD5…10B0</code></li>
                 </ul>
               </div>
             )}

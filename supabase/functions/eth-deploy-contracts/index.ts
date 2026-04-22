@@ -547,6 +547,73 @@ Deno.serve(async (req) => {
     //   3. Inserts a NEW eth_deployments row tagged version="v2burn" alongside
     //      existing V3 row (V3 row stays active too — frontend picks by version).
     // ============================================================
+    // ============================================================
+    // V2-FEES DEPLOY MODE — standalone V2 launcher with fixed 1% swap fee → platform wallet
+    //   1. Compiles PopShibaFeesLauncherV2.sol in-flight via solc.
+    //   2. Standalone: launcher deploys its own ERC20 inline, no shared infra.
+    //   3. Inserts NEW eth_deployments row tagged version="v2fees" (V3 + V2-burn rows
+    //      stay active too — frontend selects by version).
+    // ============================================================
+    if (v2fees) {
+      if (balance < parseEther("0.005")) {
+        return new Response(JSON.stringify({
+          error: `Insufficient balance: ${formatEther(balance)} ETH. Need ≥0.005 ETH for V2-fees deploy.`,
+        }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log("[deploy v2fees] compiling PopShibaFeesLauncherV2 in-flight...");
+      const { bytecode: feesBytecode } = await compilePopShibaFeesLauncherV2();
+      console.log(`[deploy v2fees] compiled, bytecode size=${(feesBytecode.length - 2) / 2} bytes`);
+
+      const feesTxHashes: string[] = [];
+      const feesData = feesBytecode as `0x${string}`;
+      const feesHash = await sendTx({ to: null, data: feesData, value: 0n });
+      feesTxHashes.push(feesHash);
+      const feesReceipt = await publicClient.waitForTransactionReceipt({ hash: feesHash, timeout: 180_000 });
+      if (!feesReceipt.contractAddress) throw new Error("V2-fees launcher deploy: no contract address in receipt");
+      const feesLauncher = feesReceipt.contractAddress;
+      console.log(`[deploy v2fees] PopShibaFeesLauncherV2 → ${feesLauncher} (gas ${feesReceipt.gasUsed})`);
+
+      const finalBalFees = await publicClient.getBalance({ address: account.address });
+
+      // Do NOT deactivate other rows. v2fees row coexists with v3 + v2burn.
+      const { data: rowFees, error: insErrFees } = await supabase.from("eth_deployments").insert({
+        network: "mainnet",
+        deployer: account.address,
+        contracts: {
+          PopShibaFeesLauncherV2: feesLauncher,
+          weth: WETH_MAINNET,
+          v2_router: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+          v2_factory: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
+          fee_recipient: "0x9FD5f2E480F43320E8F65072A739c941cb5b10B0",
+          fee_bps: 100,
+          version: "v2fees",
+          locker: "burn",
+        },
+        tx_hashes: feesTxHashes,
+        vault_address: feesLauncher,
+        clone_factory_address: feesLauncher,
+        token_impl_address: feesLauncher,
+        launcher_address: feesLauncher,
+        uncx_lock_fee_wei: "0",
+        is_active: true,
+        verified: false,
+      }).select().single();
+      if (insErrFees) console.error("[deploy v2fees] persist failed", insErrFees);
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "v2fees",
+        network: "mainnet",
+        deployer: account.address,
+        contracts: { PopShibaFeesLauncherV2: feesLauncher },
+        tx_hashes: feesTxHashes,
+        gasUsedEth: formatEther(balance - finalBalFees),
+        deploymentId: rowFees?.id,
+        message: "✅ V2-Fees launcher deployed. Each swap auto-forwards 1% (in ETH) to the platform wallet. LP auto-burned. V3/V2-burn untouched.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (v2burn) {
       if (!V2BURN_BYTECODE_READY) {
         return new Response(JSON.stringify({

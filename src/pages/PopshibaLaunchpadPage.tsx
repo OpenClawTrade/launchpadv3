@@ -53,7 +53,7 @@ type LauncherPrefill = {
   lockLP?: boolean;
   imageDataUrl?: string;
   lpEthAmount?: number;
-  version?: 'v3' | 'v2burn';
+  version?: 'v3' | 'v2burn' | 'v2fees';
 };
 
 const palette = ["#8ed36c", "#e8c88a", "#f5d84a", "#cf5f5f", "#f5a524", "#c08fe6", "#7b5dd9", "#a8c27a"];
@@ -615,7 +615,7 @@ export default function PopshibaLaunchpadPage() {
           key="auto-launch"
           initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }}
           initialLockLP={!!prefill.lockLP}
-          initialVersion={prefill.version === 'v2burn' ? 'v2burn' : 'v3'}
+          initialVersion={prefill.version === 'v2burn' ? 'v2burn' : prefill.version === 'v2fees' ? 'v2fees' : 'v3'}
           autoLaunch
           hideUI
         />
