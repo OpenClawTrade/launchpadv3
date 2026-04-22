@@ -43,23 +43,32 @@ Deno.serve(async (req) => {
       : [requestedNetworkId];
 
     async function queryCodex(safeNetworkId: number) {
+      // Use filterTokens for BOTH metadata + market data. The standalone tokens(ids:)
+      // query has been unreliable for EVM addresses; filterTokens works for all chains
+      // and returns a nested `token` object with the same metadata fields.
       const query = `{
-  tokens(ids: [{ address: "${address}", networkId: ${safeNetworkId} }]) {
-    address
-    decimals
-    name
-    symbol
-    info { imageSmallUrl imageLargeUrl }
-    socialLinks { twitter website telegram discord }
-    launchpad { graduationPercent completed migrated }
-  }
   filterTokens(
     filters: { network: [${safeNetworkId}] }
-    rankings: { attribute: marketCap, direction: DESC }
     tokens: ["${address}"]
     limit: 1
   ) {
-    results { holders marketCap volume24 liquidity change24 priceUSD }
+    results {
+      holders
+      marketCap
+      volume24
+      liquidity
+      change24
+      priceUSD
+      token {
+        address
+        decimals
+        name
+        symbol
+        info { imageSmallUrl imageLargeUrl }
+        socialLinks { twitter website telegram discord }
+        launchpad { graduationPercent completed migrated }
+      }
+    }
   }
 }`;
       const res = await fetch("https://graph.codex.io/graphql", {
@@ -73,9 +82,10 @@ Deno.serve(async (req) => {
       }
       const data = await res.json();
       if (data.errors) console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
+      const result = data?.data?.filterTokens?.results?.[0] ?? null;
       return {
-        tokenMeta: data?.data?.tokens?.[0] ?? null,
-        marketResult: data?.data?.filterTokens?.results?.[0] ?? null,
+        tokenMeta: result?.token ?? null,
+        marketResult: result ?? null,
         networkId: safeNetworkId,
       };
     }
