@@ -1,0 +1,265 @@
+/* =========================================================================
+   Popshiba skin for /launchnow
+   Scoped under .popshiba-launchnow so it never leaks into other pages.
+   Restyles shadcn primitives (Card / Button / Input / Tabs / Badge) plus
+   the page-level hero, wallet panel, and action cards to match the
+   brutalist Popshiba landing template (cream paper + ink + orange + lime,
+   hard offset shadows, Archivo Black headings, JetBrains Mono labels).
+   ========================================================================= */
+
+.popshiba-launchnow {
+  /* --- palette pulled directly from popshiba-template/launch.html --- */
+  --pop-primary: #f5a524;
+  --pop-primary-deep: #e8891a;
+  --pop-ink: #0e0b08;
+  --pop-ink-2: #171310;
+  --pop-ink-3: #231c16;
+  --pop-cream: #fff4dc;
+  --pop-paper: #f4efe6;
+  --pop-brown: #3a1f14;
+  --pop-line: #2b2218;
+  --pop-muted: #a49a8a;
+  --pop-up: #5ce68e;
+  --pop-down: #e8605a;
+  --pop-lime: #d3ff3a;
+
+  background: var(--pop-primary);
+  color: var(--pop-ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 500;
+  min-height: 100vh;
+}
+
+.popshiba-launchnow,
+.popshiba-launchnow * {
+  border-radius: 0 !important;
+}
+
+.popshiba-launchnow a {
+  color: inherit;
+}
+
+/* === Headings === */
+.popshiba-launchnow h1,
+.popshiba-launchnow h2,
+.popshiba-launchnow h3 {
+  font-family: "Archivo Black", system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--pop-cream);
+}
+.popshiba-launchnow .pop-on-paper h1,
+.popshiba-launchnow .pop-on-paper h2,
+.popshiba-launchnow .pop-on-paper h3 {
+  color: var(--pop-ink);
+}
+
+/* === Hero === */
+.popshiba-launchnow .pop-hero {
+  position: relative;
+  background: var(--pop-ink);
+  color: var(--pop-cream);
+  border: 2px solid var(--pop-ink);
+  box-shadow: 6px 6px 0 var(--pop-cream), 6px 6px 0 2px var(--pop-ink);
+  padding: 32px 36px;
+  margin-bottom: 26px;
+  overflow: hidden;
+}
+.popshiba-launchnow .pop-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(245, 165, 36, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 165, 36, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.popshiba-launchnow .pop-hero > * { position: relative; z-index: 1; }
+
+.popshiba-launchnow .pop-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pop-primary);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border: 1.5px dashed var(--pop-primary);
+  padding: 6px 10px;
+  margin-bottom: 18px;
+}
+.popshiba-launchnow .pop-tag .d {
+  width: 6px; height: 6px;
+  background: var(--pop-primary);
+  box-shadow: 0 0 8px var(--pop-primary);
+  animation: popPulse 1.4s infinite;
+}
+@keyframes popPulse { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+
+.popshiba-launchnow .pop-hero h1 {
+  font-family: "Archivo Black", system-ui, sans-serif;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 0.95;
+  margin: 0 0 14px;
+  color: var(--pop-cream);
+}
+.popshiba-launchnow .pop-hero h1 em {
+  font-style: normal;
+  color: var(--pop-primary);
+  position: relative;
+  display: inline-block;
+}
+.popshiba-launchnow .pop-hero h1 em::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -2px;
+  height: 4px; background: var(--pop-primary);
+  transform: skewX(-12deg);
+}
+.popshiba-launchnow .pop-hero p.lede {
+  font-size: 15px;
+  line-height: 1.55;
+  color: #d9cfba;
+  max-width: 720px;
+  margin: 0;
+}
+.popshiba-launchnow .pop-hero p.lede strong { color: var(--pop-primary); font-weight: 700; }
+
+/* === Cream "paper" cards (overrides shadcn <Card />) === */
+.popshiba-launchnow [class*="bg-card"],
+.popshiba-launchnow .pop-paper {
+  background: var(--pop-cream) !important;
+  color: var(--pop-ink) !important;
+  border: 2px solid var(--pop-ink) !important;
+  box-shadow: 5px 5px 0 var(--pop-ink) !important;
+}
+.popshiba-launchnow [class*="bg-card"] *,
+.popshiba-launchnow .pop-paper * {
+  color: inherit;
+}
+
+/* Muted text inside paper cards */
+.popshiba-launchnow [class*="bg-card"] [class*="text-muted-foreground"],
+.popshiba-launchnow .pop-paper [class*="text-muted-foreground"] {
+  color: var(--pop-brown) !important;
+  opacity: 0.8;
+}
+
+/* JetBrains Mono micro-labels (uppercase tracking) */
+.popshiba-launchnow [class*="uppercase"][class*="tracking"] {
+  font-family: "JetBrains Mono", monospace !important;
+  letter-spacing: 0.14em !important;
+  font-weight: 700;
+}
+
+/* === Buttons (overrides shadcn <Button />) === */
+.popshiba-launchnow button,
+.popshiba-launchnow [role="button"] {
+  font-family: "Space Grotesk", sans-serif;
+}
+.popshiba-launchnow button:not([class*="pop-keep"]):not([data-state]):not([role="tab"]):not([class*="absolute"]):not([class*="rounded-full"]) {
+  font-weight: 700 !important;
+  border: 2px solid var(--pop-ink) !important;
+  background: var(--pop-primary) !important;
+  color: var(--pop-ink) !important;
+  box-shadow: 3px 3px 0 var(--pop-ink) !important;
+  transition: transform .08s, box-shadow .08s !important;
+}
+.popshiba-launchnow button:not([class*="pop-keep"]):not([data-state]):not([role="tab"]):not([class*="absolute"]):not([class*="rounded-full"]):hover {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0 var(--pop-ink) !important;
+}
+.popshiba-launchnow button:not([class*="pop-keep"]):not([data-state]):not([role="tab"]):not([class*="absolute"]):not([class*="rounded-full"]):active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0 var(--pop-ink) !important;
+}
+.popshiba-launchnow button:disabled {
+  opacity: 0.55;
+  box-shadow: 2px 2px 0 var(--pop-ink) !important;
+}
+
+/* "Outline" variant from shadcn → ghost dark button */
+.popshiba-launchnow button[class*="border-input"],
+.popshiba-launchnow button[class*="variant-outline"],
+.popshiba-launchnow [data-variant="outline"] {
+  background: var(--pop-cream) !important;
+  color: var(--pop-ink) !important;
+}
+
+/* Destructive */
+.popshiba-launchnow button[class*="destructive"] {
+  background: var(--pop-down) !important;
+  color: var(--pop-cream) !important;
+}
+
+/* === Inputs (overrides shadcn <Input />) === */
+.popshiba-launchnow input,
+.popshiba-launchnow textarea,
+.popshiba-launchnow select {
+  background: #fff !important;
+  color: var(--pop-ink) !important;
+  border: 2px solid var(--pop-ink) !important;
+  border-radius: 0 !important;
+  font-weight: 600;
+  box-shadow: inset 2px 2px 0 rgba(14, 11, 8, 0.05);
+}
+.popshiba-launchnow input::placeholder,
+.popshiba-launchnow textarea::placeholder { color: var(--pop-muted); font-weight: 500; }
+.popshiba-launchnow input:focus-visible,
+.popshiba-launchnow textarea:focus-visible {
+  outline: none !important;
+  box-shadow: 3px 3px 0 var(--pop-primary) !important;
+}
+
+/* === Tabs (Manage / Launch) === */
+.popshiba-launchnow [role="tablist"] {
+  background: var(--pop-ink) !important;
+  border: 2px solid var(--pop-ink) !important;
+  box-shadow: 4px 4px 0 var(--pop-cream), 4px 4px 0 2px var(--pop-ink) !important;
+  padding: 4px !important;
+  gap: 4px;
+}
+.popshiba-launchnow [role="tab"] {
+  font-family: "Archivo Black", sans-serif !important;
+  font-size: 12px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pop-cream) !important;
+  background: transparent !important;
+  border: 1.5px dashed transparent !important;
+  border-radius: 0 !important;
+  transition: all .1s;
+}
+.popshiba-launchnow [role="tab"][data-state="active"] {
+  color: var(--pop-ink) !important;
+  background: var(--pop-primary) !important;
+  border-color: var(--pop-ink) !important;
+  box-shadow: 2px 2px 0 var(--pop-cream);
+}
+
+/* === Badges / chips === */
+.popshiba-launchnow [class*="bg-primary"][class*="text-primary-foreground"],
+.popshiba-launchnow .pop-chip {
+  background: var(--pop-lime) !important;
+  color: var(--pop-ink) !important;
+  border: 1.5px solid var(--pop-ink) !important;
+  font-family: "JetBrains Mono", monospace !important;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 8px !important;
+}
+
+/* Code/mono */
+.popshiba-launchnow code,
+.popshiba-launchnow .font-mono {
+  font-family: "JetBrains Mono", monospace !important;
+}
+
+/* Subtle dashed dividers */
+.popshiba-launchnow [class*="border-border"] {
+  border-color: rgba(14, 11, 8, 0.25) !important;
+  border-style: dashed !important;
+}
+
+/* Toast / dropdown popovers should remain readable — don't restyle portals */
