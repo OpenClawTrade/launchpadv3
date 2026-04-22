@@ -301,6 +301,8 @@ export default function LaunchNowPage() {
           {limited ? "Trading opened (with 2% max wallet)" : "Limits removed"} — view tx
         </a>
       );
+      // Re-read on-chain state so the page reflects the new limited / max-wallet values.
+      setTimeout(() => refetch(), 6000);
     } catch (e: any) {
       console.error("[setRule]", e);
       toast.error(e?.shortMessage || e?.message || "setRule failed");
