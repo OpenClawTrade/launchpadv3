@@ -86,9 +86,9 @@ function StatusPill({
 }) {
   const map = {
     ok: { Icon: CheckCircle2, cls: "bg-primary/10 text-primary border-primary/30" },
-    pending: { Icon: XCircle, cls: "bg-muted text-muted-foreground border-border" },
-    warn: { Icon: AlertTriangle, cls: "bg-destructive/10 text-destructive border-destructive/30" },
-    unknown: { Icon: AlertTriangle, cls: "bg-muted text-muted-foreground border-border" },
+    pending: { Icon: XCircle, cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40" },
+    warn: { Icon: AlertTriangle, cls: "bg-destructive/15 text-destructive border-destructive/40" },
+    unknown: { Icon: AlertTriangle, cls: "bg-foreground/10 text-foreground border-foreground/30" },
   } as const;
   const { Icon, cls } = map[state];
   return (
@@ -1302,33 +1302,31 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                           <p className="text-xs text-destructive font-mono break-all">{autoVerifyMsg}</p>
                         )}
                         <div className="flex flex-wrap gap-2">
-                          {isVerifyCompatible !== false && (
-                            <Button
-                              variant="default"
-                              disabled={autoVerifyStatus === "submitting" || autoVerifyStatus === "polling"}
-                              onClick={() =>
-                                runVerify({
-                                  tokenAddress: token.address,
-                                  name: token.name,
-                                  symbol: token.symbol,
-                                  totalSupply: token.totalSupply.toString(),
-                                  source: "manual",
-                                })
-                              }
-                            >
-                              {autoVerifyStatus === "submitting" || autoVerifyStatus === "polling" ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Verifying…
-                                </>
-                              ) : (
-                                <>
-                                  <ShieldCheck className="h-4 w-4" />
-                                  Verify now
-                                </>
-                              )}
-                            </Button>
-                          )}
+                          <Button
+                            variant="default"
+                            disabled={autoVerifyStatus === "submitting" || autoVerifyStatus === "polling"}
+                            onClick={() =>
+                              runVerify({
+                                tokenAddress: token.address,
+                                name: token.name,
+                                symbol: token.symbol,
+                                totalSupply: token.totalSupply.toString(),
+                                source: "manual",
+                              })
+                            }
+                          >
+                            {autoVerifyStatus === "submitting" || autoVerifyStatus === "polling" ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Verifying…
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="h-4 w-4" />
+                                Verify now
+                              </>
+                            )}
+                          </Button>
                           <Button asChild variant="outline">
                             <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-4 w-4" />
