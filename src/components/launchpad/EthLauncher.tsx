@@ -18,6 +18,7 @@ import { mainnet } from 'viem/chains';
 import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
+import { EthLaunchOverlay } from './EthLaunchOverlay';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
