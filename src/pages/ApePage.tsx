@@ -535,7 +535,11 @@ export default function ApePage() {
               <div className={styles.empty}>No holder activity yet</div>
             )
           ) : filteredTrades.length === 0 ? (
-            <div className={styles.empty}>{trades.length === 0 ? "Loading live trades…" : "No trades match this filter"}</div>
+            <div className={styles.empty}>{
+              tradesTab === "yours"
+                ? (evmAddress ? "No trades from your wallet yet" : "Connect wallet to see your trades")
+                : trades.length === 0 ? "Loading live trades…" : "No trades match this filter"
+            }</div>
           ) : (
             <table className={styles.tradesTable}>
               <thead>
