@@ -1293,7 +1293,7 @@
         </div>
         <div class="fee-row">
           <span class="k">LP seed (V3 single-sided)</span>
-          <span class="v">~0.001 ETH</span>
+          <span class="v" id="lp-seed-fee">~0.5 ETH</span>
         </div>
         <div class="fee-row">
           <span class="k">Dev first-buy</span>
@@ -1736,22 +1736,76 @@
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
     const dev    = devEthFromUsd(devUsd);
-    // Starting MC = LP-implied MC + dev buy impact.
-    // After dev buys $X into a single-sided V3 LP seeded with $LP_SEED_USD worth of tokens,
-    // the new spot price implies MC ≈ (LP_SEED_USD + devUsd)^2 / LP_SEED_USD * (totalSupply / LP-tokens-allocated).
-    // We approximate with the simpler constant-product form: starting MC ≈ (LP_SEED_USD + devUsd) * 1000.
-    const startMcUsd = (LP_SEED_USD + devUsd) * 1000;
+    const lpEth  = currentLpEth();
+    const lpUsd  = currentLpUsd();
+    // Starting MC ≈ (LP_USD + devUsd) * 1000  (single-sided V3, full-range, 1B supply)
+    const startMcUsd = (lpUsd + devUsd) * 1000;
     if (startMcEl) startMcEl.value = fmtUsd0(startMcUsd);
-    const allocPct = devUsd > 0 ? (devUsd / (LP_SEED_USD + devUsd)) * 100 : 0;
+    const allocPct = devUsd > 0 ? (devUsd / (lpUsd + devUsd)) * 100 : 0;
     if (devAllocEl) devAllocEl.value = (allocPct < 0.01 && allocPct > 0 ? '<0.01' : allocPct.toFixed(2)) + '%';
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
     const lockFee = lockLP ? LOCKER_FEE_ETH : 0;
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (LP_SEED_ETH + dev + lockFee).toFixed(4) + ' ETH';
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + (lpEth + dev + lockFee).toFixed(4) + ' ETH';
     if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
     const feeRow = document.getElementById('lockerFeeRow');
     if (feeRow) feeRow.style.display = lockLP ? '' : 'none';
+    // LP seed fee row
+    const lpSeedFeeEl = document.getElementById('lp-seed-fee');
+    if (lpSeedFeeEl) lpSeedFeeEl.textContent = lpEth.toFixed(4) + ' ETH ≈ ' + fmtUsd0(lpUsd);
+    // Refresh per-preset USD/ETH labels
+    document.querySelectorAll('#lpPresets .lp-preset').forEach(function(btn){
+      const id = btn.getAttribute('data-lp');
+      const ethAttr = btn.getAttribute('data-eth');
+      const ethVal = id === 'demo'
+        ? (ethUsd > 0 ? Math.ceil((LP_SEED_USD_DEMO / ethUsd) * 1e6) / 1e6 : 0)
+        : parseFloat(ethAttr || '0');
+      const lbl = btn.querySelector('.lp-preset-eth');
+      if (!lbl) return;
+      if (id === 'demo') {
+        lbl.textContent = ethVal > 0 ? ('≈ ' + ethVal.toFixed(6) + ' ETH') : '≈ — ETH';
+      } else {
+        lbl.textContent = ethUsd > 0 ? ('≈ $' + Math.round(ethVal * ethUsd).toLocaleString()) : '≈ $—';
+      }
+    });
+    const usdEl = document.getElementById('lpCustomUsd');
+    if (usdEl) usdEl.textContent = lpPresetId === 'custom' && lpCustomEth > 0 && ethUsd > 0
+      ? '≈ $' + Math.round(lpCustomEth * ethUsd).toLocaleString()
+      : '≈ $0';
   }
+
+  // ===== LP preset selector wiring =====
+  (function(){
+    const buttons = document.querySelectorAll('#lpPresets .lp-preset, .lp-preset[data-lp="custom"]');
+    const customInput = document.getElementById('lpCustomInput');
+    function paint(){
+      buttons.forEach(function(b){
+        const id = b.getAttribute('data-lp');
+        b.style.background = (id === lpPresetId) ? 'var(--primary)' : '#fff';
+      });
+      if (customInput) {
+        const isCustom = lpPresetId === 'custom';
+        customInput.disabled = !isCustom;
+        customInput.style.opacity = isCustom ? '1' : '0.6';
+      }
+    }
+    buttons.forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        lpPresetId = b.getAttribute('data-lp');
+        paint();
+        recomputeEcon();
+      });
+    });
+    if (customInput) {
+      customInput.addEventListener('input', function(){
+        const n = parseFloat(customInput.value);
+        lpCustomEth = isNaN(n) || n < 0 ? 0 : n;
+        recomputeEcon();
+      });
+    }
+    paint();
+  })();
 
   // LP Locker toggle wiring
   (function(){
