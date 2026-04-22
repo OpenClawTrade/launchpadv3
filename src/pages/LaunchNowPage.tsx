@@ -980,17 +980,7 @@ export default function LaunchNowPage() {
                     : "No pool yet"
                 }
               >
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Token amount ({token.symbol})</Label>
-                    <Input
-                      type="number"
-                      placeholder="e.g. 1000000000"
-                      value={lpTokenAmount}
-                      onChange={(e) => setLpTokenAmount(e.target.value)}
-                      className="bg-background/50 mt-1"
-                    />
-                  </div>
+                <div className="grid sm:grid-cols-3 gap-3">
                   <div>
                     <Label className="text-xs">ETH amount</Label>
                     <Input
@@ -999,10 +989,83 @@ export default function LaunchNowPage() {
                       placeholder="e.g. 0.5"
                       value={lpEthAmount}
                       onChange={(e) => setLpEthAmount(e.target.value)}
-                      className="bg-background/50 mt-1"
+                      className="bg-background/50 mt-1 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs flex items-center justify-between">
+                      <span>% of supply to seed</span>
+                      <button
+                        type="button"
+                        onClick={() => setLpAutoCalc((v) => !v)}
+                        className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${lpAutoCalc ? "border-primary/40 text-primary" : "border-border/40 text-muted-foreground"}`}
+                        title="Toggle auto-calculation of token amount"
+                      >
+                        {lpAutoCalc ? "Auto" : "Manual"}
+                      </button>
+                    </Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0.01"
+                      max="100"
+                      placeholder="80"
+                      value={lpPctOfSupply}
+                      onChange={(e) => {
+                        setLpPctOfSupply(e.target.value);
+                        setLpAutoCalc(true);
+                      }}
+                      className="bg-background/50 mt-1 font-mono"
+                    />
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {["50", "80", "90", "100"].map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => { setLpPctOfSupply(p); setLpAutoCalc(true); }}
+                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${lpPctOfSupply === p ? "border-primary/60 text-primary" : "border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+                        >
+                          {p}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Token amount ({token.symbol})</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="auto"
+                      value={lpTokenAmount}
+                      onChange={(e) => { setLpTokenAmount(e.target.value); setLpAutoCalc(false); }}
+                      className="bg-background/50 mt-1 font-mono"
                     />
                   </div>
                 </div>
+                {(() => {
+                  const ethN = Number(lpEthAmount);
+                  const tokN = Number(lpTokenAmount);
+                  const totalN = Number(formatUnits(token.totalSupply, token.decimals));
+                  if (!(ethN > 0) || !(tokN > 0) || !(totalN > 0)) return null;
+                  const pricePerToken = ethN / tokN; // ETH per token
+                  const initialFdvEth = pricePerToken * totalN;
+                  return (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs rounded-md border border-border/40 bg-background/40 p-2.5">
+                      <div>
+                        <div className="text-muted-foreground">Implied price</div>
+                        <div className="font-mono">{pricePerToken.toExponential(3)} ETH</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Initial FDV</div>
+                        <div className="font-mono">{initialFdvEth.toLocaleString(undefined, { maximumFractionDigits: 4 })} ETH</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">% supply seeded</div>
+                        <div className="font-mono">{((tokN / totalN) * 100).toFixed(2)}%</div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     onClick={handleAddLp}
