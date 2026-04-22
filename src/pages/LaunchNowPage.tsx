@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { isAddress, parseEther, parseUnits, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
@@ -11,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
-  Rocket,
   Search,
   CheckCircle2,
   XCircle,
