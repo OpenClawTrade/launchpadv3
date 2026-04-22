@@ -389,6 +389,7 @@ export default function LaunchNowPage() {
           { rank: false, retryCount: 1 }
         ),
       });
+      const receipt = await pc.waitForTransactionReceipt({ hash });
       const ca = receipt.contractAddress;
       if (ca) {
         setLastDeployedCA(ca);
