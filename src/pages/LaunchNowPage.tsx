@@ -297,17 +297,21 @@ export default function LaunchNowPage() {
 
   const handleAddLp = async () => {
     if (!walletClient || !address || !token) return;
-    const tokenAmt = Number(lpTokenAmount);
     const ethAmt = Number(lpEthAmount);
-    if (!(tokenAmt > 0) || !(ethAmt > 0)) {
-      toast.error("Enter both token and ETH amounts");
+    if (!(ethAmt > 0)) {
+      toast.error("Enter ETH amount");
+      return;
+    }
+    if (!lpTokenAmount || Number(lpTokenAmount) <= 0) {
+      toast.error("Enter token amount (or set % of supply)");
       return;
     }
     if (!(await ensureChain())) return;
 
     setAddingLp(true);
     try {
-      const tokensWei = parseUnits(String(tokenAmt), token.decimals);
+      // Use string parsing to preserve precision for large token amounts
+      const tokensWei = parseUnits(lpTokenAmount.replace(/,/g, ""), token.decimals);
       const ethWei = parseEther(String(ethAmt));
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
 
