@@ -155,33 +155,144 @@ export default function ApePage() {
   const [tradesTab, setTradesTab] = useState<"all" | "yours" | "holders">("all");
   const [filter, setFilter] = useState<"live" | "500" | "5k" | "whales">("live");
 
-  const filteredTrades = useMemo(() => {
-    let list = trades;
-    if (filter === "500") list = list.filter((t) => t.totalUsd >= 500);
-    if (filter === "5k") list = list.filter((t) => t.totalUsd >= 5_000);
-    if (filter === "whales") list = list.filter((t) => t.totalUsd >= 25_000);
-    return list.slice(0, 30);
-  }, [trades, filter]);
+  /* ── 0x swap wiring (ETH + BNB only) ── */
+  const isEvm = chain === "eth" || chain === "bsc";
+  const apeChain: "eth" | "bnb" = chain === "bsc" ? "bnb" : "eth";
+  const { executeApeSwap, isLoading: swapping } = useZeroxSwap();
+  const { address: evmAddress, wallet: evmWallet } = usePrivyEvmWallet();
+  const { login, authenticated, ready: privyReady } = usePrivy();
 
-  const copyAddress = () => {
-    navigator.clipboard.writeText(address);
-    toast({ title: "Address copied" });
-  };
-  const shareToken = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast({ title: "Link copied" });
-  };
+  const slippageBps = slip === "AUTO" ? 100 : Math.round(parseFloat(slip) * 100);
+  const tokenDecimals = token?.decimals ?? 18;
 
-  const isPriceUp = (token?.change24h ?? 0) >= 0;
-  const symbol = token?.symbol || "—";
-  const name = token?.name || (tokenLoading ? "Loading…" : "Unknown token");
-  const priceUsd = token?.priceUsd ?? 0;
+  // Live balances
+  const [nativeBal, setNativeBal] = useState<number>(0);
+  const [tokenBal, setTokenBal] = useState<number>(0);
 
-  // Simple deterministic estimate for the buy/sell preview
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!isEvm || !evmWallet || !evmAddress) {
+        setNativeBal(0); setTokenBal(0); return;
+      }
+      try {
+        const provider: any = await (evmWallet as any).getEthereumProvider();
+        if (!provider) return;
+        const nativeHex = await provider.request({ method: "eth_getBalance", params: [evmAddress, "latest"] });
+        if (!cancelled) setNativeBal(Number(BigInt(nativeHex)) / 1e18);
+        const data = "0x70a08231" + evmAddress.replace(/^0x/, "").padStart(64, "0");
+        const balHex = await provider.request({
+          method: "eth_call",
+          params: [{ to: address, data }, "latest"],
+        });
+        if (!cancelled && balHex && balHex !== "0x") {
+          setTokenBal(Number(BigInt(balHex)) / 10 ** tokenDecimals);
+        }
+      } catch {}
+    }
+    load();
+    const id = window.setInterval(load, 15_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [isEvm, evmWallet, evmAddress, address, tokenDecimals]);
+
+  // Live 0x quote (debounced)
+  const [quote, setQuote] = useState<any>(null);
+  const [quoting, setQuoting] = useState(false);
+  const quoteSeq = useRef(0);
   const numericAmount = parseFloat(amount) || 0;
-  const estimatedTokens = priceUsd > 0 && numericAmount > 0
-    ? (numericAmount * (chain === "bsc" ? 600 : chain === "sol" ? 150 : 3000)) / priceUsd
-    : 0;
+
+  useEffect(() => {
+    if (!isEvm || !address || !evmAddress || numericAmount <= 0) {
+      setQuote(null); return;
+    }
+    const seq = ++quoteSeq.current;
+    setQuoting(true);
+    const t = window.setTimeout(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("zerox-swap", {
+          body: {
+            mode: "quote",
+            chain: apeChain,
+            action: side,
+            tokenAddress: address,
+            amount,
+            userWallet: evmAddress,
+            slippageBps,
+            tokenDecimals: side === "sell" ? tokenDecimals : undefined,
+          },
+        });
+        if (seq !== quoteSeq.current) return;
+        if (error || !data?.success) setQuote(null);
+        else setQuote(data);
+      } catch {
+        if (seq === quoteSeq.current) setQuote(null);
+      } finally {
+        if (seq === quoteSeq.current) setQuoting(false);
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [isEvm, apeChain, address, evmAddress, side, amount, slippageBps, tokenDecimals, numericAmount]);
+
+  const outDecimals = side === "buy" ? tokenDecimals : 18;
+  const buyAmountFmt = quote?.buyAmount ? Number(BigInt(quote.buyAmount)) / 10 ** outDecimals : 0;
+  const minBuyFmt = quote?.minBuyAmount ? Number(BigInt(quote.minBuyAmount)) / 10 ** outDecimals : 0;
+  const networkFeeFmt = quote?.totalNetworkFee ? Number(BigInt(quote.totalNetworkFee)) / 1e18 : 0;
+  const routeName = quote?.route?.fills?.[0]?.source?.replace(/_/g, " ") || dexNameFor(chain);
+  const insufficient = !!quote?.issues?.balance;
+  const needsApproval = side === "sell" && !!quote?.issues?.allowance;
+
+  function setAmountChip(q: string) {
+    if (q === "MAX") {
+      if (!isEvm) return;
+      if (side === "buy") {
+        const buf = chain === "bsc" ? 0.002 : 0.001;
+        setAmount(Math.max(0, nativeBal - buf).toFixed(6));
+      } else {
+        setAmount(tokenBal > 0 ? tokenBal.toFixed(6) : "0");
+      }
+    } else {
+      setAmount(q);
+    }
+  }
+
+  const handleSwap = useCallback(async () => {
+    if (!isEvm) {
+      window.open(dexFor(chain, address), "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (!authenticated) { login(); return; }
+    if (!evmAddress) { toast({ title: "Wallet not ready", description: "Reconnect and try again", variant: "destructive" }); return; }
+    if (numericAmount <= 0) { toast({ title: "Enter an amount", variant: "destructive" }); return; }
+    const result = await executeApeSwap({
+      chain: apeChain,
+      tokenAddress: address,
+      action: side,
+      amount: numericAmount,
+      slippageBps,
+      tokenDecimals: side === "sell" ? tokenDecimals : undefined,
+      tokenName: token?.name,
+      tokenTicker: token?.symbol,
+    });
+    if (result.success) {
+      toast({
+        title: `${side === "buy" ? "Bought" : "Sold"} $${token?.symbol || "token"}`,
+        description: result.explorerUrl ? "View transaction ↗" : "Transaction sent",
+        action: result.explorerUrl ? (
+          <a href={result.explorerUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+            View
+          </a>
+        ) as any : undefined,
+      });
+    } else {
+      toast({ title: "Swap failed", description: result.error || "Unknown error", variant: "destructive" });
+    }
+  }, [isEvm, authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, chain, toast]);
+
+  const estimatedTokens = isEvm
+    ? buyAmountFmt
+    : (priceUsd > 0 && numericAmount > 0
+        ? (numericAmount * (chain === "bsc" ? 600 : 150)) / priceUsd
+        : 0);
 
   return (
     <div className={styles.root}>
