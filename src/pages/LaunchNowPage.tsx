@@ -283,8 +283,19 @@ export default function LaunchNowPage() {
       }
 
       try {
-        const { createPublicClient, http } = await import("viem");
-        const pc = createPublicClient({ chain: mainnet, transport: http() });
+        const { createPublicClient, http, fallback } = await import("viem");
+        const pc = createPublicClient({
+          chain: mainnet,
+          transport: fallback(
+            [
+              http("https://ethereum-rpc.publicnode.com"),
+              http("https://eth.llamarpc.com"),
+              http("https://rpc.ankr.com/eth"),
+              http("https://cloudflare-eth.com"),
+            ],
+            { rank: false, retryCount: 1 }
+          ),
+        });
         const bytecode = await pc.getBytecode({ address: token.address as Address });
         const runtime = bytecode ? String(bytecode).replace(/^0x/, "") : "";
         if (!cancelled) {
@@ -365,9 +376,19 @@ export default function LaunchNowPage() {
         </a>
       );
       // Wait for receipt to grab the contract address.
-      const { createPublicClient, http } = await import("viem");
-      const pc = createPublicClient({ chain: mainnet, transport: http() });
-      const receipt = await pc.waitForTransactionReceipt({ hash });
+      const { createPublicClient, http, fallback } = await import("viem");
+      const pc = createPublicClient({
+        chain: mainnet,
+        transport: fallback(
+          [
+            http("https://ethereum-rpc.publicnode.com"),
+            http("https://eth.llamarpc.com"),
+            http("https://rpc.ankr.com/eth"),
+            http("https://cloudflare-eth.com"),
+          ],
+          { rank: false, retryCount: 1 }
+        ),
+      });
       const ca = receipt.contractAddress;
       if (ca) {
         setLastDeployedCA(ca);
@@ -601,10 +622,19 @@ export default function LaunchNowPage() {
       const liquidity = token.userLpBalance;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 30);
 
-      const { createPublicClient, http } = await import("viem");
-      const pc = createPublicClient({ chain: mainnet, transport: http() });
-
-      // Read pair name + current nonce for the EIP-2612 permit signature
+      const { createPublicClient, http, fallback } = await import("viem");
+      const pc = createPublicClient({
+        chain: mainnet,
+        transport: fallback(
+          [
+            http("https://ethereum-rpc.publicnode.com"),
+            http("https://eth.llamarpc.com"),
+            http("https://rpc.ankr.com/eth"),
+            http("https://cloudflare-eth.com"),
+          ],
+          { rank: false, retryCount: 1 }
+        ),
+      });
       toast.info("Preparing permit signature…");
       const [pairName, nonce] = await Promise.all([
         pc.readContract({ address: token.pairAddress, abi: UNISWAP_V2_PAIR_ABI, functionName: "name" } as any) as Promise<string>,
