@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { isAddress, parseEther, parseUnits, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
@@ -11,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
-  Rocket,
   Search,
   CheckCircle2,
   XCircle,
@@ -128,7 +126,6 @@ function ActionCard({ title, description, icon: Icon, status, statusLabel, child
 /* -------------------------------------------------------------------------- */
 
 export default function LaunchNowPage() {
-  const navigate = useNavigate();
   const [caInput, setCaInput] = useState("");
   const [activeCA, setActiveCA] = useState<string | null>(null);
 
@@ -407,24 +404,15 @@ export default function LaunchNowPage() {
         {/* Hero */}
         <header className="mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
-            <Rocket className="h-3.5 w-3.5" />
-            Launch Control Center
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Token Finalizer · Helper
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Manage your ETH token
+            Finalize your already-deployed ETH token
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
-            Paste your contract address. We auto-detect what's done and what's left — verify, add liquidity, open trading, renounce, burn or remove LP — all in one place. MetaMask signs every action.
+            This is a <strong>helper page</strong> for tokens you've <strong>already deployed</strong> (e.g. via Remix). Paste the contract address and we'll detect what's still needed — verify, add liquidity, open trading, renounce, burn or remove LP — and walk you through each step with MetaMask. <em>This page does not deploy new tokens.</em>
           </p>
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="text-xs text-muted-foreground hover:text-foreground underline"
-            >
-              ← Need to deploy a fresh token? Use the 1-click launcher
-            </button>
-          </div>
         </header>
 
         {/* Inspect Bar */}
