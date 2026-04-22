@@ -160,36 +160,6 @@ Deno.serve(async (req) => {
         console.error("[eth-launch-finalize] failed to schedule verification", e);
       }
 
-      // ── Warm GMGN's indexer / safety wallet so trades route immediately. ──
-      // Without this, GMGN can take 1–24h to whitelist a brand-new pool, and
-      // their wallet shows "Transaction failed 50001300" until then.
-      try {
-        // @ts-ignore — EdgeRuntime is a Deno deploy global
-        EdgeRuntime.waitUntil((async () => {
-          const ping = async (url: string) => {
-            try {
-              const res = await fetch(url, {
-                method: "GET",
-                headers: { "User-Agent": "Mozilla/5.0 PopShibaLaunchpad/1.0" },
-              });
-              console.log(`[eth-launch-finalize] indexer ping ${url} → ${res.status}`);
-            } catch (e) {
-              console.error(`[eth-launch-finalize] indexer ping failed ${url}`, e);
-            }
-          };
-          // Public token-info endpoints — hitting them forces GMGN's backend
-          // to index the pool. DexScreener is hit for parity.
-          await Promise.all([
-            ping(`https://gmgn.ai/api/v1/token_info/eth/${data.token_address}`),
-            ping(`https://gmgn.ai/eth/token/${data.token_address}`),
-            data.uniswap_pool_address
-              ? ping(`https://api.dexscreener.com/latest/dex/pairs/ethereum/${data.uniswap_pool_address}`)
-              : Promise.resolve(),
-          ]);
-        })());
-      } catch (e) {
-        console.error("[eth-launch-finalize] failed to schedule indexer pings", e);
-      }
     }
 
     return new Response(JSON.stringify({ success: true, launch: data }), {
