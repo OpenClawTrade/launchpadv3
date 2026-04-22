@@ -1869,10 +1869,11 @@
       opts.forEach(function(b){
         b.style.background = (b.getAttribute('data-ver') === launcherVersion) ? 'var(--primary)' : '#fff';
       });
-      // V2-burn skips Team Finance lock entirely — hide the lock toggle row and force lockLP off.
+      // V2 variants skip Team Finance lock entirely — hide the lock toggle row and force lockLP off.
       const lockRow = document.getElementById('lockLpToggle');
-      if (lockRow) lockRow.style.display = launcherVersion === 'v2burn' ? 'none' : '';
-      if (launcherVersion === 'v2burn' && lockLP) {
+      const isV2 = launcherVersion === 'v2burn' || launcherVersion === 'v2fees';
+      if (lockRow) lockRow.style.display = isV2 ? 'none' : '';
+      if (isV2 && lockLP) {
         lockLP = false;
         const check = document.getElementById('lockLpCheck');
         const box   = document.getElementById('lockLpBox');
