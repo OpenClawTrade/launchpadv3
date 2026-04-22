@@ -321,7 +321,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
       // wallets (MetaMask extension when the editor iframe doesn't have focus,
       // or hardware wallets behind another window) open their popup off-screen
       // or behind the browser. The toast stays until txHash resolves.
-      const approveToastId = toast.loading('👉 Open your wallet and approve the launch', {
+      approveToastId = toast.loading('👉 Open your wallet and approve the launch', {
         description:
           "MetaMask / Rabby usually pops up. If you don't see it, click the wallet icon in your browser toolbar — the request is waiting there.",
         duration: Infinity,
