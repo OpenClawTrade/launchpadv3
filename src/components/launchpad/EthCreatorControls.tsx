@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Coins, Loader2, ExternalLink, ShieldCheck, RefreshCw } from "lucide-react";
+import { Coins, Loader2, ExternalLink, ShieldCheck, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatEther } from "viem";
@@ -115,7 +115,27 @@ export function EthCreatorControls({ tokenAddress, embedded = false }: Props) {
     }
   };
 
-  if (!loading && !ledger) return null;
+  // No ledger row = token was launched before the V3 vault upgrade and the
+  // creator was never registered on-chain → fees CAN'T be claimed for this token.
+  // Show an explanatory banner instead of silently hiding the panel.
+  if (!loading && !ledger) {
+    return (
+      <Card className="bg-amber-500/5 border-amber-500/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2 text-amber-300">
+            <AlertTriangle className="h-4 w-4" />
+            Creator Fees Unavailable
+          </CardTitle>
+          <CardDescription className="text-xs leading-relaxed">
+            This token was launched on a previous version of the platform launcher that did not
+            register creators with the fee vault. The 1% Uniswap V3 trading fees are still being
+            collected by the platform but cannot be split to your wallet for this token.
+            New tokens launched after the V3 upgrade will accrue claimable fees normally.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
   if (!isCreator && !embedded) return null;
 
   const inner = (
