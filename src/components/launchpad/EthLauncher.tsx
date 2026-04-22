@@ -437,6 +437,34 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
     handleLaunch();
   }, [autoLaunch, canLaunch, walletClient, handleLaunch, autoFiredRef]);
 
+  // Safety net: if autoLaunch is requested but can't fire within 8s, tell the
+  // user *why* instead of leaving the host page stuck on "INITIALIZING LAUNCH…".
+  useEffect(() => {
+    if (!autoLaunch) return;
+    if (autoFiredRef.fired) return;
+    const timer = window.setTimeout(() => {
+      if (autoFiredRef.fired) return;
+      const reasons: string[] = [];
+      if (!isConnected || !address) reasons.push('wallet not connected');
+      if (!walletClient) reasons.push('wallet client not ready');
+      if (!(ethPrice > 0)) reasons.push('ETH price still loading');
+      if (!formData.name.trim()) reasons.push('missing name');
+      if (!formData.ticker.trim()) reasons.push('missing ticker');
+      if (!(lpEthAmount > 0)) reasons.push('missing LP amount');
+      const msg = reasons.length ? reasons.join(', ') : 'unknown reason';
+      autoFiredRef.fired = true; // prevent repeated toasts
+      setLaunchError(msg);
+      toast.error('Could not start launch', { description: msg });
+      try {
+        window.parent?.postMessage(
+          { source: 'popshiba-host', type: 'launch-aborted', payload: { reason: msg } },
+          '*'
+        );
+      } catch {}
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [autoLaunch, autoFiredRef, isConnected, address, walletClient, ethPrice, formData.name, formData.ticker, lpEthAmount]);
+
   return (
     <>
     <div className={hideUI ? 'sr-only pointer-events-none' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}>
