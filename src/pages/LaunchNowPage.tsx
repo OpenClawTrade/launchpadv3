@@ -577,10 +577,18 @@ export default function LaunchNowPage() {
                 title="2. Add liquidity (Uniswap V2)"
                 description="Pair your tokens with ETH. Auto-runs Approve → Add."
                 icon={Droplets}
-                status={token.hasPair && (token.reserveEth ?? 0n) > 0n ? "ok" : "pending"}
+                status={
+                  token.primaryPool?.dex === "uniswap-v2" && (token.reserveEth ?? 0n) > 0n
+                    ? "ok"
+                    : token.primaryPool
+                    ? "warn"
+                    : "pending"
+                }
                 statusLabel={
-                  token.hasPair
-                    ? `Pool live · ${token.reserveEthFormatted} ETH`
+                  token.primaryPool?.dex === "uniswap-v2"
+                    ? `V2 pool live · ${token.reserveEthFormatted} ETH`
+                    : token.primaryPool?.dex === "uniswap-v3"
+                    ? `V3 pool exists (${token.primaryPool.pairedWith})`
                     : "No pool yet"
                 }
               >
