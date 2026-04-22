@@ -1103,36 +1103,75 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
             {/* Action grid */}
             <div className="grid gap-4">
               {/* 1. Verify */}
-              <ActionCard
-                title="1. Verify on Etherscan"
-                description="Makes your source code public so buyers trust the contract."
-                icon={ShieldCheck}
-                status={verifyState}
-                statusLabel={
-                  verifyState === "ok" ? "Verified" : verifyState === "pending" ? "Not verified" : "Unknown"
-                }
-              >
-                {verifyState === "ok" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Source code is published.{" "}
-                    <a
-                      href={`${ETHERSCAN_ADDR(token.address)}#code`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      View on Etherscan
-                    </a>
-                  </p>
-                ) : (
-                  <Button asChild variant="outline">
-                    <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                      Open Etherscan verifier
-                    </a>
-                  </Button>
-                )}
-              </ActionCard>
+              {(() => {
+                const isJustDeployed =
+                  autoVerifiedAddr && token.address.toLowerCase() === autoVerifiedAddr.toLowerCase();
+                const showAutoStatus = isJustDeployed && autoVerifyStatus !== "idle" && verifyState !== "ok";
+                const cardStatus =
+                  verifyState === "ok"
+                    ? "ok"
+                    : showAutoStatus
+                    ? autoVerifyStatus === "ok"
+                      ? "ok"
+                      : autoVerifyStatus === "fail"
+                      ? "warn"
+                      : "pending"
+                    : verifyState;
+                const cardLabel =
+                  verifyState === "ok"
+                    ? "Verified"
+                    : showAutoStatus
+                    ? autoVerifyStatus === "ok"
+                      ? "Verified"
+                      : autoVerifyStatus === "fail"
+                      ? "Auto-verify failed"
+                      : autoVerifyStatus === "submitting"
+                      ? "Submitting…"
+                      : "Polling Etherscan…"
+                    : verifyState === "pending"
+                    ? "Not verified"
+                    : "Unknown";
+                return (
+                  <ActionCard
+                    title="1. Verify on Etherscan"
+                    description="Auto-runs right after deploy. Falls back to manual link if it fails."
+                    icon={ShieldCheck}
+                    status={cardStatus as any}
+                    statusLabel={cardLabel}
+                  >
+                    {verifyState === "ok" ? (
+                      <p className="text-sm text-muted-foreground">
+                        Source code is published.{" "}
+                        <a
+                          href={`${ETHERSCAN_ADDR(token.address)}#code`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline"
+                        >
+                          View on Etherscan
+                        </a>
+                      </p>
+                    ) : showAutoStatus && autoVerifyStatus !== "fail" ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{autoVerifyMsg || "Verifying…"}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {showAutoStatus && autoVerifyStatus === "fail" && (
+                          <p className="text-xs text-destructive font-mono break-all">{autoVerifyMsg}</p>
+                        )}
+                        <Button asChild variant="outline">
+                          <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                            Open Etherscan verifier
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </ActionCard>
+                );
+              })()}
 
               {/* 2. Add LP */}
               <ActionCard
