@@ -66,6 +66,9 @@ Deno.serve(async (req) => {
   // v2burn: deploy PopShibaBurnLauncherV2 (Uniswap V2, auto-burn LP, NO fees).
   // Reuses existing CloneFactory; no fee vault needed (LP is burned, no fees to collect).
   const v2burn: boolean = body.v2burn === true;
+  // v2fees: deploy PopShibaFeesLauncherV2 (Uniswap V2, auto-burn LP, fixed 1% swap fee → platform wallet).
+  // Standalone, in-flight compiled. Has its own active row tagged version="v2fees".
+  const v2fees: boolean = body.v2fees === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
