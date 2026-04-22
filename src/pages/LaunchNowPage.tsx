@@ -167,6 +167,15 @@ export default function LaunchNowPage() {
     header?: string;
     source: "auto" | "manual";
   }) => {
+    if (params.source === "manual" && isVerifyCompatible === false) {
+      const msg = "This token was deployed from an older or different LaunchNow contract build, so the in-app verifier cannot match its bytecode. Use the Etherscan verifier for that specific build.";
+      setAutoVerifiedAddr(params.tokenAddress);
+      setAutoVerifyStatus("fail");
+      setAutoVerifyMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
     setAutoVerifiedAddr(params.tokenAddress);
     setAutoVerifyStatus("submitting");
     setAutoVerifyMsg(
@@ -1336,7 +1345,7 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
                           {isVerifyCompatible === false
-                            ? "This token was deployed from an older LaunchNow contract build, so the in-app verifier cannot match its bytecode. Use the Etherscan verifier with the original source/compiler for this specific token."
+                            ? "This token's deployed bytecode does not match the current in-app LaunchNow verifier build. Manual in-app verify will fail for this token; use the Etherscan verifier for its original source/compiler instead."
                             : "In-app verify only works for tokens deployed with the current LaunchNow contract build."}
                         </p>
                       </div>
