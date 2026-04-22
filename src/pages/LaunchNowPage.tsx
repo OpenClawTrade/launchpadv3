@@ -126,7 +126,6 @@ function ActionCard({ title, description, icon: Icon, status, statusLabel, child
 /* -------------------------------------------------------------------------- */
 
 export default function LaunchNowPage() {
-  const navigate = useNavigate();
   const [caInput, setCaInput] = useState("");
   const [activeCA, setActiveCA] = useState<string | null>(null);
 
