@@ -795,7 +795,8 @@ export default function LaunchNowPage() {
                     <p className="text-xs text-muted-foreground mt-2">Only the contract owner can call this.</p>
                   )}
                 </ActionCard>
-              )}
+                );
+              })()}
 
               {/* 4. Renounce */}
               {token.hasOwnerFn && (
