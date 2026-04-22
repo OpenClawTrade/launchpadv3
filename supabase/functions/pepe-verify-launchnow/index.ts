@@ -148,12 +148,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[pepe-verify] waiting for indexing ${tokenAddress}`);
-    const indexed = await waitForIndex(tokenAddress, apiKey);
-    if (!indexed) {
-      return new Response(JSON.stringify({ success: false, error: "Etherscan did not index contract in time" }), {
+    console.log(`[pepe-verify] checking already-verified ${tokenAddress}`);
+    if (await isAlreadyVerified(tokenAddress, apiKey)) {
+      console.log(`[pepe-verify] ${tokenAddress} already verified`);
+      return new Response(JSON.stringify({ success: true, verified: true, alreadyVerified: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[pepe-verify] waiting for code ${tokenAddress}`);
+    const hasCode = await waitForCode(tokenAddress, apiKey);
+    if (!hasCode) {
+      return new Response(JSON.stringify({ success: false, error: "Etherscan RPC did not see contract code in time. Try again in 1-2 minutes." }), {
         status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    console.log(`[pepe-verify] waiting for verifier index ${tokenAddress}`);
+    const verifierReady = await waitForVerifyIndex(tokenAddress, apiKey);
+    if (!verifierReady) {
+      console.warn(`[pepe-verify] verifier index not ready, attempting submit anyway`);
     }
 
     // IMPORTANT: do NOT mutate the source — Solidity embeds a metadata hash of the
@@ -174,32 +188,48 @@ Deno.serve(async (req) => {
 
     const ctorArgsHex = encodeConstructorArgs(sanitize(name), sanitize(symbol), BigInt(supply));
 
-    const form = new URLSearchParams();
-    form.append("apikey", apiKey);
-    form.append("module", "contract");
-    form.append("action", "verifysourcecode");
-    form.append("contractaddress", tokenAddress);
-    form.append("sourceCode", JSON.stringify(standardJson));
-    form.append("codeformat", "solidity-standard-json-input");
-    form.append("contractname", "PepeToken.sol:PepeToken");
-    form.append("compilerversion", COMPILER);
-    form.append("constructorArguements", ctorArgsHex);
+    const buildForm = () => {
+      const form = new URLSearchParams();
+      form.append("apikey", apiKey);
+      form.append("module", "contract");
+      form.append("action", "verifysourcecode");
+      form.append("contractaddress", tokenAddress);
+      form.append("sourceCode", JSON.stringify(standardJson));
+      form.append("codeformat", "solidity-standard-json-input");
+      form.append("contractname", "PepeToken.sol:PepeToken");
+      form.append("compilerversion", COMPILER);
+      form.append("constructorArguements", ctorArgsHex);
+      return form;
+    };
 
-    const resp = await fetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
-      method: "POST",
-      body: form,
-    });
-    const json = await resp.json();
-    console.log("[pepe-verify] submit", json);
-
-    if (json?.status !== "1") {
-      const msg = String(json?.result || json?.message || "Unknown");
-      if (/already verified/i.test(msg)) {
+    // Retry submit on transient "Unable to locate ContractCode" — that means
+    // Etherscan's verifier index hasn't caught up yet even though RPC sees the code.
+    let json: any = null;
+    let lastMsg = "";
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (attempt > 0) {
+        console.log(`[pepe-verify] submit retry ${attempt} (after "${lastMsg}")`);
+        await delay(8000);
+      }
+      const resp = await fetch(`https://api.etherscan.io/v2/api?chainid=${CHAIN_ID}`, {
+        method: "POST",
+        body: buildForm(),
+      });
+      json = await resp.json();
+      console.log(`[pepe-verify] submit attempt ${attempt + 1}`, json);
+      lastMsg = String(json?.result || json?.message || "");
+      if (json?.status === "1") break;
+      if (/already verified/i.test(lastMsg)) {
         return new Response(JSON.stringify({ success: true, verified: true, alreadyVerified: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ success: false, error: msg }), {
+      // Only retry on transient indexer-lag errors. Bytecode mismatches won't fix themselves.
+      if (!/unable to locate|not yet indexed|please try again/i.test(lastMsg)) break;
+    }
+
+    if (json?.status !== "1") {
+      return new Response(JSON.stringify({ success: false, error: lastMsg || "Unknown" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
