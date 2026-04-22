@@ -295,7 +295,7 @@ export default function LaunchNowPage() {
     setLpTokenAmount(formatted.replace(/\.0+$/, ""));
   }, [lpAutoCalc, lpPctOfSupply, token]);
 
-
+  const handleAddLp = async () => {
     if (!walletClient || !address || !token) return;
     const tokenAmt = Number(lpTokenAmount);
     const ethAmt = Number(lpEthAmount);
