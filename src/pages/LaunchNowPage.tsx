@@ -518,10 +518,69 @@ export default function LaunchNowPage() {
           </div>
         </Card>
 
+        {/* Your tokens (auto-detected) */}
+        {isConnected && (
+          <Card className="bg-card/40 border-border/40 p-5 mb-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Your tokens
+                </div>
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  Auto-detected ERC-20s in this wallet. Click one to inspect.
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => refetchHeld()} disabled={heldLoading}>
+                <RefreshCw className={`h-4 w-4 ${heldLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+            {heldLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" /> Scanning wallet…
+              </div>
+            ) : !heldTokens || heldTokens.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-2">
+                No ERC-20 tokens with a non-zero balance found in this wallet.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                {heldTokens.map((t) => {
+                  const selected = activeCA?.toLowerCase() === t.address.toLowerCase();
+                  return (
+                    <button
+                      key={t.address}
+                      type="button"
+                      onClick={() => {
+                        setCaInput(t.address);
+                        setActiveCA(t.address);
+                      }}
+                      className={`text-left rounded-lg border p-3 transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/5"
+                          : "border-border/40 hover:border-border bg-background/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-semibold text-sm truncate">{t.symbol}</div>
+                        <div className="text-xs text-muted-foreground tabular-nums">{t.balance}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">{t.name}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground mt-0.5 truncate">
+                        {shortAddr(t.address)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Inspect Bar */}
         <Card className="bg-card/40 border-border/40 p-5 mb-6">
           <Label htmlFor="ca-input" className="text-xs uppercase tracking-wider text-muted-foreground">
-            Contract address
+            Or paste a contract address
           </Label>
           <div className="mt-2 flex flex-col sm:flex-row gap-2">
             <Input
