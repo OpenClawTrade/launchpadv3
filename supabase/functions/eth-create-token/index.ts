@@ -24,7 +24,9 @@ interface LaunchBody {
   creatorWallet: string;
   ethForLPWei?: string; // client-computed: $50 worth of ETH at spot price
   devBuyEth?: number;   // optional, can be 0
-  lockLP?: boolean;     // V3 only — opt-in Team Finance LP lock
+  lockLP?: boolean;     // V3 only — opt-in Team Finance LP lock (ignored by v2burn)
+  /** Selects which active deployment row to use. Defaults to "v3" for backward compat. */
+  version?: "v3" | "v2burn";
   description?: string | null;
   imageUrl?: string | null;
   websiteUrl?: string | null;
@@ -84,20 +86,37 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch active deployment (V2 launcher address). Prefers explicit V2 column when present.
-    const { data: deployment, error: depErr } = await supabase
+    // Resolve which active deployment row to use based on requested version.
+    // V3 (default): pick the active row whose contracts->>version is null OR "v3".
+    // V2-burn: pick the active row whose contracts->>version === "v2burn".
+    const requestedVersion = body.version === "v2burn" ? "v2burn" : "v3";
+
+    const { data: rows, error: depErr } = await supabase
       .from("eth_deployments")
-      .select("launcher_address, clone_factory_address, vault_address, token_impl_address, uncx_lock_fee_wei")
+      .select("id, launcher_address, clone_factory_address, vault_address, token_impl_address, uncx_lock_fee_wei, contracts, deployed_at")
       .eq("is_active", true)
       .not("launcher_address", "is", null)
-      .order("deployed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("deployed_at", { ascending: false });
 
-    if (depErr || !deployment?.launcher_address) {
+    if (depErr) {
+      return new Response(JSON.stringify({ success: false, error: "Failed to query deployments" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const matches = (rows || []).filter((r) => {
+      const v = (r.contracts as any)?.version;
+      if (requestedVersion === "v2burn") return v === "v2burn";
+      // v3 path: explicit "v3" OR legacy rows with no version field
+      return v === "v3" || v == null;
+    });
+
+    const deployment = matches[0];
+    if (!deployment?.launcher_address) {
       return new Response(JSON.stringify({
         success: false,
-        error: "No active PopShibaLauncher deployment found. Admin must deploy the contract suite first.",
+        error: requestedVersion === "v2burn"
+          ? "No active V2-burn launcher deployed. Admin must deploy it from the contracts panel."
+          : "No active V3 launcher deployment found. Admin must deploy the contract suite first.",
       }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -119,7 +138,7 @@ Deno.serve(async (req) => {
         lp_eth: 0,
         user_tax_bps: 0,
         platform_tax_bps: 0,
-        burn_lp: false,
+        burn_lp: requestedVersion === "v2burn",
         renounce: false,
         status: "awaiting_signature",
       })
@@ -138,6 +157,7 @@ Deno.serve(async (req) => {
       launchpad: "PopShiba.com",
       launchpadUrl: "https://popshiba.com",
       chain: "ethereum",
+      launcherVersion: requestedVersion,
       launchedAt: new Date().toISOString(),
       launchId: launchId ?? "",
     });
@@ -148,29 +168,30 @@ Deno.serve(async (req) => {
       ? parseEther(String(body.devBuyEth)).toString()
       : "0";
 
-    // Locker flat fee (UNCX on V2, Team Finance on V3). Stored as `uncx_lock_fee_wei`
-    // on eth_deployments — column name is legacy; value is whatever the active locker
-    // currently charges. Defaults to 0 if column never populated (V3 unlocked launches).
-    const lockerFeeWei = (deployment as any).uncx_lock_fee_wei
-      ? String((deployment as any).uncx_lock_fee_wei)
-      : "0";
-
-    // V3 only: respect the user's lockLP flag. If false → no locker fee added.
-    // V2 launchers ignore this (they always lock and we always add the fee).
-    const lockLP = body.lockLP === true;
+    // V2-burn: NO locker fee, ever. lockLP is ignored.
+    // V3: locker flat fee from deployment row, only added if user opted into lock.
+    let lockerFeeWei = "0";
+    let effectiveLockLP = false;
+    if (requestedVersion === "v3") {
+      effectiveLockLP = body.lockLP === true;
+      lockerFeeWei = effectiveLockLP && (deployment as any).uncx_lock_fee_wei
+        ? String((deployment as any).uncx_lock_fee_wei)
+        : "0";
+    }
 
     return new Response(JSON.stringify({
       success: true,
       launchId,
       launcher: launcherAddress,
+      version: requestedVersion,
       metadataURI,
       ethForLPWei,
       ethForDevBuyWei,
-      // Legacy field — still emitted for V2 launcher clients.
-      uncxLockFeeWei: lockLP ? lockerFeeWei : "0",
+      // Legacy field — still emitted for backward-compat clients.
+      uncxLockFeeWei: lockerFeeWei,
       // New canonical fields:
-      lockerFeeWei: lockLP ? lockerFeeWei : "0",
-      lockLP,
+      lockerFeeWei,
+      lockLP: effectiveLockLP,
       cloneFactory: deployment.clone_factory_address,
       feeVault: deployment.vault_address,
     }), {
