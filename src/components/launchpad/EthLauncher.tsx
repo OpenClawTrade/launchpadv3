@@ -416,6 +416,7 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   }, [autoLaunch, canLaunch, walletClient, handleLaunch, autoFiredRef]);
 
   return (
+    <>
     <div className={hideUI ? 'sr-only pointer-events-none' : 'grid grid-cols-1 lg:grid-cols-3 gap-6'}>
       {/* Main Form */}
       <div className="lg:col-span-2 space-y-6">
@@ -849,18 +850,21 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
           </CardContent>
         </Card>
       </div>
-
-      {deployedTokenAddress && (
-        <EthLaunchSuccessModal
-          open={showSuccessModal}
-          onOpenChange={setShowSuccessModal}
-          tokenAddress={deployedTokenAddress}
-          txHash={launchTxHash}
-          imageUrl={formData.imageUrl}
-          name={formData.name}
-          ticker={formData.ticker}
-        />
-      )}
     </div>
+
+    {/* Success modal MUST render outside the hideUI wrapper so the popshiba
+        landing flow (autoLaunch + hideUI) still shows the confirmation UI. */}
+    {deployedTokenAddress && (
+      <EthLaunchSuccessModal
+        open={showSuccessModal}
+        onOpenChange={setShowSuccessModal}
+        tokenAddress={deployedTokenAddress}
+        txHash={launchTxHash}
+        imageUrl={formData.imageUrl}
+        name={formData.name}
+        ticker={formData.ticker}
+      />
+    )}
+    </>
   );
 }
