@@ -65,6 +65,8 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [lockLP, setLockLP] = useState(!!initialLockLP); // V3: opt-in Team Finance LP lock
+  const [lpPresetId, setLpPresetId] = useState<LpPresetId>('suggested');
+  const [lpCustomInput, setLpCustomInput] = useState('');
   const [diagLogs, setDiagLogs] = useState<string[]>([]);
   const pushLog = useCallback((line: string) => {
     const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
