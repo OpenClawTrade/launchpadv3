@@ -16,7 +16,7 @@ import {
   parseAbiParameters,
 } from "https://esm.sh/viem@2.45.1";
 import { mainnet } from "https://esm.sh/viem@2.45.1/chains";
-import { POPSHIBA_FEES_LAUNCHER_V2_SOURCE } from "../eth-deploy-contracts/v2fees_compile.ts";
+import { POPSHIBA_FEES_LAUNCHER_V2_SOURCE } from "./v2fees_source.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
