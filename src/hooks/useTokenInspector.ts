@@ -10,7 +10,8 @@ import {
   DEAD_ADDRESS,
 } from "@/lib/ethereum/launchControl";
 
-const client = createPublicClient({ chain: mainnet, transport: http() });
+// Cast to any to bypass viem's overstrict ReadContract typing across versions.
+const client: any = createPublicClient({ chain: mainnet, transport: http() });
 
 export interface TokenInspectorData {
   address: Address;
