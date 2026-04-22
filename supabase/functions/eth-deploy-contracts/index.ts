@@ -59,6 +59,9 @@ Deno.serve(async (req) => {
   // v3: deploy PopShibaFeeVaultV3 + PopShibaLauncherV3 (Team Finance locking suite, optional lock).
   // Reuses existing PopShibaToken impl + CloneFactory; inserts NEW active row.
   const v3: boolean = body.v3 === true;
+  // v2burn: deploy PopShibaBurnLauncherV2 (Uniswap V2, auto-burn LP, NO fees).
+  // Reuses existing CloneFactory; no fee vault needed (LP is burned, no fees to collect).
+  const v2burn: boolean = body.v2burn === true;
   // checkOwnership: read CloneFactory.owner() and FeeVault.owner() — needed to verify launcher can call gated funcs.
   const checkOwnership: boolean = body.checkOwnership === true;
   // transferOwnership: send 2 txs — CloneFactory.transferOwnership(launcher) + FeeVault.transferOwnership(launcher).
