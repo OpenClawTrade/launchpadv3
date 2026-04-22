@@ -13,7 +13,8 @@ export interface HeldToken {
 
 interface BlockscoutTokenItem {
   token: {
-    address: string;
+    address?: string;
+    address_hash?: string;
     name: string | null;
     symbol: string | null;
     decimals: string | null;
@@ -44,11 +45,13 @@ async function fetchFromBlockscout(address: string): Promise<HeldToken[]> {
     const out: HeldToken[] = [];
     for (const item of j ?? []) {
       if (!item?.token || item.token.type !== "ERC-20") continue;
+      const tokenAddr = item.token.address || item.token.address_hash;
+      if (!tokenAddr) continue;
       const dec = Number(item.token.decimals ?? "18") || 18;
       const raw = BigInt(item.value || "0");
       if (raw === 0n) continue;
       out.push({
-        address: item.token.address,
+        address: tokenAddr,
         name: item.token.name || "Unknown",
         symbol: item.token.symbol || "???",
         decimals: dec,
