@@ -1856,6 +1856,36 @@
     render();
   })();
 
+  // Launcher version (V3 vs V2-burn) button wiring
+  (function(){
+    const opts = document.querySelectorAll('#versionPicker .ver-opt');
+    if (!opts.length) return;
+    function paintVer(){
+      opts.forEach(function(b){
+        b.style.background = (b.getAttribute('data-ver') === launcherVersion) ? 'var(--primary)' : '#fff';
+      });
+      // V2-burn skips Team Finance lock entirely — hide the lock toggle row and force lockLP off.
+      const lockRow = document.getElementById('lockLpToggle');
+      if (lockRow) lockRow.style.display = launcherVersion === 'v2burn' ? 'none' : '';
+      if (launcherVersion === 'v2burn' && lockLP) {
+        lockLP = false;
+        const check = document.getElementById('lockLpCheck');
+        const box   = document.getElementById('lockLpBox');
+        if (check) check.style.display = 'none';
+        if (box) box.style.background = '#fff';
+      }
+      recomputeEcon();
+    }
+    opts.forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        launcherVersion = b.getAttribute('data-ver') || 'v3';
+        paintVer();
+      });
+    });
+    paintVer();
+  })();
+
   if (devBuyInput) {
     devBuyInput.addEventListener('input', recomputeEcon);
     devBuyInput.addEventListener('blur', () => {
