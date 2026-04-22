@@ -118,14 +118,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const headerBlock = buildHeader(header);
-    const sourceWithHeader = headerBlock
-      ? PEPE_TOKEN_SOURCE.replace(/^(\/\/ SPDX-License-Identifier:[^\n]*\n)/, `$1${headerBlock}`)
-      : PEPE_TOKEN_SOURCE;
+    // IMPORTANT: do NOT mutate the source — Solidity embeds a metadata hash of the
+    // exact source bytes into deployed bytecode. Any header/comment injection breaks
+    // bytecode equality. The user-supplied `header` is intentionally ignored here.
+    void header;
+    void buildHeader;
 
     const standardJson = {
       language: "Solidity",
-      sources: { "PepeToken.sol": { content: sourceWithHeader } },
+      sources: { "PepeToken.sol": { content: PEPE_TOKEN_SOURCE } },
       settings: {
         evmVersion: "paris",
         optimizer: { enabled: true, runs: 200 },
