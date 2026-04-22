@@ -119,12 +119,13 @@ Deno.serve(async (req) => {
     }
 
     // ── Register the Uniswap V3 LP NFT so eth-collect-fees can find it. ──────
-    // Without this row, creator fees never accrue in eth_creator_fee_ledger.
+    // Burn launches have no claimable LP NFT and must NOT be inserted here.
     if (
       body.status === "live" &&
       data?.token_address &&
       data?.uniswap_pool_address &&
-      data?.lp_token_id
+      data?.lp_token_id &&
+      !isBurnLaunch
     ) {
       const { error: lpErr } = await supabase
         .from("eth_lp_positions")
