@@ -345,7 +345,7 @@ export function EthLpFeesPanel() {
                               <Button
                                 size="sm"
                                 onClick={() => sweepOne(p.tokenAddress)}
-                                disabled={isSweeping || isCollecting || (platOwedEmpty && uncollectedEmpty) || !adminSecret}
+                                disabled={isSweeping || isCollecting || (platOwedEmpty && uncollectedEmpty)}
                                 title="Collect + sweep platform share to main wallet"
                               >
                                 {isSweeping ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowDownToLine className="w-3 h-3" />}
