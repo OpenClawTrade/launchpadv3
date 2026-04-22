@@ -316,9 +316,14 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
         pushLog(`gas estimate failed: ${gErr?.shortMessage || gErr?.message || gErr}`);
       }
 
-      // 3. Send the tx
-      toast.info('Approve in your wallet', {
-        description: 'One signature deploys the token, creates the pool, seeds LP, and runs your dev buy.',
+      // 3. Send the tx — surface a persistent, very visible toast because some
+      // wallets (MetaMask extension when the editor iframe doesn't have focus,
+      // or hardware wallets behind another window) open their popup off-screen
+      // or behind the browser. The toast stays until txHash resolves.
+      const approveToastId = toast.loading('👉 Open your wallet and approve the launch', {
+        description:
+          "MetaMask / Rabby usually pops up. If you don't see it, click the wallet icon in your browser toolbar — the request is waiting there.",
+        duration: Infinity,
       });
       pushLog(
         `Sending writeContract → wallet should prompt now${gasLimit ? ` (gasLimit=${gasLimit})` : ''}${maxFeePerGas ? ` (maxFeePerGas=${maxFeePerGas}, maxPriorityFeePerGas=${maxPriorityFeePerGas ?? 0n})` : gasPrice ? ` (gasPrice=${gasPrice})` : ''}.`
