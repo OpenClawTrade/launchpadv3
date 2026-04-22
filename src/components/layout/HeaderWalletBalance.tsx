@@ -243,7 +243,7 @@ function HeaderWalletBalanceInner() {
               <MenuItem
                 icon={<Zap className="h-4 w-4" />}
                 label="Pulse"
-                onClick={() => { setMenuOpen(false); navigate("/trade"); }}
+                onClick={() => { setMenuOpen(false); navigate("/ape"); }}
               />
               <MenuItem
                 icon={<Crosshair className="h-4 w-4" />}
