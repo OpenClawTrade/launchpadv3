@@ -30,7 +30,8 @@ import {
   Rocket,
   Database,
   Skull,
-  AlertTriangle
+  AlertTriangle,
+  Coins
 } from "lucide-react";
 import {
   AlertDialog,
