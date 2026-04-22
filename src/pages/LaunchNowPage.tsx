@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { isAddress, parseEther, parseUnits, type Address } from "viem";
+import { isAddress, parseEther, parseUnits, formatUnits, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { Card } from "@/components/ui/card";
