@@ -39,6 +39,7 @@ type Market = {
   changeH24: number | null;
   liquidityUsd: number | null;
   pairUrl: string | null;
+  holders?: number | null;
 };
 
 type LauncherPrefill = {
