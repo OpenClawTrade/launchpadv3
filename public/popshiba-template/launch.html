@@ -1438,6 +1438,48 @@
   </div>
 </div>
 
+<!-- ===== TRACKER POPUP ===== -->
+<div class="sfm-popup" id="popup-tracker" data-popup-for="tracker">
+  <div class="sfm-popup-head">
+    <span class="np-head-icon tracker-hi">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h11l3 4"/><circle cx="17" cy="14" r="1.4" fill="currentColor"/></svg>
+    </span>
+    <span class="title">Wallet Tracker</span>
+    <span class="live-pill disc" id="trackerLivePill">NOT CONNECTED</span>
+    <span class="spacer"></span>
+    <button class="ico-btn" id="trackerExpand" title="Open full tracker">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H9M17 7v8"/></svg>
+    </button>
+  </div>
+  <div class="tracker-subtabs">
+    <button class="tracker-tab on">All</button>
+    <button class="tracker-tab">Manager</button>
+    <button class="tracker-tab">Trades</button>
+    <button class="tracker-tab">Monitor</button>
+  </div>
+  <div class="tracker-body">
+    <svg class="wallet-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h11l3 4"/><circle cx="17" cy="14" r="1.5"/></svg>
+    <div class="msg" id="trackerMsg">Connect to track wallets</div>
+    <button class="connect" id="trackerConnect">Connect Wallet</button>
+  </div>
+</div>
+
+<!-- ===== NEW PAIRS POPUP ===== -->
+<div class="sfm-popup" id="popup-newpairs" data-popup-for="newpairs">
+  <div class="sfm-popup-head">
+    <span class="np-head-icon">🚀</span>
+    <span class="title">New Pairs</span>
+    <span class="live-pill">LIVE</span>
+    <span class="spacer"></span>
+    <span class="np-chain-pill eth" title="Ethereum">◆</span>
+    <button class="ico-btn" id="npRefresh" title="Refresh">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5"/></svg>
+    </button>
+  </div>
+  <div class="np-list" id="npList"></div>
+  <div class="np-foot" id="npFoot">Open Pulse Terminal <span style="font-size:11px">↗</span></div>
+</div>
+
 <script>
   // ===== Live launches data =====
   const launches = [
