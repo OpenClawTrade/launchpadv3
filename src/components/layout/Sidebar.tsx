@@ -14,7 +14,7 @@ const LOGO_SRC = popshibaLogo;
 const NAV_LINKS: { to: string; label: string; icon: any; exact?: boolean; neonGreen?: boolean; comingSoon?: boolean; disabled?: boolean }[] = [
   { to: "/", label: "Home", icon: Home, exact: true },
   
-  { to: "/trade", label: "Pulse", icon: Zap },
+  { to: "/ape", label: "Pulse", icon: Zap },
   { to: "/tokens", label: "Tokens", icon: Coins },
   { to: "/launchpad", label: "Launchpad", icon: Rocket },
   { to: "/discover", label: "Discover", icon: TrendingUp },
