@@ -436,6 +436,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
         );
       } catch {}
     } finally {
+      if (approveToastId !== undefined) toast.dismiss(approveToastId);
       setIsLaunching(false);
     }
   }, [canLaunch, address, formData, walletClient, currentChainId, switchChainAsync, lpEthAmount, pushLog, lockLP, launcherVersion]);
