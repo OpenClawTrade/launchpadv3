@@ -185,6 +185,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
     setDiagLogs([]);
 
     let launchId: string | null = null;
+    let approveToastId: string | number | undefined;
     try {
       pushLog(`address=${address}  chainId(wagmi)=${currentChainId}  walletClient=${walletClient ? 'ready' : 'null'}`);
 
