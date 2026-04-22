@@ -361,7 +361,12 @@ export default function LaunchNowPage() {
         const bytecode = await pc.getBytecode({ address: token.address as Address });
         const runtime = bytecode ? String(bytecode).replace(/^0x/, "") : "";
         if (!cancelled) {
-          setIsVerifyCompatible(runtime === CURRENT_LAUNCHNOW_RUNTIME);
+          // Compare logical bytecode only — strip the per-compile metadata hash
+          // suffix from both sides so cosmetic differences (different ipfs hash,
+          // dependency paths, etc.) don't trigger a false negative.
+          const a = stripMetadata(runtime);
+          const b = stripMetadata(CURRENT_LAUNCHNOW_RUNTIME);
+          setIsVerifyCompatible(a.length > 0 && a === b);
         }
       } catch (error) {
         console.error("[verify-compat]", error);
