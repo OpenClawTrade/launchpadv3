@@ -283,7 +283,19 @@ export default function LaunchNowPage() {
     }
   };
 
-  const handleAddLp = async () => {
+  /* ---- Auto-derive token amount from % of total supply (LP helper) ---- */
+  useEffect(() => {
+    if (!lpAutoCalc || !token) return;
+    const pct = Number(lpPctOfSupply);
+    if (!(pct > 0) || pct > 100) return;
+    // tokens = totalSupply * pct / 100  (in whole tokens, formatted)
+    const whole = (token.totalSupply * BigInt(Math.round(pct * 1000))) / 100000n;
+    const formatted = formatUnits(whole, token.decimals);
+    // Trim trailing .000 if any
+    setLpTokenAmount(formatted.replace(/\.0+$/, ""));
+  }, [lpAutoCalc, lpPctOfSupply, token]);
+
+
     if (!walletClient || !address || !token) return;
     const tokenAmt = Number(lpTokenAmount);
     const ethAmt = Number(lpEthAmount);
