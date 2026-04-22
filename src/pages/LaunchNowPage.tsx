@@ -44,6 +44,7 @@ import {
   DEXSCREENER_URL,
   UNISWAP_ADD_URL,
 } from "@/lib/ethereum/launchControl";
+import { supabase } from "@/integrations/supabase/client";
 
 /* -------------------------------------------------------------------------- */
 /*                                Tiny helpers                                */
@@ -145,6 +146,10 @@ export default function LaunchNowPage() {
   const [deployHeader, setDeployHeader] = useState<string>(
     "// Launched with Popshiba — https://popshiba.com\n// Built different. Built on Ethereum.\n// gm."
   );
+  // Auto-verify status for the just-deployed contract
+  const [autoVerifyStatus, setAutoVerifyStatus] = useState<"idle" | "submitting" | "polling" | "ok" | "fail">("idle");
+  const [autoVerifyMsg, setAutoVerifyMsg] = useState<string>("");
+  const [autoVerifiedAddr, setAutoVerifiedAddr] = useState<string | null>(null);
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -285,6 +290,41 @@ export default function LaunchNowPage() {
         setActiveCA(ca);
         setTab("manage");
         setTimeout(() => refetchHeld(), 4000);
+
+        // 🔥 Auto-verify on Etherscan (fire-and-forget)
+        setAutoVerifiedAddr(ca);
+        setAutoVerifyStatus("submitting");
+        setAutoVerifyMsg("Waiting for Etherscan to index the contract…");
+        toast.info("Auto-verifying on Etherscan…");
+        (async () => {
+          try {
+            const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
+              body: {
+                tokenAddress: ca,
+                name,
+                symbol,
+                totalSupply: totalSupplyWei.toString(),
+                header: deployHeader,
+                waitForResult: true,
+              },
+            });
+            if (error) throw error;
+            if (data?.verified) {
+              setAutoVerifyStatus("ok");
+              setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
+              toast.success("Contract verified on Etherscan ✓");
+            } else {
+              setAutoVerifyStatus("fail");
+              setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
+              toast.error(`Auto-verify failed: ${data?.error || data?.message || "unknown"}`);
+            }
+          } catch (err: any) {
+            console.error("[auto-verify]", err);
+            setAutoVerifyStatus("fail");
+            setAutoVerifyMsg(err?.message || "Verification error");
+            toast.error(`Auto-verify error: ${err?.message || "unknown"}`);
+          }
+        })();
       } else {
         toast.warning("Deploy tx mined but no contract address found in receipt.");
       }
@@ -1063,36 +1103,75 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
             {/* Action grid */}
             <div className="grid gap-4">
               {/* 1. Verify */}
-              <ActionCard
-                title="1. Verify on Etherscan"
-                description="Makes your source code public so buyers trust the contract."
-                icon={ShieldCheck}
-                status={verifyState}
-                statusLabel={
-                  verifyState === "ok" ? "Verified" : verifyState === "pending" ? "Not verified" : "Unknown"
-                }
-              >
-                {verifyState === "ok" ? (
-                  <p className="text-sm text-muted-foreground">
-                    Source code is published.{" "}
-                    <a
-                      href={`${ETHERSCAN_ADDR(token.address)}#code`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      View on Etherscan
-                    </a>
-                  </p>
-                ) : (
-                  <Button asChild variant="outline">
-                    <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                      Open Etherscan verifier
-                    </a>
-                  </Button>
-                )}
-              </ActionCard>
+              {(() => {
+                const isJustDeployed =
+                  autoVerifiedAddr && token.address.toLowerCase() === autoVerifiedAddr.toLowerCase();
+                const showAutoStatus = isJustDeployed && autoVerifyStatus !== "idle" && verifyState !== "ok";
+                const cardStatus =
+                  verifyState === "ok"
+                    ? "ok"
+                    : showAutoStatus
+                    ? autoVerifyStatus === "ok"
+                      ? "ok"
+                      : autoVerifyStatus === "fail"
+                      ? "warn"
+                      : "pending"
+                    : verifyState;
+                const cardLabel =
+                  verifyState === "ok"
+                    ? "Verified"
+                    : showAutoStatus
+                    ? autoVerifyStatus === "ok"
+                      ? "Verified"
+                      : autoVerifyStatus === "fail"
+                      ? "Auto-verify failed"
+                      : autoVerifyStatus === "submitting"
+                      ? "Submitting…"
+                      : "Polling Etherscan…"
+                    : verifyState === "pending"
+                    ? "Not verified"
+                    : "Unknown";
+                return (
+                  <ActionCard
+                    title="1. Verify on Etherscan"
+                    description="Auto-runs right after deploy. Falls back to manual link if it fails."
+                    icon={ShieldCheck}
+                    status={cardStatus as any}
+                    statusLabel={cardLabel}
+                  >
+                    {verifyState === "ok" ? (
+                      <p className="text-sm text-muted-foreground">
+                        Source code is published.{" "}
+                        <a
+                          href={`${ETHERSCAN_ADDR(token.address)}#code`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline"
+                        >
+                          View on Etherscan
+                        </a>
+                      </p>
+                    ) : showAutoStatus && autoVerifyStatus !== "fail" ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{autoVerifyMsg || "Verifying…"}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {showAutoStatus && autoVerifyStatus === "fail" && (
+                          <p className="text-xs text-destructive font-mono break-all">{autoVerifyMsg}</p>
+                        )}
+                        <Button asChild variant="outline">
+                          <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                            Open Etherscan verifier
+                          </a>
+                        </Button>
+                      </div>
+                    )}
+                  </ActionCard>
+                );
+              })()}
 
               {/* 2. Add LP */}
               <ActionCard

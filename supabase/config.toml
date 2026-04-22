@@ -513,3 +513,6 @@ verify_jwt = false
 
 [functions.eth-rpc]
 verify_jwt = false
+
+[functions.pepe-verify-launchnow]
+verify_jwt = false
