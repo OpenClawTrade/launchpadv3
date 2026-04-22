@@ -39,6 +39,8 @@ interface DryRun {
   v3CanDeploy?: boolean;
   v2burnReady?: boolean;
   v2burnCanDeploy?: boolean;
+  v2feesReady?: boolean;
+  v2feesCanDeploy?: boolean;
   warning: string | null;
 }
 
