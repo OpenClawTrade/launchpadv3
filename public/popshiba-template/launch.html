@@ -1534,8 +1534,96 @@
     document.querySelectorAll('.ll-head .filter-tabs button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
   }));
-  // sticky footer pills
-  document.querySelectorAll('.sfm-pill').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+  // ===== Sticky footer pills: popup (Tracker/New Pairs), nav (Launch/Pulse), toggle (Stable) =====
+  function positionPopup(popup, trigger){
+    const r = trigger.getBoundingClientRect();
+    const w = popup.offsetWidth;
+    const vw = window.innerWidth;
+    let left = r.left;
+    if(left + w > vw - 10) left = vw - w - 10;
+    if(left < 10) left = 10;
+    popup.style.left = left + 'px';
+    popup.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+  }
+  function closePopups(){
+    document.querySelectorAll('.sfm-popup').forEach(p=>p.classList.remove('open'));
+    document.querySelectorAll('.sfm-pill').forEach(p=>p.classList.remove('popup-open'));
+  }
+  function openPopup(name, trigger){
+    closePopups();
+    const popup = document.getElementById('popup-'+name);
+    if(!popup) return;
+    popup.classList.add('open');
+    trigger.classList.add('popup-open');
+    positionPopup(popup, trigger);
+  }
+  document.querySelectorAll('.sfm-pill[data-popup]').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      const name = btn.dataset.popup;
+      if(btn.classList.contains('popup-open')){ closePopups(); return; }
+      openPopup(name, btn);
+    });
+  });
+  document.querySelectorAll('.sfm-pill[data-nav]').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      closePopups();
+      const to = btn.getAttribute('data-nav');
+      if(!to) return;
+      try { window.parent.postMessage({ source:'popshiba-template', type:'navigate', payload:{ to } }, '*'); } catch(_){}
+    });
+  });
+  document.querySelectorAll('.sfm-pill:not([data-popup]):not([data-nav])').forEach(b=>{
+    b.addEventListener('click',()=>b.classList.toggle('on'));
+  });
+  document.addEventListener('click',(e)=>{
+    if(!e.target.closest('.sfm-popup') && !e.target.closest('.sfm-pill[data-popup]')) closePopups();
+  });
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closePopups(); });
+  window.addEventListener('resize',()=>{
+    document.querySelectorAll('.sfm-popup.open').forEach(p=>{
+      const name = p.dataset.popupFor;
+      const trig = document.querySelector('.sfm-pill[data-popup="'+name+'"]');
+      if(trig) positionPopup(p, trig);
+    });
+  });
+  document.querySelectorAll('.tracker-tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tracker-tab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
+  }));
+  const _trkConnect = document.getElementById('trackerConnect');
+  if(_trkConnect) _trkConnect.addEventListener('click',()=>{
+    try {
+      if (typeof walletConnected !== 'undefined' && walletConnected) {
+        window.parent.postMessage({ source:'popshiba-template', type:'navigate', payload:{ to:'/x-tracker' } }, '*');
+      } else {
+        window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*');
+      }
+    } catch(_){}
+  });
+  const _trkExpand = document.getElementById('trackerExpand');
+  if(_trkExpand) _trkExpand.addEventListener('click',()=>{
+    try { window.parent.postMessage({ source:'popshiba-template', type:'navigate', payload:{ to:'/x-tracker' } }, '*'); } catch(_){}
+  });
+  const _npFoot = document.getElementById('npFoot');
+  if(_npFoot) _npFoot.addEventListener('click',()=>{
+    try { window.parent.postMessage({ source:'popshiba-template', type:'navigate', payload:{ to:'/ape' } }, '*'); } catch(_){}
+  });
+  const _newPairsData = [
+    {name:'froggy summer', sym:'$FROGGY', mc:'$4.2K', vol:'$677', time:'42s', chg:'+18%', up:true, color:'#8ed36c', letter:'🐸'},
+    {name:'boneapart', sym:'$BONE', mc:'$11.8K', vol:'$2K', time:'3m', chg:'+42%', up:true, color:'#e8c88a', letter:'🦴'},
+    {name:'monke nation', sym:'$MONKE', mc:'$38.4K', vol:'$22K', time:'12m', chg:'+156%', up:true, color:'#f5d84a', letter:'🍌'},
+    {name:'chart magnet', sym:'$MAG', mc:'$9.2K', vol:'$1K', time:'18m', chg:'-4%', up:false, color:'#cf5f5f', letter:'🧲'},
+    {name:'taco tuesday', sym:'$TACO', mc:'$62.1K', vol:'$48K', time:'24m', chg:'+288%', up:true, color:'#f5a524', letter:'🌮'},
+    {name:'disco shiba', sym:'$DISC', mc:'$14.7K', vol:'$2K', time:'31m', chg:'+22%', up:true, color:'#c08fe6', letter:'🪩'},
+    {name:'oracle of eth', sym:'$ORAC', mc:'$5.6K', vol:'$1', time:'44m', chg:'-12%', up:false, color:'#7b5dd9', letter:'🔮'},
+  ];
+  (function renderNewPairs(){
+    const host = document.getElementById('npList');
+    if(!host) return;
+    host.innerHTML = _newPairsData.map(p=>'<div class="np-row"><div class="np-ava" style="background:'+p.color+'">'+p.letter+'</div><div class="np-meta"><div class="np-name-row"><span class="np-name">'+p.name+'</span><span class="np-sym">'+p.sym+'</span></div><div class="np-stats"><span><span class="k">MC </span><span class="v">'+p.mc+'</span></span><span><span class="k">V </span><span class="v w">'+p.vol+'</span></span></div></div><div class="np-right"><span class="np-time">'+p.time+'</span><span class="np-chg '+(p.up?'up':'dn')+'">'+(p.up?'↗':'↘')+' '+p.chg+'</span></div></div>').join('');
+  })();
 
   // Live counters are populated by the React parent (real on-chain data
   // from eth_launch_requests + eth-batch-market). No fake interval here.
