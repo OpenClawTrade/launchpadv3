@@ -197,6 +197,15 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Deploy V3 (Team Finance — optional lock) {!dry.v3Ready && "— bytecode missing"}
               </Button>
+              <Button
+                onClick={() => deploy("v2burn")}
+                disabled={busy || !dry.v2burnCanDeploy}
+                variant="default"
+                title={dry.v2burnReady ? "Deploy fee-free V2-burn launcher (standalone)" : "V2-burn bytecode missing"}
+              >
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                Deploy V2-Burn (no fees · auto-burn LP) {!dry.v2burnReady && "— bytecode missing"}
+              </Button>
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
                 Force Redeploy ALL 4 (fixes user launches)
