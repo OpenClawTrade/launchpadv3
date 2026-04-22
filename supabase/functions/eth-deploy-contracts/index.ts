@@ -22,6 +22,10 @@ import {
   POPSHIBA_LAUNCHER_V3_BYTECODE,
   V3_BYTECODE_READY,
 } from "./v3_bytecode.ts";
+import { POPSHIBA_BURN_LAUNCHER_V2_BYTECODE } from "./v2burn_bytecode.ts";
+
+// V2-burn bytecode is always shipped (compiled in-tree). Treat as ready when non-empty.
+const V2BURN_BYTECODE_READY = POPSHIBA_BURN_LAUNCHER_V2_BYTECODE.length > 4;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
