@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
+import { useWalletTokens } from "@/hooks/useWalletTokens";
 import {
   ERC20_ABI,
   UNISWAP_V2_PAIR_ABI,
