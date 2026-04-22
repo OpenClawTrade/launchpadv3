@@ -30,6 +30,7 @@ import {
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
 import { useWalletTokens } from "@/hooks/useWalletTokens";
+import { useTokensLiquidity } from "@/hooks/useTokensLiquidity";
 import { PEPE_LIKE_ABI, PEPE_LIKE_BYTECODE } from "@/lib/ethereum/pepeLikeToken";
 import {
   ERC20_ABI,
@@ -238,6 +239,7 @@ export default function LaunchNowPage() {
 
   const { data: token, isLoading, refetch, isFetching } = useTokenInspector(activeCA, address);
   const { data: heldTokens, isLoading: heldLoading, refetch: refetchHeld } = useWalletTokens(address);
+  const { data: liquidityMap } = useTokensLiquidity(heldTokens?.map((t) => t.address));
   const [isVerifyCompatible, setIsVerifyCompatible] = useState<boolean | null>(null);
 
   // SEO + load Popshiba fonts (Archivo Black + Space Grotesk + JetBrains Mono)
