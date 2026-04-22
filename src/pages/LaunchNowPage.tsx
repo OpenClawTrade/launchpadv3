@@ -157,6 +157,31 @@ export default function LaunchNowPage() {
     return token.owner.toLowerCase() === address.toLowerCase();
   }, [token?.owner, address]);
 
+  const v2WethPool = useMemo(() => {
+    return (token?.allPools ?? []).find(
+      (pool) => pool.dex === "uniswap-v2" && pool.pairedWith === "WETH"
+    ) ?? null;
+  }, [token?.allPools]);
+
+  const setRulePairAddress = v2WethPool?.pairAddress ?? null;
+  const selectedV2PoolIsPrimary =
+    !!setRulePairAddress &&
+    !!token?.primaryPool?.pairAddress &&
+    token.primaryPool.pairAddress.toLowerCase() === setRulePairAddress.toLowerCase();
+  const knownV2PoolHasNoLiquidity =
+    !!setRulePairAddress && selectedV2PoolIsPrimary && (token?.reserveEth ?? 0n) === 0n;
+
+  const setRuleBlockedReason = useMemo(() => {
+    if (!token?.hasSetRule) return null;
+    if (!setRulePairAddress) {
+      return "No Uniswap V2 WETH pair found yet. If you call setRule now it can revert, or appear to succeed without actually opening trading.";
+    }
+    if (knownV2PoolHasNoLiquidity) {
+      return "A Uniswap V2 pair address exists, but its reserves are still zero. Fund the pool first, then open trading.";
+    }
+    return null;
+  }, [token?.hasSetRule, setRulePairAddress, knownV2PoolHasNoLiquidity]);
+
   /* -------------------------- Action: Verify (link out) ------------------ */
   const verifyState: "ok" | "pending" | "unknown" =
     token?.isVerified === true ? "ok" : token?.isVerified === false ? "pending" : "unknown";
@@ -224,7 +249,7 @@ export default function LaunchNowPage() {
         args: [
           token.address,
           tokensWei,
-          (tokensWei * 95n) / 100n, // 5% slippage
+          (tokensWei * 95n) / 100n,
           (ethWei * 95n) / 100n,
           address as Address,
           deadline,
@@ -250,14 +275,18 @@ export default function LaunchNowPage() {
   /* -------------------------- Action: setRule ---------------------------- */
   const [openingTrading, setOpeningTrading] = useState(false);
   const handleOpenTrading = async (limited: boolean) => {
-    if (!walletClient || !address || !token || !token.pairAddress) return;
+    if (!walletClient || !address || !token || !setRulePairAddress) {
+      if (setRuleBlockedReason) toast.error(setRuleBlockedReason);
+      return;
+    }
+    if (setRuleBlockedReason) {
+      toast.error(setRuleBlockedReason);
+      return;
+    }
     if (!(await ensureChain())) return;
     setOpeningTrading(true);
     try {
-      // Default: 2% max wallet when limited; unlimited when not.
-      const maxHolding = limited
-        ? (token.totalSupply * 2n) / 100n // 2%
-        : token.totalSupply; // effectively unlimited
+      const maxHolding = limited ? (token.totalSupply * 2n) / 100n : 0n;
 
       const hash = await walletClient.writeContract({
         account: address as Address,
@@ -265,7 +294,7 @@ export default function LaunchNowPage() {
         address: token.address,
         abi: ERC20_ABI,
         functionName: "setRule",
-        args: [limited, token.pairAddress, maxHolding, 0n],
+        args: [limited, setRulePairAddress, maxHolding, 0n],
       });
       toast.success(
         <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
@@ -590,8 +619,10 @@ export default function LaunchNowPage() {
                     : "pending"
                 }
                 statusLabel={
-                  token.primaryPool?.dex === "uniswap-v2"
+                  token.primaryPool?.dex === "uniswap-v2" && (token.reserveEth ?? 0n) > 0n
                     ? `V2 pool live · ${token.reserveEthFormatted} ETH`
+                    : token.primaryPool?.dex === "uniswap-v2"
+                    ? "V2 pair found, fund reserves"
                     : token.primaryPool?.dex === "uniswap-v3"
                     ? `V3 pool exists (${token.primaryPool.pairedWith})`
                     : "No pool yet"
@@ -635,25 +666,46 @@ export default function LaunchNowPage() {
                     </a>
                   </Button>
                 </div>
+                {token.primaryPool?.dex === "uniswap-v2" && (token.reserveEth ?? 0n) === 0n && (
+                  <p className="mt-3 text-xs text-destructive">
+                    A pair address exists, but reserves are still zero. Trading apps will still fail until you actually fund the pool with token + ETH.
+                  </p>
+                )}
               </ActionCard>
 
               {/* 3. setRule */}
               {token.hasSetRule && (
                 <ActionCard
                   title="3. Open trading (setRule)"
-                  description="Lifts the deploy-time anti-bot lock so people can buy."
+                  description="Uses the real Uniswap V2 pair address to lift the deploy-time anti-bot lock."
                   icon={Power}
-                  status="warn"
-                  statusLabel="Owner action"
+                  status={setRuleBlockedReason ? "warn" : "ok"}
+                  statusLabel={setRuleBlockedReason ? "Needs LP first" : "Ready"}
                 >
                   <p className="text-sm text-muted-foreground mb-3">
-                    Most anti-bot tokens use <code className="text-foreground">setRule(_limited, pair, maxHolding, 0)</code>.
-                    Choose:
+                    Most anti-bot tokens use <code className="text-foreground">setRule(_limited, pair, maxHolding, 0)</code>. This helper only enables it when a real Uniswap V2 WETH pair exists, so you don't accidentally pass a wrong pair and leave trading closed.
                   </p>
+                  {setRulePairAddress ? (
+                    <div className="mb-3 rounded-lg border border-border/40 bg-background/40 p-3 text-xs">
+                      <div className="text-muted-foreground uppercase tracking-wider mb-1">Detected V2 pair for setRule</div>
+                      <div className="flex items-center gap-2 font-mono">
+                        <span>{shortAddr(setRulePairAddress)}</span>
+                        <CopyBtn text={setRulePairAddress} />
+                        <a href={ETHERSCAN_ADDR(setRulePairAddress)} target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
+                  {setRuleBlockedReason && (
+                    <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                      {setRuleBlockedReason}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => handleOpenTrading(true)}
-                      disabled={!isConnected || openingTrading || !token.pairAddress || !isOwner}
+                      disabled={!isConnected || openingTrading || !!setRuleBlockedReason || !isOwner}
                     >
                       {openingTrading && <Loader2 className="h-4 w-4 animate-spin" />}
                       Open with 2% max wallet
@@ -661,13 +713,15 @@ export default function LaunchNowPage() {
                     <Button
                       variant="outline"
                       onClick={() => handleOpenTrading(false)}
-                      disabled={!isConnected || openingTrading || !token.pairAddress || !isOwner}
+                      disabled={!isConnected || openingTrading || !!setRuleBlockedReason || !isOwner}
                     >
                       Remove all limits
                     </Button>
                   </div>
-                  {!token.pairAddress && (
-                    <p className="text-xs text-destructive mt-2">Add liquidity first — setRule needs the pair address.</p>
+                  {!setRulePairAddress && (
+                    <p className="text-xs text-destructive mt-2">
+                      No Uniswap V2 WETH pair found. Add/fund LP first, then refresh and open trading.
+                    </p>
                   )}
                   {!isOwner && token.hasOwnerFn && !token.isRenounced && (
                     <p className="text-xs text-muted-foreground mt-2">Only the contract owner can call this.</p>
