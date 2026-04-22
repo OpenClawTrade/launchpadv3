@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Search,
   CheckCircle2,
@@ -23,6 +24,7 @@ import {
   Loader2,
   Copy,
   RefreshCw,
+  Rocket,
 } from "lucide-react";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
