@@ -20,6 +20,11 @@ export const ERC20_ABI = [
   { type: "function", name: "transfer", stateMutability: "nonpayable", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
   // Common ownable + anti-bot patterns:
   { type: "function", name: "renounceOwnership", stateMutability: "nonpayable", inputs: [], outputs: [] },
+  // Public state for the standard anti-bot pattern (used by /launchnow to show live status)
+  { type: "function", name: "limited", stateMutability: "view", inputs: [], outputs: [{ type: "bool" }] },
+  { type: "function", name: "uniswapV2Pair", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+  { type: "function", name: "maxHoldingAmount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "minHoldingAmount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   {
     type: "function",
     name: "setRule",

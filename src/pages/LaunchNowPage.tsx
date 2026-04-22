@@ -301,6 +301,8 @@ export default function LaunchNowPage() {
           {limited ? "Trading opened (with 2% max wallet)" : "Limits removed"} — view tx
         </a>
       );
+      // Re-read on-chain state so the page reflects the new limited / max-wallet values.
+      setTimeout(() => refetch(), 6000);
     } catch (e: any) {
       console.error("[setRule]", e);
       toast.error(e?.shortMessage || e?.message || "setRule failed");
@@ -674,17 +676,83 @@ export default function LaunchNowPage() {
               </ActionCard>
 
               {/* 3. setRule */}
-              {token.hasSetRule && (
+              {token.hasSetRule && (() => {
+                const limitedKnown = token.ruleLimited !== null;
+                const tradingOpen = limitedKnown && token.ruleLimited === false;
+                const tradingLimited = limitedKnown && token.ruleLimited === true;
+                const cardStatus: "ok" | "warn" | "pending" = tradingOpen
+                  ? "ok"
+                  : tradingLimited
+                  ? "warn"
+                  : setRuleBlockedReason
+                  ? "warn"
+                  : "pending";
+                const cardLabel = tradingOpen
+                  ? "Limits removed · trading open"
+                  : tradingLimited
+                  ? token.ruleMaxHoldingPercent != null
+                    ? `Limited · ${token.ruleMaxHoldingPercent.toFixed(2)}% max`
+                    : "Limited"
+                  : setRuleBlockedReason
+                  ? "Needs LP first"
+                  : "Ready";
+                return (
                 <ActionCard
                   title="3. Open trading (setRule)"
                   description="Uses the real Uniswap V2 pair address to lift the deploy-time anti-bot lock."
                   icon={Power}
-                  status={setRuleBlockedReason ? "warn" : "ok"}
-                  statusLabel={setRuleBlockedReason ? "Needs LP first" : "Ready"}
+                  status={cardStatus}
+                  statusLabel={cardLabel}
                 >
                   <p className="text-sm text-muted-foreground mb-3">
                     Most anti-bot tokens use <code className="text-foreground">setRule(_limited, pair, maxHolding, 0)</code>. This helper only enables it when a real Uniswap V2 WETH pair exists, so you don't accidentally pass a wrong pair and leave trading closed.
                   </p>
+
+                  {/* Live on-chain rule state */}
+                  {limitedKnown && (
+                    <div className="mb-3 grid sm:grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                        <div className="text-muted-foreground uppercase tracking-wider mb-1">limited()</div>
+                        <div className={tradingOpen ? "text-primary font-semibold" : "text-destructive font-semibold"}>
+                          {tradingOpen ? "false · open" : "true · limited"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                        <div className="text-muted-foreground uppercase tracking-wider mb-1">maxHoldingAmount</div>
+                        <div className="font-mono">
+                          {tradingOpen
+                            ? "—"
+                            : token.ruleMaxHoldingPercent != null
+                            ? `${token.ruleMaxHoldingPercent.toFixed(2)}% (${token.ruleMaxHoldingFormatted})`
+                            : token.ruleMaxHoldingFormatted ?? "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                        <div className="text-muted-foreground uppercase tracking-wider mb-1">uniswapV2Pair</div>
+                        <div className="font-mono flex items-center gap-1.5">
+                          {token.ruleConfiguredPair && token.ruleConfiguredPair !== "0x0000000000000000000000000000000000000000" ? (
+                            <>
+                              <span>{shortAddr(token.ruleConfiguredPair)}</span>
+                              <CopyBtn text={token.ruleConfiguredPair} />
+                              <a href={ETHERSCAN_ADDR(token.ruleConfiguredPair)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">unset</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Mismatch warning if the configured pair !== detected V2 WETH pair */}
+                  {limitedKnown && tradingLimited && setRulePairAddress && token.ruleConfiguredPair && token.ruleConfiguredPair !== "0x0000000000000000000000000000000000000000" && token.ruleConfiguredPair.toLowerCase() !== setRulePairAddress.toLowerCase() && (
+                    <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                      The pair stored on-chain ({shortAddr(token.ruleConfiguredPair)}) does not match the detected Uniswap V2 WETH pair ({shortAddr(setRulePairAddress)}). Trading apps will revert. Re-call setRule with the correct pair.
+                    </div>
+                  )}
+
                   {setRulePairAddress ? (
                     <div className="mb-3 rounded-lg border border-border/40 bg-background/40 p-3 text-xs">
                       <div className="text-muted-foreground uppercase tracking-wider mb-1">Detected V2 pair for setRule</div>
@@ -727,7 +795,8 @@ export default function LaunchNowPage() {
                     <p className="text-xs text-muted-foreground mt-2">Only the contract owner can call this.</p>
                   )}
                 </ActionCard>
-              )}
+                );
+              })()}
 
               {/* 4. Renounce */}
               {token.hasOwnerFn && (

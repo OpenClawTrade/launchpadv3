@@ -76,6 +76,12 @@ export interface TokenInspectorData {
   hasOwnerFn: boolean;
   // Anti-bot / setRule
   hasSetRule: boolean;
+  // Live setRule state (null when contract doesn't expose the getter)
+  ruleLimited: boolean | null;
+  ruleConfiguredPair: Address | null;
+  ruleMaxHoldingAmount: bigint | null;
+  ruleMaxHoldingFormatted: string | null;
+  ruleMaxHoldingPercent: number | null;
   // Primary pool (first one found, V2 WETH preferred)
   primaryPool: PoolInfo | null;
   allPools: PoolInfo[];
@@ -220,6 +226,38 @@ async function fetchInspector(
   const isRenounced = owner === "0x0000000000000000000000000000000000000000";
   const hasSetRule = setRuleProbe;
 
+  // Live setRule state — only meaningful when the contract exposes the public getters.
+  let ruleLimited: boolean | null = null;
+  let ruleConfiguredPair: Address | null = null;
+  let ruleMaxHoldingAmount: bigint | null = null;
+  if (hasSetRule) {
+    const [limitedRes, pairRes, maxRes] = await Promise.all([
+      client
+        .readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: "limited" })
+        .then((v: boolean) => v as boolean)
+        .catch(() => null),
+      client
+        .readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: "uniswapV2Pair" })
+        .then((v: Address) => v as Address)
+        .catch(() => null),
+      client
+        .readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: "maxHoldingAmount" })
+        .then((v: bigint) => v as bigint)
+        .catch(() => null),
+    ]);
+    ruleLimited = limitedRes;
+    ruleConfiguredPair = pairRes;
+    ruleMaxHoldingAmount = maxRes;
+  }
+  const ruleMaxHoldingFormatted =
+    ruleMaxHoldingAmount != null
+      ? Number(formatUnits(ruleMaxHoldingAmount, decimals)).toLocaleString()
+      : null;
+  const ruleMaxHoldingPercent =
+    ruleMaxHoldingAmount != null && totalSupply > 0n
+      ? Number((ruleMaxHoldingAmount * 10_000n) / totalSupply) / 100
+      : null;
+
   // Pick primary pool: prefer V2 WETH, then V3 WETH, then anything else.
   const sorted = [...pools].sort((a, b) => {
     const score = (p: PoolInfo) =>
@@ -282,6 +320,11 @@ async function fetchInspector(
     isRenounced,
     hasOwnerFn,
     hasSetRule,
+    ruleLimited,
+    ruleConfiguredPair,
+    ruleMaxHoldingAmount,
+    ruleMaxHoldingFormatted,
+    ruleMaxHoldingPercent,
     primaryPool: primary,
     allPools: pools,
     pairAddress: primary?.pairAddress ?? null,
