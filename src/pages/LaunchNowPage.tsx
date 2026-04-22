@@ -146,6 +146,10 @@ export default function LaunchNowPage() {
   const [deployHeader, setDeployHeader] = useState<string>(
     "// Launched with Popshiba — https://popshiba.com\n// Built different. Built on Ethereum.\n// gm."
   );
+  // Auto-verify status for the just-deployed contract
+  const [autoVerifyStatus, setAutoVerifyStatus] = useState<"idle" | "submitting" | "polling" | "ok" | "fail">("idle");
+  const [autoVerifyMsg, setAutoVerifyMsg] = useState<string>("");
+  const [autoVerifiedAddr, setAutoVerifiedAddr] = useState<string | null>(null);
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
