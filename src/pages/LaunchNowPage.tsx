@@ -290,6 +290,41 @@ export default function LaunchNowPage() {
         setActiveCA(ca);
         setTab("manage");
         setTimeout(() => refetchHeld(), 4000);
+
+        // 🔥 Auto-verify on Etherscan (fire-and-forget)
+        setAutoVerifiedAddr(ca);
+        setAutoVerifyStatus("submitting");
+        setAutoVerifyMsg("Waiting for Etherscan to index the contract…");
+        toast.info("Auto-verifying on Etherscan…");
+        (async () => {
+          try {
+            const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
+              body: {
+                tokenAddress: ca,
+                name,
+                symbol,
+                totalSupply: totalSupplyWei.toString(),
+                header: deployHeader,
+                waitForResult: true,
+              },
+            });
+            if (error) throw error;
+            if (data?.verified) {
+              setAutoVerifyStatus("ok");
+              setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
+              toast.success("Contract verified on Etherscan ✓");
+            } else {
+              setAutoVerifyStatus("fail");
+              setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
+              toast.error(`Auto-verify failed: ${data?.error || data?.message || "unknown"}`);
+            }
+          } catch (err: any) {
+            console.error("[auto-verify]", err);
+            setAutoVerifyStatus("fail");
+            setAutoVerifyMsg(err?.message || "Verification error");
+            toast.error(`Auto-verify error: ${err?.message || "unknown"}`);
+          }
+        })();
       } else {
         toast.warning("Deploy tx mined but no contract address found in receipt.");
       }
