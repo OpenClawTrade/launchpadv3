@@ -3,27 +3,6 @@
 <head>
 <meta charset="utf-8"/>
 <title>Popshiba — Trade $PUNK</title>
-<template id="__bundler_thumbnail" data-bg-color="#f5a524">
-  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1200" height="800" fill="#f5a524"/>
-    <!-- candle chart glyph -->
-    <g transform="translate(320,220)">
-      <rect x="0" y="0" width="560" height="360" fill="#0e0b08" stroke="#0e0b08" stroke-width="8"/>
-      <rect x="20" y="20" width="560" height="360" fill="none" stroke="#fff4dc" stroke-width="4" stroke-dasharray="12 10"/>
-      <g stroke-width="4">
-        <line x1="80"  y1="120" x2="80"  y2="260" stroke="#5ce68e"/><rect x="62"  y="150" width="36" height="80" fill="#5ce68e"/>
-        <line x1="160" y1="100" x2="160" y2="240" stroke="#5ce68e"/><rect x="142" y="130" width="36" height="80" fill="#5ce68e"/>
-        <line x1="240" y1="140" x2="240" y2="250" stroke="#e8605a"/><rect x="222" y="160" width="36" height="70" fill="#e8605a"/>
-        <line x1="320" y1="80"  x2="320" y2="210" stroke="#5ce68e"/><rect x="302" y="110" width="36" height="90" fill="#5ce68e"/>
-        <line x1="400" y1="60"  x2="400" y2="200" stroke="#5ce68e"/><rect x="382" y="80"  width="36" height="100" fill="#5ce68e"/>
-        <line x1="480" y1="110" x2="480" y2="230" stroke="#e8605a"/><rect x="462" y="130" width="36" height="80" fill="#e8605a"/>
-      </g>
-    </g>
-    <!-- title -->
-    <text x="600" y="150" font-family="Archivo Black, sans-serif" font-size="84" fill="#0e0b08" text-anchor="middle" letter-spacing="-4">TRADE</text>
-    <text x="600" y="660" font-family="JetBrains Mono, monospace" font-size="22" fill="#0e0b08" text-anchor="middle" letter-spacing="8">POPSHIBA · $PUNK</text>
-  </svg>
-</template>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -233,10 +212,310 @@
   .hr-bar::after{content:'';position:absolute;inset:0;background:var(--primary);width:var(--w,50%)}
 
   /* FOOTER */
-  footer{background:var(--ink);color:var(--cream);padding:40px 28px 24px;margin-top:30px}
+  footer{background:var(--ink);color:var(--cream);padding:40px 28px 84px;margin-top:30px}
   .foot{max-width:1440px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);flex-wrap:wrap}
   .foot .brand-f{display:flex;align-items:center;gap:10px;color:var(--primary);font-family:'Archivo Black',sans-serif;font-size:14px}
   .foot a:hover{color:var(--primary)}
+
+  /* STICKY FOOTER MENU */
+  .sfm{
+    position:fixed;left:0;right:0;bottom:0;z-index:200;
+    background:var(--ink);color:var(--cream);
+    border-top:2px solid var(--line);
+    box-shadow:0 -6px 24px rgba(0,0,0,0.35);
+  }
+  .sfm-inner{
+    max-width:1440px;margin:0 auto;
+    display:flex;align-items:center;gap:5px;
+    padding:7px 12px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  }
+  .sfm-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:6px 9px;
+    border:1.5px solid var(--line);
+    background:transparent;color:var(--cream);
+    letter-spacing:0.03em;
+    white-space:nowrap;cursor:pointer;
+    transition:all 0.15s;
+    flex-shrink:0;position:relative;
+  }
+  .sfm-pill:hover{border-color:var(--primary);color:var(--primary)}
+  .sfm-pill.on{
+    border-color:var(--primary);
+    color:var(--primary);
+    background:rgba(245,165,36,0.08);
+  }
+  .sfm-pill.on::before{
+    content:'';
+    width:6px;height:6px;border-radius:50%;
+    background:var(--primary);
+    box-shadow:0 0 8px var(--primary);
+    animation:sfmPulse 1.4s infinite;
+  }
+  /* popup-open state: bright outline, pill pops out above divider */
+  .sfm-pill.popup-open{
+    border-color:#d3ff3a;
+    color:#d3ff3a;
+    background:rgba(211,255,58,0.08);
+    box-shadow:0 0 0 2px rgba(211,255,58,0.15);
+  }
+  .sfm-pill.popup-open::before{background:#d3ff3a;box-shadow:0 0 8px #d3ff3a}
+  @keyframes sfmPulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+  .sfm-divider{
+    width:1px;height:20px;background:var(--line);margin:0 3px;flex-shrink:0;
+  }
+
+  .sfm-tick{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 6px;white-space:nowrap;
+    color:var(--muted);flex-shrink:0;
+  }
+  .sfm-tick .cx{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .sfm-tick .cx.btc{background:#f7931a}
+  .sfm-tick .cx.eth{background:#627eea}
+  .sfm-tick .cx.bnb{background:#f0b90b}
+  .sfm-tick .sym{color:var(--cream);font-weight:700}
+  .sfm-tick .px{color:var(--cream);font-weight:500}
+  .sfm-tick .chg{font-weight:700;letter-spacing:0.02em}
+  .sfm-tick .chg.up{color:var(--up)}
+  .sfm-tick .chg.dn{color:var(--down)}
+
+  .sfm-spacer{flex:1}
+
+  .sfm-action{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:6px 9px;
+    background:rgba(245,165,36,0.06);
+    border:1.5px solid var(--line);
+    color:var(--cream);
+    letter-spacing:0.03em;
+    white-space:nowrap;cursor:pointer;
+    transition:all 0.15s;
+    flex-shrink:0;
+  }
+  .sfm-action:hover{border-color:var(--primary);color:var(--primary);background:rgba(245,165,36,0.12)}
+  .sfm-action .ic{font-size:13px;line-height:1}
+  .sfm-action.accent{color:var(--primary);border-color:rgba(245,165,36,0.35)}
+
+  .sfm-ping{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 9px;
+    border:1.5px solid var(--up);
+    color:var(--up);
+    background:rgba(92,230,142,0.08);
+    white-space:nowrap;
+    letter-spacing:0.02em;
+    flex-shrink:0;
+  }
+  .sfm-ping .dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--up);
+    animation:sfmPulse 1.4s infinite;
+    box-shadow:0 0 6px var(--up);
+  }
+
+  @media(max-width:900px){
+    .sfm-inner{padding:7px 10px;font-size:11px;gap:6px}
+    .sfm-divider{margin:0 4px}
+  }
+
+  /* FOOTER POPUPS */
+  .sfm-popup{
+    position:fixed;
+    bottom:48px;
+    z-index:199;
+    width:420px;max-width:calc(100vw - 20px);
+    background:var(--ink);
+    border:1.5px solid var(--line);
+    color:var(--cream);
+    font-family:'Space Grotesk',sans-serif;
+    box-shadow:0 -8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(245,165,36,0.05);
+    display:none;
+    animation:sfmRise 0.18s ease-out;
+  }
+  .sfm-popup.open{display:block}
+  @keyframes sfmRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .sfm-popup.wide{width:420px}
+  .sfm-popup#popup-newpairs{width:460px}
+  .sfm-popup-head{
+    display:flex;align-items:center;gap:10px;
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+  }
+  .sfm-popup-head .title{
+    font-family:'Archivo Black',sans-serif;font-size:16px;
+    color:var(--cream);letter-spacing:-0.01em;
+    white-space:nowrap;
+  }
+  .sfm-popup-head .live-pill{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 7px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+    color:#d3ff3a;border:1.5px solid #d3ff3a;
+    letter-spacing:0.08em;
+  }
+  .sfm-popup-head .live-pill::before{
+    content:'';width:5px;height:5px;border-radius:50%;background:#d3ff3a;
+    box-shadow:0 0 6px #d3ff3a;animation:sfmPulse 1.4s infinite;
+  }
+  .sfm-popup-head .dot-g{
+    width:9px;height:9px;border-radius:50%;background:#5ce68e;
+    box-shadow:0 0 8px #5ce68e;flex-shrink:0;
+  }
+  .sfm-popup-head .ico-btn{
+    background:transparent;border:1.5px solid var(--line);
+    color:var(--muted);padding:6px;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;flex-shrink:0;
+    transition:all 0.15s;
+  }
+  .sfm-popup-head .ico-btn:hover{border-color:var(--primary);color:var(--primary)}
+  .sfm-popup-head .spacer{flex:1}
+
+  /* Tracker popup */
+  .tracker-logo{
+    width:28px;height:28px;border:1.5px solid var(--line);
+    display:inline-flex;align-items:center;justify-content:center;
+    color:var(--cream);flex-shrink:0;
+  }
+  .tracker-tabs{display:flex;gap:1px;margin-left:auto;flex-shrink:0}
+  .tracker-subtabs{
+    display:flex;gap:4px;
+    padding:8px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .tracker-tab{
+    padding:4px 8px;
+    font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;
+    color:var(--muted);background:transparent;border:1.5px solid transparent;cursor:pointer;
+    transition:all 0.15s;white-space:nowrap;flex-shrink:0;
+  }
+  .tracker-tab:hover{color:var(--cream)}
+  .tracker-tab.on{
+    color:#d3ff3a;
+    border:1.5px solid #d3ff3a;
+    background:rgba(211,255,58,0.08);
+  }
+  .tracker-body{
+    padding:36px 20px 32px;
+    display:flex;flex-direction:column;align-items:center;gap:14px;
+    text-align:center;
+  }
+  .tracker-body .wallet-ic{
+    width:48px;height:48px;color:var(--muted);opacity:0.5;
+  }
+  .tracker-body .msg{
+    color:var(--muted);font-size:14px;font-weight:500;
+  }
+  .tracker-body .connect{
+    padding:10px 22px;
+    background:#5ce68e;color:var(--ink);
+    border:none;cursor:pointer;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;
+    letter-spacing:0.02em;
+    transition:all 0.15s;
+  }
+  .tracker-body .connect:hover{background:#4dd67e;transform:translateY(-1px)}
+
+  /* New Pairs popup */
+  .np-head-icon{
+    width:32px;height:32px;
+    border:1.5px solid #d3ff3a;background:rgba(211,255,58,0.08);
+    display:inline-flex;align-items:center;justify-content:center;
+    color:#d3ff3a;font-size:16px;flex-shrink:0;
+  }
+  .np-head-icon.tracker-hi{
+    border-color:#5ce68e;background:rgba(92,230,142,0.08);color:#5ce68e;
+  }
+  .live-pill.disc{
+    color:var(--muted);border-color:var(--muted);
+  }
+  .live-pill.disc::before{
+    background:var(--muted);box-shadow:none;animation:none;
+  }
+  .np-chain-pill{
+    width:28px;height:28px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--line);
+    color:var(--cream);flex-shrink:0;
+    font-size:12px;
+  }
+  .np-chain-pill.eth{color:#627eea;border-color:#627eea}
+  .np-chain-pill.sol{color:#f5a524;border-color:#f5a524;background:rgba(245,165,36,0.08)}
+  .np-list{max-height:540px;overflow-y:auto;scrollbar-width:thin}
+  .np-list::-webkit-scrollbar{width:6px}
+  .np-list::-webkit-scrollbar-thumb{background:var(--line)}
+  .np-row{
+    display:grid;
+    grid-template-columns:40px 1fr auto;
+    gap:12px;align-items:center;
+    padding:10px 14px;
+    border-bottom:1px solid rgba(43,34,24,0.6);
+    position:relative;
+    cursor:pointer;
+    transition:background 0.15s;
+  }
+  .np-row:hover{background:rgba(245,165,36,0.03)}
+  .np-row:last-of-type{border-bottom:none}
+  .np-ava{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Archivo Black',sans-serif;font-size:13px;color:#fff;
+    flex-shrink:0;
+    border:1.5px solid rgba(255,255,255,0.1);
+    overflow:hidden;
+  }
+  .np-meta{min-width:0;position:relative;z-index:2}
+  .np-name-row{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+  .np-name{
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;
+    color:var(--cream);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;
+  }
+  .np-sym{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--muted);font-weight:600;
+  }
+  .np-stats{
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    color:var(--muted);display:flex;gap:12px;
+  }
+  .np-stats .k{color:var(--muted)}
+  .np-stats .v{color:var(--primary);font-weight:700}
+  .np-stats .v.w{color:var(--cream)}
+  .np-right{
+    display:flex;flex-direction:column;align-items:flex-end;gap:5px;
+    position:relative;z-index:2;
+  }
+  .np-time{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);
+  }
+  .np-chg{
+    display:inline-flex;align-items:center;gap:3px;
+    padding:3px 7px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+    border:1.5px solid;
+  }
+  .np-chg.up{color:#5ce68e;border-color:rgba(92,230,142,0.35);background:rgba(92,230,142,0.08)}
+  .np-chg.dn{color:#e8605a;border-color:rgba(232,96,90,0.35);background:rgba(232,96,90,0.08)}
+  /* background sparkline overlay */
+  .np-spark{
+    position:absolute;inset:0;
+    pointer-events:none;
+    z-index:1;opacity:0.55;
+  }
+  .np-spark svg{width:100%;height:100%;display:block}
+  .np-foot{
+    padding:14px;text-align:center;
+    border-top:1px solid var(--line);
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;
+    color:var(--primary);cursor:pointer;
+    transition:background 0.15s;
+  }
+  .np-foot:hover{background:rgba(245,165,36,0.05)}
 
   @media(max-width:1100px){
     .grid{grid-template-columns:1fr}
@@ -646,6 +925,70 @@
   </div>
 </footer>
 
+<!-- STICKY FOOTER MENU -->
+<div class="sfm">
+  <div class="sfm-inner">
+    <button class="sfm-pill" data-popup="tracker">Tracker</button>
+    <button class="sfm-pill" data-popup="newpairs">+ New Pairs</button>
+    <button class="sfm-pill">🚀 Launch</button>
+    <button class="sfm-pill">⚡ Pulse</button>
+
+    <span class="sfm-divider"></span>
+
+    <span class="sfm-tick"><span class="cx btc"></span><span class="sym">BTC</span><span class="px">$75,655</span><span class="chg up">+0.0%</span></span>
+    <span class="sfm-tick"><span class="cx eth"></span><span class="sym">ETH</span><span class="px">$2,312</span><span class="chg up">+0.1%</span></span>
+    <span class="sfm-tick"><span class="cx bnb"></span><span class="sym">BNB</span><span class="px">$628.57</span><span class="chg up">+0.0%</span></span>
+
+    <span class="sfm-spacer"></span>
+
+    <button class="sfm-pill on">Stable</button>
+    <span class="sfm-ping"><span class="dot"></span>Eth-E 50ms</span>
+  </div>
+</div>
+
+<!-- TRACKER POPUP -->
+<div class="sfm-popup wide" id="popup-tracker" data-popup-for="tracker">
+  <div class="sfm-popup-head">
+    <span class="np-head-icon tracker-hi">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h11l3 4"/><circle cx="17" cy="14" r="1.4" fill="currentColor"/></svg>
+    </span>
+    <span class="title">Wallet Tracker</span>
+    <span class="live-pill disc">NOT CONNECTED</span>
+    <span class="spacer"></span>
+    <button class="ico-btn" title="Expand">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H9M17 7v8"/></svg>
+    </button>
+  </div>
+  <div class="tracker-subtabs">
+    <button class="tracker-tab on">All</button>
+    <button class="tracker-tab">Manager</button>
+    <button class="tracker-tab">Trades</button>
+    <button class="tracker-tab">Monitor</button>
+  </div>
+  <div class="tracker-body">
+    <svg class="wallet-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7h18v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h11l3 4"/><circle cx="17" cy="14" r="1.5"/></svg>
+    <div class="msg">Connect to track wallets</div>
+    <button class="connect">Connect Wallet</button>
+  </div>
+</div>
+
+<!-- NEW PAIRS POPUP -->
+<div class="sfm-popup" id="popup-newpairs" data-popup-for="newpairs" style="">
+  <div class="sfm-popup-head">
+    <span class="np-head-icon">🚀</span>
+    <span class="title">New Pairs</span>
+    <span class="live-pill">LIVE</span>
+    <span class="spacer"></span>
+    <span class="np-chain-pill eth" title="Ethereum">◆</span>
+    <span class="np-chain-pill sol" title="Solana">◎</span>
+    <button class="ico-btn" title="Refresh">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16M3 21v-5h5"/></svg>
+    </button>
+  </div>
+  <div class="np-list" id="npList"></div>
+  <div class="np-foot">Open Pulse Terminal <span style="font-size:11px">↗</span></div>
+</div>
+
 <script>
   // Tab + chip toggles (visual only)
   document.querySelectorAll('.tabs .tab').forEach(t=>{
@@ -667,6 +1010,121 @@
   }));
   document.querySelectorAll('.tr-tab').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('.tr-tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  }));
+
+  // Sticky footer menu — pills with popups are handled below; Stable is a plain toggle
+  document.querySelectorAll('.sfm-pill:not([data-popup])').forEach(b=>b.addEventListener('click',()=>{
+    b.classList.toggle('on');
+  }));
+
+  // ===== New Pairs data + sparkline generation =====
+  const newPairs = [
+    {name:'Chicken Coin V2', sym:'$🐔CHCN2', mc:'$4K', vol:'$677', time:'3m', chg:'+0.7%', up:true, color:'#e78b5a', letter:'🐔'},
+    {name:'Hype Squirrel Le…', sym:'$🌑HSL', mc:'$7K', vol:'$2K', time:'6m', chg:'+1.7%', up:true, color:'#5a7dff', letter:'🌑'},
+    {name:'Make Aliens Gre…', sym:'$MAGA', mc:'$4K', vol:'$22K', time:'23m', chg:'+0.5%', up:true, color:'#b84d4d', letter:'M'},
+    {name:'ROIDSHIBAX6900', sym:'$RSX6900', mc:'$9K', vol:'$48K', time:'1h', chg:'+3.7%', up:true, color:'#2a2520', letter:'🚀'},
+    {name:'Make Aliens Gre…', sym:'$MAGA', mc:'$22K', vol:'$106K', time:'2h', chg:'+13.5%', up:true, color:'#7a4d3d', letter:'M'},
+    {name:'Asteroid Cat', sym:'$AsteroidCat', mc:'$6K', vol:'$2K', time:'2h', chg:'+4.5%', up:true, color:'#3ec2a4', letter:'As'},
+    {name:'Apollo USD', sym:'$APUSD', mc:'$5K', vol:'$1', time:'3h', chg:'-0.0%', up:false, color:'#6b3eff', letter:'AP'},
+  ];
+  function makeSpark(up){
+    // generate 40 points, roughly trending up or down, fill area
+    const N=40, h=60, w=440, pts=[];
+    let y = h*0.6 + (Math.random()-0.5)*8;
+    for(let i=0;i<N;i++){
+      const trend = up ? -0.35 : 0.25;
+      y += trend + (Math.random()-0.5)*6;
+      y = Math.max(8, Math.min(h-6, y));
+      pts.push([i*(w/(N-1)), y]);
+    }
+    const line = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    const area = line + ` L${w},${h} L0,${h} Z`;
+    const stroke = up ? '#5ce68e' : '#e8605a';
+    const fill = up ? 'rgba(92,230,142,0.12)' : 'rgba(232,96,90,0.12)';
+    return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <path d="${area}" fill="${fill}"/>
+      <path d="${line}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+  }
+  function renderNewPairs(){
+    const host = document.getElementById('npList');
+    if(!host) return;
+    host.innerHTML = newPairs.map(p=>`
+      <div class="np-row">
+        <div class="np-ava" style="background:${p.color}">${p.letter}</div>
+        <div class="np-meta">
+          <div class="np-name-row">
+            <span class="np-name">${p.name}</span>
+            <span class="np-sym">${p.sym}</span>
+          </div>
+          <div class="np-stats">
+            <span><span class="k">MC </span><span class="v">${p.mc}</span></span>
+            <span><span class="k">V </span><span class="v w">${p.vol}</span></span>
+          </div>
+        </div>
+        <div class="np-right">
+          <span class="np-time">${p.time}</span>
+          <span class="np-chg ${p.up?'up':'dn'}">${p.up?'↗':'↘'} ${p.chg}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+  renderNewPairs();
+
+  // ===== Popup positioning + open/close =====
+  function positionPopup(popup, trigger){
+    const r = trigger.getBoundingClientRect();
+    const w = popup.offsetWidth;
+    const vw = window.innerWidth;
+    // anchor left of popup = trigger left, but clamp within viewport (10px margin)
+    let left = r.left;
+    if(left + w > vw - 10) left = vw - w - 10;
+    if(left < 10) left = 10;
+    popup.style.left = left + 'px';
+    popup.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+  }
+  function openPopup(name, trigger){
+    document.querySelectorAll('.sfm-popup').forEach(p=>p.classList.remove('open'));
+    document.querySelectorAll('.sfm-pill').forEach(p=>p.classList.remove('popup-open'));
+    const popup = document.getElementById('popup-'+name);
+    if(!popup) return;
+    popup.classList.add('open');
+    trigger.classList.add('popup-open');
+    positionPopup(popup, trigger);
+  }
+  function closePopups(){
+    document.querySelectorAll('.sfm-popup').forEach(p=>p.classList.remove('open'));
+    document.querySelectorAll('.sfm-pill').forEach(p=>p.classList.remove('popup-open'));
+  }
+  document.querySelectorAll('.sfm-pill[data-popup]').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      const name = btn.dataset.popup;
+      const already = btn.classList.contains('popup-open');
+      if(already){ closePopups(); return; }
+      openPopup(name, btn);
+    });
+  });
+  // close on outside click
+  document.addEventListener('click',(e)=>{
+    if(!e.target.closest('.sfm-popup') && !e.target.closest('.sfm-pill[data-popup]')){
+      closePopups();
+    }
+  });
+  // close on ESC
+  document.addEventListener('keydown',(e)=>{ if(e.key==='Escape') closePopups(); });
+  // reposition on resize
+  window.addEventListener('resize',()=>{
+    document.querySelectorAll('.sfm-popup.open').forEach(p=>{
+      const name = p.dataset.popupFor;
+      const trig = document.querySelector(`.sfm-pill[data-popup="${name}"]`);
+      if(trig) positionPopup(p, trig);
+    });
+  });
+  // tracker tabs toggle
+  document.querySelectorAll('.tracker-tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tracker-tab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
   }));
 </script>
 
