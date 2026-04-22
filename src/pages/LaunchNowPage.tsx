@@ -446,6 +446,76 @@ export default function LaunchNowPage() {
           </p>
         </header>
 
+        {/* Wallet Panel */}
+        <Card className="bg-card/40 border-border/40 p-4 mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`h-2 w-2 rounded-full ${isConnected ? "bg-primary" : "bg-muted-foreground/40"}`} />
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {isConnected ? "Connected wallet" : "No wallet connected"}
+                </div>
+                {isConnected && address ? (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <code className="font-mono text-sm truncate">{shortAddr(address)}</code>
+                    <CopyBtn text={address} />
+                    <a
+                      href={ETHERSCAN_ADDR(address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="View on Etherscan"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <Badge variant="outline" className="ml-1 text-[10px]">
+                      {balance} ETH
+                    </Badge>
+                    {!isOnEthereum && (
+                      <Badge variant="destructive" className="text-[10px]">Wrong network</Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground mt-0.5">
+                    Connect to manage tokens you own.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {isConnected && !isOnEthereum && (
+                <Button size="sm" variant="outline" onClick={() => switchToEthereum()}>
+                  Switch to Ethereum
+                </Button>
+              )}
+              {isConnected ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => connect()}>
+                    Switch wallet
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      disconnect();
+                      setActiveCA(null);
+                      setCaInput("");
+                      logout?.();
+                    }}
+                  >
+                    <Power className="h-4 w-4" />
+                    Disconnect
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => connect()}>
+                  Connect wallet
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
         {/* Inspect Bar */}
         <Card className="bg-card/40 border-border/40 p-5 mb-6">
           <Label htmlFor="ca-input" className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -465,12 +535,6 @@ export default function LaunchNowPage() {
               Inspect
             </Button>
           </div>
-          {!isConnected && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Tip: <button onClick={connect} className="text-primary underline">connect your wallet</button> first
-              so we can show your LP holdings and enable owner-only actions.
-            </p>
-          )}
         </Card>
 
         {/* Loading */}
