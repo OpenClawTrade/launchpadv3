@@ -1251,6 +1251,21 @@
           Deeper LP = chart that survives real trading. $5 launches die in 20 minutes — that's a Solana problem, don't bring it here.
         </div>
 
+        <!-- Launcher version switcher: V3 (Team Finance lock) vs V2-burn (auto-burn LP, zero fees) -->
+        <div style="font-family:'Archivo Black',sans-serif;font-size:11px;letter-spacing:.06em;margin:4px 0 8px;color:var(--ink)">LAUNCHER VERSION</div>
+        <div id="versionPicker" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <button type="button" class="ver-opt" data-ver="v3"
+                  style="text-align:left;padding:10px 12px;border:2px solid var(--ink);background:var(--primary);cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:12px">Uniswap V3</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:4px;line-height:1.35">1% swap fee · you earn 50% forever · optional Team Finance LP lock</div>
+          </button>
+          <button type="button" class="ver-opt" data-ver="v2burn"
+                  style="text-align:left;padding:10px 12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:12px">Uniswap V2 · Burn LP</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:4px;line-height:1.35">Fair-launch · LP auto-burned to dead address · zero fees · all scanner ✅</div>
+          </button>
+        </div>
+
         <!-- LP seed selector (moved here from the left form column so economics + LP choice live as one) -->
         <div style="font-family:'Archivo Black',sans-serif;font-size:11px;letter-spacing:.06em;margin:4px 0 8px;color:var(--ink)">LP SEED SIZE</div>
         <div id="lpPresets" style="display:grid;grid-template-columns:1fr;gap:8px">
@@ -1740,6 +1755,9 @@
 
   const LOCKER_FEE_ETH = 0.045; // Team Finance LP lock fee (matches EthLauncher.tsx)
   let lockLP = false;
+  // Launcher version: 'v3' (default, Team Finance optional lock, 1% fee, creator earns 50%)
+  // or 'v2burn' (fair-launch, LP auto-burned, zero protocol fees, all scanner green checks).
+  let launcherVersion = 'v3';
 
   function recomputeEcon(){
     const devUsd = parseUsdInput(devBuyInput && devBuyInput.value);
@@ -1836,6 +1854,36 @@
     toggle.addEventListener('click', function(){ lockLP = !lockLP; render(); });
     toggle.addEventListener('keydown', function(e){ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); lockLP=!lockLP; render(); }});
     render();
+  })();
+
+  // Launcher version (V3 vs V2-burn) button wiring
+  (function(){
+    const opts = document.querySelectorAll('#versionPicker .ver-opt');
+    if (!opts.length) return;
+    function paintVer(){
+      opts.forEach(function(b){
+        b.style.background = (b.getAttribute('data-ver') === launcherVersion) ? 'var(--primary)' : '#fff';
+      });
+      // V2-burn skips Team Finance lock entirely — hide the lock toggle row and force lockLP off.
+      const lockRow = document.getElementById('lockLpToggle');
+      if (lockRow) lockRow.style.display = launcherVersion === 'v2burn' ? 'none' : '';
+      if (launcherVersion === 'v2burn' && lockLP) {
+        lockLP = false;
+        const check = document.getElementById('lockLpCheck');
+        const box   = document.getElementById('lockLpBox');
+        if (check) check.style.display = 'none';
+        if (box) box.style.background = '#fff';
+      }
+      recomputeEcon();
+    }
+    opts.forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        launcherVersion = b.getAttribute('data-ver') || 'v3';
+        paintVer();
+      });
+    });
+    paintVer();
   })();
 
   if (devBuyInput) {
@@ -2033,7 +2081,8 @@
       telegramUrl: socials[1] ? socials[1].value.trim() : '',
       websiteUrl: socials[2] ? socials[2].value.trim() : '',
       devBuyEth: devEthFromUsd(parseUsdInput(devBuyInput && devBuyInput.value)),
-      lockLP: lockLP,
+      lockLP: launcherVersion === 'v3' ? lockLP : false,
+      version: launcherVersion,
       imageDataUrl: aiImageDataUrl,
       lpEthAmount: currentLpEth(),
     };
