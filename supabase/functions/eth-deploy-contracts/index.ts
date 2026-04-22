@@ -23,9 +23,13 @@ import {
   V3_BYTECODE_READY,
 } from "./v3_bytecode.ts";
 import { POPSHIBA_BURN_LAUNCHER_V2_BYTECODE } from "./v2burn_bytecode.ts";
+import { compilePopShibaFeesLauncherV2 } from "./v2fees_compile.ts";
 
 // V2-burn bytecode is always shipped (compiled in-tree). Treat as ready when non-empty.
 const V2BURN_BYTECODE_READY = POPSHIBA_BURN_LAUNCHER_V2_BYTECODE.length > 4;
+// V2-fees compiles in-flight via solc — always considered ready (the deploy step
+// will surface a compile error if the source is broken).
+const V2FEES_READY = true;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
