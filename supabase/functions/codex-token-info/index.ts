@@ -22,18 +22,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { address, networkId = SOLANA_NETWORK_ID } = await req.json().catch(() => ({}));
-    
+    const body = await req.json().catch(() => ({}));
+    const rawAddress = body?.address;
+    const networkId = body?.networkId ?? SOLANA_NETWORK_ID;
+
     // Validate address: Solana base58 or EVM hex
-    const isSolanaAddr = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/.test(address || '');
-    const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(address || '');
-    
-    if (!address || typeof address !== "string" || (!isSolanaAddr && !isEvmAddr)) {
+    const isSolanaAddr = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/.test(rawAddress || '');
+    const isEvmAddr = /^0x[a-fA-F0-9]{40}$/.test(rawAddress || '');
+
+    if (!rawAddress || typeof rawAddress !== "string" || (!isSolanaAddr && !isEvmAddr)) {
       return new Response(
         JSON.stringify({ error: "Invalid address" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Codex requires lowercase for EVM addresses; Solana addresses are case-sensitive (keep as-is).
+    const address = isEvmAddr ? rawAddress.toLowerCase() : rawAddress;
 
     const requestedNetworkId = Number(networkId) || SOLANA_NETWORK_ID;
 
@@ -43,23 +48,32 @@ Deno.serve(async (req) => {
       : [requestedNetworkId];
 
     async function queryCodex(safeNetworkId: number) {
+      // Use filterTokens for BOTH metadata + market data. The standalone tokens(ids:)
+      // query has been unreliable for EVM addresses; filterTokens works for all chains
+      // and returns a nested `token` object with the same metadata fields.
       const query = `{
-  tokens(ids: [{ address: "${address}", networkId: ${safeNetworkId} }]) {
-    address
-    decimals
-    name
-    symbol
-    info { imageSmallUrl imageLargeUrl }
-    socialLinks { twitter website telegram discord }
-    launchpad { graduationPercent completed migrated }
-  }
   filterTokens(
     filters: { network: [${safeNetworkId}] }
-    rankings: { attribute: marketCap, direction: DESC }
     tokens: ["${address}"]
     limit: 1
   ) {
-    results { holders marketCap volume24 liquidity change24 priceUSD }
+    results {
+      holders
+      marketCap
+      volume24
+      liquidity
+      change24
+      priceUSD
+      token {
+        address
+        decimals
+        name
+        symbol
+        info { imageSmallUrl imageLargeUrl }
+        socialLinks { twitter website telegram discord }
+        launchpad { graduationPercent completed migrated }
+      }
+    }
   }
 }`;
       const res = await fetch("https://graph.codex.io/graphql", {
@@ -73,9 +87,10 @@ Deno.serve(async (req) => {
       }
       const data = await res.json();
       if (data.errors) console.error("Codex GraphQL errors:", JSON.stringify(data.errors));
+      const result = data?.data?.filterTokens?.results?.[0] ?? null;
       return {
-        tokenMeta: data?.data?.tokens?.[0] ?? null,
-        marketResult: data?.data?.filterTokens?.results?.[0] ?? null,
+        tokenMeta: result?.token ?? null,
+        marketResult: result ?? null,
         networkId: safeNetworkId,
       };
     }
