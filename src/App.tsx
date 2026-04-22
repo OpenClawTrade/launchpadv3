@@ -104,11 +104,10 @@ function RouteChainSync() {
   return null;
 }
 
-// `/` now serves the new Popshiba Launchpad (ported from popshiba-site/launch.html).
-// The previous landing is preserved at `/preview-old` and will be re-enabled
-// once the terminal/pulse pages are fully functional.
+// `/` serves the real React launcher page so launch UI updates land immediately.
+// The previous iframe-based landing is preserved at `/preview-old`.
 function DomainRoot() {
-  return <Suspense fallback={<RouteLoader />}><PopshibaLaunchpadPage /></Suspense>;
+  return <Suspense fallback={<RouteLoader />}><CreateTokenPage /></Suspense>;
 }
 
 // Minimal loading spinner for route transitions
