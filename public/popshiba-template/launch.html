@@ -2010,6 +2010,15 @@
     if (d.type === 'ai-meme-result')  { setAiLoading(false); applyAiResult(d.payload); }
     if (d.type === 'ai-meme-error')   { setAiLoading(false); applyAiError(d.error); }
     if (d.type === 'wallet-state')    { applyWalletState(d.payload); }
+    if (d.type === 'launch-aborted')  {
+      var btn = document.getElementById('popshibaLaunchBtn');
+      if (btn && btn.dataset.origHtml) {
+        btn.innerHTML = btn.dataset.origHtml;
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.cursor = '';
+      }
+    }
   });
 
   // ===== Wallet pill: connect / earnings bridge =====
