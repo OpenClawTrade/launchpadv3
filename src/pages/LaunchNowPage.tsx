@@ -506,35 +506,40 @@ export default function LaunchNowPage() {
               )}
 
               {/* Detected pools list (transparent diagnostics) */}
-              <div className="mt-4 rounded-lg bg-background/40 border border-border/40 p-3 text-xs">
-                <div className="text-muted-foreground uppercase tracking-wider mb-2">
-                  Liquidity scan ({token.allPools.length} pool{token.allPools.length === 1 ? "" : "s"} found)
-                </div>
-                {token.allPools.length === 0 ? (
-                  <p className="text-muted-foreground">
-                    Checked Uniswap V2 + V3 (0.01%, 0.05%, 0.3%, 1%) against WETH, USDC and USDT — no pool exists yet for this token.
-                  </p>
-                ) : (
-                  <ul className="space-y-1">
-                    {token.allPools.map((p) => (
-                      <li key={p.pairAddress} className="flex items-center gap-2 font-mono">
-                        <Badge variant="outline" className="text-[10px]">
-                          {p.dex === "uniswap-v2" ? "V2" : `V3 ${(p.feeTier ?? 0) / 10000}%`}
-                        </Badge>
-                        <span>{p.pairedWith}</span>
-                        <a
-                          href={ETHERSCAN_ADDR(p.pairAddress)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          {shortAddr(p.pairAddress)} <ExternalLink className="h-3 w-3 inline" />
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              {(() => {
+                const pools = token.allPools ?? [];
+                return (
+                  <div className="mt-4 rounded-lg bg-background/40 border border-border/40 p-3 text-xs">
+                    <div className="text-muted-foreground uppercase tracking-wider mb-2">
+                      Liquidity scan ({pools.length} pool{pools.length === 1 ? "" : "s"} found)
+                    </div>
+                    {pools.length === 0 ? (
+                      <p className="text-muted-foreground">
+                        Checked Uniswap V2 + V3 (0.01%, 0.05%, 0.3%, 1%) against WETH, USDC and USDT — no pool exists yet for this token.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {pools.map((p) => (
+                          <li key={p.pairAddress} className="flex items-center gap-2 font-mono">
+                            <Badge variant="outline" className="text-[10px]">
+                              {p.dex === "uniswap-v2" ? "V2" : `V3 ${(p.feeTier ?? 0) / 10000}%`}
+                            </Badge>
+                            <span>{p.pairedWith}</span>
+                            <a
+                              href={ETHERSCAN_ADDR(p.pairAddress)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              {shortAddr(p.pairAddress)} <ExternalLink className="h-3 w-3 inline" />
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
 
             </Card>
 
