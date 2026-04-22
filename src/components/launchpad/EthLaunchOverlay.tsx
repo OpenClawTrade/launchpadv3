@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Check, ExternalLink, Copy, Rocket, AlertCircle } from 'lucide-react';
+import { Loader2, Check, ExternalLink, Copy, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -15,10 +15,10 @@ interface Props {
 }
 
 /**
- * Full-screen launch status overlay. Always visible while a launch is in flight,
- * even when the parent (popshiba landing) hides the inline launcher UI. Gives
- * the user a clear "your coin is launching" signal between wallet approval and
- * the on-chain confirmation, then reveals the CA when the token goes live.
+ * Full-screen launch status overlay — PopShiba brand style.
+ * Pure mono terminal look: bg #0d0d0f, primary #80ff00 (lime), IBM Plex Mono.
+ * Uses inline styles so the look is identical whether rendered inside the
+ * Popshiba landing iframe (which has its own CSS) or the React app.
  */
 export function EthLaunchOverlay({
   isLaunching,
@@ -39,33 +39,33 @@ export function EthLaunchOverlay({
     else if (isLaunching) setStage((s) => (s === 'preparing' || s === 'signing' ? s : 'preparing'));
   }, [isLaunching, launchTxHash, isLive, errorMessage]);
 
-  // Soft auto-advance preparing → signing after a beat so the copy reads right
-  // for the user staring at their wallet popup.
   useEffect(() => {
     if (!isLaunching || stage !== 'preparing') return;
     const t = setTimeout(() => setStage((s) => (s === 'preparing' ? 'signing' : s)), 1800);
     return () => clearTimeout(t);
   }, [isLaunching, stage]);
 
-  // Render only while something interesting is happening
   const visible = isLaunching || isLive || !!errorMessage;
   if (!visible) return null;
 
   const headline =
     stage === 'failed' ? 'Launch failed' :
-    stage === 'live'   ? '🎉 Your coin is live!' :
+    stage === 'live'   ? '>> Your coin is live' :
     stage === 'mining' ? 'Your coin is launching…' :
     stage === 'signing'? 'Approve in your wallet' :
                          'Preparing your launch';
 
   const subline =
     stage === 'failed' ? errorMessage :
-    stage === 'live'   ? 'Pool seeded · LP secured · Tradeable now' :
-    stage === 'mining' ? 'Cloning the token, creating the Uniswap pool, and seeding LP. This usually confirms in 15–45s.' :
+    stage === 'live'   ? 'Pool seeded · LP burned · Tradeable now' :
+    stage === 'mining' ? 'Cloning the token, creating the Uniswap pool, seeding LP. Confirms in 15–45s.' :
     stage === 'signing'? "MetaMask / Rabby should be open. If you don't see it, click your wallet icon in the browser toolbar." :
                          'Fetching launcher parameters and simulating the transaction.';
 
   const finished = stage === 'live' || stage === 'failed';
+  const PRIMARY = '#80ff00';
+  const BG = '#0d0d0f';
+  const FONT = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
   const copyAddress = () => {
     if (!tokenAddress) return;
@@ -75,42 +75,108 @@ export function EthLaunchOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        fontFamily: FONT,
+      }}
       role="dialog"
       aria-live="polite"
-      aria-labelledby="eth-launch-overlay-title"
     >
-      <div className="w-full max-w-md rounded-2xl border border-border/60 bg-card shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 520,
+          background: BG,
+          border: `1px solid ${PRIMARY}`,
+          boxShadow: `0 0 0 1px ${PRIMARY}22, 0 30px 80px -20px ${PRIMARY}33`,
+          padding: 28,
+          color: '#e6e6e6',
+          fontFamily: FONT,
+          fontSize: 12,
+        }}
+      >
+        {/* Top bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: `1px solid ${PRIMARY}33`,
+            paddingBottom: 10,
+            marginBottom: 18,
+            color: PRIMARY,
+            fontSize: 10,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+          }}
+        >
+          <span>popshiba.exe</span>
+          <span style={{ opacity: 0.6 }}>{stage === 'failed' ? 'aborted' : finished ? 'ok' : 'running…'}</span>
+        </div>
+
         {/* Status icon */}
-        <div className="flex flex-col items-center text-center gap-3">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14 }}>
           {stage === 'failed' ? (
-            <div className="h-14 w-14 rounded-full bg-destructive/15 border border-destructive/60 flex items-center justify-center">
-              <AlertCircle className="h-7 w-7 text-destructive" />
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%',
+                border: '1px solid #ff5c5c', background: 'rgba(255,92,92,0.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <AlertCircle style={{ width: 28, height: 28, color: '#ff5c5c' }} />
             </div>
           ) : stage === 'live' ? (
-            <div className="h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/60 flex items-center justify-center">
-              <Check className="h-7 w-7 text-emerald-400" />
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%',
+                border: `1px solid ${PRIMARY}`, background: `${PRIMARY}22`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 24px ${PRIMARY}55`,
+              }}
+            >
+              <Check style={{ width: 28, height: 28, color: PRIMARY }} />
             </div>
           ) : (
-            <div className="h-14 w-14 rounded-full bg-primary/15 border border-primary/60 flex items-center justify-center">
-              {stage === 'mining' || stage === 'signing' ? (
-                <Loader2 className="h-7 w-7 animate-spin text-primary" />
-              ) : (
-                <Rocket className="h-7 w-7 text-primary" />
-              )}
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%',
+                border: `1px solid ${PRIMARY}`, background: `${PRIMARY}1a`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 24px ${PRIMARY}33`,
+              }}
+            >
+              <Loader2 style={{ width: 28, height: 28, color: PRIMARY }} className="animate-spin" />
             </div>
           )}
 
-          <div className="space-y-1">
-            <h2 id="eth-launch-overlay-title" className="text-xl font-bold tracking-tight">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <h2
+              style={{
+                fontFamily: FONT,
+                fontSize: 20,
+                fontWeight: 700,
+                color: PRIMARY,
+                letterSpacing: '-0.01em',
+                margin: 0,
+              }}
+            >
               {headline}
             </h2>
             {(name || ticker) && stage !== 'failed' && (
-              <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <div style={{ fontSize: 11, color: '#9a9a9a', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 {name}{ticker ? ` · $${ticker}` : ''}
               </div>
             )}
-            <p className="text-sm text-muted-foreground leading-relaxed pt-1">
+            <p style={{ fontSize: 12, color: '#bdbdbd', lineHeight: 1.6, marginTop: 6, marginBottom: 0 }}>
               {subline}
             </p>
           </div>
@@ -118,11 +184,11 @@ export function EthLaunchOverlay({
 
         {/* Stepper */}
         {stage !== 'failed' && (
-          <div className="space-y-2">
+          <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { id: 'signing',   label: 'Wallet approval' },
-              { id: 'mining',    label: 'Confirming on Ethereum' },
-              { id: 'live',      label: 'Token live · CA revealed' },
+              { id: 'signing',   label: '> wallet approval' },
+              { id: 'mining',    label: '> confirming on ethereum' },
+              { id: 'live',      label: '> token live · ca revealed' },
             ].map((step) => {
               const order = ['preparing', 'signing', 'mining', 'live'];
               const stepIdx = order.indexOf(step.id);
@@ -130,25 +196,25 @@ export function EthLaunchOverlay({
               const done = curIdx > stepIdx;
               const active = curIdx === stepIdx;
               return (
-                <div key={step.id} className="flex items-center gap-3 text-sm">
+                <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12 }}>
                   <div
-                    className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 border ${
-                      done
-                        ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-400'
-                        : active
-                        ? 'bg-primary/20 border-primary/60 text-primary'
-                        : 'bg-muted/40 border-border text-muted-foreground'
-                    }`}
+                    style={{
+                      width: 18, height: 18, flexShrink: 0,
+                      border: `1px solid ${done || active ? PRIMARY : '#333'}`,
+                      background: done ? `${PRIMARY}33` : active ? `${PRIMARY}1a` : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: done || active ? PRIMARY : '#666',
+                    }}
                   >
                     {done ? (
-                      <Check className="h-3 w-3" />
+                      <Check style={{ width: 11, height: 11 }} />
                     ) : active ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 style={{ width: 11, height: 11 }} className="animate-spin" />
                     ) : (
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'currentColor' }} />
                     )}
                   </div>
-                  <span className={done || active ? 'text-foreground' : 'text-muted-foreground'}>
+                  <span style={{ color: done || active ? '#e6e6e6' : '#7a7a7a', textTransform: 'lowercase', letterSpacing: '0.04em' }}>
                     {step.label}
                   </span>
                 </div>
@@ -163,37 +229,57 @@ export function EthLaunchOverlay({
             href={`https://etherscan.io/tx/${launchTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-center text-[11px] font-mono text-primary hover:underline"
+            style={{
+              display: 'block', textAlign: 'center', marginTop: 18,
+              fontSize: 11, color: PRIMARY, textDecoration: 'none',
+              borderTop: `1px dashed ${PRIMARY}44`, paddingTop: 12,
+            }}
           >
-            View transaction on Etherscan ↗
+            view tx on etherscan ↗
           </a>
         )}
 
         {/* CA reveal */}
         {tokenAddress && stage === 'live' && (
-          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-            <div className="text-[10px] uppercase tracking-wider text-emerald-300/80 font-semibold">
-              Contract Address
+          <div
+            style={{
+              marginTop: 20, padding: 14,
+              border: `1px solid ${PRIMARY}`, background: `${PRIMARY}10`,
+            }}
+          >
+            <div style={{ fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: PRIMARY, marginBottom: 8 }}>
+              contract address
             </div>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs font-mono text-emerald-100 break-all">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <code style={{ flex: 1, fontSize: 12, color: '#e6e6e6', wordBreak: 'break-all', fontFamily: FONT }}>
                 {tokenAddress}
               </code>
               <button
                 onClick={copyAddress}
-                className="shrink-0 h-8 w-8 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 flex items-center justify-center transition-colors"
-                title="Copy address"
+                style={{
+                  width: 32, height: 32, flexShrink: 0,
+                  background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}66`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: PRIMARY,
+                }}
+                title="Copy"
               >
-                <Copy className="h-3.5 w-3.5 text-emerald-300" />
+                <Copy style={{ width: 13, height: 13 }} />
               </button>
               <a
                 href={`https://etherscan.io/token/${tokenAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 h-8 px-2.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 flex items-center gap-1 text-[11px] font-semibold text-emerald-200 transition-colors"
+                style={{
+                  height: 32, padding: '0 10px', flexShrink: 0,
+                  background: `${PRIMARY}22`, border: `1px solid ${PRIMARY}66`,
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 600, color: PRIMARY, textDecoration: 'none',
+                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                }}
               >
-                Etherscan
-                <ExternalLink className="h-3 w-3" />
+                etherscan
+                <ExternalLink style={{ width: 11, height: 11 }} />
               </a>
             </div>
           </div>
@@ -203,14 +289,23 @@ export function EthLaunchOverlay({
         {finished && onClose && (
           <button
             onClick={onClose}
-            className="w-full mt-2 h-10 rounded-md bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors"
+            style={{
+              width: '100%', marginTop: 20, height: 44,
+              background: PRIMARY, color: '#0d0d0f',
+              border: 'none', cursor: 'pointer',
+              fontFamily: FONT, fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.12em', fontSize: 13,
+            }}
           >
-            {stage === 'live' ? 'View my token' : 'Close'}
+            {stage === 'live' ? 'view my token' : 'close'}
           </button>
         )}
         {!finished && (
-          <p className="text-[10px] text-center text-muted-foreground/60 font-mono uppercase tracking-wider">
-            Don't close this window
+          <p style={{
+            fontSize: 10, textAlign: 'center', marginTop: 18,
+            color: '#666', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 0,
+          }}>
+            don't close this window
           </p>
         )}
       </div>
