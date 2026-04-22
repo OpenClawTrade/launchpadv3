@@ -30,7 +30,8 @@ import {
   Rocket,
   Database,
   Skull,
-  AlertTriangle
+  AlertTriangle,
+  Coins
 } from "lucide-react";
 import {
   AlertDialog,
@@ -44,6 +45,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { EthContractsDeployPanel } from "@/components/admin/EthContractsDeployPanel";
+import { EthLpFeesPanel } from "@/components/admin/EthLpFeesPanel";
 
 const VERCEL_API_URL = "https://clawmode.vercel.app";
 const TREASURY_SECRET = "claw-treasury-2024";
@@ -590,8 +592,12 @@ export default function TreasuryAdminPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="fees" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+        <Tabs defaultValue="platform-fees" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+            <TabsTrigger value="platform-fees" className="flex items-center gap-2">
+              <Coins className="h-4 w-4" />
+              Platform Fees (V3)
+            </TabsTrigger>
             <TabsTrigger value="fees" className="flex items-center gap-2">
               <Wallet className="h-4 w-4" />
               Fee Recovery
@@ -602,13 +608,17 @@ export default function TreasuryAdminPage() {
             </TabsTrigger>
             <TabsTrigger value="base-deploy" className="flex items-center gap-2">
               <Rocket className="h-4 w-4" />
-              Base Deploy
+              Eth Contracts
             </TabsTrigger>
             <TabsTrigger value="alt-setup" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
               ALT Setup
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="platform-fees" className="mt-6">
+            <EthLpFeesPanel />
+          </TabsContent>
 
           <TabsContent value="base-deploy" className="mt-6">
             <EthContractsDeployPanel />
