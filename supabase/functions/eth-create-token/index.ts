@@ -120,6 +120,8 @@ Deno.serve(async (req) => {
         success: false,
         error: requestedVersion === "v2burn"
           ? "No active V2-burn launcher deployed. Admin must deploy it from the contracts panel."
+          : requestedVersion === "v2fees"
+          ? "No active V2-fees launcher deployed. Admin must deploy it from the contracts panel."
           : "No active V3 launcher deployment found. Admin must deploy the contract suite first.",
       }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
