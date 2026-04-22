@@ -76,6 +76,12 @@ export interface TokenInspectorData {
   hasOwnerFn: boolean;
   // Anti-bot / setRule
   hasSetRule: boolean;
+  // Live setRule state (null when contract doesn't expose the getter)
+  ruleLimited: boolean | null;
+  ruleConfiguredPair: Address | null;
+  ruleMaxHoldingAmount: bigint | null;
+  ruleMaxHoldingFormatted: string | null;
+  ruleMaxHoldingPercent: number | null;
   // Primary pool (first one found, V2 WETH preferred)
   primaryPool: PoolInfo | null;
   allPools: PoolInfo[];
