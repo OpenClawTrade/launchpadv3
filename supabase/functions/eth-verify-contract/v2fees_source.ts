@@ -1,12 +1,6 @@
-// In-flight Solidity compilation for the V2-Fees launcher.
-// Mirrors the bnb-deploy-portal pattern: fetch soljson from binaries.soliditylang.org,
-// instantiate it in a Function() sandbox, run solidity_compile, return the bytecode + abi.
-//
-// We compile on-demand (only when the v2fees deploy button is clicked) so we don't
-// have to ship large precompiled bytecode for this variant — the Solidity source is
-// the source of truth and we can iterate without an offline compile step.
-
-const SOLC_URL = "https://binaries.soliditylang.org/bin/soljson-v0.8.20+commit.a1b79de6.js";
+// Source-only copy of the V2-Fees launcher Solidity for Etherscan verification.
+// Kept in this function's directory because Supabase edge functions cannot
+// import from sibling function folders during bundling.
 
 export const POPSHIBA_FEES_LAUNCHER_V2_SOURCE = `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
@@ -245,54 +239,3 @@ contract PopShibaFeesLauncherV2 {
     receive() external payable {}
 }
 `;
-
-let cachedSolc: any = null;
-
-async function loadSolc(): Promise<any> {
-  if (cachedSolc) return cachedSolc;
-  console.log("[v2fees-compile] fetching soljson...");
-  const t0 = Date.now();
-  const resp = await fetch(SOLC_URL);
-  if (!resp.ok) throw new Error(`Failed to fetch soljson: HTTP ${resp.status}`);
-  const code = await resp.text();
-  console.log(`[v2fees-compile] soljson fetched in ${Date.now() - t0}ms`);
-
-  const moduleObj: any = { exports: {} };
-  const fn = new Function("module", "exports", "require", code + "\n//# sourceURL=soljson.js");
-  fn(moduleObj, moduleObj.exports, () => ({}));
-  if (!moduleObj.exports?.cwrap) throw new Error("soljson init failed (no cwrap)");
-  cachedSolc = moduleObj.exports;
-  return cachedSolc;
-}
-
-export async function compilePopShibaFeesLauncherV2(): Promise<{ abi: any[]; bytecode: `0x${string}` }> {
-  const solc = await loadSolc();
-  const compile = solc.cwrap("solidity_compile", "string", ["string", "number", "number"]);
-
-  const input = JSON.stringify({
-    language: "Solidity",
-    sources: { "PopShibaFeesLauncherV2.sol": { content: POPSHIBA_FEES_LAUNCHER_V2_SOURCE } },
-    settings: {
-      optimizer: { enabled: true, runs: 200 },
-      evmVersion: "paris",
-      outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
-    },
-  });
-
-  const t1 = Date.now();
-  const output = JSON.parse(compile(input, 0, 0));
-  console.log(`[v2fees-compile] solidity_compile done in ${Date.now() - t1}ms`);
-
-  if (output.errors) {
-    const errors = output.errors.filter((e: any) => e.severity === "error");
-    if (errors.length > 0) {
-      throw new Error(`Compilation errors:\n${errors.map((e: any) => e.formattedMessage || e.message).join("\n")}`);
-    }
-  }
-
-  const c = output.contracts?.["PopShibaFeesLauncherV2.sol"]?.["PopShibaFeesLauncherV2"];
-  if (!c) throw new Error("PopShibaFeesLauncherV2 not found in compiler output");
-  const bytecodeHex = c.evm?.bytecode?.object;
-  if (!bytecodeHex || bytecodeHex.length < 100) throw new Error("Invalid bytecode from compiler");
-  return { abi: c.abi, bytecode: `0x${bytecodeHex}` as `0x${string}` };
-}
