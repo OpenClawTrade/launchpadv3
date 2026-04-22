@@ -203,6 +203,8 @@ export default function LaunchNowPage() {
   /* -------------------------- Action: Add LP ----------------------------- */
   const [lpTokenAmount, setLpTokenAmount] = useState("");
   const [lpEthAmount, setLpEthAmount] = useState("");
+  const [lpPctOfSupply, setLpPctOfSupply] = useState<string>("80"); // % of total supply to seed
+  const [lpAutoCalc, setLpAutoCalc] = useState<boolean>(true); // auto-derive token amount from % of supply
   const [addingLp, setAddingLp] = useState(false);
 
   const ensureChain = async (): Promise<boolean> => {
