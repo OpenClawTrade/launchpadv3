@@ -1754,7 +1754,10 @@
     if (devEthEqEl) devEthEqEl.textContent = fmtEth(dev);
     if (buyAmtEl)   buyAmtEl.textContent = fmtEth(dev);
     const lockFee = lockLP ? LOCKER_FEE_ETH : 0;
-    if (totalCostEl) totalCostEl.textContent = '≈ ' + (lpEth + dev + lockFee).toFixed(4) + ' ETH';
+    const totalEth = lpEth + dev + lockFee;
+    if (totalCostEl) totalCostEl.textContent = '≈ ' + totalEth.toFixed(4) + ' ETH';
+    const totalUsdEl = document.getElementById('total-cost-usd');
+    if (totalUsdEl) totalUsdEl.textContent = ethUsd > 0 ? '≈ ' + fmtUsd0(totalEth * ethUsd) : '≈ $—';
     if (devBuyHintEl) devBuyHintEl.textContent = 'optional · max ' + fmtUsd0(MAX_DEV_USD);
     const feeRow = document.getElementById('lockerFeeRow');
     if (feeRow) feeRow.style.display = lockLP ? '' : 'none';
