@@ -184,6 +184,14 @@ function injectTopTokens(
     card.setAttribute("target", "_top");
     card.style.textDecoration = "none";
     card.style.color = "inherit";
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    });
     card.innerHTML = `
       <div class="top">
         <div class="av" style="background:${bg};overflow:hidden">${imageHTML}</div>
