@@ -433,10 +433,17 @@ export default function ApePage() {
                     <button
                       key={q}
                       className={`${styles.amtChip} ${amount === q ? styles.on : ""}`}
-                      onClick={() => setAmount(q === "MAX" ? amount : q)}
+                      onClick={() => setAmountChip(q)}
                     >{q}</button>
                   ))}
                 </div>
+                {isEvm && evmAddress && (
+                  <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
+                    Balance: {side === "buy"
+                      ? `${nativeBal.toFixed(4)} ${nativeSym}`
+                      : `${fmtCount(tokenBal)} ${symbol}`}
+                  </div>
+                )}
               </div>
 
               <div className={styles.bpSection}>
