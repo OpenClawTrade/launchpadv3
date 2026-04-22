@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Search,
   CheckCircle2,
@@ -23,10 +24,12 @@ import {
   Loader2,
   Copy,
   RefreshCw,
+  Rocket,
 } from "lucide-react";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
 import { useTokenInspector } from "@/hooks/useTokenInspector";
 import { useWalletTokens } from "@/hooks/useWalletTokens";
+import { PEPE_LIKE_ABI, PEPE_LIKE_BYTECODE } from "@/lib/ethereum/pepeLikeToken";
 import {
   ERC20_ABI,
   UNISWAP_V2_PAIR_ABI,
@@ -127,8 +130,17 @@ function ActionCard({ title, description, icon: Icon, status, statusLabel, child
 /* -------------------------------------------------------------------------- */
 
 export default function LaunchNowPage() {
+  const [tab, setTab] = useState<"manage" | "launch">("manage");
   const [caInput, setCaInput] = useState("");
   const [activeCA, setActiveCA] = useState<string | null>(null);
+
+  // ---- Launch (deploy new token) state ----
+  const [deployName, setDeployName] = useState("");
+  const [deploySymbol, setDeploySymbol] = useState("");
+  const [deploySupply, setDeploySupply] = useState("420690000000000"); // PEPE-style default (whole tokens, 18d)
+  const [deploying, setDeploying] = useState(false);
+  const [lastDeployedCA, setLastDeployedCA] = useState<string | null>(null);
+  const [lastDeployTx, setLastDeployTx] = useState<string | null>(null);
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -203,6 +215,70 @@ export default function LaunchNowPage() {
       }
     }
     return true;
+  };
+
+  /* ----------------------- Action: Deploy new token ---------------------- */
+  const handleDeploy = async () => {
+    if (!walletClient || !address) {
+      toast.error("Connect a wallet first");
+      return;
+    }
+    const name = deployName.trim();
+    const symbol = deploySymbol.trim();
+    const supplyStr = deploySupply.trim();
+    if (!name || name.length > 32) { toast.error("Enter a name (1–32 chars)"); return; }
+    if (!symbol || symbol.length > 12) { toast.error("Enter a symbol (1–12 chars)"); return; }
+    let supplyWhole: bigint;
+    try {
+      supplyWhole = BigInt(supplyStr.replace(/[, _]/g, ""));
+      if (supplyWhole <= 0n) throw new Error("supply must be > 0");
+    } catch {
+      toast.error("Supply must be a whole number > 0");
+      return;
+    }
+    if (!(await ensureChain())) return;
+
+    setDeploying(true);
+    setLastDeployedCA(null);
+    setLastDeployTx(null);
+    try {
+      const totalSupplyWei = supplyWhole * 10n ** 18n;
+      toast.info("Confirm the deploy in your wallet…");
+      const hash = await walletClient.deployContract({
+        account: address as Address,
+        chain: mainnet,
+        abi: PEPE_LIKE_ABI as any,
+        bytecode: PEPE_LIKE_BYTECODE,
+        args: [name, symbol, totalSupplyWei],
+      } as any);
+      setLastDeployTx(hash);
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Deploy submitted — view tx
+        </a>
+      );
+      // Wait for receipt to grab the contract address.
+      const { createPublicClient, http } = await import("viem");
+      const pc = createPublicClient({ chain: mainnet, transport: http() });
+      const receipt = await pc.waitForTransactionReceipt({ hash });
+      const ca = receipt.contractAddress;
+      if (ca) {
+        setLastDeployedCA(ca);
+        toast.success(`Deployed at ${ca.slice(0, 10)}…`);
+        // Auto-load it into the Manage tab.
+        setCaInput(ca);
+        setActiveCA(ca);
+        setTab("manage");
+        setTimeout(() => refetchHeld(), 4000);
+      } else {
+        toast.warning("Deploy tx mined but no contract address found in receipt.");
+      }
+    } catch (e: any) {
+      console.error("[deploy]", e);
+      toast.error(e?.shortMessage || e?.message || "Deploy failed");
+    } finally {
+      setDeploying(false);
+    }
   };
 
   const handleAddLp = async () => {
@@ -441,10 +517,10 @@ export default function LaunchNowPage() {
             Token Finalizer · Helper
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Finalize your already-deployed ETH token
+            Launch &amp; manage your ETH token
           </h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
-            This is a <strong>helper page</strong> for tokens you've <strong>already deployed</strong> (e.g. via Remix). Paste the contract address and we'll detect what's still needed — verify, add liquidity, open trading, renounce, burn or remove LP — and walk you through each step with MetaMask. <em>This page does not deploy new tokens.</em>
+            One control center for ERC-20s on Ethereum Mainnet. <strong>Launch new token</strong> deploys a PEPE-style contract (Ownable + setRule + blacklist + burn) straight from your wallet. <strong>Manage existing</strong> detects what's still needed for any token you own — verify, add liquidity, open trading, renounce, burn or remove LP — and walks you through each step with MetaMask.
           </p>
         </header>
 
@@ -518,6 +594,141 @@ export default function LaunchNowPage() {
           </div>
         </Card>
 
+        {/* Tabs: Manage existing | Launch new */}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "manage" | "launch")} className="mb-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="manage" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Manage existing
+            </TabsTrigger>
+            <TabsTrigger value="launch" className="flex items-center gap-2">
+              <Rocket className="h-4 w-4" />
+              Launch new token
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="launch" className="mt-4">
+            <Card className="bg-card/40 border-border/40 p-5">
+              <div className="mb-4">
+                <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                  <Rocket className="h-5 w-5 text-primary" />
+                  Deploy a new ERC-20 (PepeToken-style)
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Same contract pattern as the popular PEPE launches: <strong>Ownable</strong> + <strong>setRule</strong> (anti-bot max wallet) + <strong>blacklist</strong> + <strong>burn</strong>. After deploy, the token lands directly into the Manage tab so you can add LP, open trading, renounce, and burn LP from the same page.
+                </p>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="d-name" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Token name
+                  </Label>
+                  <Input
+                    id="d-name"
+                    placeholder="e.g. Popshiba"
+                    value={deployName}
+                    onChange={(e) => setDeployName(e.target.value)}
+                    className="mt-1 bg-background/50"
+                    maxLength={32}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="d-symbol" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Ticker / symbol
+                  </Label>
+                  <Input
+                    id="d-symbol"
+                    placeholder="e.g. POPSHIBA"
+                    value={deploySymbol}
+                    onChange={(e) => setDeploySymbol(e.target.value.toUpperCase())}
+                    className="mt-1 bg-background/50 font-mono"
+                    maxLength={12}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="d-supply" className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Total supply (whole tokens — 18 decimals applied automatically)
+                  </Label>
+                  <Input
+                    id="d-supply"
+                    placeholder="420690000000000"
+                    value={deploySupply}
+                    onChange={(e) => setDeploySupply(e.target.value.replace(/[^\d]/g, ""))}
+                    className="mt-1 bg-background/50 font-mono"
+                    inputMode="numeric"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    {[
+                      { label: "1B", v: "1000000000" },
+                      { label: "1T", v: "1000000000000" },
+                      { label: "PEPE-style 420.69T", v: "420690000000000" },
+                    ].map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => setDeploySupply(p.v)}
+                        className="px-2 py-1 rounded border border-border/40 hover:border-primary/40 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-lg bg-background/40 border border-border/40 p-3 text-xs text-muted-foreground space-y-1">
+                <div>• Contract owner = your connected wallet.</div>
+                <div>• Trading is locked until you set a Uniswap V2 pair via <code>setRule</code> (built into Manage tab).</div>
+                <div>• Solidity 0.8.20, optimizer on (200 runs). Verify from the Manage tab after deploy.</div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleDeploy}
+                  disabled={deploying || !isConnected || !deployName.trim() || !deploySymbol.trim() || !deploySupply.trim()}
+                  size="lg"
+                >
+                  {deploying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deploying…
+                    </>
+                  ) : (
+                    <>
+                      <Rocket className="h-4 w-4" />
+                      Deploy token
+                    </>
+                  )}
+                </Button>
+                {!isConnected && (
+                  <span className="text-xs text-muted-foreground">Connect a wallet first.</span>
+                )}
+                {lastDeployTx && (
+                  <a
+                    href={ETHERSCAN_TX(lastDeployTx)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline inline-flex items-center gap-1"
+                  >
+                    Last deploy tx <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {lastDeployedCA && (
+                  <a
+                    href={ETHERSCAN_TOKEN(lastDeployedCA)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary underline inline-flex items-center gap-1"
+                  >
+                    Contract: {shortAddr(lastDeployedCA)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="manage" className="mt-4 space-y-4">
         {/* Your tokens (auto-detected) */}
         {isConnected && (
           <Card className="bg-card/40 border-border/40 p-5 mb-4">
@@ -1045,6 +1256,8 @@ export default function LaunchNowPage() {
             </p>
           </>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
