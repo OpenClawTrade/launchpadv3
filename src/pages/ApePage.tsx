@@ -13,7 +13,7 @@
  *   /ape/:address        → trade view (defaults to Ethereum)
  *   /ape/:chain/:address → trade view on a specific chain (eth | bsc | sol)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Copy, ExternalLink, Bell, Share2, Star } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -29,6 +29,10 @@ import {
   SOLANA_NETWORK_ID,
 } from "@/hooks/useCodexNewPairs";
 import { useToast } from "@/hooks/use-toast";
+import { useZeroxSwap } from "@/hooks/useZeroxSwap";
+import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
+import { usePrivy } from "@privy-io/react-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 import styles from "./ApePage.module.css";
 
