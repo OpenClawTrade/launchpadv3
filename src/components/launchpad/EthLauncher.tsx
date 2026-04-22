@@ -21,8 +21,26 @@ import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
-const MIN_LP_USD = 5;        // $5 test minimum LP seed (server floor: 0.001 ETH ≈ $3)
+const MIN_LP_USD = 5;        // $5 demo-tier minimum LP seed (server floor: 0.001 ETH ≈ $3)
 const MAX_DEV_BUY_USD = 5000; // soft UX cap on dev buy
+
+// LP seed presets — user picks one (or types custom). Values are in ETH except $5 which is USD-denominated.
+type LpPresetId = 'demo' | 'suggested' | 'recommended' | 'custom';
+interface LpPreset {
+  id: LpPresetId;
+  label: string;
+  badge?: string;
+  /** Fixed ETH amount; null = USD-denominated ($5) */
+  eth: number | null;
+  /** USD floor (used only for the $5 demo tier) */
+  usd?: number;
+  desc: string;
+}
+const LP_PRESETS: LpPreset[] = [
+  { id: 'demo',        label: 'Demo tier',       badge: 'cheapest', eth: null, usd: MIN_LP_USD, desc: 'Just to showcase the platform — minimum to ship a real launch. Does NOT guarantee success.' },
+  { id: 'suggested',   label: 'Suggested',       badge: 'good',     eth: 0.5,                   desc: 'Healthy starting depth. Tighter spreads, fewer reverts on small buys.' },
+  { id: 'recommended', label: 'Highly suggested',badge: 'best',     eth: 1,                     desc: 'Pro tier. Holders see real liquidity from block 1 — projects that start here last longer.' },
+];
 
 interface EthLaunchFormData {
   name: string;
@@ -47,6 +65,8 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   const [devBuyInput, setDevBuyInput] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [lockLP, setLockLP] = useState(!!initialLockLP); // V3: opt-in Team Finance LP lock
+  const [lpPresetId, setLpPresetId] = useState<LpPresetId>('suggested');
+  const [lpCustomInput, setLpCustomInput] = useState('');
   const [diagLogs, setDiagLogs] = useState<string[]>([]);
   const pushLog = useCallback((line: string) => {
     const stamp = new Date().toISOString().split('T')[1].replace('Z', '');
@@ -107,11 +127,30 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Compute $50 LP seed in ETH (rounded up to 6 decimals so we always clear $50)
+  // Active LP preset object
+  const activeLpPreset = useMemo(
+    () => LP_PRESETS.find(p => p.id === lpPresetId),
+    [lpPresetId],
+  );
+
+  // LP seed in ETH — derived from preset (or custom input).
+  // Demo tier is USD-pinned ($5 → ETH at live price); presets are fixed ETH; custom is user input.
   const lpEthAmount = useMemo(() => {
+    if (lpPresetId === 'custom') {
+      const n = parseFloat(lpCustomInput);
+      return !isNaN(n) && n > 0 ? n : 0;
+    }
+    if (activeLpPreset?.eth != null) return activeLpPreset.eth;
+    // Demo tier — USD-denominated, recompute from live ETH price (rounded up)
     if (ethPrice <= 0) return 0;
-    return Math.ceil((MIN_LP_USD / ethPrice) * 1e6) / 1e6;
-  }, [ethPrice]);
+    const usd = activeLpPreset?.usd ?? MIN_LP_USD;
+    return Math.ceil((usd / ethPrice) * 1e6) / 1e6;
+  }, [lpPresetId, lpCustomInput, activeLpPreset, ethPrice]);
+
+  const lpUsdValue = useMemo(
+    () => (ethPrice > 0 ? lpEthAmount * ethPrice : 0),
+    [ethPrice, lpEthAmount],
+  );
 
   const canLaunch =
     isConnected &&
@@ -528,45 +567,117 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
               </div>
             </div>
 
-            {/* LP seed + Optional Dev Buy */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-1">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-                  <span>Initial LP seed</span>
-                  <span>required</span>
-                </div>
-                <div className="text-base font-mono text-foreground">
-                  {lpEthAmount.toFixed(6)} ETH <span className="text-muted-foreground text-xs">(~${MIN_LP_USD})</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Seeds the Uniswap V3 1% pool. Paired against single-sided supply above spot.
-                </p>
+            {/* LP seed selector — 3 presets + custom */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                <span>Initial LP seed</span>
+                <span>{lpEthAmount > 0 ? `${lpEthAmount.toFixed(6)} ETH ≈ $${lpUsdValue.toFixed(2)}` : 'required'}</span>
               </div>
-              <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-2">
-                <Label htmlFor="eth-dev-buy" className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-                  Optional dev buy (ETH)
-                </Label>
-                <Input
-                  id="eth-dev-buy"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={MAX_DEV_BUY}
-                  step="0.001"
-                  placeholder="0"
-                  value={devBuyInput}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setDevBuyInput(val);
-                    const n = parseFloat(val);
-                    handleInputChange('devBuyEth', !isNaN(n) && n >= 0 ? n : 0);
-                  }}
-                  className="bg-background/50 h-9 font-mono"
-                />
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Buys your token in the same tx — anti-snipe. Max {MAX_DEV_BUY} ETH.
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {LP_PRESETS.map((p) => {
+                  const eth = p.eth ?? (ethPrice > 0 ? Math.ceil((p.usd! / ethPrice) * 1e6) / 1e6 : 0);
+                  const usd = p.eth != null ? p.eth * ethPrice : (p.usd ?? 0);
+                  const active = lpPresetId === p.id;
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => setLpPresetId(p.id)}
+                      className={`text-left p-3 rounded-lg border transition-colors ${
+                        active ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:border-primary/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider">{p.label}</span>
+                        {p.badge && (
+                          <span className={`text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded ${
+                            p.id === 'recommended' ? 'bg-primary/20 text-primary' :
+                            p.id === 'suggested' ? 'bg-emerald-500/20 text-emerald-400' :
+                            'bg-muted text-muted-foreground'
+                          }`}>{p.badge}</span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-base font-mono text-foreground">
+                        {eth > 0 ? `${eth.toFixed(p.eth != null ? 2 : 6)} ETH` : '—'}
+                        <span className="text-muted-foreground text-xs ml-1">
+                          {ethPrice > 0 ? `≈ $${usd.toFixed(2)}` : ''}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">{p.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Custom amount */}
+              <button
+                type="button"
+                onClick={() => setLpPresetId('custom')}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  lpPresetId === 'custom' ? 'border-primary bg-primary/10' : 'border-border bg-background/40 hover:border-primary/40'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider">Custom amount</span>
+                  <span className="text-[9px] uppercase tracking-wider font-mono text-muted-foreground">power user</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g. 2.5"
+                    value={lpCustomInput}
+                    onClick={(e) => { e.stopPropagation(); setLpPresetId('custom'); }}
+                    onChange={(e) => { setLpCustomInput(e.target.value); setLpPresetId('custom'); }}
+                    className="bg-background/50 h-9 font-mono max-w-[160px]"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">
+                    ETH {lpPresetId === 'custom' && lpEthAmount > 0 && ethPrice > 0 ? `≈ $${(lpEthAmount * ethPrice).toFixed(2)}` : ''}
+                  </span>
+                </div>
+              </button>
+
+              {/* Honest disclaimer + ETH ≠ Solana joke */}
+              <div className="text-[11px] text-muted-foreground leading-relaxed p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-1.5">
+                <div>
+                  💡 <strong className="text-foreground">$5 minimum exists to showcase the platform.</strong>{' '}
+                  It will <em>not</em> guarantee your token succeeds — thin LP means brutal slippage and zero scanner credibility.
+                </div>
+                <div>
+                  🐕 <strong className="text-foreground">ETH is not Solana.</strong>{' '}
+                  Here, holders and devs who seed real liquidity build products that actually <em>last</em>.
+                  A higher initial LP isn't a tax — it's the receipt that says you're not here to rug.
+                </div>
+              </div>
+            </div>
+
+            {/* Optional dev buy */}
+            <div className="p-3 rounded-lg border border-border/50 bg-secondary/20 space-y-2">
+              <Label htmlFor="eth-dev-buy" className="text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
+                Optional dev buy (ETH)
+              </Label>
+              <Input
+                id="eth-dev-buy"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={MAX_DEV_BUY}
+                step="0.001"
+                placeholder="0"
+                value={devBuyInput}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDevBuyInput(val);
+                  const n = parseFloat(val);
+                  handleInputChange('devBuyEth', !isNaN(n) && n >= 0 ? n : 0);
+                }}
+                className="bg-background/50 h-9 font-mono"
+              />
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Buys your token in the same tx — anti-snipe. Max {MAX_DEV_BUY} ETH.
+              </p>
             </div>
 
             {/* LP lock toggle (V3) */}
