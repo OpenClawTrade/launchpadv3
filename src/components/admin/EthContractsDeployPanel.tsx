@@ -211,6 +211,15 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
                 Deploy V2-Burn (no fees · auto-burn LP) {!dry.v2burnReady && "— bytecode missing"}
               </Button>
+              <Button
+                onClick={() => deploy("v2fees")}
+                disabled={busy || !dry.v2feesCanDeploy}
+                variant="default"
+                title="Deploy V2-Fees launcher (1% swap fee → platform wallet, LP auto-burned). Compiles in-flight."
+              >
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                Deploy V2-Fees (1% swap → platform · burn LP)
+              </Button>
               <Button onClick={() => deploy("force")} disabled={busy} variant="destructive">
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
                 Force Redeploy ALL 4 (fixes user launches)
