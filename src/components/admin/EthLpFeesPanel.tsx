@@ -7,12 +7,10 @@
 // - Top-bar "Sweep All" runs the full eth-claim-platform-fees flow.
 // - Top-bar "Refresh" re-reads on-chain state.
 //
-// Backend secret stays in localStorage; sent as x-admin-secret header.
+// Open admin panel — no secret required.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Coins, ExternalLink, RefreshCw, Download, ArrowDownToLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,7 +95,6 @@ function shortAddr(a: string) {
 }
 
 export function EthLpFeesPanel() {
-  const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem("admin_secret") || "");
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [busyToken, setBusyToken] = useState<string | null>(null);
@@ -114,16 +111,10 @@ export function EthLpFeesPanel() {
   }, []);
 
   const fetchStatus = useCallback(async () => {
-    if (!adminSecret) {
-      toast.error("Enter admin secret first");
-      return;
-    }
     setLoadingStatus(true);
     try {
-      localStorage.setItem("admin_secret", adminSecret);
       const { data, error } = await supabase.functions.invoke("eth-platform-fees-status", {
         body: {},
-        headers: { "x-admin-secret": adminSecret },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -134,11 +125,11 @@ export function EthLpFeesPanel() {
     } finally {
       setLoadingStatus(false);
     }
-  }, [adminSecret]);
+  }, []);
 
-  // Auto-load if secret already cached
+  // Auto-load on mount
   useEffect(() => {
-    if (adminSecret && !status && !loadingStatus) fetchStatus();
+    fetchStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

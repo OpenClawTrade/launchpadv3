@@ -15,8 +15,7 @@
 //
 // All amounts are wei strings. Frontend formats + USD-converts.
 //
-// Body: {} (no body needed)
-// Headers: { "x-admin-secret": TWITTER_BOT_ADMIN_SECRET }
+// Body: {} (no body needed) — open endpoint, no auth required.
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -51,13 +50,6 @@ const VAULT_ABI = parseAbi([
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const adminSecret = req.headers.get("x-admin-secret");
-    const expected = Deno.env.get("TWITTER_BOT_ADMIN_SECRET");
-    if (!expected || adminSecret !== expected) {
-      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const RPC = Deno.env.get("ETH_MAINNET_RPC_URL") || "https://eth.llamarpc.com";
     const pub = createPublicClient({ chain: mainnet, transport: http(RPC) });
