@@ -1204,6 +1204,46 @@
         </div>
       </div>
 
+      <!-- Step: LP Seed selector (Demo / Suggested / Highly suggested / Custom) -->
+      <div class="form-card" style="margin-bottom:18px">
+        <div class="fld-label">
+          LP seed size
+          <span class="hint">how much liquidity you pair with your token at launch</span>
+        </div>
+        <div id="lpPresets" style="display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:10px;margin-top:8px">
+          <button type="button" class="lp-preset" data-lp="demo" data-eth=""
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Demo · $5</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ — ETH</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Showcase only. <b>Will not</b> guarantee a successful launch.</div>
+          </button>
+          <button type="button" class="lp-preset" data-lp="suggested" data-eth="0.5"
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:var(--primary);cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Suggested · 0.5 ETH</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ $—</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Healthy starting depth. Good for serious launches.</div>
+          </button>
+          <button type="button" class="lp-preset" data-lp="recommended" data-eth="1"
+                  style="text-align:left;padding:12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
+            <div style="font-family:'Archivo Black',sans-serif;font-size:13px;letter-spacing:.02em">Highly suggested · 1 ETH</div>
+            <div class="lp-preset-eth" style="font-size:11px;color:var(--brown);margin-top:4px">≈ $—</div>
+            <div style="font-size:10px;color:var(--brown);margin-top:6px;line-height:1.4">Pro tier. Real liquidity from block 1 — projects last longer.</div>
+          </button>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin-top:12px">
+          <button type="button" class="lp-preset" data-lp="custom"
+                  style="padding:10px 12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'Archivo Black',sans-serif;font-size:12px">Custom</button>
+          <div style="position:relative">
+            <input id="lpCustomInput" class="fld-input mono" placeholder="0.25" inputmode="decimal" disabled style="opacity:.6" />
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;color:var(--brown);pointer-events:none;font-size:11px">ETH</span>
+          </div>
+          <span id="lpCustomUsd" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brown);min-width:60px;text-align:right">≈ $0</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--brown);line-height:1.5;letter-spacing:0.02em;margin-top:10px;padding:10px;border-left:3px solid var(--primary);background:#fff8e6">
+          <b>ETH ≠ Solana.</b> Real on-chain liquidity is what makes a token survive — not vibes. The deeper your starting LP, the less every $100 buy/sell moves the price, and the longer your chart stays alive. $5 is a demo to show that the platform works, not a serious launch.
+        </div>
+      </div>
+
       <!-- Step: LP Locker (Team Finance) -->
       <div class="form-card" style="margin-bottom:18px">
         <div class="fld-label">LP Locker <span class="hint">optional · adds ~0.045 ETH to your starting LP</span></div>
