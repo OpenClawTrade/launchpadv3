@@ -774,7 +774,7 @@ export default function LaunchNowPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-                {heldTokens.map((t) => {
+                {heldTokens.filter((t) => !!t?.address).map((t) => {
                   const selected = activeCA?.toLowerCase() === t.address.toLowerCase();
                   return (
                     <button
