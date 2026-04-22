@@ -57,7 +57,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; autoLaunch?: boolean; hideUI?: boolean } = {}) {
+export function EthLauncher({ initialValues, initialLockLP, initialVersion, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; initialVersion?: 'v3' | 'v2burn'; autoLaunch?: boolean; hideUI?: boolean } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -68,7 +68,7 @@ export function EthLauncher({ initialValues, initialLockLP, autoLaunch, hideUI }
   const [isUploading, setIsUploading] = useState(false);
   // Launcher version: 'v3' (Team Finance, optional lock, $200 lock fee) or
   // 'v2burn' (pure fair-launch on Uniswap V2, auto-burn LP, NO fees, all green checkmarks).
-  const [launcherVersion, setLauncherVersion] = useState<'v3' | 'v2burn'>('v3');
+  const [launcherVersion, setLauncherVersion] = useState<'v3' | 'v2burn'>(initialVersion ?? 'v3');
   // V3: Team Finance LP lock — default ON so aggregators (GMGN, DEXTools, Banana) show
   // the "LP Locked" trust checkmark and route trades immediately. User can still uncheck.
   // (Ignored when launcherVersion === 'v2burn'.)

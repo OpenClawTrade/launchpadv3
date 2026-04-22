@@ -614,6 +614,7 @@ export default function PopshibaLaunchpadPage() {
           key="auto-launch"
           initialValues={{ ...prefill, imageUrl: prefill.imageDataUrl }}
           initialLockLP={!!prefill.lockLP}
+          initialVersion={prefill.version === 'v2burn' ? 'v2burn' : 'v3'}
           autoLaunch
           hideUI
         />
