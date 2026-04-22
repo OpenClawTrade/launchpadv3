@@ -1,97 +1,766 @@
-import { useEffect } from "react";
-import { EthLauncher } from "@/components/launchpad/EthLauncher";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { isAddress, parseEther, parseUnits, type Address } from "viem";
+import { mainnet } from "viem/chains";
+import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { Card } from "@/components/ui/card";
-import { Rocket, Zap, Shield, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import {
+  Rocket,
+  Search,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  ExternalLink,
+  Flame,
+  Lock,
+  Droplets,
+  Power,
+  ShieldCheck,
+  Loader2,
+  Copy,
+  RefreshCw,
+} from "lucide-react";
+import { useEvmWallet } from "@/hooks/useEvmWallet";
+import { useTokenInspector } from "@/hooks/useTokenInspector";
+import {
+  ERC20_ABI,
+  UNISWAP_V2_PAIR_ABI,
+  UNISWAP_V2_ROUTER,
+  UNISWAP_V2_ROUTER_ABI,
+  DEAD_ADDRESS,
+  ETHERSCAN_TX,
+  ETHERSCAN_ADDR,
+  ETHERSCAN_TOKEN,
+  ETHERSCAN_VERIFY,
+  DEXSCREENER_URL,
+  UNISWAP_ADD_URL,
+} from "@/lib/ethereum/launchControl";
 
-/**
- * /launchnow — Simplified, all-in-one ETH launch utility.
- *
- * Wraps the existing EthLauncher (which deploys the token, creates the
- * Uniswap pool, seeds LP and burns/locks the LP — all in a single tx)
- * so users don't have to manually:
- *   1. Write & verify a contract in Remix
- *   2. Add liquidity on Uniswap
- *   3. Call setRule to enable trading
- *   4. Burn LP tokens
- *
- * Everything happens in ONE wallet confirmation.
- */
+/* -------------------------------------------------------------------------- */
+/*                                Tiny helpers                                */
+/* -------------------------------------------------------------------------- */
+
+function shortAddr(a?: string | null) {
+  if (!a) return "";
+  return `${a.slice(0, 6)}…${a.slice(-4)}`;
+}
+
+function CopyBtn({ text }: { text: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        toast.success("Copied");
+      }}
+      className="text-muted-foreground hover:text-foreground transition-colors"
+      aria-label="Copy"
+    >
+      <Copy className="h-3 w-3" />
+    </button>
+  );
+}
+
+/** Status pill: ✓ done, ✗ pending, ⚠ unknown */
+function StatusPill({
+  state,
+  label,
+}: {
+  state: "ok" | "pending" | "warn" | "unknown";
+  label: string;
+}) {
+  const map = {
+    ok: { Icon: CheckCircle2, cls: "bg-primary/10 text-primary border-primary/30" },
+    pending: { Icon: XCircle, cls: "bg-muted text-muted-foreground border-border" },
+    warn: { Icon: AlertTriangle, cls: "bg-destructive/10 text-destructive border-destructive/30" },
+    unknown: { Icon: AlertTriangle, cls: "bg-muted text-muted-foreground border-border" },
+  } as const;
+  const { Icon, cls } = map[state];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-semibold ${cls}`}>
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                             Action Card wrapper                            */
+/* -------------------------------------------------------------------------- */
+
+interface ActionCardProps {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  status: "ok" | "pending" | "warn" | "unknown";
+  statusLabel: string;
+  children: React.ReactNode;
+}
+
+function ActionCard({ title, description, icon: Icon, status, statusLabel, children }: ActionCardProps) {
+  return (
+    <Card className="bg-card/40 border-border/40 p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold leading-tight">{title}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          </div>
+        </div>
+        <StatusPill state={status} label={statusLabel} />
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                    Page                                    */
+/* -------------------------------------------------------------------------- */
+
 export default function LaunchNowPage() {
-  // Lightweight SEO without react-helmet
+  const navigate = useNavigate();
+  const [caInput, setCaInput] = useState("");
+  const [activeCA, setActiveCA] = useState<string | null>(null);
+
+  const { address, isConnected, connect } = useEvmWallet();
+  const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
+  const { switchChainAsync } = useSwitchChain();
+  const currentChainId = useChainId();
+
+  const { data: token, isLoading, refetch, isFetching } = useTokenInspector(activeCA, address);
+
+  // SEO
   useEffect(() => {
-    const prevTitle = document.title;
-    document.title = "Launch Now — 1-Click ETH Token Launch | Popshiba";
-    const meta = document.querySelector('meta[name="description"]');
-    const prevDesc = meta?.getAttribute("content") ?? "";
-    meta?.setAttribute(
-      "content",
-      "Deploy an ERC-20, create the Uniswap pool, add liquidity and burn/lock LP — all in a single transaction."
-    );
-    return () => {
-      document.title = prevTitle;
-      meta?.setAttribute("content", prevDesc);
-    };
+    const prev = document.title;
+    document.title = "Launch Control — Manage your ETH token | Popshiba";
+    return () => { document.title = prev; };
   }, []);
 
+  const handleInspect = () => {
+    const trimmed = caInput.trim();
+    if (!isAddress(trimmed)) {
+      toast.error("Enter a valid contract address (0x...)");
+      return;
+    }
+    setActiveCA(trimmed);
+  };
+
+  const isOwner = useMemo(() => {
+    if (!token?.owner || !address) return false;
+    return token.owner.toLowerCase() === address.toLowerCase();
+  }, [token?.owner, address]);
+
+  /* -------------------------- Action: Verify (link out) ------------------ */
+  const verifyState: "ok" | "pending" | "unknown" =
+    token?.isVerified === true ? "ok" : token?.isVerified === false ? "pending" : "unknown";
+
+  /* -------------------------- Action: Add LP ----------------------------- */
+  const [lpTokenAmount, setLpTokenAmount] = useState("");
+  const [lpEthAmount, setLpEthAmount] = useState("");
+  const [addingLp, setAddingLp] = useState(false);
+
+  const ensureChain = async (): Promise<boolean> => {
+    if (currentChainId !== mainnet.id) {
+      try {
+        await switchChainAsync?.({ chainId: mainnet.id });
+      } catch {
+        toast.error("Switch to Ethereum Mainnet to continue");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleAddLp = async () => {
+    if (!walletClient || !address || !token) return;
+    const tokenAmt = Number(lpTokenAmount);
+    const ethAmt = Number(lpEthAmount);
+    if (!(tokenAmt > 0) || !(ethAmt > 0)) {
+      toast.error("Enter both token and ETH amounts");
+      return;
+    }
+    if (!(await ensureChain())) return;
+
+    setAddingLp(true);
+    try {
+      const tokensWei = parseUnits(String(tokenAmt), token.decimals);
+      const ethWei = parseEther(String(ethAmt));
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
+
+      // 1. Approve router
+      toast.info("Step 1/2: Approve router to spend your tokens…");
+      const approveHash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: token.address,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [UNISWAP_V2_ROUTER, tokensWei],
+      });
+      toast.success(
+        <a href={ETHERSCAN_TX(approveHash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Approve sent — view tx
+        </a>
+      );
+
+      // Wait for approval to land before sending addLiquidity (so user doesn't get a revert)
+      await new Promise((r) => setTimeout(r, 4000));
+
+      // 2. addLiquidityETH
+      toast.info("Step 2/2: Adding liquidity…");
+      const lpHash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: UNISWAP_V2_ROUTER,
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: "addLiquidityETH",
+        args: [
+          token.address,
+          tokensWei,
+          (tokensWei * 95n) / 100n, // 5% slippage
+          (ethWei * 95n) / 100n,
+          address as Address,
+          deadline,
+        ],
+        value: ethWei,
+      });
+      toast.success(
+        <a href={ETHERSCAN_TX(lpHash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Liquidity added — view tx
+        </a>
+      );
+      setLpTokenAmount("");
+      setLpEthAmount("");
+      setTimeout(() => refetch(), 8000);
+    } catch (e: any) {
+      console.error("[add-lp]", e);
+      toast.error(e?.shortMessage || e?.message || "Add liquidity failed");
+    } finally {
+      setAddingLp(false);
+    }
+  };
+
+  /* -------------------------- Action: setRule ---------------------------- */
+  const [openingTrading, setOpeningTrading] = useState(false);
+  const handleOpenTrading = async (limited: boolean) => {
+    if (!walletClient || !address || !token || !token.pairAddress) return;
+    if (!(await ensureChain())) return;
+    setOpeningTrading(true);
+    try {
+      // Default: 2% max wallet when limited; unlimited when not.
+      const maxHolding = limited
+        ? (token.totalSupply * 2n) / 100n // 2%
+        : token.totalSupply; // effectively unlimited
+
+      const hash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: token.address,
+        abi: ERC20_ABI,
+        functionName: "setRule",
+        args: [limited, token.pairAddress, maxHolding, 0n],
+      });
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          {limited ? "Trading opened (with 2% max wallet)" : "Limits removed"} — view tx
+        </a>
+      );
+    } catch (e: any) {
+      console.error("[setRule]", e);
+      toast.error(e?.shortMessage || e?.message || "setRule failed");
+    } finally {
+      setOpeningTrading(false);
+    }
+  };
+
+  /* -------------------------- Action: Renounce --------------------------- */
+  const [renouncing, setRenouncing] = useState(false);
+  const handleRenounce = async () => {
+    if (!walletClient || !address || !token) return;
+    if (!confirm("Renounce ownership permanently? This cannot be undone.")) return;
+    if (!(await ensureChain())) return;
+    setRenouncing(true);
+    try {
+      const hash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: token.address,
+        abi: ERC20_ABI,
+        functionName: "renounceOwnership",
+        args: [],
+      });
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Ownership renounced — view tx
+        </a>
+      );
+      setTimeout(() => refetch(), 6000);
+    } catch (e: any) {
+      console.error("[renounce]", e);
+      toast.error(e?.shortMessage || e?.message || "Renounce failed");
+    } finally {
+      setRenouncing(false);
+    }
+  };
+
+  /* -------------------------- Action: Burn LP ---------------------------- */
+  const [burningLp, setBurningLp] = useState(false);
+  const handleBurnLp = async () => {
+    if (!walletClient || !address || !token?.pairAddress || !token.userLpBalance) return;
+    if (token.userLpBalance === 0n) {
+      toast.error("You don't hold any LP tokens for this pair");
+      return;
+    }
+    if (!confirm("Burn ALL your LP tokens to the dead address? This is permanent.")) return;
+    if (!(await ensureChain())) return;
+    setBurningLp(true);
+    try {
+      const hash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: token.pairAddress,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: "transfer",
+        args: [DEAD_ADDRESS, token.userLpBalance],
+      } as any);
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          LP burned — view tx
+        </a>
+      );
+      setTimeout(() => refetch(), 6000);
+    } catch (e: any) {
+      console.error("[burn-lp]", e);
+      toast.error(e?.shortMessage || e?.message || "Burn LP failed");
+    } finally {
+      setBurningLp(false);
+    }
+  };
+
+  /* -------------------------- Action: Remove LP -------------------------- */
+  const [removingLp, setRemovingLp] = useState(false);
+  const handleRemoveLp = async () => {
+    if (!walletClient || !address || !token?.pairAddress || !token.userLpBalance) return;
+    if (token.userLpBalance === 0n) {
+      toast.error("You don't hold any LP tokens");
+      return;
+    }
+    if (!confirm("Remove ALL your liquidity? This withdraws your share of tokens + ETH from the pool.")) return;
+    if (!(await ensureChain())) return;
+    setRemovingLp(true);
+    try {
+      const liquidity = token.userLpBalance;
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
+
+      // 1. Approve router to spend LP tokens
+      toast.info("Step 1/2: Approve router to spend your LP tokens…");
+      await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: token.pairAddress,
+        abi: UNISWAP_V2_PAIR_ABI,
+        functionName: "approve",
+        args: [UNISWAP_V2_ROUTER, liquidity],
+      } as any);
+
+      await new Promise((r) => setTimeout(r, 4000));
+
+      // 2. Remove
+      toast.info("Step 2/2: Removing liquidity…");
+      const hash = await walletClient.writeContract({
+        account: address as Address,
+        chain: mainnet,
+        address: UNISWAP_V2_ROUTER,
+        abi: UNISWAP_V2_ROUTER_ABI,
+        functionName: "removeLiquidityETHSupportingFeeOnTransferTokens",
+        args: [token.address, liquidity, 0n, 0n, address as Address, deadline],
+      });
+      toast.success(
+        <a href={ETHERSCAN_TX(hash)} target="_blank" rel="noopener noreferrer" className="underline">
+          Liquidity removed — view tx
+        </a>
+      );
+      setTimeout(() => refetch(), 8000);
+    } catch (e: any) {
+      console.error("[remove-lp]", e);
+      toast.error(e?.shortMessage || e?.message || "Remove LP failed");
+    } finally {
+      setRemovingLp(false);
+    }
+  };
+
+  /* -------------------------------------------------------------------- */
+
   return (
-    <>
-      <main className="min-h-screen bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
-          {/* Hero */}
-          <header className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold uppercase tracking-wider mb-4">
-              <Zap className="h-3.5 w-3.5" />
-              1-Click Launch
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-3">
-              Launch Now
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Deploy your ERC-20, create the Uniswap pool, seed liquidity, and burn/lock LP —
-              <span className="text-foreground font-semibold"> all in one transaction</span>.
-              No Remix. No manual setRule. No copy-pasting addresses.
-            </p>
-          </header>
+    <main className="min-h-screen bg-background">
+      <div className="max-w-5xl mx-auto px-4 py-10 sm:py-14">
+        {/* Hero */}
+        <header className="mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold uppercase tracking-wider mb-3">
+            <Rocket className="h-3.5 w-3.5" />
+            Launch Control Center
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            Manage your ETH token
+          </h1>
+          <p className="text-muted-foreground mt-2 max-w-2xl">
+            Paste your contract address. We auto-detect what's done and what's left — verify, add liquidity, open trading, renounce, burn or remove LP — all in one place. MetaMask signs every action.
+          </p>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              ← Need to deploy a fresh token? Use the 1-click launcher
+            </button>
+          </div>
+        </header>
 
-          {/* What this replaces */}
-          <Card className="bg-card/40 border-border/40 p-5 mb-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Replaces all of these manual steps
-            </h2>
-            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {[
-                "Write Solidity contract in Remix",
-                "Compile & deploy via MetaMask",
-                "Verify on Etherscan (constructor args)",
-                "Find your Uniswap V2 pair address",
-                "Approve & supply liquidity on Uniswap",
-                "Call setRule with anti-bot params",
-                "Send LP tokens to dead address",
-                "Submit token info to DexScreener",
-              ].map((step) => (
-                <div key={step} className="flex items-start gap-2 text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                  <span>{step}</span>
-                </div>
-              ))}
-            </div>
+        {/* Inspect Bar */}
+        <Card className="bg-card/40 border-border/40 p-5 mb-6">
+          <Label htmlFor="ca-input" className="text-xs uppercase tracking-wider text-muted-foreground">
+            Contract address
+          </Label>
+          <div className="mt-2 flex flex-col sm:flex-row gap-2">
+            <Input
+              id="ca-input"
+              placeholder="0x…"
+              value={caInput}
+              onChange={(e) => setCaInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleInspect()}
+              className="font-mono bg-background/50"
+            />
+            <Button onClick={handleInspect} disabled={!caInput.trim()}>
+              <Search className="h-4 w-4" />
+              Inspect
+            </Button>
+          </div>
+          {!isConnected && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Tip: <button onClick={connect} className="text-primary underline">connect your wallet</button> first
+              so we can show your LP holdings and enable owner-only actions.
+            </p>
+          )}
+        </Card>
+
+        {/* Loading */}
+        {activeCA && isLoading && (
+          <Card className="bg-card/40 border-border/40 p-8 flex items-center justify-center gap-3 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Reading contract on Ethereum Mainnet…
           </Card>
+        )}
 
-          {/* The launcher itself */}
-          <section aria-label="Token launcher">
-            <EthLauncher />
-          </section>
+        {/* Inspector Result */}
+        {token && (
+          <>
+            {/* Token header */}
+            <Card className="bg-card/40 border-border/40 p-5 mb-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-2xl font-bold">{token.name}</h2>
+                    <Badge variant="outline">{token.symbol}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <span>{shortAddr(token.address)}</span>
+                    <CopyBtn text={token.address} />
+                    <a
+                      href={ETHERSCAN_TOKEN(token.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-foreground"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Total supply: <span className="text-foreground font-mono">{token.totalSupplyFormatted}</span>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+                  <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+              </div>
 
-          {/* Footer reassurance */}
-          <footer className="mt-10 text-center text-xs text-muted-foreground">
-            <p className="flex items-center justify-center gap-1.5">
-              <Rocket className="h-3.5 w-3.5" />
-              Powered by the Popshiba on-chain launcher · Audited contracts · Ethereum Mainnet
+              {/* Owner banner */}
+              {token.hasOwnerFn && (
+                <div className="mt-4 grid sm:grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                    <div className="text-muted-foreground uppercase tracking-wider mb-1">Owner</div>
+                    <div className="font-mono">{token.isRenounced ? "Renounced ✓" : shortAddr(token.owner!)}</div>
+                  </div>
+                  <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                    <div className="text-muted-foreground uppercase tracking-wider mb-1">You are owner</div>
+                    <div>{isOwner ? "Yes ✓" : token.isRenounced ? "Renounced" : "No"}</div>
+                  </div>
+                  <div className="rounded-lg bg-background/40 border border-border/40 p-3">
+                    <div className="text-muted-foreground uppercase tracking-wider mb-1">Pool</div>
+                    <div>{token.hasPair ? `${token.reserveEthFormatted} ETH` : "Not created"}</div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Action grid */}
+            <div className="grid gap-4">
+              {/* 1. Verify */}
+              <ActionCard
+                title="1. Verify on Etherscan"
+                description="Makes your source code public so buyers trust the contract."
+                icon={ShieldCheck}
+                status={verifyState}
+                statusLabel={
+                  verifyState === "ok" ? "Verified" : verifyState === "pending" ? "Not verified" : "Unknown"
+                }
+              >
+                {verifyState === "ok" ? (
+                  <p className="text-sm text-muted-foreground">
+                    Source code is published.{" "}
+                    <a
+                      href={`${ETHERSCAN_ADDR(token.address)}#code`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline"
+                    >
+                      View on Etherscan
+                    </a>
+                  </p>
+                ) : (
+                  <Button asChild variant="outline">
+                    <a href={ETHERSCAN_VERIFY(token.address)} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                      Open Etherscan verifier
+                    </a>
+                  </Button>
+                )}
+              </ActionCard>
+
+              {/* 2. Add LP */}
+              <ActionCard
+                title="2. Add liquidity (Uniswap V2)"
+                description="Pair your tokens with ETH. Auto-runs Approve → Add."
+                icon={Droplets}
+                status={token.hasPair && (token.reserveEth ?? 0n) > 0n ? "ok" : "pending"}
+                statusLabel={
+                  token.hasPair
+                    ? `Pool live · ${token.reserveEthFormatted} ETH`
+                    : "No pool yet"
+                }
+              >
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Token amount ({token.symbol})</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 1000000000"
+                      value={lpTokenAmount}
+                      onChange={(e) => setLpTokenAmount(e.target.value)}
+                      className="bg-background/50 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">ETH amount</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g. 0.5"
+                      value={lpEthAmount}
+                      onChange={(e) => setLpEthAmount(e.target.value)}
+                      className="bg-background/50 mt-1"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    onClick={handleAddLp}
+                    disabled={!isConnected || addingLp || !lpTokenAmount || !lpEthAmount}
+                  >
+                    {addingLp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Droplets className="h-4 w-4" />}
+                    Add liquidity
+                  </Button>
+                  <Button asChild variant="outline">
+                    <a href={UNISWAP_ADD_URL(token.address)} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                      Open Uniswap UI instead
+                    </a>
+                  </Button>
+                </div>
+              </ActionCard>
+
+              {/* 3. setRule */}
+              {token.hasSetRule && (
+                <ActionCard
+                  title="3. Open trading (setRule)"
+                  description="Lifts the deploy-time anti-bot lock so people can buy."
+                  icon={Power}
+                  status="warn"
+                  statusLabel="Owner action"
+                >
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Most anti-bot tokens use <code className="text-foreground">setRule(_limited, pair, maxHolding, 0)</code>.
+                    Choose:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleOpenTrading(true)}
+                      disabled={!isConnected || openingTrading || !token.pairAddress || !isOwner}
+                    >
+                      {openingTrading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Open with 2% max wallet
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleOpenTrading(false)}
+                      disabled={!isConnected || openingTrading || !token.pairAddress || !isOwner}
+                    >
+                      Remove all limits
+                    </Button>
+                  </div>
+                  {!token.pairAddress && (
+                    <p className="text-xs text-destructive mt-2">Add liquidity first — setRule needs the pair address.</p>
+                  )}
+                  {!isOwner && token.hasOwnerFn && !token.isRenounced && (
+                    <p className="text-xs text-muted-foreground mt-2">Only the contract owner can call this.</p>
+                  )}
+                </ActionCard>
+              )}
+
+              {/* 4. Renounce */}
+              {token.hasOwnerFn && (
+                <ActionCard
+                  title="4. Renounce ownership"
+                  description="Permanently transfers ownership to 0x000…000. Builds buyer trust."
+                  icon={Lock}
+                  status={token.isRenounced ? "ok" : "pending"}
+                  statusLabel={token.isRenounced ? "Renounced" : "Not renounced"}
+                >
+                  {token.isRenounced ? (
+                    <p className="text-sm text-muted-foreground">Ownership already renounced.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        ⚠️ Irreversible. Make sure trading is open and you'll never need to call any owner-only function again.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={handleRenounce}
+                        disabled={!isConnected || renouncing || !isOwner}
+                      >
+                        {renouncing && <Loader2 className="h-4 w-4 animate-spin" />}
+                        <Lock className="h-4 w-4" />
+                        Renounce ownership
+                      </Button>
+                    </>
+                  )}
+                </ActionCard>
+              )}
+
+              {/* 5. Burn LP */}
+              <ActionCard
+                title="5. Burn LP tokens"
+                description="Sends your LP tokens to dead address. Buyers see ✅ LP Burned forever."
+                icon={Flame}
+                status={
+                  token.lpBurnedPercent != null && token.lpBurnedPercent > 90
+                    ? "ok"
+                    : "pending"
+                }
+                statusLabel={
+                  token.lpBurnedPercent != null
+                    ? `${token.lpBurnedPercent.toFixed(1)}% burned`
+                    : "Unknown"
+                }
+              >
+                {!token.hasPair ? (
+                  <p className="text-sm text-muted-foreground">No pool yet — add liquidity first.</p>
+                ) : !isConnected ? (
+                  <Button onClick={connect} variant="outline">Connect wallet to see your LP</Button>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Your LP balance: <span className="text-foreground font-mono">
+                        {token.userLpBalance != null
+                          ? (Number(token.userLpBalance) / 1e18).toFixed(6)
+                          : "—"}
+                      </span> LP
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={handleBurnLp}
+                      disabled={burningLp || !token.userLpBalance || token.userLpBalance === 0n}
+                    >
+                      {burningLp && <Loader2 className="h-4 w-4 animate-spin" />}
+                      <Flame className="h-4 w-4" />
+                      Burn all my LP tokens
+                    </Button>
+                  </>
+                )}
+              </ActionCard>
+
+              {/* 6. Remove LP */}
+              <ActionCard
+                title="6. Remove liquidity"
+                description="Withdraw your share of tokens + ETH from the pool."
+                icon={Droplets}
+                status="warn"
+                statusLabel="Caution"
+              >
+                <p className="text-xs text-muted-foreground mb-3">
+                  ⚠️ Removing LP tanks the price for holders. Only do this if you're winding down the project.
+                </p>
+                {!token.hasPair ? (
+                  <p className="text-sm text-muted-foreground">No pool to remove from.</p>
+                ) : !isConnected ? (
+                  <Button onClick={connect} variant="outline">Connect wallet</Button>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    onClick={handleRemoveLp}
+                    disabled={removingLp || !token.userLpBalance || token.userLpBalance === 0n}
+                  >
+                    {removingLp && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Remove all my liquidity
+                  </Button>
+                )}
+              </ActionCard>
+
+              {/* 7. DexScreener */}
+              <ActionCard
+                title="7. Submit token info to DexScreener"
+                description="Add logo, socials, and description so your token looks pro on charts."
+                icon={ExternalLink}
+                status="unknown"
+                statusLabel="Optional"
+              >
+                <Button asChild variant="outline">
+                  <a href={DEXSCREENER_URL(token.address)} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4" />
+                    Open DexScreener page
+                  </a>
+                </Button>
+              </ActionCard>
+            </div>
+
+            <Separator className="my-8" />
+            <p className="text-center text-xs text-muted-foreground">
+              All actions sign through MetaMask · Ethereum Mainnet only · Your private key never leaves your wallet
             </p>
-          </footer>
-        </div>
-      </main>
-    </>
+          </>
+        )}
+      </div>
+    </main>
   );
 }
