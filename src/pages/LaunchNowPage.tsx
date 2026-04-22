@@ -155,6 +155,8 @@ export default function LaunchNowPage() {
   const [autoVerifiedAddr, setAutoVerifiedAddr] = useState<string | null>(null);
 
   // Shared verify runner — used by both post-deploy auto-verify and the manual "Verify now" button.
+  // For "auto" (right after deploy) we delay the first attempt and retry on transient
+  // indexer-lag errors so the user doesn't have to click "Verify now" themselves.
   const runVerify = async (params: {
     tokenAddress: string;
     name: string;
@@ -167,37 +169,66 @@ export default function LaunchNowPage() {
     setAutoVerifyStatus("submitting");
     setAutoVerifyMsg(
       params.source === "auto"
-        ? "Waiting for Etherscan to index the contract…"
+        ? "Waiting for Etherscan to index the contract (this can take 1–3 min)…"
         : "Submitting source to Etherscan…"
     );
     toast.info(params.source === "auto" ? "Auto-verifying on Etherscan…" : "Verifying on Etherscan…");
-    try {
-      const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
-        body: {
-          tokenAddress: params.tokenAddress,
-          name: params.name,
-          symbol: params.symbol,
-          totalSupply: params.totalSupply,
-          header: params.header ?? deployHeader,
-          waitForResult: true,
-        },
-      });
-      if (error) throw error;
-      if (data?.verified) {
-        setAutoVerifyStatus("ok");
-        setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
-        toast.success("Contract verified on Etherscan ✓");
-      } else {
-        setAutoVerifyStatus("fail");
-        setAutoVerifyMsg(String(data?.error || data?.message || "Verification failed"));
-        toast.error(`Verify failed: ${data?.error || data?.message || "unknown"}`);
-      }
-    } catch (err: any) {
-      console.error("[verify]", err);
-      setAutoVerifyStatus("fail");
-      setAutoVerifyMsg(err?.message || "Verification error");
-      toast.error(`Verify error: ${err?.message || "unknown"}`);
+
+    // For auto-verify, give Etherscan ~30s of breathing room before the first attempt.
+    if (params.source === "auto") {
+      await new Promise((r) => setTimeout(r, 30_000));
     }
+
+    const transientPattern = /unable to locate|not yet indexed|please try again|did not index|did not see/i;
+    const maxAttempts = params.source === "auto" ? 5 : 2;
+    let lastErr = "Verification failed";
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (attempt > 1) {
+          setAutoVerifyMsg(`Etherscan still indexing — retry ${attempt}/${maxAttempts}…`);
+          await new Promise((r) => setTimeout(r, 30_000));
+        }
+        const { data, error } = await supabase.functions.invoke("pepe-verify-launchnow", {
+          body: {
+            tokenAddress: params.tokenAddress,
+            name: params.name,
+            symbol: params.symbol,
+            totalSupply: params.totalSupply,
+            header: params.header ?? deployHeader,
+            waitForResult: true,
+          },
+        });
+        if (error) throw error;
+        if (data?.verified) {
+          setAutoVerifyStatus("ok");
+          setAutoVerifyMsg(data.alreadyVerified ? "Already verified" : "Verified ✓");
+          toast.success("Contract verified on Etherscan ✓");
+          return;
+        }
+        lastErr = String(data?.error || data?.message || "Verification failed");
+        // Stop retrying if the failure is permanent (bytecode mismatch, etc.)
+        if (!transientPattern.test(lastErr)) {
+          setAutoVerifyStatus("fail");
+          setAutoVerifyMsg(lastErr);
+          toast.error(`Verify failed: ${lastErr}`);
+          return;
+        }
+      } catch (err: any) {
+        console.error("[verify]", err);
+        lastErr = err?.message || "Verification error";
+        if (!transientPattern.test(lastErr)) {
+          setAutoVerifyStatus("fail");
+          setAutoVerifyMsg(lastErr);
+          toast.error(`Verify error: ${lastErr}`);
+          return;
+        }
+      }
+    }
+
+    setAutoVerifyStatus("fail");
+    setAutoVerifyMsg(`${lastErr} — try the manual "Verify now" button in a minute.`);
+    toast.error(`Verify failed after ${maxAttempts} attempts: ${lastErr}`);
   };
 
   const { address, isConnected, connect, disconnect, logout, balance, isOnEthereum, switchToEthereum } = useEvmWallet();
