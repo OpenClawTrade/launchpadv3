@@ -18,6 +18,7 @@ import { mainnet } from 'viem/chains';
 import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
+import { EthLaunchOverlay } from './EthLaunchOverlay';
 
 // Launch parameters — must mirror eth-create-token edge function
 const TOTAL_SUPPLY = 1_000_000_000; // 1B tokens
@@ -979,6 +980,24 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
         ticker={formData.ticker}
       />
     )}
+
+    {/* Full-screen launch status overlay — visible during launch + on success/fail.
+        Critical when hideUI=true (popshiba 1-click flow) so the user sees real
+        feedback between wallet approval and the success modal. */}
+    <EthLaunchOverlay
+      isLaunching={isLaunching}
+      tokenAddress={deployedTokenAddress}
+      launchTxHash={launchTxHash}
+      isLive={isLive}
+      errorMessage={launchError}
+      name={formData.name}
+      ticker={formData.ticker}
+      onClose={() => {
+        // Reset error so the overlay disappears; success modal stays available.
+        if (launchError) setLaunchError(null);
+        if (isLive) setShowSuccessModal(true);
+      }}
+    />
     </>
   );
 }
