@@ -421,6 +421,13 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
           body: { launchId, status: 'failed', errorMessage: msg },
         }).catch(() => {});
       }
+      // Reset the iframe landing button if we're inside the autoLaunch host flow.
+      try {
+        window.parent?.postMessage(
+          { source: 'popshiba-host', type: 'launch-aborted', payload: { reason: msg } },
+          '*'
+        );
+      } catch {}
     } finally {
       setIsLaunching(false);
     }
