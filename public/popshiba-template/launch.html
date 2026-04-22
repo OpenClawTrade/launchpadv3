@@ -2045,9 +2045,7 @@
   if (launchBtn) launchBtn.addEventListener('click', function(e){
     e.preventDefault();
     if (!walletConnected) {
-      // Trigger Privy wallet connect instead of opening launcher
       try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
-      // Visual nudge to the warning banner
       const warn = document.getElementById('walletWarn');
       if (warn) {
         warn.scrollIntoView({behavior:'smooth', block:'center'});
@@ -2058,8 +2056,28 @@
       }
       return;
     }
+    // Visual loading state so the user knows the click registered while the launcher modal spins up.
+    if (!launchBtn.dataset.origHtml) launchBtn.dataset.origHtml = launchBtn.innerHTML;
+    launchBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid var(--ink);border-top-color:transparent;border-radius:50%;animation:psSpin 0.7s linear infinite;margin-right:10px;vertical-align:-2px"></span>INITIALIZING LAUNCH…';
+    launchBtn.disabled = true;
+    launchBtn.style.opacity = '0.9';
+    launchBtn.style.cursor = 'wait';
+    setTimeout(function(){
+      if (launchBtn.disabled) {
+        launchBtn.innerHTML = launchBtn.dataset.origHtml;
+        launchBtn.disabled = false;
+        launchBtn.style.opacity = '';
+        launchBtn.style.cursor = '';
+      }
+    }, 12000);
     postToParent('open-launcher', collectLaunchPayload());
   });
+  if (!document.getElementById('psSpinKf')) {
+    const st = document.createElement('style');
+    st.id = 'psSpinKf';
+    st.textContent = '@keyframes psSpin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
 
   // Wire up warning-banner connect button + hide once connected
   const walletWarn = document.getElementById('walletWarn');
