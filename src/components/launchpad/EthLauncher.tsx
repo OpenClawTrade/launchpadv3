@@ -18,6 +18,7 @@ import { mainnet } from 'viem/chains';
 import { useWalletClient, useSwitchChain, useChainId } from 'wagmi';
 import { POPSHIBA_LAUNCHER_ABI, waitForLaunchResult } from '@/lib/ethereum/popshibaLaunch';
 import { EthLaunchSuccessModal } from './EthLaunchSuccessModal';
+import { EthLaunchOverlay } from './EthLaunchOverlay';
 
 
 // Launch parameters — must mirror eth-create-token edge function
@@ -1013,7 +1014,19 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
       />
     )}
 
-    {/* EthLaunchOverlay removed — EthLaunchSuccessModal handles success UI. */}
+    <EthLaunchOverlay
+      isLaunching={isLaunching}
+      tokenAddress={deployedTokenAddress}
+      launchTxHash={launchTxHash}
+      isLive={isLive}
+      errorMessage={launchError}
+      name={formData.name}
+      ticker={formData.ticker}
+      onClose={() => {
+        if (launchError) setLaunchError(null);
+        if (isLive) setShowSuccessModal(true);
+      }}
+    />
     </>
   );
 }
