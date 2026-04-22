@@ -205,7 +205,6 @@ function buildMetadataHeader(launch: any): string {
   if (launch.website_url) lines.push(`// Website     - ${sanitize(launch.website_url)}`);
   if (launch.twitter_url) lines.push(`// X / Twitter - ${sanitize(launch.twitter_url)}`);
   if (launch.telegram_url) lines.push(`// Telegram    - ${sanitize(launch.telegram_url)}`);
-  if (launch.discord_url) lines.push(`// Discord     - ${sanitize(launch.discord_url)}`);
   if (launch.description) lines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
   return lines.length ? lines.join("\n") + "\n//\n" : "";
 }
@@ -311,7 +310,7 @@ Deno.serve(async (req) => {
     if (launchId) {
       const { data } = await supabase
         .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
         .eq("id", launchId)
         .maybeSingle();
       launch = data;
@@ -319,7 +318,7 @@ Deno.serve(async (req) => {
     if (!launch) {
       const { data } = await supabase
         .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, discord_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
+        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
         .ilike("token_address", tokenAddress)
         .order("created_at", { ascending: false })
         .limit(1)
