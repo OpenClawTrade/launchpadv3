@@ -1,11 +1,10 @@
 import { useState, lazy, Suspense, useEffect } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useChain } from "@/contexts/ChainContext";
 import { useEvmWallet } from "@/hooks/useEvmWallet";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Wallet, Ghost, LogOut, Copy, Check, ExternalLink, Terminal } from "lucide-react";
@@ -57,11 +56,8 @@ export default function PanelPage() {
   // Show loading spinner while Privy initializes (prevents "Connect Wallet" flash)
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-        <div className="md:ml-[48px] flex flex-col min-h-screen">
-          <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-          <div className="flex-1 flex items-center justify-center">
+      <LaunchpadLayout>
+        <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <img
                 src={saturnLogo}
@@ -78,11 +74,8 @@ export default function PanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-        <div className="md:ml-[48px] flex flex-col min-h-screen">
-          <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-          <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16">
+      <LaunchpadLayout>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16">
             <div
               className="w-full max-w-sm rounded-2xl p-8 text-center backdrop-blur-xl"
               style={{
@@ -122,11 +115,7 @@ export default function PanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-
+    <LaunchpadLayout>
         <div className="w-full mx-auto px-4 md:px-6 lg:px-8 flex-1 flex flex-col max-w-[960px]">
 
           {/* Panel Header */}
@@ -221,7 +210,6 @@ export default function PanelPage() {
 
           <div className="pb-28 sm:pb-32" style={{ paddingBottom: "max(7rem, calc(60px + env(safe-area-inset-bottom, 0px) + 2rem))" }} />
         </div>
-      </div>
-    </div>
+      </LaunchpadLayout>
   );
 }

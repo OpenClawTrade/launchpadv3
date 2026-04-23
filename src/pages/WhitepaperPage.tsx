@@ -1,20 +1,14 @@
 import { Card } from "@/components/ui/card";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { FileText, Rocket, Shield, Flame, Coins, Lock, Percent, Wallet } from "lucide-react";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
-import { AppHeader } from "@/components/layout/AppHeader";
 import { useState } from "react";
 import { BRAND } from "@/config/branding";
 
 export default function WhitepaperPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         <main className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <MatrixContentCard>
             {/* Title */}
@@ -206,7 +200,6 @@ export default function WhitepaperPage() {
             </div>
           </MatrixContentCard>
         </main>
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 }

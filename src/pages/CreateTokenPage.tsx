@@ -1,7 +1,5 @@
 import { useState, useCallback } from "react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { BnbLauncher } from "@/components/launchpad/BnbLauncher";
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
 import { Rocket, ExternalLink, CheckCircle2, ArrowLeft, Shield, Zap, Coins, Copy, Check, TrendingUp } from "lucide-react";
@@ -25,7 +23,6 @@ interface LaunchResult {
 }
 
 export default function CreateTokenPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [lastResult, setLastResult] = useState<LaunchResult | null>(null);
   const navigate = useNavigate();
   const { chain } = useChain();
@@ -36,11 +33,7 @@ export default function CreateTokenPage() {
   const handleLaunchSuccess = useCallback(() => {}, []);
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         <main className="flex-1 relative">
           {/* Ambient orbs */}
           <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -276,7 +269,6 @@ function SuccessResult({
         >
           Back to Terminal
         </button>
-      </div>
-    </div>
+      </LaunchpadLayout>
   );
 }

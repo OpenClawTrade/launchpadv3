@@ -1,21 +1,15 @@
 import { useState } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { LaunchTokenForm, WalletBalanceCard } from "@/components/launchpad";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
 import { useChain } from "@/contexts/ChainContext";
 import { Rocket, Info, Zap } from "lucide-react";
 
 export default function LaunchTokenPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const { chain, chainConfig } = useChain();
   const isBnb = chain === 'bnb';
 
   return (
-    <div className="min-h-screen bg-pop-cream overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
+    <LaunchpadLayout>
         <main className="flex-1 px-4 py-8 max-w-6xl mx-auto w-full">
           {/* Poster Header */}
           <div className="mb-8 bg-pop-orange pop-border pop-shadow rounded-lg p-6">
@@ -124,8 +118,6 @@ export default function LaunchTokenPage() {
             </div>
           </div>
         </main>
-        <Footer />
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 }

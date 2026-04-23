@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Crown, Trophy, TrendingUp, Shield, Gem, Timer, Sparkles, ChevronUp, Dice5, Lock, ArrowUpRight, Wallet, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "react-router-dom";
 
@@ -52,7 +51,6 @@ function useCountdown() {
 
 export default function SixtyNineListPage() {
   const { data: treasuryBalance = 0, isLoading: balanceLoading } = useTreasuryBalance();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const countdown = useCountdown();
 
   const potProgress = Math.min((treasuryBalance / DISTRIBUTION_THRESHOLD_BNB) * 100, 100);
@@ -61,11 +59,7 @@ export default function SixtyNineListPage() {
   const isPotFull = treasuryBalance >= DISTRIBUTION_THRESHOLD_BNB;
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         {/* ═══════════════════ HERO ═══════════════════ */}
         <section className="relative overflow-hidden">
           {/* Background effects */}
@@ -362,7 +356,6 @@ export default function SixtyNineListPage() {
             </div>
           </div>
         </section>
-      </div>
-    </div>
+      </LaunchpadLayout>
   );
 }
