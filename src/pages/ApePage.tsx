@@ -21,6 +21,36 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { useExternalToken } from "@/hooks/useExternalToken";
 import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
+import { ETH_NETWORK_ID } from "@/hooks/useCodexNewPairs";
+import { useToast } from "@/hooks/use-toast";
+import { useZeroxSwap } from "@/hooks/useZeroxSwap";
+import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
+import { usePrivy } from "@privy-io/react-auth";
+import { supabase } from "@/integrations/supabase/client";
+
+import styles from "./ApePage.module.css";
+
+/* ──────────────────────────── helpers (Ethereum only) ──────────────────────────── */
+
+const NATIVE_SYM = "ETH";
+const DEX_NAME = "Uniswap";
+
+function explorerFor(addr: string): string {
+  return `https://etherscan.io/token/${addr}`;
+}
+function uniswapFor(addr: string): string {
+  return `https://app.uniswap.org/explore/tokens/ethereum/${addr}`;
+}
+function dexscreenerFor(addr: string): string {
+  return `https://dexscreener.com/ethereum/${addr}`;
+}
+import { ArrowLeft, Copy, ExternalLink, Bell, Share2, Star } from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
+
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
+import { CodexChart } from "@/components/launchpad/CodexChart";
+import { useExternalToken } from "@/hooks/useExternalToken";
+import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
 import {
   ETH_NETWORK_ID,
   BSC_NETWORK_ID,
