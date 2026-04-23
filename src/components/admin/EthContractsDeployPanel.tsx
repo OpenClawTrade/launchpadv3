@@ -225,9 +225,6 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Deploy V2 (UNCX Locking) {!dry.v2Ready && "— bytecode missing"}
               </Button>
-                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                Deploy V2 (UNCX Locking) {!dry.v2Ready && "— bytecode missing"}
-              </Button>
               <Button
                 onClick={() => deploy("v3")}
                 disabled={busy || !dry.v3CanDeploy}
