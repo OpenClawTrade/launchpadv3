@@ -258,8 +258,9 @@ export default function ApePage() {
     }
   }, [authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, toast]);
 
-  const symbol = token?.symbol || "—";
-  const name = token?.name || (tokenLoading ? "Loading…" : "Unknown token");
+  const isShib = address?.toLowerCase() === DEFAULT_TOKEN.toLowerCase();
+  const symbol = token?.symbol || (isShib ? "SHIB" : "—");
+  const name = token?.name || (tokenLoading ? "Loading…" : isShib ? "Shiba Inu" : "Unknown token");
   const priceUsd = token?.priceUsd ?? 0;
   const isPriceUp = (token?.change24h ?? 0) >= 0;
 
