@@ -381,15 +381,7 @@ export default function ApePage() {
           </div>
         </div>
 
-        {/* ── LEVERAGE BANNER ── */}
-        <div className={styles.levBanner}>
-          <div className={styles.levIc}>↗</div>
-          <div className={styles.levTxt}>
-            <div className="lt">Leverage trade up to <em>80×</em></div>
-            <div className="ls">Advanced tools · Deep liquidity · No order-book slip</div>
-          </div>
-          <Link to="/leverage" className={styles.levCta}>START →</Link>
-        </div>
+        {/* Leverage banner removed per request */}
 
         {/* ── MAIN GRID: chart + buy panel ── */}
         <div className={styles.grid}>
