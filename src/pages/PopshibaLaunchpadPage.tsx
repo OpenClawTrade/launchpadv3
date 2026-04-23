@@ -601,11 +601,11 @@ export default function PopshibaLaunchpadPage() {
       {
         source: "popshiba-host",
         type: "wallet-state",
-        payload: { connected: !!(authenticated && isConnected && address), address: address || null },
+        payload: { connected: !!(isConnected && address), address: address || null },
       },
       "*"
     );
-  }, [authenticated, isConnected, address]);
+  }, [isConnected, address]);
 
   return (
     <LaunchpadLayout noPadding>
