@@ -86,12 +86,12 @@ contract PopBondingLpSeederV4 is IUnlockCallback {
 
         // Mint LP — passed amounts via salt-style calldata. PoolManager will
         // settle by pulling currency from us.
-        BalanceDelta delta = POOL_MANAGER.modifyLiquidity(
+        (BalanceDelta delta, ) = POOL_MANAGER.modifyLiquidity(
             key,
             ModifyLiquidityParams({
                 tickLower: minTick,
                 tickUpper: maxTick,
-                liquidityDelta: int256(_estimateLiquidity(ethAmount, tokenAmount)),
+                liquidityDelta: int256(uint256(_estimateLiquidity(ethAmount, tokenAmount))),
                 salt: bytes32(0)
             }),
             ""
