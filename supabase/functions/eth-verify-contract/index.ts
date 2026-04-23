@@ -201,7 +201,7 @@ function buildMetadataHeader(launch: any): string {
   const sanitize = (s: unknown) =>
     String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
   const lines: string[] = [];
-  lines.push(`// Launched from PopShiba.com ETH Launchpad`);
+  lines.push(`// Launched from PopShiba.com Launchpad`);
   const nm = sanitize(launch.token_name);
   const tk = sanitize(launch.token_ticker);
   if (nm || tk) lines.push(`// ${nm}${tk ? ` ($${tk})` : ""}`);
