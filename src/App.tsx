@@ -100,6 +100,9 @@ const LaunchNowPage = lazyWithRetry(() => import("./pages/LaunchNowPage"));
 const PopshibaEarnings = lazyWithRetry(() => import("./pages/PopshibaEarnings"));
 const PopshibaAlphaPage = lazyWithRetry(() => import("./pages/PopshibaAlphaPage"));
 const PopshibaXTrackerPage = lazyWithRetry(() => import("./pages/PopshibaXTrackerPage"));
+const BondingListPage = lazyWithRetry(() => import("./pages/BondingListPage"));
+const BondingCreatePage = lazyWithRetry(() => import("./pages/BondingCreatePage"));
+const BondingTokenDetailPage = lazyWithRetry(() => import("./pages/BondingTokenDetailPage"));
 
 function RouteChainSync() {
   return null;
@@ -250,6 +253,9 @@ const App = () => (
                      <Route path="/wallet-tracker" element={<WalletTrackerPage />} />
                      <Route path="/rewards" element={<LaunchpadLayout><RewardsPage /></LaunchpadLayout>} />
                      <Route path="/lab/bonding-curve" element={<LaunchpadLayout><BondingCurveLabPage /></LaunchpadLayout>} />
+                     <Route path="/bonding" element={<BondingListPage />} />
+                     <Route path="/bonding/create" element={<BondingCreatePage />} />
+                     <Route path="/bonding/token/:address" element={<BondingTokenDetailPage />} />
                      <Route path="/btc" element={<LaunchpadLayout><V2BitcoinModePage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/launch" element={<LaunchpadLayout><V2BtcMemeLaunchPage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/:id" element={<LaunchpadLayout><V2BtcMemeDetailPage /></LaunchpadLayout>} />
