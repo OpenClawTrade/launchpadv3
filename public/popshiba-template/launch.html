@@ -2041,9 +2041,6 @@
       walletDot.style.boxShadow  = 'none';
       walletPill.title = 'Connect wallet';
     }
-    // keep the inline wallet warning in sync
-    const _ww = document.getElementById('walletWarn');
-    if (_ww) _ww.style.display = walletConnected ? 'none' : 'flex';
   }
   const walletMenu = document.getElementById('walletMenu');
   function closeMenu(){ if (walletMenu) walletMenu.style.display = 'none'; }
