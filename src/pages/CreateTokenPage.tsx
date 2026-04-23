@@ -140,10 +140,7 @@ export default function CreateTokenPage() {
           {/* Bottom spacer */}
           <div className="h-32 md:h-40" />
         </main>
-
-        <Footer />
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 }
 
