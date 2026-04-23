@@ -1,21 +1,22 @@
 /**
  * PopshibaXTrackerPage — KOL X feed
- * Renders the canonical Popshiba `x-tracker.html` template inside an iframe.
- * The iframe template ships with its own matching header + footer, so we
- * intentionally do NOT wrap this in LaunchpadLayout (would double the chrome).
+ * Uses the shared app chrome so the header/footer are identical to the main page.
  */
 import { useRef } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
 export default function PopshibaXTrackerPage() {
   const ref = useRef<HTMLIFrameElement>(null);
 
   return (
-    <iframe
-      ref={ref}
-      src="/popshiba-template/x-tracker.html"
-      title="Popshiba X Tracker"
-      className="block w-full border-0"
-      style={{ height: "100vh", background: "#f5a524" }}
-    />
+    <LaunchpadLayout noPadding>
+      <iframe
+        ref={ref}
+        src="/popshiba-template/x-tracker.html?embed=1"
+        title="Popshiba X Tracker"
+        className="block w-full border-0"
+        style={{ height: "calc(100vh - 56px)", background: "#f5a524" }}
+      />
+    </LaunchpadLayout>
   );
 }
