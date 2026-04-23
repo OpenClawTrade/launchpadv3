@@ -26,9 +26,15 @@ export const CURVE_TOKENS        = 792_857_143n * 10n ** 18n;              // ~7
 export const VIRTUAL_ETH         = 1_060_000_000_000_000_000n;             // 1.06 ETH
 export const VIRTUAL_TOKENS      = 1_073_000_000n * 10n ** 18n;            // 1.073B
 export const GRADUATION_THRESHOLD = 3_000_000_000_000_000_000n;            // 3 ETH
-export const TRADE_FEE_BPS       = 100;                                     // 1%
-export const CREATOR_SHARE_BPS   = 5000;                                    // 50% of fee → creator
-export const LP_CREATOR_SHARE_BPS = 5000;                                   // 50% of LP rewards → creator post-grad
+// ── Fee economics (verified live from TradeExecuted event on tx 0xb920…2db) ──
+// Every trade: 1% total fee on ETH leg, split 50/50.
+//   Buy 0.01 ETH → 0.0099 in, 0.0001 fee → 0.00005 creator + 0.00005 protocol
+// Post-graduation, V4 LP rewards from the locked position split 50/50 creator/protocol.
+export const TRADE_FEE_BPS         = 100;     // 1% of trade ETH
+export const CREATOR_SHARE_BPS     = 5000;    // 50% of fee → creator (= 0.5% of trade)
+export const PROTOCOL_SHARE_BPS    = 5000;    // 50% of fee → unicurve treasury (= 0.5% of trade)
+export const LP_CREATOR_SHARE_BPS  = 5000;    // 50% of LP rewards → creator post-grad
+export const LP_PROTOCOL_SHARE_BPS = 5000;    // 50% of LP rewards → protocol post-grad
 export const LP_FEE_TIER         = 10000;                                   // 1% V4 pool fee
 export const TICK_LOWER          = -887200;
 export const TICK_UPPER          =  887200;
