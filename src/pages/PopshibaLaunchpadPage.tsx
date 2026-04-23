@@ -583,11 +583,7 @@ export default function PopshibaLaunchpadPage() {
       } else if (data.type === "wallet-query") {
         sendWalletState();
       } else if (data.type === "wallet-connect") {
-        if (ready) {
-          // Open Privy's modal directly. Do NOT touch window.ethereum
-          // here — that would prompt whichever extension is injected
-          // (Trust, Phantom, MetaMask...) before Privy's modal opens,
-          // which is exactly the bug we're fixing.
+        if (ready && !authenticated) {
           login();
         }
       } else if (data.type === "open-earnings") {
