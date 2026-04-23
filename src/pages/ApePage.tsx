@@ -83,11 +83,13 @@ export default function ApePage() {
   const { toast } = useToast();
 
   // Ethereum-only: accept /ape/:address or legacy /ape/:chain/:address (chain is ignored)
+  // Default token when no address is provided
+  const DEFAULT_TOKEN = "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE";
   const address = useMemo<string>(() => {
     const candidate =
       (chainParam && addressParam) ? addressParam :
       (chainParam || addressParam || "");
-    return candidate;
+    return candidate || DEFAULT_TOKEN;
   }, [chainParam, addressParam]);
 
   const networkId = ETH_NETWORK_ID;
