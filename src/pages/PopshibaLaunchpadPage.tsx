@@ -557,7 +557,7 @@ export default function PopshibaLaunchpadPage() {
       }
     }
     function sendWalletState() {
-      reply("wallet-state", { connected: !!(authenticated && isConnected && address), address: address || null });
+      reply("wallet-state", { connected: !!(isConnected && address), address: address || null });
     }
     function onMessage(e: MessageEvent) {
       const data = e.data;
