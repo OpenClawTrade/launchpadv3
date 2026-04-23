@@ -60,6 +60,7 @@ const FunModePage = lazyWithRetry(() => import("./pages/FunModePage"));
 const AdminPanelPage = lazyWithRetry(() => import("./pages/AdminPanelPage"));
 const PublicDeployPage = lazyWithRetry(() => import("./pages/PublicDeployPage"));
 const BondingDeployPage = lazyWithRetry(() => import("./pages/BondingDeployPage"));
+const V4ProofPage = lazyWithRetry(() => import("./pages/V4ProofPage"));
 const BrandingAdminPage = lazyWithRetry(() => import("./pages/BrandingAdminPage"));
 const BrandAssetsPage = lazyWithRetry(() => import("./pages/BrandAssetsPage"));
 
@@ -185,6 +186,7 @@ const App = () => (
                     <Route path="/admin" element={<AdminPanelPage />} />
                     <Route path="/deploy" element={<LaunchpadLayout><PublicDeployPage /></LaunchpadLayout>} />
                     <Route path="/bonding/deploy" element={<BondingDeployPage />} />
+                    <Route path="/v4-proof" element={<V4ProofPage />} />
                     <Route path="/admin/branding" element={<BrandingAdminPage />} />
                     <Route path="/admin/brand-assets" element={<BrandAssetsPage />} />
                     <Route path="/admin/twitter" element={<Navigate to="/admin?tab=xbots" replace />} />
