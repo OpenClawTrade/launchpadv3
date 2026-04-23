@@ -562,6 +562,33 @@ export default function LaunchNowPage() {
       const ethWei = parseEther(String(ethAmt));
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 20);
 
+      // Fetch current fees and bump by +2 gwei so txs land in the next block.
+      const { createPublicClient, http, fallback, parseGwei } = await import("viem");
+      const pc = createPublicClient({
+        chain: mainnet,
+        transport: fallback(
+          [
+            http("https://ethereum-rpc.publicnode.com"),
+            http("https://eth.llamarpc.com"),
+            http("https://rpc.ankr.com/eth"),
+            http("https://cloudflare-eth.com"),
+          ],
+          { rank: false, retryCount: 1 }
+        ),
+      });
+      const BUMP = parseGwei("2");
+      let maxPriorityFeePerGas: bigint;
+      let maxFeePerGas: bigint;
+      try {
+        const fees = await pc.estimateFeesPerGas();
+        maxPriorityFeePerGas = (fees.maxPriorityFeePerGas ?? parseGwei("1")) + BUMP;
+        maxFeePerGas = (fees.maxFeePerGas ?? parseGwei("20")) + BUMP;
+        if (maxFeePerGas < maxPriorityFeePerGas) maxFeePerGas = maxPriorityFeePerGas + BUMP;
+      } catch {
+        maxPriorityFeePerGas = parseGwei("3");
+        maxFeePerGas = parseGwei("25");
+      }
+
       // 1. Approve router
       toast.info("Step 1/2: Approve router to spend your tokens…");
       const approveHash = await walletClient.writeContract({
@@ -571,10 +598,12 @@ export default function LaunchNowPage() {
         abi: ERC20_ABI,
         functionName: "approve",
         args: [UNISWAP_V2_ROUTER, tokensWei],
+        maxFeePerGas,
+        maxPriorityFeePerGas,
       });
       toast.success(
         <a href={ETHERSCAN_TX(approveHash)} target="_blank" rel="noopener noreferrer" className="underline">
-          Approve sent — view tx
+          Approve sent (+2 gwei) — view tx
         </a>
       );
 
@@ -598,10 +627,12 @@ export default function LaunchNowPage() {
           deadline,
         ],
         value: ethWei,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
       });
       toast.success(
         <a href={ETHERSCAN_TX(lpHash)} target="_blank" rel="noopener noreferrer" className="underline">
-          Liquidity added — view tx
+          Liquidity added (+2 gwei) — view tx
         </a>
       );
       setLpTokenAmount("");
