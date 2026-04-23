@@ -50,7 +50,7 @@ export default function BondingTokenDetailPage() {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const publicClient = createPublicClient({ chain: mainnet, transport: http() });
+  const publicClient = createPublicClient({ chain: mainnet, transport: http() }) as any;
 
   const loadToken = useCallback(async () => {
     if (!address) return;
@@ -105,7 +105,7 @@ export default function BondingTokenDetailPage() {
       if (!wallet) throw new Error("No wallet");
       await wallet.switchChain(mainnet.id);
       const provider = await wallet.getEthereumProvider();
-      const walletClient = createWalletClient({ chain: mainnet, transport: custom(provider) });
+      const walletClient = createWalletClient({ chain: mainnet, transport: custom(provider) }) as any;
 
       const curveAddr = token.curve_address as Address;
       let hash;

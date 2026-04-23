@@ -90,8 +90,8 @@ export default function BondingCreatePage() {
       if (!wallet) throw new Error("No wallet available");
       await wallet.switchChain(mainnet.id);
       const provider = await wallet.getEthereumProvider();
-      const walletClient = createWalletClient({ chain: mainnet, transport: custom(provider) });
-      const publicClient = createPublicClient({ chain: mainnet, transport: http() });
+      const walletClient = createWalletClient({ chain: mainnet, transport: custom(provider) }) as any;
+      const publicClient = createPublicClient({ chain: mainnet, transport: http() }) as any;
 
       const salt = generateSalt();
       const initialBuyWei = initialBuy && Number(initialBuy) > 0 ? parseEther(initialBuy) : 0n;
