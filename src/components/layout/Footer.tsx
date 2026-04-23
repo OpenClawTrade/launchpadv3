@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { NewPairsPanel } from "./NewPairsPanel";
-import { WalletTrackerPanel } from "./WalletTrackerPanel";
 
 /**
  * Sticky Footer Menu (sfm) — always pinned to bottom of viewport.
