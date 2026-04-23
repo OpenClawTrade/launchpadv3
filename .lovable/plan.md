@@ -2,57 +2,38 @@
 
 ## Goal
 
-Give every page in the app the **exact same header and footer** as the landing page (`/`), so navigation and branding feel identical everywhere — including admin, trade/ape, agents, whitepaper, leverage, etc.
+Finish the "every page = same footer as the iframed landing page" work that was left half-done last loop. The sticky bar (BTC/ETH/BNB tickers, Tracker, + New Pairs, 🚀 Launch, ⚡ Pulse, Stable, ping) and the dark `© 2026 POPSHIBA` band should appear on every page, exactly once, exactly like in `launch.html`.
 
-## What "the landing page header/footer" actually is
+## What's already correct
 
-The landing page (`/`) renders an **iframed `launch.html`** with its own internal nav + footer + sticky bottom bar. Outside the iframe, the canonical React equivalents that mirror it 1:1 are already built:
+`LaunchpadLayout` already renders the canonical trio (`PopshibaTopNav` + content + `PopshibaFooter` + sticky `Footer`) and most pages now go through it. The `PopshibaFooter` component and the sticky `Footer` component are already pixel-matched to the iframe's `<footer>` and `.sfm` markup.
 
-- **Header:** `PopshibaTopNav` (POPSHIBA logo, Home / Trade / Holders / Alpha / Tracker / Docs, Telegram + X icons, Connect, Create) — same one used by `HomePage` and `ApePage`.
-- **Top footer block:** `PopshibaFooter` (dark band, "© 2026 POPSHIBA · NOT FINANCIAL ADVICE · DYOR, DEGEN").
-- **Sticky bottom bar:** the existing React `Footer` (Tracker / + New Pairs popovers, 🚀 Launch / ⚡ Pulse, BTC/ETH/BNB tickers, Stable indicator) — this is the same widget that lives at the bottom of `launch.html`.
+## What's still broken
 
-The plan standardises on this trio: `PopshibaTopNav` + page content + `PopshibaFooter` + `Footer` (sticky bar).
+1. **Build errors** — three Group 2 pages still have `<Footer />` JSX after the `Footer` import was stripped:
+   - `src/pages/CreateTokenPage.tsx` (line 144)
+   - `src/pages/TrendingPage.tsx` (line 404)
+   - `src/pages/AdminPanelPage.tsx` (line 137)
 
-## Pages to convert
+2. **Duplicate sticky bar** — `CareersPage` is wrapped in `LaunchpadLayout` by the route, but still also renders its own `<Footer />` inside the page body, so the sticky bar appears twice and the dark band is missing.
 
-Today the app has three competing layouts. Everything in groups 2 and 3 will be rebuilt onto group 1's stack.
+3. **`PopshibaEarnings` (`/earnings`)** — renders `PopshibaTopNav` by hand, has no `PopshibaFooter` and no sticky `Footer`. The `/earnings` route was deliberately skipped last loop; it needs to be wrapped in `LaunchpadLayout` for parity.
 
-**Group 1 — Already correct (leave as-is, only verify):**
-`HomePage`, `ApePage`, `PopshibaEarnings`, plus iframe pages (`PopshibaLaunchpadPage`, `PopshibaAlphaPage`, `PopshibaXTrackerPage`) where the iframe template already contains the matching nav/footer.
-
-**Group 2 — Uses old `AppHeader` + `Sidebar` + legacy `Footer`. Strip sidebar, swap to `PopshibaTopNav` + `PopshibaFooter` + sticky `Footer`:**
-`AdminPanelPage`, `AgentsPage`, `WhitepaperPage`, `CreateTokenPage`, `LaunchTokenPage`, `FunLauncherPage`, `GovernancePage`, `InvestigateTokenPage`, `MerchStorePage`, `PanelPage`, `SixtyNineListPage`, `TokenomicsPage`, `TrendingPage`, `TwitterBotAdminPage`, `WalletTrackerPage`.
-
-**Group 3 — Uses `LaunchpadLayout` (which already provides `PopshibaTopNav` + `PopshibaFooter` but is missing the sticky bottom bar). Add sticky `Footer` to the layout once:**
-`BagsAgentsPage`, `AgentDocsPage`, `DexListPage`, `PerpsPage`, `LeveragePage`, `MeteoritePage`, plus every other `LaunchpadLayout` consumer.
-
-**Group 4 — Standalone / niche pages that currently have no shared chrome:** `BitcoinModePage`, `BitcoinTokenDetailPage`, `BtcMemeDetailPage`, `BtcMemeLaunchPage`, `BitcoinLaunchPage`, `LaunchNowPage`, `NotFound`, `BannerMakerPage`, `BrandAssetsPage`, `BrandingAdminPage`, `CareersPage`, `ConsolePage`, `DiscoverPage`, `EarningsPage`, `RewardsPage`, `PortfolioPage`, `XTrackerPage`, `XBotAdminPage`, `XPostRestylerPage`, plus all admin sub-pages (`SaturnAdminLaunchPage`, `MevAdminPage`, `BatchLaunchAdminPage`, `DeployerDustAdminPage`, `TreasuryAdminPage`, `VanityAdminPage`, `AssistedSwapsAdminPage`, `InfluencerRepliesAdminPage`, `PromoMentionsAdminPage`, `AgentLogsAdminPage`, `SaturnForumAdminPage`, `DexListingAdminTab`, `SellAllPage`, `CompressedDistributePage`, `DecompressPage`, `TunnelDistributePage`, `VanityGeneratorPage`, `ClaudeLauncherPage`, `FollowerScanPage`, `PartnerFeesPage`, `PublicDeployPage`, `ReferralRedirectPage`, `SaturnCommunityPage`, `SaturnPostPage`, `SaturnForumPage`, `SaturnModePage`, `BondingCurveLabPage`, `AICollabPage`, `AgentConnectPage`, `AgentDashboardPage`, `AgentLeaderboardPage`, `AgentProfilePage`, `TradingAgentProfilePage`, `TradingAgentsPage`, `TradePage`, `TokenDetailPage`, `FunTokenDetailPage`, `FunModePage`, `AlphaTrackerPage`, `AllTokensPage`, `LaunchpadTemplatePage`, `TATWhitepaperPage`, `WidgetPage`, `V2BitcoinModePage`, `V2BtcMemeDetailPage`, `V2BtcMemeLaunchPage`, `UserProfilePage`. Wrap each in `LaunchpadLayout` (which now also renders the sticky bar).
+4. **`HomePage` (`/preview-old`)** — renders `<Footer />` directly with no `PopshibaFooter` band, and is not wrapped in `LaunchpadLayout`. Wrap it the same way so the preview matches the live landing page.
 
 ## Implementation steps
 
-1. **Update `LaunchpadLayout`** so it always renders the canonical trio:
-   ```
-   PopshibaTopNav  →  <main>{children}</main>  →  PopshibaFooter  →  Footer (sticky bar)
-   ```
-   - Keep its existing `hideFooter` / `noPadding` props for the rare pages (Leverage terminal) that need a flush layout, but `hideFooter` will only hide the dark `PopshibaFooter` band, never the sticky bar.
-   - Remove the orange `#f5a524` body background override so the chrome inherits the same look as `/`.
+1. **Strip stale JSX** — delete the orphan `<Footer />` lines (and any `{/* Footer */}` comment immediately above) from `CreateTokenPage`, `TrendingPage`, `AdminPanelPage`, `CareersPage`. Also drop `import { Footer } from "@/components/layout/Footer"` from `CareersPage`.
 
-2. **Remove the old chrome from every Group 2 page**: delete the `Sidebar`, `AppHeader`, the `md:ml-[48px]` wrapper, and the legacy `<Footer />` import; replace the outer JSX with `<LaunchpadLayout>...</LaunchpadLayout>`. The page's inner content/markup stays exactly the same.
+2. **Wrap `PopshibaEarnings`** — replace its hand-rolled `PopshibaTopNav` + outer `<div>` with `<LaunchpadLayout>...</LaunchpadLayout>`; drop the now-unused `PopshibaTopNav` import.
 
-3. **Wrap every Group 4 page** in `<LaunchpadLayout>`. Pages that currently render full-bleed terminals (BTC, Trade, TokenDetail) get `<LaunchpadLayout noPadding>` so their internal grids aren't disturbed.
+3. **Wrap `HomePage`** — replace its outer `<div>` + manual `<Footer />` with `<LaunchpadLayout>` so `/preview-old` shows the same dark band + sticky bar combo as every other page.
 
-4. **Fix `ApePage`** to use `LaunchpadLayout` too instead of hand-rolling `PopshibaTopNav` + `Footer`, so it stays in lockstep with everything else automatically.
-
-5. **Delete the now-unused global `<StickyStatsFooter />`** mounted in `App.tsx` (it's the cream Pulse-only bar the user already complained about) — the sticky bar is provided per-layout now, so the global one is redundant and conflicts.
-
-6. **Iframe pages** (`PopshibaLaunchpadPage`, `PopshibaAlphaPage`, `PopshibaXTrackerPage`): leave their internal `launch.html` / `alpha.html` / `x-tracker.html` headers and footers alone — they already match by design. Do NOT wrap them in `LaunchpadLayout` (would double up the chrome).
-
-7. **Admin pages** specifically: same treatment as the rest. The "admin" nav state is already inside the page body, so wrapping in `LaunchpadLayout` only changes the surrounding chrome, not the admin tabs.
+4. **Final sweep** — `grep -rn "from \"@/components/layout/Footer\"" src/pages` to confirm nothing outside `LaunchpadLayout.tsx` still imports the legacy `Footer`, and `grep -rn "<Footer" src/pages` returns nothing. Then `tsc --noEmit` to confirm a clean build.
 
 ## Out of scope
 
-- No visual redesign of `PopshibaTopNav`, `PopshibaFooter`, or the sticky `Footer` — they're already pixel-matched to `launch.html`.
-- No changes to the iframe templates themselves.
-- Sidebar (`Sidebar.tsx`) and `AppHeader.tsx` files stay on disk but become unused; safe to leave for now to avoid surprise breakage in any lazy-loaded route I might miss.
+- Iframe pages (`/`, `/alpha`, `/x-tracker`) — their footer lives inside `launch.html` and already matches by definition.
+- `/widget/:type` (embed widget — must stay chromeless) and `/link/:code` (instant redirect).
+- No changes to `PopshibaFooter`, `Footer`, or `LaunchpadLayout` — they are already correct.
 
