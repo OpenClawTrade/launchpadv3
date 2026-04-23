@@ -320,6 +320,9 @@ export default function BondingTokenDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
           {/* LEFT */}
           <div className="space-y-5">
+            {/* Price chart */}
+            <BondingPriceChart tokenAddress={token.token_address} />
+
             {/* Bonding curve */}
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-5">
               <div className="flex items-center justify-between mb-2">
