@@ -1208,7 +1208,7 @@
 
 
       <!-- Step: LP Locker (Team Finance) -->
-      <div class="form-card" style="margin-bottom:18px">
+      <div id="lockLpCard" class="form-card" style="margin-bottom:18px">
         <div class="fld-label">LP Locker <span class="hint">optional · adds ~0.045 ETH to your starting LP</span></div>
         <div id="lockLpToggle" role="button" tabindex="0"
              style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);transition:transform .08s">
@@ -1869,10 +1869,12 @@
       opts.forEach(function(b){
         b.style.background = (b.getAttribute('data-ver') === launcherVersion) ? 'var(--primary)' : '#fff';
       });
-      // V2 variants skip Team Finance lock entirely — hide the lock toggle row and force lockLP off.
+      // V2 variants skip Team Finance lock entirely — hide the whole lock card and force lockLP off.
       const lockRow = document.getElementById('lockLpToggle');
+      const lockCard = document.getElementById('lockLpCard');
       const isV2 = launcherVersion === 'v2burn' || launcherVersion === 'v2fees';
       if (lockRow) lockRow.style.display = isV2 ? 'none' : '';
+      if (lockCard) lockCard.style.display = isV2 ? 'none' : '';
       if (isV2 && lockLP) {
         lockLP = false;
         const check = document.getElementById('lockLpCheck');
