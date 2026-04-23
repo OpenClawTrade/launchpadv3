@@ -205,6 +205,13 @@ Deno.serve(async (req) => {
     const header: string | undefined = body?.header;
     const waitForResult: boolean = body?.waitForResult !== false;
 
+    // NEW (per-token unique source): when the client compiled a fresh source
+    // server-side via pepe-compile-launchnow, it passes the exact bytes back
+    // so we can verify with the SAME source that produced the bytecode.
+    const customSourceCode: string | undefined = body?.sourceCode;
+    const customContractName: string | undefined = body?.contractName;
+    const customFileName: string | undefined = body?.fileName;
+
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -238,15 +245,27 @@ Deno.serve(async (req) => {
       console.warn(`[pepe-verify] verifier index not ready, attempting submit anyway`);
     }
 
-    // IMPORTANT: do NOT mutate the source — Solidity embeds a metadata hash of the
-    // exact source bytes into deployed bytecode. Any header/comment injection breaks
-    // bytecode equality. The user-supplied `header` is intentionally ignored here.
-    void header;
-    void buildHeader;
+    // Decide which source/contract/file to submit:
+    //   - If client provided customSourceCode (LaunchNow fresh-compile path),
+    //     use it verbatim — it's the exact source that produced the on-chain
+    //     bytecode, so verification is Exact Match with custom header preserved.
+    //   - Otherwise fall back to the legacy shared PEPE_TOKEN_SOURCE.
+    const useFreshSource = !!(customSourceCode && customContractName && customFileName);
+    const sourceContent = useFreshSource ? customSourceCode! : PEPE_TOKEN_SOURCE;
+    const fileName = useFreshSource ? customFileName! : "PepeToken.sol";
+    const contractIdentifier = useFreshSource
+      ? `${customFileName}:${customContractName}`
+      : "PepeToken.sol:PepeToken";
+
+    if (!useFreshSource) {
+      // Legacy path — header injection would break bytecode equality.
+      void header;
+      void buildHeader;
+    }
 
     const standardJson = {
       language: "Solidity",
-      sources: { "PepeToken.sol": { content: PEPE_TOKEN_SOURCE } },
+      sources: { [fileName]: { content: sourceContent } },
       settings: {
         evmVersion: "paris",
         optimizer: { enabled: true, runs: 200 },
@@ -262,7 +281,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[pepe-verify] using constructor supply ${ctorSupply.toString()}${resolvedInitialSupply ? " (resolved from mint log)" : " (from request)"}`);
+    console.log(`[pepe-verify] submitting ${contractIdentifier} (${useFreshSource ? "fresh" : "legacy"}) supply=${ctorSupply.toString()}`);
     const ctorArgsHex = encodeConstructorArgs(sanitize(name), sanitize(symbol), ctorSupply);
 
     const buildForm = () => {
@@ -273,7 +292,7 @@ Deno.serve(async (req) => {
       form.append("contractaddress", tokenAddress);
       form.append("sourceCode", JSON.stringify(standardJson));
       form.append("codeformat", "solidity-standard-json-input");
-      form.append("contractname", "PepeToken.sol:PepeToken");
+      form.append("contractname", contractIdentifier);
       form.append("compilerversion", COMPILER);
       form.append("constructorArguements", ctorArgsHex);
       return form;
