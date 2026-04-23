@@ -226,7 +226,15 @@ export default function ApePage() {
         const buf = 0.001;
         setAmount(Math.max(0, nativeBal - buf).toFixed(6));
       } else {
-        setAmount(tokenBal > 0 ? tokenBal.toFixed(6) : "0");
+        // Use exact raw on-chain balance to avoid float rounding overshooting wallet balance
+        const raw = tokenBalRawRef.current;
+        if (raw <= 0n) { setAmount("0"); return; }
+        const dec = tokenDecimals;
+        const base = 10n ** BigInt(dec);
+        const whole = raw / base;
+        const frac = raw % base;
+        const fracStr = frac.toString().padStart(dec, "0").replace(/0+$/, "");
+        setAmount(fracStr ? `${whole}.${fracStr}` : `${whole}`);
       }
     } else {
       setAmount(q);
