@@ -143,12 +143,13 @@ export default function ApePage() {
   // Live balances
   const [nativeBal, setNativeBal] = useState<number>(0);
   const [tokenBal, setTokenBal] = useState<number>(0);
+  const tokenBalRawRef = useRef<bigint>(0n);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       if (!isEvm || !evmWallet || !evmAddress) {
-        setNativeBal(0); setTokenBal(0); return;
+        setNativeBal(0); setTokenBal(0); tokenBalRawRef.current = 0n; return;
       }
       try {
         const provider: any = await (evmWallet as any).getEthereumProvider();
@@ -161,7 +162,9 @@ export default function ApePage() {
           params: [{ to: address, data }, "latest"],
         });
         if (!cancelled && balHex && balHex !== "0x") {
-          setTokenBal(Number(BigInt(balHex)) / 10 ** tokenDecimals);
+          const raw = BigInt(balHex);
+          tokenBalRawRef.current = raw;
+          setTokenBal(Number(raw) / 10 ** tokenDecimals);
         }
       } catch {}
     }
@@ -223,7 +226,15 @@ export default function ApePage() {
         const buf = 0.001;
         setAmount(Math.max(0, nativeBal - buf).toFixed(6));
       } else {
-        setAmount(tokenBal > 0 ? tokenBal.toFixed(6) : "0");
+        // Use exact raw on-chain balance to avoid float rounding overshooting wallet balance
+        const raw = tokenBalRawRef.current;
+        if (raw <= 0n) { setAmount("0"); return; }
+        const dec = tokenDecimals;
+        const base = 10n ** BigInt(dec);
+        const whole = raw / base;
+        const frac = raw % base;
+        const fracStr = frac.toString().padStart(dec, "0").replace(/0+$/, "");
+        setAmount(fracStr ? `${whole}.${fracStr}` : `${whole}`);
       }
     } else {
       setAmount(q);
