@@ -388,10 +388,13 @@ export function PrivyProviderWrapper({ children }: PrivyProviderWrapperProps) {
               createOnLogin: "off",
             },
             ethereum: {
+              // Use 'users-without-wallets' so Privy skips creation when the user
+              // connected an external wallet (MetaMask/Rainbow/etc). Using
+              // 'all-users' caused the "Creating your wallet" modal to hang.
               createOnLogin:
                 typeof window !== "undefined" && window.location.pathname.startsWith("/launchnow")
                   ? "off"
-                  : "all-users",
+                  : "users-without-wallets",
             },
           },
           legal: {
