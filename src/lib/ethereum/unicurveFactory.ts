@@ -64,7 +64,10 @@ export const UNICURVE_FACTORY_ABI = parseAbi([
   'function GRADUATION_THRESHOLD_WEI() view returns (uint256)',
   'function defaults() view returns (uint16 feeBps, uint16 creatorShareBps, uint24 lpFeeTier, uint16 lpCreatorShareBps)',
   'function owner() view returns (address)',
-  'event TokenCreated(address indexed token, address indexed curve, address indexed creator, string name, string symbol, string metadataURI, bytes32 salt)',
+  // TokenCreated is emitted on the EVENT_BUS contract, not the factory.
+  // Real layout (verified on tx 0xb920…2db log #387):
+  //   (token, curve, creator, name, symbol, metadataURI, initialPriceWei, seedEthSpent)
+  'event TokenCreated(address indexed token, address indexed curve, address indexed creator, string name, string symbol, string metadataURI, uint256 initialPriceWei, uint256 seedEthSpent)',
 ]);
 
 // ── Curve ABI (real signatures) ──────────────────────────────────────────────
