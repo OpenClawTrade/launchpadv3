@@ -185,8 +185,8 @@ export function StickyStatsFooter() {
   if (isBitcoin) return null;
 
   // Hide on Popshiba poster pages — they ship with the branded global footer
-  const popshibaRoutes = ["/", "/launchpad", "/launch", "/discover", "/tokens"];
-  if (popshibaRoutes.includes(pathname)) return null;
+  const popshibaRoutes = ["/", "/launchpad", "/launch", "/discover", "/tokens", "/trade", "/ape"];
+  if (popshibaRoutes.includes(pathname) || pathname.startsWith("/ape/") || pathname.startsWith("/trade/")) return null;
 
   const footer = (
     <div
