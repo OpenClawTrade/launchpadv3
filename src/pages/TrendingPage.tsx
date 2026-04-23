@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import { TrendingUp, Sparkles, ExternalLink, Clock, History, RefreshCw } from "lucide-react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
 
 interface TrendingToken {
   id: string;
@@ -45,7 +43,6 @@ interface NarrativeHistory {
 }
 
 const TrendingPage = () => {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [tokens, setTokens] = useState<TrendingToken[]>([]);
   const [narratives, setNarratives] = useState<TrendingNarrative[]>([]);
   const [narrativeHistory, setNarrativeHistory] = useState<NarrativeHistory[]>([]);
@@ -128,11 +125,7 @@ const TrendingPage = () => {
   }, {} as Record<string, NarrativeHistory[]>);
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 pb-24">
         {/* Active Narrative Banner */}
         {activeNarrative && (

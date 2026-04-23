@@ -1,13 +1,11 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { TokenTickerBar } from "@/components/launchpad/TokenTickerBar";
 import { TokenCard } from "@/components/launchpad/TokenCard";
-import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { useFunTokensPaginated } from "@/hooks/useFunTokensPaginated";
 import { useJustLaunched } from "@/hooks/useJustLaunched";
@@ -98,7 +96,6 @@ export default function FunLauncherPage() {
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [promoteTokenId, setPromoteTokenId] = useState<string | null>(null);
   const [promoteTokenName, setPromoteTokenName] = useState("");

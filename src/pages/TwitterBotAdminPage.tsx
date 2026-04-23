@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,9 +142,8 @@ export default function TwitterBotAdminPage() {
   // Show loading while checking auth
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen bg-[#0d0d0f]">
-        <AppHeader />
-        <main className="max-w-md mx-auto px-4 py-16">
+      <LaunchpadLayout>
+      <main className="max-w-md mx-auto px-4 py-16">
           <div className="text-center text-gray-400">Loading...</div>
         </main>
       </div>
@@ -154,9 +153,8 @@ export default function TwitterBotAdminPage() {
   // Auth gate - show login form if not authenticated
   if (!isAuthed) {
     return (
-      <div className="min-h-screen bg-[#0d0d0f]">
-        <AppHeader />
-        <main className="max-w-md mx-auto px-4 py-16">
+      <LaunchpadLayout>
+      <main className="max-w-md mx-auto px-4 py-16">
           <Card className="bg-[#12121a] border-[#1a1a1f]">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
@@ -199,9 +197,7 @@ export default function TwitterBotAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0f]">
-      <AppHeader />
-      
+    <LaunchpadLayout>
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -438,6 +434,6 @@ export default function TwitterBotAdminPage() {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </LaunchpadLayout>
   );
 }

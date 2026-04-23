@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, Bot, Users, TrendingUp, ExternalLink, AlertTriangle, CheckCircle } from "lucide-react";
-import { AppHeader } from "@/components/layout/AppHeader";
 import { formatDistanceToNow } from "date-fns";
 
 interface InvestigationResult {
@@ -102,9 +102,7 @@ export default function InvestigateTokenPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      
+    <LaunchpadLayout>
       <main className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2">🔍 Token Investigation</h1>
@@ -441,6 +439,6 @@ export default function InvestigateTokenPage() {
           </>
         )}
       </main>
-    </div>
+    </LaunchpadLayout>
   );
 }
