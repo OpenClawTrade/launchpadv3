@@ -604,6 +604,8 @@ export default function LaunchNowPage() {
           Liquidity added — view tx
         </a>
       );
+      setLpTokenAmount("");
+      setLpEthAmount("");
       setTimeout(() => refetch(), 8000);
     } catch (e: any) {
       console.error("[add-lp]", e);
