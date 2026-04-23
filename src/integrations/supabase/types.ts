@@ -1137,6 +1137,33 @@ export type Database = {
           },
         ]
       }
+      bonding_holders: {
+        Row: {
+          balance: number
+          holder_address: string
+          id: string
+          percentage: number
+          token_address: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          holder_address: string
+          id?: string
+          percentage?: number
+          token_address: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          holder_address?: string
+          id?: string
+          percentage?: number
+          token_address?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bonding_tokens: {
         Row: {
           block_number: number | null
@@ -1146,15 +1173,23 @@ export type Database = {
           description: string | null
           graduated: boolean
           graduated_at: string | null
+          holder_count: number | null
           id: string
           image_cid: string | null
           image_url: string | null
           initial_buy_eth: number | null
+          last_trade_at: string | null
+          market_cap_usd: number | null
           name: string
+          price_eth: number | null
+          progress_bps: number | null
+          real_eth_reserves: number | null
+          real_token_reserves: number | null
           salt: string
           symbol: string
           telegram_url: string | null
           token_address: string
+          total_trades: number | null
           twitter_url: string | null
           tx_hash: string
           updated_at: string
@@ -1168,15 +1203,23 @@ export type Database = {
           description?: string | null
           graduated?: boolean
           graduated_at?: string | null
+          holder_count?: number | null
           id?: string
           image_cid?: string | null
           image_url?: string | null
           initial_buy_eth?: number | null
+          last_trade_at?: string | null
+          market_cap_usd?: number | null
           name: string
+          price_eth?: number | null
+          progress_bps?: number | null
+          real_eth_reserves?: number | null
+          real_token_reserves?: number | null
           salt: string
           symbol: string
           telegram_url?: string | null
           token_address: string
+          total_trades?: number | null
           twitter_url?: string | null
           tx_hash: string
           updated_at?: string
@@ -1190,19 +1233,75 @@ export type Database = {
           description?: string | null
           graduated?: boolean
           graduated_at?: string | null
+          holder_count?: number | null
           id?: string
           image_cid?: string | null
           image_url?: string | null
           initial_buy_eth?: number | null
+          last_trade_at?: string | null
+          market_cap_usd?: number | null
           name?: string
+          price_eth?: number | null
+          progress_bps?: number | null
+          real_eth_reserves?: number | null
+          real_token_reserves?: number | null
           salt?: string
           symbol?: string
           telegram_url?: string | null
           token_address?: string
+          total_trades?: number | null
           twitter_url?: string | null
           tx_hash?: string
           updated_at?: string
           website_url?: string | null
+        }
+        Relationships: []
+      }
+      bonding_trades: {
+        Row: {
+          block_number: number | null
+          created_at: string
+          curve_address: string
+          eth_amount: number
+          id: string
+          log_index: number | null
+          price_eth: number | null
+          price_usd: number | null
+          side: string
+          token_address: string
+          token_amount: number
+          trader_address: string
+          tx_hash: string
+        }
+        Insert: {
+          block_number?: number | null
+          created_at?: string
+          curve_address: string
+          eth_amount: number
+          id?: string
+          log_index?: number | null
+          price_eth?: number | null
+          price_usd?: number | null
+          side: string
+          token_address: string
+          token_amount: number
+          trader_address: string
+          tx_hash: string
+        }
+        Update: {
+          block_number?: number | null
+          created_at?: string
+          curve_address?: string
+          eth_amount?: number
+          id?: string
+          log_index?: number | null
+          price_eth?: number | null
+          price_usd?: number | null
+          side?: string
+          token_address?: string
+          token_amount?: number
+          trader_address?: string
+          tx_hash?: string
         }
         Relationships: []
       }

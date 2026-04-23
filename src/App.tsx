@@ -103,6 +103,8 @@ const PopshibaXTrackerPage = lazyWithRetry(() => import("./pages/PopshibaXTracke
 const BondingListPage = lazyWithRetry(() => import("./pages/BondingListPage"));
 const BondingCreatePage = lazyWithRetry(() => import("./pages/BondingCreatePage"));
 const BondingTokenDetailPage = lazyWithRetry(() => import("./pages/BondingTokenDetailPage"));
+const BondingClaimPage = lazyWithRetry(() => import("./pages/BondingClaimPage"));
+const BondingProfilePage = lazyWithRetry(() => import("./pages/BondingProfilePage"));
 
 function RouteChainSync() {
   return null;
@@ -256,6 +258,8 @@ const App = () => (
                      <Route path="/bonding" element={<BondingListPage />} />
                      <Route path="/bonding/create" element={<BondingCreatePage />} />
                      <Route path="/bonding/token/:address" element={<BondingTokenDetailPage />} />
+                     <Route path="/bonding/claim" element={<BondingClaimPage />} />
+                     <Route path="/bonding/profile/:address" element={<BondingProfilePage />} />
                      <Route path="/btc" element={<LaunchpadLayout><V2BitcoinModePage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/launch" element={<LaunchpadLayout><V2BtcMemeLaunchPage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/:id" element={<LaunchpadLayout><V2BtcMemeDetailPage /></LaunchpadLayout>} />
