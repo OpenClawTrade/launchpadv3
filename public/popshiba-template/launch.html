@@ -2134,14 +2134,6 @@
     document.head.appendChild(st);
   }
 
-  // Wire up warning-banner connect button + hide once connected
-  const walletWarn = document.getElementById('walletWarn');
-  const walletWarnConnect = document.getElementById('walletWarnConnect');
-  if (walletWarnConnect) walletWarnConnect.addEventListener('click', function(){
-    try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
-  });
-  // Initial visibility (defaults to "show warning" until wallet-state arrives)
-  if (walletWarn) walletWarn.style.display = walletConnected ? 'none' : 'flex';
   // Top-nav Create button
   document.querySelectorAll('.nav-right .btn').forEach(function(b){
     if (/create/i.test(b.textContent || '')) {
