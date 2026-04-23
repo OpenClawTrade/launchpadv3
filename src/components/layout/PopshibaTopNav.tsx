@@ -77,8 +77,9 @@ export function PopshibaTopNav() {
         <nav className="hidden lg:flex gap-6 xl:gap-7 text-[14px] font-bold items-center">
           {NAV_LINKS.map((link) => (
             <Link
-              key={link.to}
+              key={link.label}
               to={link.to}
+              onClick={(e) => handleNavClick(e, link)}
               className="text-pop-cream/90 hover:text-pop-cream transition-colors"
             >
               {link.label}
