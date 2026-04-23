@@ -172,12 +172,18 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
     isConnected &&
     formData.name.trim().length > 0 &&
     formData.ticker.trim().length > 0 &&
+    formData.imageUrl.trim().length > 0 &&
     ethPrice > 0 &&
     lpEthAmount > 0 &&
     formData.devBuyEth >= 0;
 
   const handleLaunch = useCallback(async () => {
-    if (!canLaunch || !address) return;
+    if (!address) return;
+    if (!formData.imageUrl.trim()) {
+      toast.error('Token image required', { description: 'Upload an image before launching.' });
+      return;
+    }
+    if (!canLaunch) return;
     setIsLaunching(true);
     setDeployedTokenAddress(null);
     setLaunchTxHash(null);
