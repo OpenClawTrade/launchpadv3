@@ -5,8 +5,13 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 interface IPopToken {
     function transfer(address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
     function enableTransfers() external;
+}
+
+interface IHookSeed {
+    function seedLockedLP(bytes32 poolId) external;
 }
 
 /// @title PopCurveImpl
