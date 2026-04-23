@@ -97,7 +97,7 @@ contract PopBondingHookV4 is BaseHook {
             afterDonate: false,
             beforeSwapReturnDelta: true,
             afterSwapReturnDelta: false,
-            beforeAddLiquidityReturnDelta: false,
+            afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
     }
