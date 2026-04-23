@@ -266,6 +266,7 @@ function SuccessResult({
         >
           Back to Terminal
         </button>
-      </LaunchpadLayout>
+      </div>
+    </div>
   );
 }

@@ -67,8 +67,7 @@ export default function PanelPage() {
               <div className="w-5 h-5 border-2 border-transparent border-t-primary rounded-full animate-spin" />
             </div>
           </div>
-        </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
@@ -109,8 +108,7 @@ export default function PanelPage() {
               <NotLoggedInModal open={showLoginModal} onOpenChange={setShowLoginModal} />
             </div>
           </div>
-        </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
