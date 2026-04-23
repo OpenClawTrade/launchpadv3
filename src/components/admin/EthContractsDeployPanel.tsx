@@ -217,12 +217,14 @@ export function EthContractsDeployPanel() {
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Verify on Etherscan
               </Button>
-              <Button
-                onClick={() => deploy("v2")}
-                disabled={busy || !dry.v2CanDeploy}
-                variant="default"
-                title={dry.v2Ready ? "Deploy UNCX-locking V2 suite" : "Paste V2 bytecode into v2_bytecode.ts first"}
-              >
+              <Button onClick={sterilizeImpl} disabled={busy} variant="secondary" title="Re-verify the implementation contract with a sterile header so all future clones inherit the clean source instead of SHIBANUSI">
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Sterilize Implementation (kill SHIBANUSI carryover)
+              </Button>
+              <Button onClick={() => deploy("v2")} disabled={busy || !dry.v2CanDeploy} variant="default" title={dry.v2Ready ? "Deploy UNCX-locking V2 suite" : "Paste V2 bytecode into v2_bytecode.ts first"}>
+                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Deploy V2 (UNCX Locking) {!dry.v2Ready && "— bytecode missing"}
+              </Button>
                 {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 Deploy V2 (UNCX Locking) {!dry.v2Ready && "— bytecode missing"}
               </Button>
