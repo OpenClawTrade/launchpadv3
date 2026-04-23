@@ -360,13 +360,74 @@ export default function V4ProofPage() {
                 </li>
               </ol>
               <div className="mt-3 text-[11.5px] text-pop-ink/70 leading-snug">
-                <strong>Note on full decompilation:</strong> we ran Panoramix on the bytecode —
-                it can map control flow but loses variable names, struct layouts, and ~20-30%
-                of high-level structure (industry-known limitation, especially for
-                solc&nbsp;0.8.26 + viaIR output). Selector + behavioral matching is the
-                authoritative method, and it confirms 1:1 ABI parity for all curve-relevant
-                functions.
+                <strong>Note on full decompilation:</strong> we ran Panoramix on every Unicurve
+                contract — it choked on solc 0.8.26 + viaIR (industry-known limitation). So we
+                pivoted to <strong>selector extraction + signature lookup</strong>: parsed every
+                <code> PUSH4 ... EQ </code> from each dispatcher (97 selectors across 6
+                contracts), resolved 89 of them via local <code>keccak256</code> + the
+                OpenChain (Samczsun) signature DB, and pulled 478 real on-chain logs to recover
+                event signatures. <strong>This is real reverse engineering — not approximation
+                — and it surfaced 3 architectural gaps in our current V4 implementation.</strong>
               </div>
+            </div>
+          </div>
+
+          {/* Gap analysis callout */}
+          <div className="mt-4 border-2 border-rose-400 bg-rose-50 rounded-xl p-4">
+            <div className="font-pop-display font-black text-rose-900 text-[14px] mb-2">
+              📋 Full gap analysis — what we still need to add for true 1:1 parity
+            </div>
+            <ol className="list-decimal pl-5 text-[12.5px] text-rose-950/85 space-y-1.5">
+              <li>
+                <strong>Singleton hook + per-token curve clone.</strong> Unicurve has ONE hook
+                (<code>0xafE7…6880</code>) for the whole protocol; per-token state lives in a{" "}
+                <code>CURVE_IMPL</code> EIP-1167 clone. Ours puts state inside the hook (one
+                hook per token).
+              </li>
+              <li>
+                <strong>Token transfer-lock during bonding.</strong> Unicurve's token has{" "}
+                <code>enableTransfers()</code> + <code>transfersEnabled()</code> — users can't
+                move tokens until graduation. Ours allows transfers immediately.
+              </li>
+              <li>
+                <strong>LP via PositionManager NFT, not raw modifyLiquidity.</strong> The
+                LP_LOCKER's <code>receive()</code> guard whitelists{" "}
+                <code>0xbD21…ee9e</code> (V4 PositionManager) — proves they mint LP as an NFT
+                and lock the tokenId. Our seeder calls <code>poolManager.modifyLiquidity</code>{" "}
+                directly.
+              </li>
+              <li>
+                <strong>Richer surface:</strong> public <code>quoteBuy/quoteSell/getPrice/
+                K()/curveProgressBps/state()</code> on the curve, 13-field <code>Trade</code>{" "}
+                event (vs our 5-field Buy/Sell), <code>predictAddresses</code> +{" "}
+                <code>isUnicurveToken</code> on the factory.
+              </li>
+            </ol>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href="/v4-proof-data/gap-analysis.md"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-pop-ink text-pop-cream text-[11.5px] font-pop-display hover:opacity-80"
+              >
+                Read full gap analysis (markdown)
+              </a>
+              <a
+                href="/v4-proof-data/abi-by-contract.md"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-pop-ink bg-white text-pop-ink text-[11.5px] font-pop-display hover:bg-pop-cream"
+              >
+                Per-contract ABI breakdown
+              </a>
+              <a
+                href="/v4-proof-data/selectors.json"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-pop-ink bg-white text-pop-ink text-[11.5px] font-pop-display hover:bg-pop-cream"
+              >
+                Raw selectors.json
+              </a>
             </div>
           </div>
         </div>
