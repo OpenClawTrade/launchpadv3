@@ -45,6 +45,7 @@ function BrandFrame() {
 export function PopshibaTopNav() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
+  const [soonOpen, setSoonOpen] = useState(false);
 
   // Close menu on route change
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -55,6 +56,13 @@ export function PopshibaTopNav() {
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  const handleNavClick = (e: React.MouseEvent, link: NavLink) => {
+    if (link.soon === "holders") {
+      e.preventDefault();
+      setSoonOpen(true);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-[100] bg-pop-ink text-pop-cream border-b-[3px] border-pop-orange">
