@@ -149,22 +149,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Kick off per-token Etherscan verification (fire-and-forget) so the ──
-    // contract source page on Etherscan shows this launch's metadata header
-    // (Name, Website, X, Telegram, Discord, Description) instead of "Similar
-    // Match Source Code" pointing at the impl.
+    // ── Kick off per-token explorer verification in the background. ─────────
+    // We wait for the result here so the exact per-token source (with the
+    // launch-specific header) is actually accepted, instead of only submitting
+    // the request and leaving the token stuck on a previous similar-match page.
     if (body.status === "live" && data?.token_address) {
       try {
         // @ts-ignore — EdgeRuntime is a Deno deploy global
         EdgeRuntime.waitUntil((async () => {
           try {
-            await supabase.functions.invoke("eth-verify-contract", {
+            const { data: verifyData, error: verifyErr } = await supabase.functions.invoke("eth-verify-contract", {
               body: {
                 tokenAddress: data.token_address,
                 launchId: data.id,
-                waitForResult: false,
+                waitForResult: true,
               },
             });
+
+            if (verifyErr) {
+              console.error("[eth-launch-finalize] eth-verify-contract invoke failed", verifyErr);
+              return;
+            }
+
+            if (!verifyData?.verified) {
+              console.error("[eth-launch-finalize] eth-verify-contract did not verify", verifyData);
+            } else {
+              console.log("[eth-launch-finalize] eth-verify-contract verified", {
+                tokenAddress: data.token_address,
+                guid: verifyData?.guid,
+              });
+            }
           } catch (e) {
             console.error("[eth-launch-finalize] eth-verify-contract invoke failed", e);
           }
@@ -172,7 +186,6 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error("[eth-launch-finalize] failed to schedule verification", e);
       }
-
     }
 
     return new Response(JSON.stringify({ success: true, launch: data }), {
