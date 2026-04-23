@@ -17,8 +17,8 @@ import {
 } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
-import HookArtifact from "../../../contracts/popshiba/v4/artifacts/PopBondingHookV4.json" with { type: "json" };
-import FactoryArtifact from "../../../contracts/popshiba/v4/artifacts/PopBondingFactoryV4.json" with { type: "json" };
+import HookArtifact from "./artifacts/PopBondingHookV4.json" with { type: "json" };
+import FactoryArtifact from "./artifacts/PopBondingFactoryV4.json" with { type: "json" };
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
