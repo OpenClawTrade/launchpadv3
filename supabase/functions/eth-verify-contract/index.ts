@@ -404,10 +404,23 @@ Deno.serve(async (req) => {
     form.append("compilerversion", COMPILER_VERSION);
     form.append("constructorArguements", constructorArgsHex);
 
+    // Etherscan can take 30-90s to index a freshly-deployed contract. If the
+    // first submit returns "Unable to locate ContractCode", retry with backoff
+    // so the bytecode-similarity auto-matcher (which would tag this as a
+    // previously verified token like "SHIBANUSI") never wins the race.
     await delay(2000);
-    const resp = await fetch(verifyUrl, { method: "POST", body: form });
-    const result = await resp.json();
-    console.log("[eth-verify] submit response", result);
+    let result: any = null;
+    const submitDelays = [0, 8000, 15000, 25000, 40000, 60000];
+    for (let i = 0; i < submitDelays.length; i++) {
+      if (submitDelays[i] > 0) await delay(submitDelays[i]);
+      const resp = await fetch(verifyUrl, { method: "POST", body: form });
+      result = await resp.json();
+      console.log(`[eth-verify] submit attempt ${i + 1} response`, result);
+      if (result.status === "1") break;
+      const msg = String(result.result || result.message || "");
+      if (/already verified/i.test(msg)) break;
+      if (!/Unable to locate ContractCode/i.test(msg)) break; // non-retryable
+    }
 
     if (result.status !== "1") {
       const msg = String(result.result || result.message || "Unknown");
