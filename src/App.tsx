@@ -61,6 +61,8 @@ const AdminPanelPage = lazyWithRetry(() => import("./pages/AdminPanelPage"));
 const PublicDeployPage = lazyWithRetry(() => import("./pages/PublicDeployPage"));
 const BondingDeployPage = lazyWithRetry(() => import("./pages/BondingDeployPage"));
 const V4ProofPage = lazyWithRetry(() => import("./pages/V4ProofPage"));
+const PopV4ListPage = lazyWithRetry(() => import("./pages/PopV4ListPage"));
+const PopV4TokenDetailPage = lazyWithRetry(() => import("./pages/PopV4TokenDetailPage"));
 const BrandingAdminPage = lazyWithRetry(() => import("./pages/BrandingAdminPage"));
 const BrandAssetsPage = lazyWithRetry(() => import("./pages/BrandAssetsPage"));
 
@@ -187,6 +189,8 @@ const App = () => (
                     <Route path="/deploy" element={<LaunchpadLayout><PublicDeployPage /></LaunchpadLayout>} />
                     <Route path="/bonding/deploy" element={<BondingDeployPage />} />
                     <Route path="/v4-proof" element={<V4ProofPage />} />
+                    <Route path="/popv4" element={<PopV4ListPage />} />
+                    <Route path="/popv4/:address" element={<PopV4TokenDetailPage />} />
                     <Route path="/admin/branding" element={<BrandingAdminPage />} />
                     <Route path="/admin/brand-assets" element={<BrandAssetsPage />} />
                     <Route path="/admin/twitter" element={<Navigate to="/admin?tab=xbots" replace />} />
