@@ -319,6 +319,16 @@ Deno.serve(async (req) => {
     const tokenAddress: string | undefined = body?.tokenAddress;
     const launchId: string | undefined = body?.launchId;
     const waitForResult: boolean = body?.waitForResult === true;
+    // implementationOnly: verify the clone-master implementation contract with a
+    // STERILE source (only "// Launched from PopShiba.com" — no token-specific
+    // name/ticker/description). This becomes the Similar-Match parent for all
+    // future clones, so freshly-deployed tokens no longer inherit SHIBANUSI's
+    // metadata header on Etherscan.
+    const implementationOnly: boolean = body?.implementationOnly === true;
+    const implKind: "clone" | "v2burn" | "v2fees" =
+      body?.implKind === "v2burn" ? "v2burn"
+      : body?.implKind === "v2fees" ? "v2fees"
+      : "clone";
 
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
@@ -341,54 +351,91 @@ Deno.serve(async (req) => {
       });
     }
 
-    let launch: any = null;
-    if (launchId) {
-      const { data } = await supabase
-        .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
-        .eq("id", launchId)
-        .maybeSingle();
-      launch = data;
-    }
-    if (!launch) {
-      const { data } = await supabase
-        .from("eth_launch_requests")
-        .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
-        .ilike("token_address", tokenAddress)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      launch = data;
-    }
-    if (!launch) {
-      return new Response(JSON.stringify({ success: false, error: "Launch row not found for token" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    let tokenKind: "clone" | "v2burn" | "v2fees";
+    let sourceWithHeader: string;
+    let contractFile: string;
+    let contractName: string;
+    let constructorArgsHex: string;
 
-    const tokenKind = await inferTokenKind(supabase, launch);
-    const metaHeader = buildMetadataHeader(launch);
-    const baseSource = tokenKind === "v2burn"
-      ? POPSHIBA_BURN_TOKEN_SOURCE
-      : tokenKind === "v2fees"
-      ? POPSHIBA_FEES_LAUNCHER_V2_SOURCE
-      : POPSHIBA_TOKEN_BASE_SOURCE;
-    const sourceWithHeader = metaHeader
-      ? baseSource.replace(/^(\/\/ SPDX-License-Identifier:[^\n]*\n)/, `$1${metaHeader}`)
-      : baseSource;
+    if (implementationOnly) {
+      // Sterile header — only the launchpad attribution. No token-specific
+      // metadata. This is what becomes the Similar-Match parent for all clones.
+      tokenKind = implKind;
+      const sterileHeader = `// Launched from POPSHIBA.COM\n//\n`;
+      const baseSource = tokenKind === "v2burn"
+        ? POPSHIBA_BURN_TOKEN_SOURCE
+        : tokenKind === "v2fees"
+        ? POPSHIBA_FEES_LAUNCHER_V2_SOURCE
+        : POPSHIBA_TOKEN_BASE_SOURCE;
+      sourceWithHeader = baseSource.replace(
+        /^(\/\/ SPDX-License-Identifier:[^\n]*\n)/,
+        `$1${sterileHeader}`
+      );
+      contractFile = tokenKind === "v2burn"
+        ? "PopShibaBurnToken.sol"
+        : tokenKind === "v2fees"
+        ? "PopShibaFeesLauncherV2.sol"
+        : "PopShibaToken.sol";
+      contractName = tokenKind === "v2burn"
+        ? "PopShibaBurnToken"
+        : tokenKind === "v2fees"
+        ? "PopShibaFeesToken"
+        : "PopShibaToken";
+      // Implementation/master deployed without constructor args (initializer pattern).
+      // For v2burn/v2fees standalones called directly here, caller must pass real ctor args
+      // separately if needed — the implementation contract itself has none.
+      constructorArgsHex = "";
+      console.log(`[eth-verify] implementationOnly mode for ${tokenAddress} (${tokenKind})`);
+    } else {
+      let launch: any = null;
+      if (launchId) {
+        const { data } = await supabase
+          .from("eth_launch_requests")
+          .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
+          .eq("id", launchId)
+          .maybeSingle();
+        launch = data;
+      }
+      if (!launch) {
+        const { data } = await supabase
+          .from("eth_launch_requests")
+          .select("id, token_name, token_ticker, description, website_url, twitter_url, telegram_url, burn_lp, launch_tx_hash, deploy_tx_hash, token_address")
+          .ilike("token_address", tokenAddress)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        launch = data;
+      }
+      if (!launch) {
+        return new Response(JSON.stringify({ success: false, error: "Launch row not found for token" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-    const contractFile = tokenKind === "v2burn"
-      ? "PopShibaBurnToken.sol"
-      : tokenKind === "v2fees"
-      ? "PopShibaFeesLauncherV2.sol"
-      : "PopShibaToken.sol";
-    const contractName = tokenKind === "v2burn"
-      ? "PopShibaBurnToken"
-      : tokenKind === "v2fees"
-      ? "PopShibaFeesToken"
-      : "PopShibaToken";
-    const constructorArgsHex = await buildConstructorArgsHex({ ...launch, token_address: tokenAddress }, tokenKind);
+      tokenKind = await inferTokenKind(supabase, launch);
+      const metaHeader = buildMetadataHeader(launch);
+      const baseSource = tokenKind === "v2burn"
+        ? POPSHIBA_BURN_TOKEN_SOURCE
+        : tokenKind === "v2fees"
+        ? POPSHIBA_FEES_LAUNCHER_V2_SOURCE
+        : POPSHIBA_TOKEN_BASE_SOURCE;
+      sourceWithHeader = metaHeader
+        ? baseSource.replace(/^(\/\/ SPDX-License-Identifier:[^\n]*\n)/, `$1${metaHeader}`)
+        : baseSource;
+
+      contractFile = tokenKind === "v2burn"
+        ? "PopShibaBurnToken.sol"
+        : tokenKind === "v2fees"
+        ? "PopShibaFeesLauncherV2.sol"
+        : "PopShibaToken.sol";
+      contractName = tokenKind === "v2burn"
+        ? "PopShibaBurnToken"
+        : tokenKind === "v2fees"
+        ? "PopShibaFeesToken"
+        : "PopShibaToken";
+      constructorArgsHex = await buildConstructorArgsHex({ ...launch, token_address: tokenAddress }, tokenKind);
+    }
 
     const standardJson = {
       language: "Solidity",
