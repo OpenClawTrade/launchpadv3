@@ -1,19 +1,39 @@
-// PopShiba V4 — one-time factory deployer.
-// Run this ONCE on Ethereum mainnet. It deploys:
-//   1. PopBondingToken (impl, used as EIP-1167 clone target)
-//   2. PopBondingFactoryV4 (constructor: poolManager, tokenImpl, treasury)
-// Then add the resulting factory address as POP_V4_FACTORY_ADDRESS secret.
+// PopShiba V4 — one-time mainnet deploy of the singleton stack.
 //
-// Body: { dryRun?: boolean, treasury?: string }
+// 5 contracts, 5 transactions. Deploy ORDER MATTERS because the hook bakes
+// the factory address into its constructor and must end up at a CREATE2
+// address with lower-14-bits == 0x2A88. We solve the chicken-and-egg by
+// predicting the factory address from the deployer's nonce BEFORE deploying
+// the hook (CREATE address = keccak256(rlp([deployer, nonce]))[12:]).
+//
+// Deploy sequence (this function performs all 5):
+//   1. PopBondingToken impl     (no constructor)        nonce = N
+//   2. PopCurveImpl              (no constructor)        nonce = N+1
+//   3. PopV4LpLocker(POSITION_MANAGER)                   nonce = N+2
+//   4. PopBondingHookV4(PoolManager, predictedFactory) at MINED CREATE2 addr
+//        - deployed via a tiny Create2Deployer contract pre-deployed at N+3
+//   5. PopBondingFactoryV4(PoolManager, hook, curveImpl, tokenImpl, lpLocker, treasury)
+//        - this is the deploy at the predicted address (nonce = N+4 after deployer)
+//
+// Body: { dryRun?: boolean, treasury?: string, salt?: string, hookAddress?: string }
+//   - call dryRun first → returns the predicted factory address + the
+//     initCodeHash you must feed to popv4-mine-salt
+//   - then call popv4-mine-salt → returns { salt, hookAddress }
+//   - then call this again with { salt, hookAddress } to do the real deploy
+
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   createPublicClient, createWalletClient, http, formatEther,
-  encodeAbiParameters, getContractAddress,
+  encodeAbiParameters, getContractAddress, keccak256, getAddress,
 } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
+
 import TokenArtifact from "./artifacts/PopBondingToken.json" with { type: "json" };
+import CurveArtifact from "./artifacts/PopCurveImpl.json" with { type: "json" };
+import LockerArtifact from "./artifacts/PopV4LpLocker.json" with { type: "json" };
+import HookArtifact from "./artifacts/PopBondingHookV4.json" with { type: "json" };
 import FactoryArtifact from "./artifacts/PopBondingFactoryV4.json" with { type: "json" };
 
 const cors = {
@@ -21,8 +41,19 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const POOL_MANAGER = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // Uniswap V4 mainnet
+const POOL_MANAGER     = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // V4 mainnet
+const POSITION_MANAGER = "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e"; // V4 mainnet
 const DEFAULT_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
+
+// CREATE2 deployer (canonical, deployed pre-EIP-155 at the same address on every chain).
+// We use this so we can deploy the hook at our mined address without writing
+// our own factory contract.
+const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
+
+function bytecodeOf(a: any): `0x${string}` {
+  const b = (a.bytecode?.object ?? a.bytecode) as string;
+  return (b.startsWith("0x") ? b : `0x${b}`) as `0x${string}`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -31,7 +62,7 @@ Deno.serve(async (req) => {
     const dryRun = body.dryRun === true;
     const treasury = (body.treasury ?? DEFAULT_TREASURY) as `0x${string}`;
 
-    const pk = Deno.env.get("ETH_MAINNET_DEPLOYER_PRIVATE_KEY");
+    const pk  = Deno.env.get("ETH_MAINNET_DEPLOYER_PRIVATE_KEY");
     const rpc = Deno.env.get("ETH_MAINNET_RPC_URL");
     if (!pk || !rpc) return json({ error: "Missing deployer secrets" }, 503);
 
@@ -41,59 +72,127 @@ Deno.serve(async (req) => {
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
     const balance = await publicClient.getBalance({ address: account.address });
+    const startNonce = await publicClient.getTransactionCount({ address: account.address });
+
+    // Predicted addresses for the 3 simple deploys (regular CREATE)
+    const predictedToken   = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 0) });
+    const predictedCurve   = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 1) });
+    const predictedLocker  = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 2) });
+    // Factory deploys LAST (nonce + 3 — hook is CREATE2 so it doesn't bump deployer nonce... wait, it does:
+    // we send a tx TO Create2Deployer, that DOES bump deployer nonce by 1. So factory is at +4.)
+    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 4) });
+
+    // Hook init-code = bytecode || abi.encode(POOL_MANAGER, predictedFactory)
+    const hookInit = bytecodeOf(HookArtifact) +
+      encodeAbiParameters(
+        [{ type: "address" }, { type: "address" }],
+        [POOL_MANAGER as `0x${string}`, predictedFactory]
+      ).slice(2);
+    const hookInitCodeHash = keccak256(hookInit as `0x${string}`);
 
     if (dryRun) {
-      const nonce = await publicClient.getTransactionCount({ address: account.address });
-      const tokenAddr = getContractAddress({ from: account.address, nonce: BigInt(nonce) });
-      const factoryAddr = getContractAddress({ from: account.address, nonce: BigInt(nonce + 1) });
       return json({
         dryRun: true,
         deployer: account.address,
         balance: `${formatEther(balance)} ETH`,
-        ready: balance > 30_000_000_000_000_000n,
+        ready: balance > 50_000_000_000_000_000n, // 0.05 ETH safety margin
+        startNonce,
         treasury,
         poolManager: POOL_MANAGER,
-        predictedTokenImpl: tokenAddr,
-        predictedFactory: factoryAddr,
+        positionManager: POSITION_MANAGER,
+        create2Deployer: CREATE2_DEPLOYER,
+        predicted: {
+          tokenImpl: predictedToken,
+          curveImpl: predictedCurve,
+          lpLocker:  predictedLocker,
+          factory:   predictedFactory,
+        },
+        hookInitCodeHash,
+        nextStep: `Call popv4-mine-salt with { factory: "${CREATE2_DEPLOYER}", initCodeHash: "${hookInitCodeHash}" }, then re-call this with { salt, hookAddress }.`,
       });
     }
 
-    if (balance < 30_000_000_000_000_000n) {
-      return json({ error: `Need at least 0.03 ETH, have ${formatEther(balance)}` }, 400);
+    // ── REAL DEPLOY ──
+    const salt = body.salt as `0x${string}` | undefined;
+    const expectedHook = body.hookAddress as `0x${string}` | undefined;
+    if (!salt || !expectedHook) {
+      return json({ error: "salt + hookAddress required for real deploy. Run popv4-mine-salt first." }, 400);
+    }
+    if (balance < 50_000_000_000_000_000n) {
+      return json({ error: `Need ≥0.05 ETH, have ${formatEther(balance)}` }, 400);
     }
 
-    // 1. Deploy PopBondingToken impl (no constructor args)
-    const tokenBytecode = (TokenArtifact as any).bytecode as string;
-    const tokenInit = (tokenBytecode.startsWith("0x") ? tokenBytecode : `0x${tokenBytecode}`) as `0x${string}`;
-    const tokenHash = await walletClient.deployContract({
-      abi: [],
-      bytecode: tokenInit,
-    } as any);
+    // 1. PopBondingToken impl
+    const tokenHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(TokenArtifact) } as any);
     const tokenReceipt = await publicClient.waitForTransactionReceipt({ hash: tokenHash });
     const tokenImpl = tokenReceipt.contractAddress!;
 
-    // 2. Deploy PopBondingFactoryV4(poolManager, tokenImpl, treasury)
-    const factoryBytecode = (FactoryArtifact as any).bytecode as string;
-    const factoryInit = (factoryBytecode.startsWith("0x") ? factoryBytecode : `0x${factoryBytecode}`) +
+    // 2. PopCurveImpl
+    const curveHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(CurveArtifact) } as any);
+    const curveReceipt = await publicClient.waitForTransactionReceipt({ hash: curveHash });
+    const curveImpl = curveReceipt.contractAddress!;
+
+    // 3. PopV4LpLocker(POSITION_MANAGER)
+    const lockerInit = bytecodeOf(LockerArtifact) +
+      encodeAbiParameters([{ type: "address" }], [POSITION_MANAGER as `0x${string}`]).slice(2);
+    const lockerHash = await walletClient.deployContract({ abi: [], bytecode: lockerInit as `0x${string}` } as any);
+    const lockerReceipt = await publicClient.waitForTransactionReceipt({ hash: lockerHash });
+    const lpLocker = lockerReceipt.contractAddress!;
+
+    // 4. Hook via CREATE2 deployer: tx data = salt(32) || initCode
+    const create2Data = (salt + hookInit.slice(2)) as `0x${string}`;
+    const hookHash = await walletClient.sendTransaction({
+      to: CREATE2_DEPLOYER as `0x${string}`,
+      data: create2Data,
+    });
+    const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookHash });
+    // CREATE2 deployer doesn't emit logs; verify on-chain that code now exists at expectedHook.
+    const code = await publicClient.getCode({ address: expectedHook });
+    if (!code || code === "0x") {
+      return json({ error: "Hook deploy failed — no code at expected address", expectedHook, hookHash }, 500);
+    }
+    const hookAddr = getAddress(expectedHook);
+
+    // 5. PopBondingFactoryV4(poolManager, hook, curveImpl, tokenImpl, lpLocker, treasury)
+    const factoryInit = bytecodeOf(FactoryArtifact) +
       encodeAbiParameters(
-        [{ type: "address" }, { type: "address" }, { type: "address" }],
-        [POOL_MANAGER as `0x${string}`, tokenImpl, treasury]
+        [{ type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }],
+        [POOL_MANAGER as `0x${string}`, hookAddr, curveImpl, tokenImpl, lpLocker, treasury]
       ).slice(2);
-    const factoryHash = await walletClient.deployContract({
-      abi: [],
-      bytecode: factoryInit as `0x${string}`,
-    } as any);
+    const factoryHash = await walletClient.deployContract({ abi: [], bytecode: factoryInit as `0x${string}` } as any);
     const factoryReceipt = await publicClient.waitForTransactionReceipt({ hash: factoryHash });
     const factoryAddr = factoryReceipt.contractAddress!;
+
+    if (getAddress(factoryAddr) !== getAddress(predictedFactory)) {
+      return json({
+        error: "Factory deployed at wrong address — predicted/actual mismatch. Hook FACTORY() will be wrong.",
+        predicted: predictedFactory, actual: factoryAddr,
+      }, 500);
+    }
+
+    // 6. Persist the deployment record
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { error: dbErr } = await supabase.from("bonding_deployments").insert({
+      network: "mainnet-v4",
+      deployer: account.address.toLowerCase(),
+      factory_address: factoryAddr.toLowerCase(),
+      curve_impl_address: curveImpl.toLowerCase(),
+      token_impl_address: tokenImpl.toLowerCase(),
+      event_bus_address: hookAddr.toLowerCase(),     // hook plays event-bus role in V4
+      lp_locker_address: lpLocker.toLowerCase(),
+      treasury_address: treasury.toLowerCase(),
+      tx_hashes: [tokenHash, curveHash, lockerHash, hookHash, factoryHash],
+      is_active: true,
+    });
+    if (dbErr) console.error("[popv4-deploy-factory] DB insert failed:", dbErr);
 
     return json({
       success: true,
       poolManager: POOL_MANAGER,
-      tokenImpl,
-      factory: factoryAddr,
-      treasury,
-      txHashes: { tokenImpl: tokenHash, factory: factoryHash },
-      nextStep: `Add secret POP_V4_FACTORY_ADDRESS=${factoryAddr} then call popv4-launch.`,
+      positionManager: POSITION_MANAGER,
+      tokenImpl, curveImpl, lpLocker, hook: hookAddr, factory: factoryAddr, treasury,
+      txHashes: { tokenImpl: tokenHash, curveImpl: curveHash, lpLocker: lockerHash, hook: hookHash, factory: factoryHash },
+      nextStep: `Add secret POP_V4_FACTORY_ADDRESS=${factoryAddr} and POP_V4_HOOK_ADDRESS=${hookAddr}, then call popv4-launch.`,
     });
   } catch (e) {
     console.error("[popv4-deploy-factory] error:", e);
