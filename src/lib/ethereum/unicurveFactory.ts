@@ -3,10 +3,15 @@
 // they appear on both platforms and follow identical curve mechanics 1:1.
 import { parseAbi, type Address } from 'viem';
 
-// Mainnet factory + implementations (verified from on-chain bytecode/state)
+// Mainnet factory + implementations (extracted from on-chain bytecode of token 0x7ad4...c0de)
+// Token + Curve are EIP-1167 minimal-proxy clones pointing at these implementations.
 export const UNICURVE_FACTORY: Address = '0x195d262573556fc58e6f69e580271bfa84b1f5a1';
-export const UNICURVE_TOKEN_IMPL: Address = '0xaaf6a7e7e0c7c4e3bbcef1e4d58ef9d4e8b32ee3';
-export const UNICURVE_CURVE_IMPL: Address = '0x10044a8b78a7c8f48c2c2cef6e3e0e36e6c7209a';
+export const UNICURVE_TOKEN_IMPL: Address = '0xaaf62f61308540e774c2713437ad0f91874c2ee3';
+export const UNICURVE_CURVE_IMPL: Address = '0x10049350072fb8e7b2b3b46ee07d7e6d7d6e209a';
+// Auxiliary contract emitted in every trade — likely the protocol fee/router (also unverified).
+export const UNICURVE_ROUTER_OR_FEEHOOK: Address = '0x7cae6f8c3c03a746f66f1a4d757519936f0bee6a';
+// Uniswap V4 PoolManager — graduated tokens migrate here.
+export const UNISWAP_V4_POOLMANAGER: Address = '0x000000000004444c5dc75cb358380d2e3de08a90';
 
 // Curve constants — match unicurve.fun exactly
 export const TOTAL_SUPPLY = 1_000_000_000n * 10n ** 18n;       // 1B tokens
