@@ -409,7 +409,7 @@ export default function PopshibaLaunchpadPage() {
 
   // Freeze iframe src ONCE per mount so Privy/wagmi state changes don't
   // remount the iframe (which caused the "page refreshes many times" bug).
-  const iframeSrcRef = useRef<string>(`/popshiba-template/launch.html?v=${Date.now()}`);
+  const iframeSrcRef = useRef<string>(`/popshiba-template/launch.html?embed=1&v=${Date.now()}`);
 
 
   // ETH-data injection + polling
