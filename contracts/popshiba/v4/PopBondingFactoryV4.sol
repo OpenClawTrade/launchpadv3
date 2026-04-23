@@ -5,75 +5,103 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
-import {PopBondingHookV4} from "./PopBondingHookV4.sol";
+import {PoolIdLibrary, PoolId} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {PopBondingToken} from "./PopBondingToken.sol";
 
+interface ISingletonHook {
+    function registerCurve(PoolId poolId, address curve, address token) external;
+}
+
+interface ICurveImpl {
+    function initialize(
+        address hook, address token, address creator, address treasury, address lpLocker,
+        address c0, address c1, uint24 fee, int24 ts
+    ) external;
+    function TOTAL_SUPPLY() external view returns (uint256);
+}
+
 /// @title PopBondingFactoryV4
-/// @notice Off-chain process mines a CREATE2 salt so the hook deploys at an
-/// address whose lower 14 bits == 0x2A88 (beforeAddLiquidity | beforeRemoveLiquidity
-/// | beforeSwap | beforeSwapReturnsDelta). Caller passes that salt here.
+/// @notice 1:1 with Unicurve: deploys a token clone + a curve clone per launch,
+/// registers the curve in the singleton hook, and initializes the V4 pool.
+/// The hook itself is deployed ONCE off-chain at a mined CREATE2 address with
+/// the required permission bits (0x2A88 lower-14-bits) — this factory just
+/// wires per-launch state.
 contract PopBondingFactoryV4 {
+    using PoolIdLibrary for PoolKey;
+
     IPoolManager public immutable poolManager;
-    address public immutable tokenImpl; // EIP-1167 minimal proxy target
+    address public immutable hook;          // singleton hook
+    address public immutable curveImpl;     // EIP-1167 implementation
+    address public immutable tokenImpl;     // EIP-1167 implementation
+    address public immutable lpLocker;
     address public immutable treasury;
-    int24 public constant TICK_SPACING = 60;
-    uint24 public constant LP_FEE = 10_000; // 1% post-graduation pool fee
 
-    event Launched(address indexed token, address indexed hook, address indexed creator, bytes32 salt);
+    int24  public constant TICK_SPACING = 60;
+    uint24 public constant LP_FEE       = 10_000; // 1%
 
-    constructor(IPoolManager _pm, address _tokenImpl, address _treasury) {
+    event Launched(
+        address indexed token,
+        address indexed curve,
+        address indexed creator,
+        PoolId  poolId
+    );
+
+    constructor(
+        IPoolManager _pm,
+        address _hook,
+        address _curveImpl,
+        address _tokenImpl,
+        address _lpLocker,
+        address _treasury
+    ) {
         poolManager = _pm;
+        hook = _hook;
+        curveImpl = _curveImpl;
         tokenImpl = _tokenImpl;
+        lpLocker = _lpLocker;
         treasury = _treasury;
     }
 
-    /// @notice Deploy hook at a pre-mined CREATE2 address, deploy the token,
-    /// initialize the V4 pool, and prime the curve with all CURVE_TOKENS.
     function launch(
         string calldata name,
         string calldata symbol,
-        bytes32 salt,
         uint160 sqrtPriceX96
-    ) external returns (address tokenAddr, address hookAddr) {
-        // 1. Deploy hook via CREATE2 with mined salt
-        bytes memory creationCode = abi.encodePacked(
-            type(PopBondingHookV4).creationCode,
-            abi.encode(poolManager)
-        );
-        assembly {
-            hookAddr := create2(0, add(creationCode, 0x20), mload(creationCode), salt)
-            if iszero(hookAddr) { revert(0, 0) }
-        }
-        require(uint160(hookAddr) & 0x3FFF == 0x2A88, "BAD_SALT");
-
-        // 2. Clone token (EIP-1167) and initialize: mint full supply to hook
+    ) external returns (address tokenAddr, address curveAddr, PoolId poolId) {
+        // 1. Clone token + curve (EIP-1167, cheap)
         tokenAddr = _clone(tokenImpl);
-        PopBondingToken(tokenAddr).initialize(
-            name,
-            symbol,
-            PopBondingHookV4(payable(hookAddr)).TOTAL_SUPPLY(),
-            hookAddr,
-            address(this)
-        );
+        curveAddr = _clone(curveImpl);
 
-        // 3. Build PoolKey: currency0 = ETH (0x0), currency1 = token
-        // Native currency must be currency0 in V4 (lower address rule, 0x0 < anything).
+        // 2. PoolKey: native ETH (0x0) is currency0 by V4's lower-address rule
         PoolKey memory key = PoolKey({
             currency0: Currency.wrap(address(0)),
             currency1: Currency.wrap(tokenAddr),
             fee: LP_FEE,
             tickSpacing: TICK_SPACING,
-            hooks: IHooks(hookAddr)
+            hooks: IHooks(hook)
         });
+        poolId = key.toId();
 
-        // 4. Initialize hook state + the V4 pool itself
-        PopBondingHookV4(payable(hookAddr)).initialize(tokenAddr, msg.sender, treasury, key);
+        // 3. Initialize curve clone (it now owns reserve accounting)
+        ICurveImpl(curveAddr).initialize(
+            hook, tokenAddr, msg.sender, treasury, lpLocker,
+            address(0), tokenAddr, LP_FEE, TICK_SPACING
+        );
+
+        // 4. Mint full supply to the curve clone
+        PopBondingToken(tokenAddr).initialize(
+            name, symbol,
+            ICurveImpl(curveAddr).TOTAL_SUPPLY(),
+            curveAddr,
+            address(this)
+        );
+
+        // 5. Register in the singleton hook + initialize the V4 pool
+        ISingletonHook(hook).registerCurve(poolId, curveAddr, tokenAddr);
         poolManager.initialize(key, sqrtPriceX96);
 
-        emit Launched(tokenAddr, hookAddr, msg.sender, salt);
+        emit Launched(tokenAddr, curveAddr, msg.sender, poolId);
     }
 
-    /// @dev EIP-1167 minimal proxy clone.
     function _clone(address impl) internal returns (address result) {
         bytes20 targetBytes = bytes20(impl);
         assembly {

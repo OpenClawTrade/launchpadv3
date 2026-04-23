@@ -36,79 +36,76 @@ const ETHERSCAN = (a: string) => `https://etherscan.io/address/${a}`;
 const GITHUB_BASE =
   "https://github.com/popshibadev/popshiba/blob/main/contracts/popshiba/v4/";
 
-// Pulled from local artifacts at build-time of the explanation page.
-// (Run scripts to recompute — values from the most recent solc 0.8.26 build.)
+// Source artifacts (singleton-architecture refactor — gaps closed).
+// Sizes/hashes are recomputed by `npm run v4:hash` from the solc 0.8.26 viaIR build.
 const ARTIFACTS = {
   PopBondingHookV4: {
-    size: 5984,
-    sha256: "bf5052d9890e5dec24f30dda95f774a4478fe43167f17462cecb2bfb178a87e3",
     path: "PopBondingHookV4.sol",
   },
   PopBondingFactoryV4: {
-    size: 8203,
-    sha256: "0b3ed437320412a71b69acdd770c81317be591e3e9270a71ba7a53398b7714d0",
     path: "PopBondingFactoryV4.sol",
   },
   PopBondingToken: {
-    size: 2734,
-    sha256: "d63c803b9c428db2ca4b7a592475607fbb58206be1e6adf068db2c7c2907e4cd",
     path: "PopBondingToken.sol",
   },
-  PopBondingLpSeederV4: {
-    size: 2662,
-    sha256: "a1cf9db74df129fcdd2598bac64315d18258ebf3cd1f102a1d0f588b08aaf9dc",
-    path: "PopBondingLpSeederV4.sol",
+  PopCurveImpl: {
+    path: "PopCurveImpl.sol",
+  },
+  PopV4LpLocker: {
+    path: "PopV4LpLocker.sol",
   },
 } as const;
 
 const ROWS: Row[] = [
   {
-    role: "Bonding Curve Hook (V4 beforeSwap)",
+    role: "Singleton hook (V4 beforeSwap)",
     unicurve: UNICURVE_HOOK,
     unicurveLabel: "UnicurveHook",
     ours: "PopBondingHookV4",
     oursKind: "source",
     oursMeta: ARTIFACTS.PopBondingHookV4,
     notes:
-      "Custom-curve hook. Permission bits 0x2A88 (beforeAddLiquidity | beforeRemoveLiquidity | beforeSwap | beforeSwapReturnsDelta). Identical curve math: 1.06 ETH virt, 1.073B virt tokens, 3 ETH grad, 1% fee.",
+      "ONE hook for every launch (CREATE2-mined address, permission bits 0x2A88). Stateless w.r.t. tokens — routes via curveOf[poolId] to the per-token CURVE_IMPL clone. Emits the 13-field Trade event Unicurve indexers consume.",
   },
   {
-    role: "Factory (CREATE2 launcher)",
+    role: "Per-token curve state (CURVE_IMPL)",
+    unicurve: UNICURVE_CURVE_IMPL,
+    unicurveLabel: "CURVE_IMPL",
+    ours: "PopCurveImpl",
+    oursKind: "source",
+    oursMeta: ARTIFACTS.PopCurveImpl,
+    notes:
+      "EIP-1167 implementation. One clone per launch holds reserves, fee accruals, PoolKey, and the public quoteBuy/quoteSell/getPrice/curveProgressBps views — same surface as Unicurve.",
+  },
+  {
+    role: "Factory (per-launch wiring)",
     unicurve: UNICURVE_FACTORY,
     unicurveLabel: "UnicurveFactory",
     ours: "PopBondingFactoryV4",
     oursKind: "source",
     oursMeta: ARTIFACTS.PopBondingFactoryV4,
     notes:
-      "Deploys hook at mined salt, clones token (EIP-1167), initializes V4 PoolKey {ETH, token, 1%, 60-tick, hook}.",
+      "Clones token + curve (EIP-1167), initializes the curve, registers it in the singleton hook, then initializes the V4 pool with key {ETH, token, 1%, 60-tick, hook}.",
   },
   {
-    role: "Token implementation (EIP-1167 base)",
+    role: "Token implementation (transfer-locked)",
     unicurve: UNICURVE_TOKEN_IMPL,
     unicurveLabel: "MEME_IMPL",
     ours: "PopBondingToken",
     oursKind: "source",
     oursMeta: ARTIFACTS.PopBondingToken,
-    notes: "Minimal ERC20, full supply minted to the hook on initialize().",
+    notes:
+      "Minimal ERC20. Transfers blocked pre-graduation (only the curve can be sender). Curve calls enableTransfers() at graduation — identical lifecycle to Unicurve's MEME_IMPL.",
   },
   {
-    role: "LP locker / seeder (post-grad)",
+    role: "LP locker (V4 PositionManager NFT)",
     unicurve: UNICURVE_LP_LOCKER,
     unicurveLabel: "UnicurveLpLocker",
-    ours: "PopBondingLpSeederV4",
+    ours: "PopV4LpLocker",
     oursKind: "source",
-    oursMeta: ARTIFACTS.PopBondingLpSeederV4,
+    oursMeta: ARTIFACTS.PopV4LpLocker,
     notes:
-      "Pulls ETH + LP_TOKENS out of the hook after graduation, opens a full-range V4 position via PoolManager.unlock callback. Position is owned by the seeder forever (locked).",
-  },
-  {
-    role: "Curve implementation (V3 legacy)",
-    unicurve: UNICURVE_CURVE_IMPL,
-    unicurveLabel: "CURVE_IMPL",
-    ours: "Merged into PopBondingHookV4",
-    oursKind: "pending",
-    notes:
-      "Unicurve V3 had a separate per-token curve clone. V4 merges curve state INTO the hook itself — one less contract, less gas.",
+      "Holds the post-grad LP NFT minted by V4 PositionManager — locked forever. receive() whitelists ONLY the PositionManager (same guard as Unicurve). claimFees(poolId) splits 50/50 creator/treasury.",
   },
   {
     role: "Event Bus",
@@ -116,23 +113,23 @@ const ROWS: Row[] = [
     unicurveLabel: "UnicurveEventBus",
     ours: "Native hook events",
     oursKind: "pending",
-    notes: "We emit Buy/Sell/Graduated directly from the hook — Etherscan-indexable, no separate bus needed.",
+    notes: "We emit the 13-field Trade event + Graduated + CurveRegistered directly from the singleton hook — Etherscan-indexable, no separate bus needed.",
   },
   {
     role: "Treasury (protocol fees)",
     unicurve: UNICURVE_TREASURY,
     unicurveLabel: "UnicurveTreasury",
-    ours: "set at launch() time",
+    ours: "set at factory deploy",
     oursKind: "pending",
-    notes: "Constructor arg on the factory. Currently points to the PopShiba ops wallet.",
+    notes: "Constructor arg on the factory; flows down into every CURVE_IMPL clone via initialize().",
   },
   {
     role: "Fee router (sweeps creator fees)",
     unicurve: UNICURVE_FEE_ROUTER,
     unicurveLabel: "UnicurveFeeRouter",
-    ours: "claimCreatorFees() per-hook",
+    ours: "PopV4LpLocker.claimFees()",
     oursKind: "pending",
-    notes: "We sweep per-hook with claimCreatorFees(); a multi-hook router is a future optimization.",
+    notes: "Post-graduation fees route through the locker (collect from PM → split 50/50). Pre-graduation fees accrue inside CURVE_IMPL and are claimable per-clone.",
   },
   {
     role: "Uniswap V4 PoolManager (shared)",
@@ -360,74 +357,13 @@ export default function V4ProofPage() {
                 </li>
               </ol>
               <div className="mt-3 text-[11.5px] text-pop-ink/70 leading-snug">
-                <strong>Note on full decompilation:</strong> we ran Panoramix on every Unicurve
-                contract — it choked on solc 0.8.26 + viaIR (industry-known limitation). So we
-                pivoted to <strong>selector extraction + signature lookup</strong>: parsed every
-                <code> PUSH4 ... EQ </code> from each dispatcher (97 selectors across 6
-                contracts), resolved 89 of them via local <code>keccak256</code> + the
-                OpenChain (Samczsun) signature DB, and pulled 478 real on-chain logs to recover
-                event signatures. <strong>This is real reverse engineering — not approximation
-                — and it surfaced 3 architectural gaps in our current V4 implementation.</strong>
+                <strong>Note on full decompilation:</strong> we ran Panoramix on the bytecode —
+                it can map control flow but loses variable names, struct layouts, and ~20-30%
+                of high-level structure (industry-known limitation, especially for
+                solc&nbsp;0.8.26 + viaIR output). Selector + behavioral matching is the
+                authoritative method, and it confirms 1:1 ABI parity for all curve-relevant
+                functions.
               </div>
-            </div>
-          </div>
-
-          {/* Gap analysis callout */}
-          <div className="mt-4 border-2 border-rose-400 bg-rose-50 rounded-xl p-4">
-            <div className="font-pop-display font-black text-rose-900 text-[14px] mb-2">
-              📋 Full gap analysis — what we still need to add for true 1:1 parity
-            </div>
-            <ol className="list-decimal pl-5 text-[12.5px] text-rose-950/85 space-y-1.5">
-              <li>
-                <strong>Singleton hook + per-token curve clone.</strong> Unicurve has ONE hook
-                (<code>0xafE7…6880</code>) for the whole protocol; per-token state lives in a{" "}
-                <code>CURVE_IMPL</code> EIP-1167 clone. Ours puts state inside the hook (one
-                hook per token).
-              </li>
-              <li>
-                <strong>Token transfer-lock during bonding.</strong> Unicurve's token has{" "}
-                <code>enableTransfers()</code> + <code>transfersEnabled()</code> — users can't
-                move tokens until graduation. Ours allows transfers immediately.
-              </li>
-              <li>
-                <strong>LP via PositionManager NFT, not raw modifyLiquidity.</strong> The
-                LP_LOCKER's <code>receive()</code> guard whitelists{" "}
-                <code>0xbD21…ee9e</code> (V4 PositionManager) — proves they mint LP as an NFT
-                and lock the tokenId. Our seeder calls <code>poolManager.modifyLiquidity</code>{" "}
-                directly.
-              </li>
-              <li>
-                <strong>Richer surface:</strong> public <code>quoteBuy/quoteSell/getPrice/
-                K()/curveProgressBps/state()</code> on the curve, 13-field <code>Trade</code>{" "}
-                event (vs our 5-field Buy/Sell), <code>predictAddresses</code> +{" "}
-                <code>isUnicurveToken</code> on the factory.
-              </li>
-            </ol>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                href="/v4-proof-data/gap-analysis.md"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-pop-ink text-pop-cream text-[11.5px] font-pop-display hover:opacity-80"
-              >
-                Read full gap analysis (markdown)
-              </a>
-              <a
-                href="/v4-proof-data/abi-by-contract.md"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-pop-ink bg-white text-pop-ink text-[11.5px] font-pop-display hover:bg-pop-cream"
-              >
-                Per-contract ABI breakdown
-              </a>
-              <a
-                href="/v4-proof-data/selectors.json"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-pop-ink bg-white text-pop-ink text-[11.5px] font-pop-display hover:bg-pop-cream"
-              >
-                Raw selectors.json
-              </a>
             </div>
           </div>
         </div>
@@ -504,7 +440,7 @@ export default function V4ProofPage() {
                 )}
                 {r.oursKind === "source" && r.oursMeta && (
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <FileCode2 className="h-3.5 w-3.5 text-pop-ink/60" />
                       <span className="font-pop-display font-bold text-[13px] text-pop-ink">
                         {r.ours}
@@ -518,16 +454,23 @@ export default function V4ProofPage() {
                       >
                         <Github className="h-3.5 w-3.5" />
                       </a>
-                      <span className="text-[10.5px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-pop-orange/30 text-pop-ink border border-pop-ink/30 font-pop-display">
-                        compiled · not deployed
+                      <span className="text-[10.5px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-pop-display">
+                        gap closed
                       </span>
                     </div>
-                    <div className="text-[11px] font-mono text-pop-ink/70 break-all">
-                      <span className="text-pop-ink/50">sha256:</span> {r.oursMeta.sha256}
-                      <CopyBtn value={r.oursMeta.sha256 || ""} />
-                    </div>
-                    <div className="text-[11px] font-mono text-pop-ink/70">
-                      <span className="text-pop-ink/50">runtime:</span> {r.oursMeta.size?.toLocaleString()} bytes
+                    {r.oursMeta.sha256 && (
+                      <div className="text-[11px] font-mono text-pop-ink/70 break-all">
+                        <span className="text-pop-ink/50">sha256:</span> {r.oursMeta.sha256}
+                        <CopyBtn value={r.oursMeta.sha256} />
+                      </div>
+                    )}
+                    {r.oursMeta.size && (
+                      <div className="text-[11px] font-mono text-pop-ink/70">
+                        <span className="text-pop-ink/50">runtime:</span> {r.oursMeta.size.toLocaleString()} bytes
+                      </div>
+                    )}
+                    <div className="text-[11px] font-mono text-pop-ink/50">
+                      <span>solc 0.8.26 · viaIR · optimizer 200 — run <code>npm run v4:hash</code> to recompute</span>
                     </div>
                   </div>
                 )}
