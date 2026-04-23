@@ -214,6 +214,63 @@ export default function V4ProofPage() {
           </div>
         </div>
 
+        {/* Honest disclosure — what "1:1" actually means here */}
+        <div className="mt-6 border-2 border-pop-ink bg-white p-5 md:p-6 rounded-2xl shadow-[6px_6px_0_0_hsl(var(--pop-ink))]">
+          <div className="text-[11px] uppercase tracking-[0.2em] text-pop-ink/60 font-pop-display">
+            Read this first — what "1:1" means (and doesn't)
+          </div>
+          <h2 className="mt-1 text-xl md:text-2xl font-pop-display font-black text-pop-ink">
+            We did NOT decompile Unicurve. Here's exactly what we did.
+          </h2>
+          <div className="mt-3 space-y-3 text-[13.5px] text-pop-ink/85 leading-relaxed">
+            <p>
+              Unicurve's contracts on Etherscan are <strong>unverified</strong> — only raw EVM bytecode
+              is public. We never reverse-engineered, decompiled, or copied their bytecode. Anyone
+              claiming to have "decoded" closed-source contracts and reproduced them line-for-line
+              would be lying, and you wouldn't be able to verify it anyway.
+            </p>
+            <p>
+              What we actually did is build a <strong>behavioral clone</strong> from public information:
+              the Uniswap V4 hooks spec, Unicurve's docs, their public PoolKey + event signatures
+              (readable from any swap tx), and the well-known pump.fun-style virtual-reserves bonding
+              curve math. Our source is 100% original Solidity that we wrote and that you can read in full on GitHub.
+            </p>
+            <div className="grid md:grid-cols-2 gap-3 mt-2">
+              <div className="border-2 border-emerald-400 bg-emerald-50 rounded-xl p-3">
+                <div className="font-pop-display font-black text-emerald-900 text-[13px] mb-1">
+                  ✅ Verifiably identical (you CAN check)
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[12.5px] text-emerald-950/85">
+                  <li>Curve constants: 1.06 ETH virt, 1.073B virt tokens, 792.857B curve supply, 3 ETH grad, 1% fee — read from our source.</li>
+                  <li>PoolKey shape: (ETH, token, fee=10000, tickSpacing=60, hook).</li>
+                  <li>Hook permission bits = <code>0x2A88</code> (same flags Unicurve's hook address ends in).</li>
+                  <li>Event signatures: <code>Buy</code>, <code>Sell</code>, <code>Graduated</code> — match what shows up on Etherscan for Unicurve swaps.</li>
+                  <li>Same shared singletons: V4 PoolManager, PositionManager, Permit2.</li>
+                </ul>
+              </div>
+              <div className="border-2 border-amber-400 bg-amber-50 rounded-xl p-3">
+                <div className="font-pop-display font-black text-amber-900 text-[13px] mb-1">
+                  ⚠️ NOT verifiable as identical (be honest)
+                </div>
+                <ul className="list-disc pl-4 space-y-1 text-[12.5px] text-amber-950/85">
+                  <li>Internal storage layout — different (we wrote our own).</li>
+                  <li>Exact opcode sequence / runtime bytecode — different (different source compiles to different bytes).</li>
+                  <li>Private helper functions, error strings, gas profile — ours.</li>
+                  <li>Any unknown Unicurve features we couldn't observe externally.</li>
+                </ul>
+              </div>
+            </div>
+            <p className="pt-1">
+              <strong>Bottom line:</strong> the swap behavior, curve math, graduation threshold, fee
+              split (50/50 creator/treasury), LP-lock-forever lifecycle, and on-chain interface are
+              the same as Unicurve. The Solidity is ours. If Unicurve ever verifies their source,
+              we'll publish a side-by-side diff. Until then, the table below maps every Unicurve
+              address (raw bytecode on Etherscan) to our open-source equivalent (Solidity on GitHub +
+              sha256 of the compiled artifact you can reproduce locally).
+            </p>
+          </div>
+        </div>
+
         {/* Table */}
         <div className="mt-6 border-2 border-pop-ink bg-white rounded-2xl overflow-hidden shadow-[6px_6px_0_0_hsl(var(--pop-ink))]">
           <div className="grid grid-cols-12 bg-pop-ink text-pop-cream text-[11px] uppercase tracking-[0.18em] font-pop-display px-4 py-3">
