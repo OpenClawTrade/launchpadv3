@@ -44,53 +44,6 @@ function uniswapFor(addr: string): string {
 function dexscreenerFor(addr: string): string {
   return `https://dexscreener.com/ethereum/${addr}`;
 }
-import { ArrowLeft, Copy, ExternalLink, Bell, Share2, Star } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
-
-import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
-import { CodexChart } from "@/components/launchpad/CodexChart";
-import { useExternalToken } from "@/hooks/useExternalToken";
-import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
-import {
-  ETH_NETWORK_ID,
-  BSC_NETWORK_ID,
-  SOLANA_NETWORK_ID,
-} from "@/hooks/useCodexNewPairs";
-import { useToast } from "@/hooks/use-toast";
-import { useZeroxSwap } from "@/hooks/useZeroxSwap";
-import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
-import { usePrivy } from "@privy-io/react-auth";
-import { supabase } from "@/integrations/supabase/client";
-
-import styles from "./ApePage.module.css";
-
-/* ──────────────────────────── helpers ──────────────────────────── */
-
-type Chain = "eth" | "bsc" | "sol";
-
-function chainToNetworkId(c: Chain): number {
-  switch (c) {
-    case "bsc": return BSC_NETWORK_ID;
-    case "sol": return SOLANA_NETWORK_ID;
-    default: return ETH_NETWORK_ID;
-  }
-}
-function nativeSymbolFor(c: Chain): string {
-  return c === "bsc" ? "BNB" : c === "sol" ? "SOL" : "ETH";
-}
-function explorerFor(c: Chain, addr: string): string {
-  if (c === "bsc") return `https://bscscan.com/token/${addr}`;
-  if (c === "sol") return `https://solscan.io/token/${addr}`;
-  return `https://etherscan.io/token/${addr}`;
-}
-function dexFor(c: Chain, addr: string): string {
-  if (c === "bsc") return `https://pancakeswap.finance/swap?outputCurrency=${addr}`;
-  if (c === "sol") return `https://jup.ag/swap/SOL-${addr}`;
-  return `https://app.uniswap.org/explore/tokens/ethereum/${addr}`;
-}
-function dexNameFor(c: Chain): string {
-  return c === "bsc" ? "PancakeSwap" : c === "sol" ? "Jupiter" : "Uniswap";
-}
 
 function fmtUsd(n: number | null | undefined): string {
   if (n == null || !isFinite(n)) return "—";
