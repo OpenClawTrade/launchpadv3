@@ -143,12 +143,13 @@ export default function ApePage() {
   // Live balances
   const [nativeBal, setNativeBal] = useState<number>(0);
   const [tokenBal, setTokenBal] = useState<number>(0);
+  const tokenBalRawRef = useRef<bigint>(0n);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       if (!isEvm || !evmWallet || !evmAddress) {
-        setNativeBal(0); setTokenBal(0); return;
+        setNativeBal(0); setTokenBal(0); tokenBalRawRef.current = 0n; return;
       }
       try {
         const provider: any = await (evmWallet as any).getEthereumProvider();
@@ -161,7 +162,9 @@ export default function ApePage() {
           params: [{ to: address, data }, "latest"],
         });
         if (!cancelled && balHex && balHex !== "0x") {
-          setTokenBal(Number(BigInt(balHex)) / 10 ** tokenDecimals);
+          const raw = BigInt(balHex);
+          tokenBalRawRef.current = raw;
+          setTokenBal(Number(raw) / 10 ** tokenDecimals);
         }
       } catch {}
     }
