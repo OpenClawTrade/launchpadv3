@@ -145,6 +145,39 @@ export function EthContractsDeployPanel() {
     } finally { setBusy(false); }
   }, [checkReadiness]);
 
+  // Re-verify the clone-master implementation with a STERILE source (only the
+  // "// Launched from PopShiba.com" comment — no token-specific metadata).
+  // Etherscan uses the first verified source as the Similar-Match parent for
+  // every clone sharing the same bytecode. Running this once ensures all
+  // future tokens display the clean header instead of SHIBANUSI's metadata.
+  const sterilizeImpl = useCallback(async () => {
+    const impl = dry?.existingDeployment?.token_impl_address;
+    if (!impl) { toast.error("No active implementation address on file"); return; }
+    if (!confirm(
+      "Re-verify the clone-master implementation with a sterile source?\n\n" +
+      `Address: ${impl}\n\n` +
+      "This submits ONLY the launchpad attribution comment — no token name/ticker/desc.\n" +
+      "After this, every freshly-launched token's Etherscan page will Similar-Match the clean source instead of SHIBANUSI."
+    )) return;
+    setBusy(true); setErr(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("eth-verify-contract", {
+        body: { tokenAddress: impl, implementationOnly: true, implKind: "clone", waitForResult: true },
+      });
+      if (error) throw new Error(error.message);
+      const r = data as any;
+      if (r?.error) throw new Error(r.error);
+      if (r?.verified || r?.alreadyVerified) {
+        toast.success("✅ Implementation sterilized", { description: "Future clones will inherit the clean header." });
+      } else {
+        toast.warning("Submitted", { description: r?.message || "Polling timed out — check Etherscan in a few min." });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Sterilize failed";
+      setErr(msg); toast.error("Sterilize failed", { description: msg });
+    } finally { setBusy(false); }
+  }, [dry]);
+
   const hasActive = !!dry?.existingDeployment;
 
   return (
