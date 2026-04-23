@@ -185,6 +185,9 @@ export default function LaunchNowPage() {
     totalSupply: string;
     header?: string;
     source: "auto" | "manual";
+    sourceCode?: string;
+    contractName?: string;
+    fileName?: string;
   }) => {
     // Always allow the user to attempt manual verification — even if our local
     // bytecode comparison thinks it won't match. Etherscan is the source of
@@ -221,6 +224,9 @@ export default function LaunchNowPage() {
             symbol: params.symbol,
             totalSupply: params.totalSupply,
             header: params.header ?? deployHeader,
+            sourceCode: params.sourceCode,
+            contractName: params.contractName,
+            fileName: params.fileName,
             waitForResult: true,
           },
         });
