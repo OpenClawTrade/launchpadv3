@@ -81,6 +81,16 @@ export const UNICURVE_CURVE_ABI = parseAbi([
   'function claimCreatorFees()',
 ]);
 
+// ── FeeRouter ABI (decoded live) ─────────────────────────────────────────────
+// 0x3e48abb8(address[] curves) -> uint256[] pendingWeiPerCurve   (instant balance check)
+// 0xf74e246f(address[] curves, address payout, address[] graduatedTokens)  (sweep all)
+// FeeClaimed event topic 0xc1ede5e1… (token, curve, recipient, [kind, amount, ?])
+export const UNICURVE_FEE_ROUTER_ABI = parseAbi([
+  'function pending(address[] curves) view returns (uint256[])',
+  'function claim(address[] curves, address payout, address[] graduatedTokens)',
+  'event FeeClaimed(address indexed token, address indexed curve, address indexed recipient, uint256 kind, uint256 amount, uint256 extra)',
+]);
+
 /** Current price in ETH per token (x*y=k). */
 export function computePrice(virtualEth: bigint, virtualTokens: bigint): number {
   if (virtualTokens === 0n) return 0;
