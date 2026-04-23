@@ -245,14 +245,17 @@ export default function ApePage() {
       tokenTicker: token?.symbol,
     });
     if (result.success) {
-      toast({
-        title: `${side === "buy" ? "Bought" : "Sold"} $${token?.symbol || "token"}`,
-        description: result.explorerUrl ? "View transaction ↗" : "Transaction sent",
-        action: result.explorerUrl ? (
-          <a href={result.explorerUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
-            View
-          </a>
-        ) as any : undefined,
+      const ticker = token?.symbol || symbol || "TOKEN";
+      showTradeSuccess({
+        type: side,
+        ticker,
+        tokenName: token?.name,
+        mintAddress: address,
+        amount: `${numericAmount} ${side === "buy" ? "ETH" : ticker}`,
+        signature: result.txHash,
+        chain: "bnb", // EVM chain → uses bscscan-style explorer fallback; explicit explorerUrl overrides
+        explorerUrl: result.explorerUrl,
+        tokenImageUrl: token?.imageUrl || token?.image,
       });
     } else {
       toast({ title: "Swap failed", description: result.error || "Unknown error", variant: "destructive" });
