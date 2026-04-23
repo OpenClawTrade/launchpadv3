@@ -258,7 +258,7 @@ const App = () => (
                      <Route path="/v2btc/meme/:id" element={<Navigate to="/btc" replace />} />
                      <Route path="/ai-collab" element={<Navigate to="/admin?tab=ai-collab" replace />} />
                      <Route path="/sellall" element={<SellAllPage />} />
-                     <Route path="*" element={<NotFound />} />
+                     <Route path="*" element={<LaunchpadLayout><NotFound /></LaunchpadLayout>} />
                   </Routes>
                   </div>
                 </Suspense>
