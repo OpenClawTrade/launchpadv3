@@ -10,6 +10,8 @@ import { mainnet } from "viem/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
 import { UNICURVE_CURVE_ABI, GRADUATION_THRESHOLD } from "@/lib/ethereum/unicurveFactory";
+import { BondingPriceChart } from "@/components/bonding/BondingPriceChart";
+import { UniswapV4SwapPanel } from "@/components/bonding/UniswapV4SwapPanel";
 import { ArrowLeft, ExternalLink, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
