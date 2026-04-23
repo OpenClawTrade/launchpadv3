@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { NewPairsPanel } from "./NewPairsPanel";
-import { WalletTrackerPanel } from "./WalletTrackerPanel";
 
 /**
  * Sticky Footer Menu (sfm) — always pinned to bottom of viewport.
@@ -46,10 +46,10 @@ export function Footer() {
   const [tickers, setTickers] = useState<Ticker[]>(DEFAULT_TICKERS);
   const [stable, setStable] = useState(true);
   const [latencyMs, setLatencyMs] = useState(50);
-  const [trackerOpen, setTrackerOpen] = useState(false);
   const [newPairsOpen, setNewPairsOpen] = useState(false);
-  const trackerRef = useRef<HTMLDivElement | null>(null);
   const newPairsRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+  const { authenticated, login } = usePrivy();
 
   useEffect(() => {
     let cancelled = false;
@@ -82,50 +82,41 @@ export function Footer() {
       }
     }
     load();
-    // Realtime: refresh every 15s so prices feel live, not stale-by-the-minute
     const id = setInterval(load, 15_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  // Reserve viewport space so page content is never hidden behind the bar
   useEffect(() => {
     const orig = document.body.style.paddingBottom;
     document.body.style.paddingBottom = "44px";
     return () => { document.body.style.paddingBottom = orig; };
   }, []);
 
-  // Click-outside to close popovers
   useEffect(() => {
-    if (!trackerOpen && !newPairsOpen) return;
+    if (!newPairsOpen) return;
     function onDown(e: MouseEvent) {
       const t = e.target as Node;
-      if (trackerOpen && trackerRef.current && !trackerRef.current.contains(t)) setTrackerOpen(false);
-      if (newPairsOpen && newPairsRef.current && !newPairsRef.current.contains(t)) setNewPairsOpen(false);
+      if (newPairsRef.current && !newPairsRef.current.contains(t)) setNewPairsOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [trackerOpen, newPairsOpen]);
+  }, [newPairsOpen]);
 
   const pings = useMemo(() => `Eth-E ${latencyMs}ms`, [latencyMs]);
 
   const noop = (_e: React.MouseEvent) => {};
 
+  const handleTracker = () => {
+    setNewPairsOpen(false);
+    if (authenticated) {
+      navigate("/tracker");
+    } else {
+      login();
+    }
+  };
+
   return (
     <>
-      {trackerOpen && (
-        <div
-          ref={trackerRef}
-          style={{
-            position: "fixed",
-            left: 8,
-            bottom: 52,
-            zIndex: 100000,
-            maxWidth: "calc(100vw - 16px)",
-          }}
-        >
-          <WalletTrackerPanel onRefresh={noop} refreshing={false} chain="ethereum" />
-        </div>
-      )}
       {newPairsOpen && (
         <div
           ref={newPairsRef}
@@ -142,16 +133,13 @@ export function Footer() {
       )}
       <div className="sfm">
         <div className="sfm-inner">
-          <button
-            className={`sfm-pill ${trackerOpen ? "on" : ""}`}
-            onClick={() => { setTrackerOpen(v => !v); setNewPairsOpen(false); }}
-          >
+          <button className="sfm-pill" onClick={handleTracker}>
             Tracker
           </button>
 
           <button
             className={`sfm-pill ${newPairsOpen ? "on" : ""}`}
-            onClick={() => { setNewPairsOpen(v => !v); setTrackerOpen(false); }}
+            onClick={() => { setNewPairsOpen(v => !v); }}
           >
             + New Pairs
           </button>
