@@ -111,59 +111,73 @@ export function Footer() {
   const noop = (_e: React.MouseEvent) => {};
 
   return (
-    <div className="sfm">
-      <div className="sfm-inner">
-        {/* Tracker — opens wallet tracker popover */}
-        <div ref={trackerRef} style={{ position: "relative" }}>
+    <>
+      {trackerOpen && (
+        <div
+          ref={trackerRef}
+          style={{
+            position: "fixed",
+            left: 8,
+            bottom: 52,
+            zIndex: 100000,
+            maxWidth: "calc(100vw - 16px)",
+          }}
+        >
+          <WalletTrackerPanel onRefresh={noop} refreshing={false} chain="ethereum" />
+        </div>
+      )}
+      {newPairsOpen && (
+        <div
+          ref={newPairsRef}
+          style={{
+            position: "fixed",
+            left: 8,
+            bottom: 52,
+            zIndex: 100000,
+            maxWidth: "calc(100vw - 16px)",
+          }}
+        >
+          <NewPairsPanel onRefresh={noop} refreshing={false} defaultChain="ethereum" />
+        </div>
+      )}
+      <div className="sfm">
+        <div className="sfm-inner">
           <button
             className={`sfm-pill ${trackerOpen ? "on" : ""}`}
             onClick={() => { setTrackerOpen(v => !v); setNewPairsOpen(false); }}
           >
             Tracker
           </button>
-          {trackerOpen && (
-            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 100000 }}>
-              <WalletTrackerPanel onRefresh={noop} refreshing={false} chain="ethereum" />
-            </div>
-          )}
-        </div>
 
-        {/* New Pairs — opens Codex new pairs popover (Ethereum) */}
-        <div ref={newPairsRef} style={{ position: "relative" }}>
           <button
             className={`sfm-pill ${newPairsOpen ? "on" : ""}`}
             onClick={() => { setNewPairsOpen(v => !v); setTrackerOpen(false); }}
           >
             + New Pairs
           </button>
-          {newPairsOpen && (
-            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 100000 }}>
-              <NewPairsPanel onRefresh={noop} refreshing={false} defaultChain="ethereum" />
-            </div>
-          )}
+
+          <Link to="/launch" className="sfm-pill">🚀 Launch</Link>
+          <Link to="/tokens" className="sfm-pill">⚡ Pulse</Link>
+
+          <span className="sfm-divider" />
+
+          {tickers.map(t => (
+            <span key={t.sym} className="sfm-tick">
+              <span className="cx" style={{ background: t.cx }} />
+              <span className="sym">{t.sym}</span>
+              <span className="px">{t.price}</span>
+              <span className={`chg ${t.up ? "up" : "dn"}`}>{t.chg}</span>
+            </span>
+          ))}
+
+          <span className="sfm-spacer" />
+
+          <button className={`sfm-pill ${stable ? "on" : ""}`} onClick={() => setStable(s => !s)}>
+            {stable ? "Stable" : "Reconnect"}
+          </button>
+          <span className="sfm-ping"><span className="dot" />{pings}</span>
         </div>
-
-        <Link to="/launch" className="sfm-pill">🚀 Launch</Link>
-        <Link to="/tokens" className="sfm-pill">⚡ Pulse</Link>
-
-        <span className="sfm-divider" />
-
-        {tickers.map(t => (
-          <span key={t.sym} className="sfm-tick">
-            <span className="cx" style={{ background: t.cx }} />
-            <span className="sym">{t.sym}</span>
-            <span className="px">{t.price}</span>
-            <span className={`chg ${t.up ? "up" : "dn"}`}>{t.chg}</span>
-          </span>
-        ))}
-
-        <span className="sfm-spacer" />
-
-        <button className={`sfm-pill ${stable ? "on" : ""}`} onClick={() => setStable(s => !s)}>
-          {stable ? "Stable" : "Reconnect"}
-        </button>
-        <span className="sfm-ping"><span className="dot" />{pings}</span>
       </div>
-    </div>
+    </>
   );
 }
