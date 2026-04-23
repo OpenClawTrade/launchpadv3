@@ -622,7 +622,6 @@ export default function ApePage() {
         </div>
         </main>
       </div>
-      <Footer />
-    </div>
+    </LaunchpadLayout>
   );
 }
