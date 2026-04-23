@@ -10,10 +10,18 @@ import { CreatorFeesPill } from "./CreatorFeesPill";
 
 // Mirrors the in-iframe template nav on the home page so every page shows the
 // exact same primary navigation.
-const NAV_LINKS = [
+type NavLink = {
+  label: string;
+  to: string;
+  Icon: typeof HomeIcon;
+  /** When set, clicking opens a "coming soon" style popup instead of navigating. */
+  soon?: "holders";
+};
+
+const NAV_LINKS: NavLink[] = [
   { label: "Home",    to: "/",           Icon: HomeIcon },
   { label: "Trade",   to: "/ape",        Icon: LineChart },
-  { label: "Holders", to: "/holders",    Icon: Users },
+  { label: "Holders", to: "#",           Icon: Users, soon: "holders" },
   { label: "Alpha",   to: "/alpha",      Icon: Sparkles },
   { label: "Tracker", to: "/x-tracker",  Icon: Twitter },
   { label: "Docs",    to: "/docs",       Icon: BookOpen },
@@ -37,6 +45,7 @@ function BrandFrame() {
 export function PopshibaTopNav() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
+  const [soonOpen, setSoonOpen] = useState(false);
 
   // Close menu on route change
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -47,6 +56,13 @@ export function PopshibaTopNav() {
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
+
+  const handleNavClick = (e: React.MouseEvent, link: NavLink) => {
+    if (link.soon === "holders") {
+      e.preventDefault();
+      setSoonOpen(true);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-[100] bg-pop-ink text-pop-cream border-b-[3px] border-pop-orange">
@@ -61,8 +77,9 @@ export function PopshibaTopNav() {
         <nav className="hidden lg:flex gap-6 xl:gap-7 text-[14px] font-bold items-center">
           {NAV_LINKS.map((link) => (
             <Link
-              key={link.to}
+              key={link.label}
               to={link.to}
+              onClick={(e) => handleNavClick(e, link)}
               className="text-pop-cream/90 hover:text-pop-cream transition-colors"
             >
               {link.label}
@@ -106,11 +123,12 @@ export function PopshibaTopNav() {
         <div className="lg:hidden border-t-2 border-pop-orange bg-pop-ink max-h-[calc(100vh-64px)] overflow-y-auto">
           <nav className="flex flex-col px-4 py-4 gap-1">
             {NAV_LINKS.map((link) => {
-              const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
+              const active = !link.soon && (pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to)));
               return (
                 <Link
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
+                  onClick={(e) => handleNavClick(e, link)}
                   className={`px-3 py-3 font-bold text-[15px] border-l-[3px] ${
                     active
                       ? "border-pop-orange text-pop-cream bg-pop-cream/5"
@@ -137,7 +155,59 @@ export function PopshibaTopNav() {
           </nav>
         </div>
       )}
+      {soonOpen && <HoldersSoonModal onClose={() => setSoonOpen(false)} />}
     </header>
+  );
+}
+
+function HoldersSoonModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = orig;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-pop-ink/80 backdrop-blur-sm px-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-[460px] bg-pop-cream border-[3px] border-pop-ink shadow-[6px_6px_0_hsl(var(--pop-ink))] p-6 sm:p-7"
+      >
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute top-2.5 right-2.5 inline-flex items-center justify-center w-8 h-8 border-2 border-pop-ink bg-pop-cream text-pop-ink hover:bg-pop-orange transition-colors"
+        >
+          <X className="w-4 h-4" strokeWidth={3} />
+        </button>
+        <span className="inline-block px-2 py-1 text-[10px] font-pop-mono tracking-[0.12em] bg-pop-ink text-pop-cream">
+          HOLDERS
+        </span>
+        <h2 className="mt-3 font-pop-display text-[22px] sm:text-[26px] tracking-[-0.01em] text-pop-ink">
+          🪙 Holders Rewards
+        </h2>
+        <p className="mt-3 text-[14px] leading-relaxed text-pop-ink/85">
+          Holders rewards from fees earned by the platform will be revealed in the upcoming days.{" "}
+          <b className="text-pop-ink">Follow our X for news.</b>
+        </p>
+        <a
+          href={X_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] transition-all"
+        >
+          Follow on X
+        </a>
+      </div>
+    </div>
   );
 }
 
