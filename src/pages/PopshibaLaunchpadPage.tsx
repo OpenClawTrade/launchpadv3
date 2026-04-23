@@ -260,8 +260,33 @@ function injectHeroCard(
   } else {
     set("hp-avatar", (tick[0] || "P").toUpperCase());
   }
+  const tradeHref = latest.token_address ? `/ape/${latest.token_address}` : "";
   const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
-  if (link) link.href = latest.token_address ? `/ape/${latest.token_address}` : "#";
+  if (link) {
+    link.href = tradeHref || "#";
+    link.onclick = (ev) => {
+      if (!tradeHref) return;
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    };
+  }
+  // The whole hero card should be clickable, not just the inner link.
+  if (card && tradeHref) {
+    (card as HTMLElement).style.cursor = "pointer";
+    (card as HTMLElement).onclick = (ev) => {
+      const t = ev.target as HTMLElement | null;
+      // Don't hijack clicks on the social icons inside the card.
+      if (t && t.closest("a[href]:not(#hp-link), .hp-socials")) return;
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    };
+  }
 
   // Socials — wire whatever exists, hide the rest (no flicker of broken links)
   setHref("hp-tw", latest.twitter_url);
