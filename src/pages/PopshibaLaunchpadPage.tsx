@@ -260,8 +260,33 @@ function injectHeroCard(
   } else {
     set("hp-avatar", (tick[0] || "P").toUpperCase());
   }
+  const tradeHref = latest.token_address ? `/ape/${latest.token_address}` : "";
   const link = doc.getElementById("hp-link") as HTMLAnchorElement | null;
-  if (link) link.href = latest.token_address ? `/ape/${latest.token_address}` : "#";
+  if (link) {
+    link.href = tradeHref || "#";
+    link.onclick = (ev) => {
+      if (!tradeHref) return;
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    };
+  }
+  // The whole hero card should be clickable, not just the inner link.
+  if (card && tradeHref) {
+    (card as HTMLElement).style.cursor = "pointer";
+    (card as HTMLElement).onclick = (ev) => {
+      const t = ev.target as HTMLElement | null;
+      // Don't hijack clicks on the social icons inside the card.
+      if (t && t.closest("a[href]:not(#hp-link), .hp-socials")) return;
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to: tradeHref } },
+        "*"
+      );
+    };
+  }
 
   // Socials — wire whatever exists, hide the rest (no flicker of broken links)
   setHref("hp-tw", latest.twitter_url);
@@ -339,7 +364,11 @@ function injectLiveData(
       const imageHTML = l.image_url
         ? `<img src="${l.image_url}" alt="" style="width:100%;height:100%;object-fit:cover" />`
         : av;
-      const tradeHref = l.token_address ? `/ape/${l.token_address}` : "#";
+      const tradeHref = l.token_address ? `/ape/${l.token_address}` : "";
+      if (tradeHref) {
+        tr.setAttribute("data-trade-href", tradeHref);
+        (tr as HTMLElement).style.cursor = "pointer";
+      }
       tr.innerHTML = `
         <td>
           <div class="ll-tok">
@@ -359,13 +388,27 @@ function injectLiveData(
         <td><span class="ll-time">${typeof m?.holders === "number" ? m.holders.toLocaleString() : "—"}</span></td>
         <td><span class="ll-status${prog >= 85 ? " grad" : ""}"><span class="dot"></span>${status}</span></td>
         <td style="text-align:right">
-          <a href="${tradeHref}" target="_top" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block">
+          <a href="${tradeHref || "#"}" data-trade-href="${tradeHref}" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block;cursor:pointer">
             Trade
           </a>
         </td>
       `;
       body.appendChild(tr);
     });
+    // Single delegated click handler — postMessage navigation works whether
+    // the template runs inside the iframe or stands alone.
+    (body as HTMLElement).onclick = (ev) => {
+      const t = ev.target as HTMLElement | null;
+      if (!t) return;
+      const el = t.closest("[data-trade-href]") as HTMLElement | null;
+      const to = el?.getAttribute("data-trade-href");
+      if (!to) return;
+      ev.preventDefault();
+      window.parent?.postMessage(
+        { source: "popshiba-template", type: "navigate", payload: { to } },
+        "*"
+      );
+    };
   }
 
   if (counter) counter.textContent = String(launches.length);
