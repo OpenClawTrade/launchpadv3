@@ -58,30 +58,21 @@ function escapeForSolidityComment(s: unknown): string {
 }
 
 function buildHeaderBlock(opts: {
-  name: string;
-  ticker: string;
-  description?: string;
   customHeader?: string;
 }): string {
-  const lines: string[] = [];
-  lines.push("// SPDX-License-Identifier: MIT");
-  lines.push("// =====================================================================");
-  lines.push(`// ${escapeForSolidityComment(opts.name)} ($${escapeForSolidityComment(opts.ticker)})`);
-  if (opts.description && opts.description.trim()) {
-    lines.push(`// ${escapeForSolidityComment(opts.description)}`);
-  }
-  lines.push("//");
+  // Only include SPDX (required by solc) + EXACTLY what the user typed.
+  // No auto-added name/ticker banner, no "Launched from" footer, no separators.
+  const lines: string[] = ["// SPDX-License-Identifier: MIT"];
   if (opts.customHeader && opts.customHeader.trim()) {
     for (const raw of opts.customHeader.split(/\r?\n/)) {
-      const trimmed = raw.trim();
-      if (!trimmed) continue;
-      const sanitized = trimmed.replace(/\*\//g, "* /");
+      const sanitized = raw.replace(/\*\//g, "* /").trimEnd();
+      if (!sanitized.trim()) {
+        lines.push("//");
+        continue;
+      }
       lines.push(sanitized.startsWith("//") ? sanitized : `// ${sanitized}`);
     }
-    lines.push("//");
   }
-  lines.push("// Launched from POPSHIBA.COM");
-  lines.push("// =====================================================================");
   return lines.join("\n");
 }
 
@@ -308,11 +299,10 @@ Deno.serve(async (req) => {
     const contractName = sanitizeIdentifier(ticker);
     const fileName = `${contractName}.sol`;
 
+    // Use ONLY the user-supplied header text. Fall back to description if no
+    // explicit customHeader was provided. Nothing else gets injected.
     const headerBlock = buildHeaderBlock({
-      name,
-      ticker,
-      description,
-      customHeader,
+      customHeader: customHeader ?? description,
     });
     const sourceCode = buildSource(contractName, headerBlock);
 
