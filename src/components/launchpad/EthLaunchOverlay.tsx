@@ -206,8 +206,8 @@ export function EthLaunchOverlay({
                 const order = ['preparing', 'signing', 'mining', 'live'];
                 const stepIdx = order.indexOf(step.id);
                 const curIdx = order.indexOf(stage);
-                const done = curIdx > stepIdx;
-                const active = curIdx === stepIdx;
+                const done = curIdx > stepIdx || (stage === 'live' && step.id === 'live');
+                const active = curIdx === stepIdx && !done;
                 return (
                   <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: MONO, fontSize: 12 }}>
                     <div
