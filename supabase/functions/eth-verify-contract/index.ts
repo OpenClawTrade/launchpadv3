@@ -201,16 +201,25 @@ function buildMetadataHeader(launch: any): string {
   const sanitize = (s: unknown) =>
     String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
   const lines: string[] = [];
-  lines.push(`// Launched from PopShiba.com Launchpad`);
+  lines.push(`// Launched from POPSHIBA.COM`);
   const nm = sanitize(launch.token_name);
   const tk = sanitize(launch.token_ticker);
   if (nm || tk) lines.push(`// ${nm}${tk ? ` ($${tk})` : ""}`);
-  if (launch.website_url) lines.push(`// Website     - ${sanitize(launch.website_url)}`);
-  if (launch.twitter_url) lines.push(`// X / Twitter - ${sanitize(launch.twitter_url)}`);
-  if (launch.telegram_url) lines.push(`// Telegram    - ${sanitize(launch.telegram_url)}`);
   if (launch.description) lines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
+  if (launch.website_url) lines.push(`// ${sanitize(launch.website_url)}`);
+  if (launch.twitter_url) lines.push(`// ${sanitize(launch.twitter_url)}`);
+  if (launch.telegram_url) lines.push(`// ${sanitize(launch.telegram_url)}`);
   return lines.length ? lines.join("\n") + "\n//\n" : "";
 }
+
+// NOTE: We do NOT inject any code or NatSpec into the source body, because the
+// contract bytecode is already deployed and any change to the source would
+// either alter the runtime bytecode (verification fails) or alter the metadata
+// hash suffix (verification also fails). The only thing we can change is
+// pure-comment lines that the compiler ignores entirely. Etherscan still
+// displays those comments on the verified Code tab even if they don't break
+// the "Similar Match" group, so the per-token header (name, ticker,
+// description, socials) WILL show at the top of the source view.
 
 async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn" | "v2fees"> {
   // Try to find the launcher row by tx hash regardless of burn_lp flag (which is shared
