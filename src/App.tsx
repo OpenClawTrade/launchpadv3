@@ -25,6 +25,7 @@ import { DomainRouter } from "@/components/DomainRouter";
 import { MatrixModeProvider } from "@/contexts/MatrixModeContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { BtcWalletProvider } from "@/contexts/BtcWalletContext";
+import { AdminPasswordGate } from "@/components/admin/AdminPasswordGate";
 
 // Lazy load FunLauncherPage like all other pages to reduce build memory
 const FunLauncherPage = lazyWithRetry(() => import("./pages/FunLauncherPage"));
@@ -157,7 +158,7 @@ const App = () => (
                    <div className="relative z-[1]">
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
-                    <Route path="/launchnow" element={<LaunchNowPage />} />
+                    <Route path="/launchnow" element={<AdminPasswordGate title="Launch Now (Admin)"><LaunchNowPage /></AdminPasswordGate>} />
                     {/* Backup: previous landing kept here while the launchpad-only era is live */}
                     <Route path="/preview-old" element={<Suspense fallback={<RouteLoader />}><HomePage /></Suspense>} />
                     <Route path="/tokens" element={<LaunchpadLayout><AllTokensPage /></LaunchpadLayout>} />
