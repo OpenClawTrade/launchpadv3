@@ -93,6 +93,9 @@ export function EthLaunchOverlay({
       }}
       role="dialog"
       aria-live="polite"
+      onClick={(e) => {
+        if (finished && onClose && e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         style={{
@@ -123,7 +126,28 @@ export function EthLaunchOverlay({
           }}
         >
           <span>POPSHIBA · LAUNCH</span>
-          <span style={{ opacity: 0.85 }}>{stage === 'failed' ? 'aborted' : finished ? 'ok' : 'running…'}</span>
+          {finished && onClose ? (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: PRIMARY,
+                fontFamily: MONO,
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                padding: 0,
+                fontWeight: 700,
+              }}
+              aria-label="Close"
+            >
+              {stage === 'failed' ? 'close ✕' : 'ok ✕'}
+            </button>
+          ) : (
+            <span style={{ opacity: 0.85 }}>running…</span>
+          )}
         </div>
 
         <div style={{ padding: 28 }}>
