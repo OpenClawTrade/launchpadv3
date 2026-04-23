@@ -212,29 +212,14 @@ function buildMetadataHeader(launch: any): string {
   return lines.length ? lines.join("\n") + "\n//\n" : "";
 }
 
-// Inject a per-token unique string constant into the contract body. Comments are
-// stripped from bytecode similarity matching, so a SOURCE-only header is not
-// enough to dethrone Etherscan's "Similar Match" UI for SHIBANUSI. By inserting
-// a `string private constant` with token-specific data, we change the code AST
-// (the comment is preserved in the verified source view, the constant guarantees
-// uniqueness vs other PopShiba tokens). The constant is `private` and unused so
-// it has zero runtime impact for the deployed bytecode (already deployed); it
-// only differentiates the verified source page on Etherscan.
-function injectUniqueMarker(source: string, launch: any, tokenAddress: string): string {
-  const safe = (s: unknown) =>
-    String(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ").slice(0, 240);
-  const marker =
-    `    // ─── PopShiba per-token metadata (verified source only) ───\n` +
-    `    string private constant POPSHIBA_LAUNCH_NAME = "${safe(launch.token_name)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_TICKER = "${safe(launch.token_ticker)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_DESCRIPTION = "${safe(launch.description)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_WEBSITE = "${safe(launch.website_url)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_TWITTER = "${safe(launch.twitter_url)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_TELEGRAM = "${safe(launch.telegram_url)}";\n` +
-    `    string private constant POPSHIBA_LAUNCH_ADDRESS = "${safe(tokenAddress)}";\n`;
-  // Insert immediately after the first `contract ... {` line we find.
-  return source.replace(/(contract\s+\w+[^{]*\{\s*\n)/, `$1${marker}`);
-}
+// NOTE: We do NOT inject any code or NatSpec into the source body, because the
+// contract bytecode is already deployed and any change to the source would
+// either alter the runtime bytecode (verification fails) or alter the metadata
+// hash suffix (verification also fails). The only thing we can change is
+// pure-comment lines that the compiler ignores entirely. Etherscan still
+// displays those comments on the verified Code tab even if they don't break
+// the "Similar Match" group, so the per-token header (name, ticker,
+// description, socials) WILL show at the top of the source view.
 
 async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn" | "v2fees"> {
   // Try to find the launcher row by tx hash regardless of burn_lp flag (which is shared
