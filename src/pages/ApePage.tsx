@@ -282,27 +282,21 @@ export default function ApePage() {
     toast({ title: "Link copied" });
   };
 
-  const estimatedTokens = isEvm
-    ? buyAmountFmt
-    : (priceUsd > 0 && numericAmount > 0
-        ? (numericAmount * 150) / priceUsd
-        : 0);
+  const estimatedTokens = buyAmountFmt;
 
-  const ctaLabel = !isEvm
-    ? `◆ ${side === "buy" ? "BUY" : "SELL"} ON ${DEX_NAME.toUpperCase()}`
-    : !privyReady
-      ? "LOADING…"
-      : !authenticated
-        ? "CONNECT WALLET"
-        : swapping
-          ? "SWAPPING…"
-          : insufficient
-            ? "INSUFFICIENT BALANCE"
-            : needsApproval
-              ? `◆ APPROVE & SELL $${symbol}`
-              : `◆ ${side === "buy" ? "BUY" : "SELL"} $${symbol}`;
+  const ctaLabel = !privyReady
+    ? "LOADING…"
+    : !authenticated
+      ? "CONNECT WALLET"
+      : swapping
+        ? "SWAPPING…"
+        : insufficient
+          ? "INSUFFICIENT BALANCE"
+          : needsApproval
+            ? `◆ APPROVE & SELL $${symbol}`
+            : `◆ ${side === "buy" ? "BUY" : "SELL"} $${symbol}`;
 
-  const ctaDisabled = isEvm && (swapping || insufficient);
+  const ctaDisabled = swapping || insufficient;
 
   return (
     <LaunchpadLayout noPadding>
