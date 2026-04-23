@@ -1137,6 +1137,54 @@ export type Database = {
           },
         ]
       }
+      bonding_deployments: {
+        Row: {
+          created_at: string
+          curve_impl_address: string
+          deployed_at: string
+          deployer: string
+          event_bus_address: string
+          factory_address: string
+          id: string
+          is_active: boolean
+          lp_locker_address: string
+          network: string
+          token_impl_address: string
+          treasury_address: string
+          tx_hashes: string[]
+        }
+        Insert: {
+          created_at?: string
+          curve_impl_address: string
+          deployed_at?: string
+          deployer: string
+          event_bus_address: string
+          factory_address: string
+          id?: string
+          is_active?: boolean
+          lp_locker_address: string
+          network: string
+          token_impl_address: string
+          treasury_address: string
+          tx_hashes?: string[]
+        }
+        Update: {
+          created_at?: string
+          curve_impl_address?: string
+          deployed_at?: string
+          deployer?: string
+          event_bus_address?: string
+          factory_address?: string
+          id?: string
+          is_active?: boolean
+          lp_locker_address?: string
+          network?: string
+          token_impl_address?: string
+          treasury_address?: string
+          tx_hashes?: string[]
+        }
+        Relationships: []
+      }
       bonding_holders: {
         Row: {
           balance: number
