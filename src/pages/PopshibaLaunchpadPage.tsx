@@ -608,16 +608,7 @@ export default function PopshibaLaunchpadPage() {
   // re-mounting the iframe (which is what made the page look like it
   // "refreshed many times" before showing data).
   useEffect(() => {
-    const win = ref.current?.contentWindow;
-    if (!win) return;
-    win.postMessage(
-      {
-        source: "popshiba-host",
-        type: "wallet-state",
-        payload: { connected: launchpadWalletConnected, address: address || null },
-      },
-      "*"
-    );
+    postWalletStateToIframe();
   }, [launchpadWalletConnected, address]);
 
   return (
