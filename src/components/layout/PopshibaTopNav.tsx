@@ -155,7 +155,59 @@ export function PopshibaTopNav() {
           </nav>
         </div>
       )}
+      {soonOpen && <HoldersSoonModal onClose={() => setSoonOpen(false)} />}
     </header>
+  );
+}
+
+function HoldersSoonModal({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = orig;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-pop-ink/80 backdrop-blur-sm px-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-[460px] bg-pop-cream border-[3px] border-pop-ink shadow-[6px_6px_0_hsl(var(--pop-ink))] p-6 sm:p-7"
+      >
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          className="absolute top-2.5 right-2.5 inline-flex items-center justify-center w-8 h-8 border-2 border-pop-ink bg-pop-cream text-pop-ink hover:bg-pop-orange transition-colors"
+        >
+          <X className="w-4 h-4" strokeWidth={3} />
+        </button>
+        <span className="inline-block px-2 py-1 text-[10px] font-pop-mono tracking-[0.12em] bg-pop-ink text-pop-cream">
+          HOLDERS
+        </span>
+        <h2 className="mt-3 font-pop-display text-[22px] sm:text-[26px] tracking-[-0.01em] text-pop-ink">
+          🪙 Holders Rewards
+        </h2>
+        <p className="mt-3 text-[14px] leading-relaxed text-pop-ink/85">
+          Holders rewards from fees earned by the platform will be revealed in the upcoming days.{" "}
+          <b className="text-pop-ink">Follow our X for news.</b>
+        </p>
+        <a
+          href={X_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-5 inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2.5 border-2 border-pop-ink bg-pop-orange text-pop-ink shadow-[3px_3px_0_hsl(var(--pop-ink))] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:shadow-[4px_4px_0_hsl(var(--pop-ink))] transition-all"
+        >
+          Follow on X
+        </a>
+      </div>
+    </div>
   );
 }
 
