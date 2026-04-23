@@ -63,9 +63,13 @@ export function EthLaunchOverlay({
                          'Fetching launcher parameters and simulating the transaction.';
 
   const finished = stage === 'live' || stage === 'failed';
-  const PRIMARY = '#80ff00';
-  const BG = '#0d0d0f';
-  const FONT = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+  // PopShiba brand palette (matches landing page / top nav)
+  const PRIMARY = '#f5a524';   // pop-orange
+  const INK = '#0d0d0f';       // pop-ink
+  const CREAM = '#f5e6c8';     // pop-cream
+  const DANGER = '#e23a3a';
+  const FONT = '"Archivo Black", "Inter", system-ui, sans-serif';
+  const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
   const copyAddress = () => {
     if (!tokenAddress) return;
