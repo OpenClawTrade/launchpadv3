@@ -10,10 +10,18 @@ import { CreatorFeesPill } from "./CreatorFeesPill";
 
 // Mirrors the in-iframe template nav on the home page so every page shows the
 // exact same primary navigation.
-const NAV_LINKS = [
+type NavLink = {
+  label: string;
+  to: string;
+  Icon: typeof HomeIcon;
+  /** When set, clicking opens a "coming soon" style popup instead of navigating. */
+  soon?: "holders";
+};
+
+const NAV_LINKS: NavLink[] = [
   { label: "Home",    to: "/",           Icon: HomeIcon },
   { label: "Trade",   to: "/ape",        Icon: LineChart },
-  { label: "Holders", to: "/holders",    Icon: Users },
+  { label: "Holders", to: "#",           Icon: Users, soon: "holders" },
   { label: "Alpha",   to: "/alpha",      Icon: Sparkles },
   { label: "Tracker", to: "/x-tracker",  Icon: Twitter },
   { label: "Docs",    to: "/docs",       Icon: BookOpen },
