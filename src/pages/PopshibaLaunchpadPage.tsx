@@ -413,6 +413,19 @@ export default function PopshibaLaunchpadPage() {
   const isConnected = !!(wagmiConnected && wagmiAddress) || (!!authenticated && !!privyAddress);
   const launchpadWalletConnected = !!(authenticated || isConnected || address);
 
+  const postWalletStateToIframe = () => {
+    const win = ref.current?.contentWindow;
+    if (!win) return;
+    win.postMessage(
+      {
+        source: "popshiba-host",
+        type: "wallet-state",
+        payload: { connected: launchpadWalletConnected, address: address || null },
+      },
+      "*"
+    );
+  };
+
   // Freeze iframe src ONCE per mount so Privy/wagmi state changes don't
   // remount the iframe (which caused the "page refreshes many times" bug).
   const iframeSrcRef = useRef<string>(`/popshiba-template/launch.html?embed=1&v=${Date.now()}`);
@@ -595,16 +608,7 @@ export default function PopshibaLaunchpadPage() {
   // re-mounting the iframe (which is what made the page look like it
   // "refreshed many times" before showing data).
   useEffect(() => {
-    const win = ref.current?.contentWindow;
-    if (!win) return;
-    win.postMessage(
-      {
-        source: "popshiba-host",
-        type: "wallet-state",
-        payload: { connected: launchpadWalletConnected, address: address || null },
-      },
-      "*"
-    );
+    postWalletStateToIframe();
   }, [launchpadWalletConnected, address]);
 
   return (
@@ -615,6 +619,7 @@ export default function PopshibaLaunchpadPage() {
         title="Popshiba Launchpad"
         className="block w-full border-0"
         style={{ height: "calc(100vh - 56px)", background: "#f5a524" }}
+        onLoad={postWalletStateToIframe}
       />
       {launcherOpen && (
         <EthLauncher
