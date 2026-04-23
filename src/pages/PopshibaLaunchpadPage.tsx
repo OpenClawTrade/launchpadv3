@@ -651,7 +651,7 @@ export default function PopshibaLaunchpadPage() {
   }, [launchpadWalletConnected, address]);
 
   return (
-    <LaunchpadLayout noPadding>
+    <LaunchpadLayout noPadding hideFooter>
       <iframe
         ref={ref}
         src={iframeSrcRef.current}
