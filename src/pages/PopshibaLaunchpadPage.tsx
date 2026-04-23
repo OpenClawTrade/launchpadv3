@@ -619,6 +619,7 @@ export default function PopshibaLaunchpadPage() {
         title="Popshiba Launchpad"
         className="block w-full border-0"
         style={{ height: "calc(100vh - 56px)", background: "#f5a524" }}
+        onLoad={postWalletStateToIframe}
       />
       {launcherOpen && (
         <EthLauncher
