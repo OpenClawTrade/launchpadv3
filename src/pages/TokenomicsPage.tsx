@@ -1,11 +1,9 @@
 import { useState } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Gift, Handshake, Building2, Users, Zap, Shield, TrendingUp, Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 
 const PIE_DATA = [
@@ -69,14 +67,9 @@ function AllocCard({ color, icon, title, percent, tokens, children }: AllocCardP
 }
 
 export default function TokenomicsPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         <main className="max-w-5xl mx-auto px-4 py-10 space-y-12 w-full">
           <MatrixContentCard>
 
@@ -354,8 +347,6 @@ export default function TokenomicsPage() {
 
           </MatrixContentCard>
         </main>
-        <Footer />
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 }

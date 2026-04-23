@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSolPrice } from "@/hooks/useSolPrice";
 import { MerchHeader } from "@/components/merch/MerchHeader";
@@ -144,8 +144,7 @@ export default function MerchStorePage() {
   const totalSol = cart.reduce((sum, item) => sum + item.product.priceSol * item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar />
+    <LaunchpadLayout>
       <div className={isMobile ? "px-3 pt-4 pb-24" : "ml-[48px] px-6 pt-6 pb-24"}>
         <div className="max-w-6xl mx-auto">
           <MerchHeader cartCount={cart.length} onCartOpen={() => setCartOpen(true)} />
@@ -188,6 +187,6 @@ export default function MerchStorePage() {
         }}
         solPrice={solPrice}
       />
-    </div>
+    </LaunchpadLayout>
   );
 }

@@ -18,8 +18,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Copy, ExternalLink, Bell, Share2, Star } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 
-import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
-import { Footer } from "@/components/layout/Footer";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { useExternalToken } from "@/hooks/useExternalToken";
 import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
@@ -334,8 +333,7 @@ export default function ApePage() {
   const ctaDisabled = isEvm && (swapping || insufficient);
 
   return (
-    <div className="bg-pop-orange min-h-screen font-pop-body text-pop-ink">
-      <PopshibaTopNav />
+    <LaunchpadLayout noPadding>
       <div className={styles.root}>
         <main className={styles.main}>
 
@@ -624,7 +622,6 @@ export default function ApePage() {
         </div>
         </main>
       </div>
-      <Footer />
-    </div>
+    </LaunchpadLayout>
   );
 }

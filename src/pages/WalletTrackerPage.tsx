@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { NotLoggedInModal } from "@/components/launchpad/NotLoggedInModal";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { useWalletTracker, TRACKER_TABS, type TrackerTab, shortAddr } from "@/hooks/useWalletTracker";
 import { useTradeSounds } from "@/hooks/useTradeSounds";
 import { RefreshCw, Plus, Download, Upload, Trash2, Search, Wallet, Loader2, ArrowLeft, Bell, BellOff, Copy, TrendingUp, TrendingDown, Settings, Eye, Activity, Info } from "lucide-react";
@@ -35,7 +34,6 @@ interface WalletTrade {
 
 export default function WalletTrackerPage() {
   const navigate = useNavigate();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TrackerTab>("All");
   const [search, setSearch] = useState("");
   const [showAddForm, setShowAddForm] = useState(true);
@@ -490,11 +488,7 @@ export default function WalletTrackerPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-
+    <LaunchpadLayout>
         <main className="flex-1 px-4 py-6 max-w-7xl mx-auto w-full pb-14">
           {/* Page Header */}
           <div className="flex items-center gap-3 mb-6">

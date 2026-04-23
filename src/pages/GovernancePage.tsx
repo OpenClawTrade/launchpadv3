@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { AppHeader } from "@/components/layout/AppHeader";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,9 +167,7 @@ export default function GovernancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b]">
-      <AppHeader />
-
+    <LaunchpadLayout>
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white mb-2">Governance</h1>
@@ -314,6 +312,6 @@ export default function GovernancePage() {
           </CardContent>
         </Card>
       </main>
-    </div>
+    </LaunchpadLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +10,6 @@ import {
   Lock, Wallet, Rocket, Database, Megaphone, Bot, ScrollText,
   Users, Shield, Loader2, Wand2, Layers, Repeat, Radio, Zap, Brain, Send, AtSign, Coins
 } from "lucide-react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { Footer } from "@/components/layout/Footer";
 
 const ADMIN_PASSWORD = "popshiba135@";
 
@@ -80,7 +78,6 @@ export default function AdminPanelPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const activeTab = searchParams.get("tab") || "treasury";
 
   useEffect(() => {
@@ -108,11 +105,8 @@ export default function AdminPanelPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-        <div className="md:ml-[48px] flex flex-col min-h-screen">
-          <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
-          <main className="flex-1 flex items-center justify-center p-4">
+      <LaunchpadLayout>
+        <main className="flex-1 flex items-center justify-center p-4">
             <Card className="w-full max-w-md">
               <CardHeader className="text-center">
                 <Lock className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
@@ -147,10 +141,7 @@ export default function AdminPanelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        <AppHeader onMobileMenuOpen={() => setMobileOpen(true)} />
+    <LaunchpadLayout>
         <main className="flex-1 px-4 py-6 md:px-6">
           <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex justify-between items-center">
@@ -314,8 +305,6 @@ export default function AdminPanelPage() {
             </Tabs>
           </div>
         </main>
-        <Footer />
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 }
