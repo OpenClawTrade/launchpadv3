@@ -479,8 +479,8 @@ export default function BondingTokenDetailPage() {
               )}
               <p className="text-[10px] font-pop-mono text-pop-ink/50 text-center mt-3">1% TRADING FEE · MAINNET</p>
             </div>
+            )}
 
-            {/* Top holders */}
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[11px] font-pop-mono uppercase tracking-[0.12em] text-pop-ink/70">Top holders</p>
