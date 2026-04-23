@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { WagmiProvider, createConfig, http } from 'wagmi';
-import { base, mainnet, bsc, arbitrum } from 'wagmi/chains';
+import { base, mainnet, bsc, arbitrum } from 'viem/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Configure wagmi with Base, Ethereum mainnet, BSC, and Arbitrum (for Hyperliquid deposits)
