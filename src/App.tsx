@@ -22,7 +22,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RuntimeConfigBootstrap } from "@/components/RuntimeConfigBootstrap";
 import { EvmWalletProvider } from "@/providers/EvmWalletProvider";
 import { DomainRouter } from "@/components/DomainRouter";
-import { StickyStatsFooter } from "@/components/layout/StickyStatsFooter";
 import { MatrixModeProvider } from "@/contexts/MatrixModeContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { BtcWalletProvider } from "@/contexts/BtcWalletContext";
@@ -152,7 +151,6 @@ const App = () => (
               
               
               <GlobalTradeNotifier />
-              <StickyStatsFooter />
                 
                 <DomainRouter />
                 <Suspense fallback={<RouteLoader />}>
