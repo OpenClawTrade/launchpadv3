@@ -8,6 +8,7 @@ import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
 import {
   UNICURVE_FACTORY,
   UNICURVE_FACTORY_ABI,
+  UNICURVE_EVENT_BUS,
   generateSalt,
   GRADUATION_THRESHOLD,
   LAUNCH_FEE_WEI,
@@ -95,10 +96,12 @@ export default function BondingCreatePage() {
 
       const salt = generateSalt();
       const initialBuyWei = initialBuy && Number(initialBuy) > 0 ? parseEther(initialBuy) : 0n;
-      // Factory requires a 0.01 ETH launch fee. Total tx value = launch fee + initial buy.
-      const totalValue = LAUNCH_FEE_WEI + initialBuyWei;
+      // The factory uses ALL of msg.value as the dev buy on the curve. There is
+      // no separate launch fee — 0.01 ETH is just the practical minimum.
+      // Total tx value = max(0.01 ETH, dev buy chosen by user).
+      const totalValue = initialBuyWei > LAUNCH_FEE_WEI ? initialBuyWei : LAUNCH_FEE_WEI;
 
-      // 4. Send launch tx — real signature: createToken(name,symbol,uri,initialBuyEth,salt)
+      // 4. Send launch tx — real signature: createToken(salt, name, symbol, uri)
       setStep("Confirm in wallet…");
       const hash: Hash = await walletClient.writeContract({
         account: creatorAddress,
@@ -106,11 +109,11 @@ export default function BondingCreatePage() {
         address: UNICURVE_FACTORY,
         abi: UNICURVE_FACTORY_ABI,
         functionName: "createToken",
-        args: [metadata.name, metadata.symbol, metadataURI, initialBuyWei, salt],
+        args: [salt, metadata.name, metadata.symbol, metadataURI],
         value: totalValue,
       });
 
-      // 5. Wait & decode
+      // 5. Wait & decode — TokenCreated is emitted on EVENT_BUS, not the factory.
       setStep("Waiting for confirmation…");
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
       if (receipt.status !== "success") throw new Error("Transaction reverted");
@@ -118,7 +121,7 @@ export default function BondingCreatePage() {
       let tokenAddr: Address | null = null;
       let curveAddr: Address | null = null;
       for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== UNICURVE_FACTORY.toLowerCase()) continue;
+        if (log.address.toLowerCase() !== UNICURVE_EVENT_BUS.toLowerCase()) continue;
         const anyLog = log as unknown as { data: `0x${string}`; topics: [`0x${string}`, ...`0x${string}`[]] };
         try {
           const decoded = decodeEventLog({
@@ -246,7 +249,8 @@ export default function BondingCreatePage() {
                 className="w-full px-3 py-2 border-2 border-pop-ink bg-pop-cream/50 text-[14px] focus:outline-none focus:bg-white"
               />
               <p className="text-[11px] text-pop-ink/60 mt-1">
-                Buys tokens for yourself in the same tx (anti-snipe).
+                Buys tokens for yourself in the same tx (anti-snipe). Minimum 0.01 ETH —
+                this is the only cost to launch (no separate fee).
               </p>
             </div>
 
