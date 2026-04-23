@@ -517,6 +517,9 @@ verify_jwt = false
 [functions.pepe-verify-launchnow]
 verify_jwt = false
 
+[functions.pepe-compile-launchnow]
+verify_jwt = false
+
 [functions.eth-reverify-token]
 verify_jwt = false
 
