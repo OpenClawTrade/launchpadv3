@@ -2019,6 +2019,17 @@
         btn.style.opacity = '';
         btn.style.cursor = '';
       }
+      var reason = (d.payload && d.payload.reason) ? String(d.payload.reason) : 'Launch could not start';
+      try {
+        var existing = document.getElementById('popshibaLaunchErr');
+        if (existing) existing.remove();
+        var err = document.createElement('div');
+        err.id = 'popshibaLaunchErr';
+        err.textContent = '⚠ ' + reason;
+        err.style.cssText = 'margin-top:10px;font-family:JetBrains Mono,monospace;font-size:12px;color:#c8372d;background:#fff4dc;border:2px solid #c8372d;padding:8px 12px;letter-spacing:0.02em';
+        if (btn && btn.parentNode) btn.parentNode.insertBefore(err, btn.nextSibling);
+        setTimeout(function(){ if (err && err.parentNode) err.parentNode.removeChild(err); }, 8000);
+      } catch(_) {}
     }
   });
 
@@ -2113,7 +2124,7 @@
         launchBtn.style.opacity = '';
         launchBtn.style.cursor = '';
       }
-    }, 12000);
+    }, 20000);
     if (!walletConnected) {
       try { window.parent.postMessage({ source:'popshiba-template', type:'wallet-connect' }, '*'); } catch(_){}
     }
