@@ -1251,24 +1251,11 @@
           Deeper LP = chart that survives real trading. $5 launches die in 20 minutes — that's a Solana problem, don't bring it here.
         </div>
 
-        <!-- Launcher version switcher: V3 (Team Finance lock) vs V2-burn (auto-burn LP, zero fees) -->
-        <div style="font-family:'Archivo Black',sans-serif;font-size:11px;letter-spacing:.06em;margin:4px 0 8px;color:var(--ink)">LAUNCHER VERSION</div>
-        <div id="versionPicker" style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:14px">
-          <button type="button" class="ver-opt" data-ver="v3"
-                  style="text-align:left;padding:10px 12px;border:2px solid var(--ink);background:var(--primary);cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
-            <div style="font-family:'Archivo Black',sans-serif;font-size:12px">Uniswap V3</div>
-            <div style="font-size:10px;color:var(--brown);margin-top:4px;line-height:1.35">1% swap fee · you earn 50% forever · optional Team Finance LP lock</div>
-          </button>
-          <button type="button" class="ver-opt" data-ver="v2burn"
-                  style="text-align:left;padding:10px 12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
-            <div style="font-family:'Archivo Black',sans-serif;font-size:12px">Uniswap V2 · Burn LP</div>
-            <div style="font-size:10px;color:var(--brown);margin-top:4px;line-height:1.35">Fair-launch · LP auto-burned to dead address · zero fees · all scanner ✅</div>
-          </button>
-          <button type="button" class="ver-opt" data-ver="v2fees"
-                  style="text-align:left;padding:10px 12px;border:2px solid var(--ink);background:#fff;cursor:pointer;box-shadow:3px 3px 0 var(--ink);font-family:'JetBrains Mono',monospace">
-            <div style="font-family:'Archivo Black',sans-serif;font-size:12px">Uniswap V2 · Fees 1%</div>
-            <div style="font-size:10px;color:var(--brown);margin-top:4px;line-height:1.35">LP auto-burned · 1% swap fee auto-sent (in ETH) to platform wallet · gas-only for you</div>
-          </button>
+        <!-- Launcher version locked to V2 · Burn LP (default). Picker hidden per product decision. -->
+        <div id="versionPicker" style="display:none">
+          <button type="button" class="ver-opt" data-ver="v3"></button>
+          <button type="button" class="ver-opt" data-ver="v2burn"></button>
+          <button type="button" class="ver-opt" data-ver="v2fees"></button>
         </div>
 
         <!-- LP seed selector (moved here from the left form column so economics + LP choice live as one) -->
