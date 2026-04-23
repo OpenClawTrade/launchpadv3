@@ -427,14 +427,52 @@ export default function LaunchNowPage() {
     setDeploying(true);
     setLastDeployedCA(null);
     setLastDeployTx(null);
+    // Holds the per-token compile artifact so the post-deploy verify call
+    // can submit the EXACT source that produced the bytecode → Etherscan
+    // returns "Exact Match" with the user's custom header preserved.
+    let compileArtifact: {
+      bytecode: `0x${string}`;
+      abi: any;
+      sourceCode: string;
+      contractName: string;
+      fileName: string;
+    } | null = null;
     try {
       const totalSupplyWei = supplyWhole * 10n ** 18n;
+
+      // 1. Compile a fresh per-token Solidity source server-side.
+      //    Each launch gets unique bytecode (custom contract name +
+      //    custom header in the source) so verification is Exact Match.
+      toast.info("Compiling your unique contract…");
+      const { data: compileData, error: compileErr } = await supabase.functions.invoke(
+        "pepe-compile-launchnow",
+        {
+          body: {
+            name,
+            ticker: symbol,
+            description: deployHeader,
+            customHeader: deployHeader,
+          },
+        },
+      );
+      if (compileErr) throw new Error(compileErr.message || "Compile failed");
+      if (!compileData?.success) {
+        throw new Error(compileData?.error || "Compile failed");
+      }
+      compileArtifact = {
+        bytecode: compileData.bytecode as `0x${string}`,
+        abi: compileData.abi,
+        sourceCode: compileData.sourceCode,
+        contractName: compileData.contractName,
+        fileName: compileData.fileName,
+      };
+
       toast.info("Confirm the deploy in your wallet…");
       const hash = await walletClient.deployContract({
         account: address as Address,
         chain: mainnet,
-        abi: PEPE_LIKE_ABI as any,
-        bytecode: PEPE_LIKE_BYTECODE,
+        abi: compileArtifact.abi,
+        bytecode: compileArtifact.bytecode,
         args: [name, symbol, totalSupplyWei],
       } as any);
       setLastDeployTx(hash);
@@ -468,7 +506,8 @@ export default function LaunchNowPage() {
         setTab("manage");
         setTimeout(() => refetchHeld(), 4000);
 
-        // 🔥 Auto-verify on Etherscan (fire-and-forget)
+        // 🔥 Auto-verify on Etherscan (fire-and-forget) using the EXACT
+        // per-token source that produced the bytecode → Exact Match.
         runVerify({
           tokenAddress: ca,
           name,
@@ -476,6 +515,9 @@ export default function LaunchNowPage() {
           totalSupply: totalSupplyWei.toString(),
           header: deployHeader,
           source: "auto",
+          sourceCode: compileArtifact?.sourceCode,
+          contractName: compileArtifact?.contractName,
+          fileName: compileArtifact?.fileName,
         });
       } else {
         toast.warning("Deploy tx mined but no contract address found in receipt.");
