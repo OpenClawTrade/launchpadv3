@@ -123,11 +123,12 @@ export function PopshibaTopNav() {
         <div className="lg:hidden border-t-2 border-pop-orange bg-pop-ink max-h-[calc(100vh-64px)] overflow-y-auto">
           <nav className="flex flex-col px-4 py-4 gap-1">
             {NAV_LINKS.map((link) => {
-              const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
+              const active = !link.soon && (pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to)));
               return (
                 <Link
-                  key={link.to}
+                  key={link.label}
                   to={link.to}
+                  onClick={(e) => handleNavClick(e, link)}
                   className={`px-3 py-3 font-bold text-[15px] border-l-[3px] ${
                     active
                       ? "border-pop-orange text-pop-cream bg-pop-cream/5"
