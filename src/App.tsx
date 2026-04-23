@@ -160,7 +160,7 @@ const App = () => (
                     <Route path="/launchnow" element={<LaunchNowPage />} />
                     {/* Backup: previous landing kept here while the launchpad-only era is live */}
                     <Route path="/preview-old" element={<Suspense fallback={<RouteLoader />}><HomePage /></Suspense>} />
-                    <Route path="/tokens" element={<AllTokensPage />} />
+                    <Route path="/tokens" element={<LaunchpadLayout><AllTokensPage /></LaunchpadLayout>} />
                     <Route path="/69" element={<SixtyNineListPage />} />
                     {/* /launchpad → / (the new home IS the launchpad) */}
                     <Route path="/launchpad" element={<Navigate to="/" replace />} />
@@ -170,18 +170,18 @@ const App = () => (
                      {/* Chain-specific launch routes — deprecated, all launches happen from home */}
                      <Route path="/launch" element={<Navigate to="/" replace />} />
                      <Route path="/launch/:chain" element={<Navigate to="/" replace />} />
-                    <Route path="/trade/:mintAddress" element={<FunTokenDetailPage />} />
-                    <Route path="/launchpad/:mintAddress" element={<LaunchpadRedirect />} />
+                    <Route path="/trade/:mintAddress" element={<LaunchpadLayout><FunTokenDetailPage /></LaunchpadLayout>} />
+                    <Route path="/launchpad/:mintAddress" element={<LaunchpadLayout><LaunchpadRedirect /></LaunchpadLayout>} />
                     <Route path="/trending" element={<TrendingPage />} />
-                    <Route path="/vanity-admin" element={<VanityAdminPage />} />
-                    <Route path="/site" element={<LaunchpadTemplatePage />} />
+                    <Route path="/vanity-admin" element={<LaunchpadLayout><VanityAdminPage /></LaunchpadLayout>} />
+                    <Route path="/site" element={<LaunchpadLayout><LaunchpadTemplatePage /></LaunchpadLayout>} />
                     <Route path="/admin" element={<AdminPanelPage />} />
-                    <Route path="/deploy" element={<PublicDeployPage />} />
+                    <Route path="/deploy" element={<LaunchpadLayout><PublicDeployPage /></LaunchpadLayout>} />
                     <Route path="/admin/branding" element={<BrandingAdminPage />} />
                     <Route path="/admin/brand-assets" element={<BrandAssetsPage />} />
                     <Route path="/admin/twitter" element={<Navigate to="/admin?tab=xbots" replace />} />
                     <Route path="/admin/treasury" element={<Navigate to="/admin?tab=treasury" replace />} />
-                    <Route path="/trade" element={<TradePage />} />
+                    <Route path="/trade" element={<LaunchpadLayout><TradePage /></LaunchpadLayout>} />
                     <Route path="/ape" element={<ApePage />} />
                     <Route path="/ape/:address" element={<ApePage />} />
                     <Route path="/ape/:chain/:address" element={<ApePage />} />
@@ -189,25 +189,25 @@ const App = () => (
                      <Route path="/alpha" element={<PopshibaAlphaPage />} />
                      <Route path="/x-tracker" element={<PopshibaXTrackerPage />} />
                      <Route path="/tracker" element={<PopshibaXTrackerPage />} />
-                     <Route path="/x-tracker-classic" element={<XTrackerPage />} />
-                     <Route path="/discover" element={<DiscoverPage />} />
-                     <Route path="/profile/:identifier" element={<UserProfilePage />} />
+                     <Route path="/x-tracker-classic" element={<LaunchpadLayout><XTrackerPage /></LaunchpadLayout>} />
+                     <Route path="/discover" element={<LaunchpadLayout><DiscoverPage /></LaunchpadLayout>} />
+                     <Route path="/profile/:identifier" element={<LaunchpadLayout><UserProfilePage /></LaunchpadLayout>} />
                     <Route path="/investigate-token" element={<InvestigateTokenPage />} />
                     <Route path="/widget/:type" element={<WidgetPage />} />
-                    <Route path="/agents" element={<SaturnForumPage />} />
-                    <Route path="/t/:ticker" element={<SaturnCommunityPage />} />
-                    <Route path="/t/:ticker/post/:postId" element={<SaturnPostPage />} />
-                    <Route path="/agents/docs" element={<AgentDocsPage />} />
-                    <Route path="/agents/dashboard" element={<AgentDashboardPage />} />
-                    <Route path="/agents/leaderboard" element={<AgentLeaderboardPage />} />
-                    <Route path="/agent/:agentId" element={<AgentProfilePage />} />
+                    <Route path="/agents" element={<LaunchpadLayout><SaturnForumPage /></LaunchpadLayout>} />
+                    <Route path="/t/:ticker" element={<LaunchpadLayout><SaturnCommunityPage /></LaunchpadLayout>} />
+                    <Route path="/t/:ticker/post/:postId" element={<LaunchpadLayout><SaturnPostPage /></LaunchpadLayout>} />
+                    <Route path="/agents/docs" element={<LaunchpadLayout><AgentDocsPage /></LaunchpadLayout>} />
+                    <Route path="/agents/dashboard" element={<LaunchpadLayout><AgentDashboardPage /></LaunchpadLayout>} />
+                    <Route path="/agents/leaderboard" element={<LaunchpadLayout><AgentLeaderboardPage /></LaunchpadLayout>} />
+                    <Route path="/agent/:agentId" element={<LaunchpadLayout><AgentProfilePage /></LaunchpadLayout>} />
                     <Route path="/agents/claim" element={<Navigate to="/panel?tab=earnings" replace />} />
-                    <Route path="/agents/connect" element={<AgentConnectPage />} />
+                    <Route path="/agents/connect" element={<LaunchpadLayout><AgentConnectPage /></LaunchpadLayout>} />
                     
-                    <Route path="/agents/bags" element={<BagsAgentsPage />} />
+                    <Route path="/agents/bags" element={<LaunchpadLayout><BagsAgentsPage /></LaunchpadLayout>} />
                     <Route path="/agents/trading" element={<Navigate to="/agents?tab=trading" replace />} />
                     <Route path="/trading-agents" element={<Navigate to="/agents?tab=trading" replace />} />
-                    <Route path="/agents/trading/:id" element={<TradingAgentProfilePage />} />
+                    <Route path="/agents/trading/:id" element={<LaunchpadLayout><TradingAgentProfilePage /></LaunchpadLayout>} />
                     <Route path="/admin/clawbook" element={<Navigate to="/admin?tab=forum" replace />} />
                     <Route path="/admin/agent-logs" element={<Navigate to="/admin?tab=agent-logs" replace />} />
                     <Route path="/admin/influencer-replies" element={<Navigate to="/admin?tab=promo" replace />} />
@@ -216,48 +216,48 @@ const App = () => (
                     
                     <Route path="/partnerfees" element={<Navigate to="/admin?tab=partner-fees" replace />} />
                     <Route path="/whitepaper" element={<WhitepaperPage />} />
-                    <Route path="/docs" element={<PopshibaDocsPage />} />
+                    <Route path="/docs" element={<LaunchpadLayout><PopshibaDocsPage /></LaunchpadLayout>} />
                     
                      <Route path="/sdk" element={<Navigate to="/" replace />} />
                      <Route path="/opentuna" element={<Navigate to="/" replace />} />
                      <Route path="/api" element={<Navigate to="/" replace />} />
                      <Route path="/api/docs" element={<Navigate to="/" replace />} />
-                    <Route path="/careers" element={<CareersPage />} />
+                    <Route path="/careers" element={<LaunchpadLayout><CareersPage /></LaunchpadLayout>} />
                     <Route path="/admin/x-bots" element={<Navigate to="/admin?tab=xbots" replace />} />
                     <Route path="/admin/follower-scan" element={<Navigate to="/admin?tab=follower-scan" replace />} />
-                    <Route path="/claw" element={<SaturnModePage />} />
+                    <Route path="/claw" element={<LaunchpadLayout><SaturnModePage /></LaunchpadLayout>} />
                     <Route path="/claw/adminlaunch" element={<Navigate to="/admin?tab=saturn-launch" replace />} />
                     
-                    <Route path="/admin/tunnel-distribute" element={<TunnelDistributePage />} />
-                    <Route path="/admin/compressed-distribute" element={<CompressedDistributePage />} />
-                    <Route path="/decompress" element={<DecompressPage />} />
-                     <Route path="/fun" element={<FunModePage />} />
+                    <Route path="/admin/tunnel-distribute" element={<LaunchpadLayout><TunnelDistributePage /></LaunchpadLayout>} />
+                    <Route path="/admin/compressed-distribute" element={<LaunchpadLayout><CompressedDistributePage /></LaunchpadLayout>} />
+                    <Route path="/decompress" element={<LaunchpadLayout><DecompressPage /></LaunchpadLayout>} />
+                     <Route path="/fun" element={<LaunchpadLayout><FunModePage /></LaunchpadLayout>} />
                      
                      <Route path="/panel" element={<PanelPage />} />
                      <Route path="/merch" element={<MerchStorePage />} />
                      <Route path="/leverage" element={<LeveragePage />} />
-                     <Route path="/perps" element={<PerpsPage />} />
-                     <Route path="/perps/trade/:tokenAddress" element={<PerpsPage />} />
-                     <Route path="/meteorite" element={<MeteoritePage />} />
-                     <Route path="/dexlist" element={<DexListPage />} />
-                     <Route path="/banner-maker" element={<BannerMakerPage />} />
-                     <Route path="/portfolio" element={<PortfolioPage />} />
+                     <Route path="/perps" element={<LaunchpadLayout><PerpsPage /></LaunchpadLayout>} />
+                     <Route path="/perps/trade/:tokenAddress" element={<LaunchpadLayout><PerpsPage /></LaunchpadLayout>} />
+                     <Route path="/meteorite" element={<LaunchpadLayout><MeteoritePage /></LaunchpadLayout>} />
+                     <Route path="/dexlist" element={<LaunchpadLayout><DexListPage /></LaunchpadLayout>} />
+                     <Route path="/banner-maker" element={<LaunchpadLayout><BannerMakerPage /></LaunchpadLayout>} />
+                     <Route path="/portfolio" element={<LaunchpadLayout><PortfolioPage /></LaunchpadLayout>} />
                      <Route path="/earnings" element={<PopshibaEarnings />} />
                      <Route path="/punch" element={<Navigate to="/" replace />} />
                      <Route path="/punch-test" element={<Navigate to="/" replace />} />
                      <Route path="/link/:code" element={<ReferralRedirectPage />} />
                      <Route path="/wallet-tracker" element={<WalletTrackerPage />} />
-                     <Route path="/rewards" element={<RewardsPage />} />
-                     <Route path="/lab/bonding-curve" element={<BondingCurveLabPage />} />
-                     <Route path="/btc" element={<V2BitcoinModePage />} />
+                     <Route path="/rewards" element={<LaunchpadLayout><RewardsPage /></LaunchpadLayout>} />
+                     <Route path="/lab/bonding-curve" element={<LaunchpadLayout><BondingCurveLabPage /></LaunchpadLayout>} />
+                     <Route path="/btc" element={<LaunchpadLayout><V2BitcoinModePage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/launch" element={<LaunchpadLayout><V2BtcMemeLaunchPage /></LaunchpadLayout>} />
                      <Route path="/btc/meme/:id" element={<LaunchpadLayout><V2BtcMemeDetailPage /></LaunchpadLayout>} />
-                     <Route path="/btc/whitepaper" element={<TATWhitepaperPage />} />
+                     <Route path="/btc/whitepaper" element={<LaunchpadLayout><TATWhitepaperPage /></LaunchpadLayout>} />
                      <Route path="/v2btc" element={<Navigate to="/btc" replace />} />
                      <Route path="/v2btc/meme/launch" element={<Navigate to="/btc/meme/launch" replace />} />
                      <Route path="/v2btc/meme/:id" element={<Navigate to="/btc" replace />} />
                      <Route path="/ai-collab" element={<Navigate to="/admin?tab=ai-collab" replace />} />
-                     <Route path="/sellall" element={<SellAllPage />} />
+                     <Route path="/sellall" element={<LaunchpadLayout><SellAllPage /></LaunchpadLayout>} />
                      <Route path="*" element={<LaunchpadLayout><NotFound /></LaunchpadLayout>} />
                   </Routes>
                   </div>
