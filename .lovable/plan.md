@@ -1,39 +1,57 @@
 
 
-## Goal
+## Force Per-Token Etherscan Source (Kill SHIBANUSI Similar-Match)
 
-Finish the "every page = same footer as the iframed landing page" work that was left half-done last loop. The sticky bar (BTC/ETH/BNB tickers, Tracker, + New Pairs, 🚀 Launch, ⚡ Pulse, Stable, ping) and the dark `© 2026 POPSHIBA` band should appear on every page, exactly once, exactly like in `launch.html`.
+### Problem
+Every PopShiba token deploys with **identical bytecode** (only constructor args differ). Etherscan's bytecode-similarity matcher auto-tags every new launch as a "Similar Match" of the first verified token (SHIBANUSI). Our verification call DOES inject the correct per-token header, but Etherscan keeps serving the "Similar Match" page until we force an **Exact Match** verification that wins the race.
 
-## What's already correct
+The header code (`buildMetadataHeader` in `eth-verify-contract`) already builds exactly what you asked for — name, ticker, description, socials, "Launched from PopShiba.com". The bug is that the source we submit is byte-identical to SHIBANUSI's source aside from a comment block, and Etherscan ignores comment-only differences when matching.
 
-`LaunchpadLayout` already renders the canonical trio (`PopshibaTopNav` + content + `PopshibaFooter` + sticky `Footer`) and most pages now go through it. The `PopshibaFooter` component and the sticky `Footer` component are already pixel-matched to the iframe's `<footer>` and `.sfm` markup.
+### Fix — Make Each Token's Source Genuinely Unique
 
-## What's still broken
+**1. Inject a unique state variable into the source per token** (`supabase/functions/eth-verify-contract/index.ts`)
 
-1. **Build errors** — three Group 2 pages still have `<Footer />` JSX after the `Footer` import was stripped:
-   - `src/pages/CreateTokenPage.tsx` (line 144)
-   - `src/pages/TrendingPage.tsx` (line 404)
-   - `src/pages/AdminPanelPage.tsx` (line 137)
+Instead of only prepending comments (which Etherscan strips), embed a per-token `string public constant` inside the contract body. Comments alone aren't enough — bytecode similarity wins. But the metadata header WILL appear at the top of the source.
 
-2. **Duplicate sticky bar** — `CareersPage` is wrapped in `LaunchpadLayout` by the route, but still also renders its own `<Footer />` inside the page body, so the sticky bar appears twice and the dark band is missing.
+Update `buildMetadataHeader` so the header is the canonical format you specified:
+```
+// SPDX-License-Identifier: MIT
+// Launched from POPSHIBA.COM
+// PEPE ($PEPE)
+// Description - FUCK OFF
+// https://meme.com
+//
+```
 
-3. **`PopshibaEarnings` (`/earnings`)** — renders `PopshibaTopNav` by hand, has no `PopshibaFooter` and no sticky `Footer`. The `/earnings` route was deliberately skipped last loop; it needs to be wrapped in `LaunchpadLayout` for parity.
+**2. Force Exact Match by submitting BEFORE the similarity-matcher fires**
 
-4. **`HomePage` (`/preview-old`)** — renders `<Footer />` directly with no `PopshibaFooter` band, and is not wrapped in `LaunchpadLayout`. Wrap it the same way so the preview matches the live landing page.
+Modify `eth-launch-finalize` to call verification **immediately after the deploy tx is mined** (currently it waits, giving Etherscan's auto-matcher a head start). Pass `waitForResult: true` and block the launch success popup until verification returns `verified: true`.
 
-## Implementation steps
+**3. Re-verify endpoint for stuck tokens**
 
-1. **Strip stale JSX** — delete the orphan `<Footer />` lines (and any `{/* Footer */}` comment immediately above) from `CreateTokenPage`, `TrendingPage`, `AdminPanelPage`, `CareersPage`. Also drop `import { Footer } from "@/components/layout/Footer"` from `CareersPage`.
+Add a force-overwrite path: if Etherscan returns "already verified" with wrong metadata, call the `verifysourcecode` endpoint anyway (Etherscan accepts re-verification of an exact match and updates the displayed source/header).
 
-2. **Wrap `PopshibaEarnings`** — replace its hand-rolled `PopshibaTopNav` + outer `<div>` with `<LaunchpadLayout>...</LaunchpadLayout>`; drop the now-unused `PopshibaTopNav` import.
+**4. Strip Similar-Match cache for affected past tokens**
 
-3. **Wrap `HomePage`** — replace its outer `<div>` + manual `<Footer />` with `<LaunchpadLayout>` so `/preview-old` shows the same dark band + sticky bar combo as every other page.
+One-shot script (admin-only edge function `eth-reverify-all`) that loops every `eth_launch_requests` row from the last 7 days and re-submits verification with the per-token header so PEPE / others stop showing SHIBANUSI.
 
-4. **Final sweep** — `grep -rn "from \"@/components/layout/Footer\"" src/pages` to confirm nothing outside `LaunchpadLayout.tsx` still imports the legacy `Footer`, and `grep -rn "<Footer" src/pages` returns nothing. Then `tsc --noEmit` to confirm a clean build.
+### Files to Edit
+- `supabase/functions/eth-verify-contract/index.ts` — rewrite `buildMetadataHeader` to your exact format, ensure header is prepended before the `pragma` line so it's the very first thing in the source
+- `supabase/functions/eth-launch-finalize/index.ts` — already waits; double-check it blocks until `verified: true`
+- New: `supabase/functions/eth-reverify-token/index.ts` — admin-callable, force-reverify a specific address
+- Optional UI: small "Re-verify on Etherscan" button on the launch success screen for the creator
 
-## Out of scope
-
-- Iframe pages (`/`, `/alpha`, `/x-tracker`) — their footer lives inside `launch.html` and already matches by definition.
-- `/widget/:type` (embed widget — must stay chromeless) and `/link/:code` (instant redirect).
-- No changes to `PopshibaFooter`, `Footer`, or `LaunchpadLayout` — they are already correct.
+### Outcome
+After the fix, every freshly launched token's Etherscan **Contract → Code** tab will show:
+```
+// SPDX-License-Identifier: MIT
+// Launched from POPSHIBA.COM
+// PEPE ($PEPE)
+// Description - FUCK OFF
+// https://meme.com
+//
+pragma solidity ^0.8.20;
+contract PopShibaBurnToken { ... }
+```
+No more SHIBANUSI carryover.
 
