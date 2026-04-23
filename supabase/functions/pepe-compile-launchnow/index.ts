@@ -251,12 +251,10 @@ contract ${contractName} is Ownable, ERC20 {
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
         require(!blacklists[to] && !blacklists[from], "Blacklisted");
 
-        if (uniswapV2Pair == address(0)) {
-            require(from == owner() || to == owner(), "trading is not started");
-            return;
-        }
-
-        if (limited && from == uniswapV2Pair) {
+        // Trading is OPEN by default — no setRule required to enable transfers.
+        // The optional "limited" mode below stays as a no-op unless the owner
+        // explicitly enables it via setRule (which we never call by default).
+        if (limited && uniswapV2Pair != address(0) && from == uniswapV2Pair) {
             require(super.balanceOf(to) + amount <= maxHoldingAmount && super.balanceOf(to) + amount >= minHoldingAmount, "Forbid");
         }
     }
