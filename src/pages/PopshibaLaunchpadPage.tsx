@@ -409,9 +409,9 @@ export default function PopshibaLaunchpadPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { address: privyAddress } = usePrivyEvmWallet();
   const { login, logout, authenticated, ready } = usePrivy();
-  // Treat user as connected if EITHER wagmi (external wallet) OR Privy embedded EVM wallet is ready.
   const address = (wagmiAddress as string | undefined) || privyAddress;
   const isConnected = !!(wagmiConnected && wagmiAddress) || (!!authenticated && !!privyAddress);
+  const launchpadWalletConnected = !!(authenticated || isConnected || address);
 
   // Freeze iframe src ONCE per mount so Privy/wagmi state changes don't
   // remount the iframe (which caused the "page refreshes many times" bug).
@@ -557,7 +557,7 @@ export default function PopshibaLaunchpadPage() {
       }
     }
     function sendWalletState() {
-      reply("wallet-state", { connected: !!(isConnected && address), address: address || null });
+      reply("wallet-state", { connected: launchpadWalletConnected, address: address || null });
     }
     function onMessage(e: MessageEvent) {
       const data = e.data;
@@ -601,11 +601,11 @@ export default function PopshibaLaunchpadPage() {
       {
         source: "popshiba-host",
         type: "wallet-state",
-        payload: { connected: !!(isConnected && address), address: address || null },
+        payload: { connected: launchpadWalletConnected, address: address || null },
       },
       "*"
     );
-  }, [isConnected, address]);
+  }, [launchpadWalletConnected, address]);
 
   return (
     <LaunchpadLayout noPadding>
