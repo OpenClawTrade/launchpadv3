@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     // 1. Compute hook init-code hash: bytecode || abi.encode(poolManager)
     const POOL_MANAGER = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // Uniswap V4 mainnet
-    const hookInitCode = (HookArtifact as any).bytecode.object as string;
+    const hookInitCode = (HookArtifact as any).bytecode as string;
     const constructorArgs = encodeAbiParameters([{ type: "address" }], [POOL_MANAGER as `0x${string}`]);
     const fullInit = (hookInitCode.startsWith("0x") ? hookInitCode : `0x${hookInitCode}`) + constructorArgs.slice(2);
     const initCodeHash = keccak256(fullInit as `0x${string}`);
