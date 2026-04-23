@@ -38,12 +38,18 @@ export const LP_PROTOCOL_SHARE_BPS = 5000;    // 50% of LP rewards → protocol 
 export const LP_FEE_TIER         = 10000;                                   // 1% V4 pool fee
 export const TICK_LOWER          = -887200;
 export const TICK_UPPER          =  887200;
-export const LAUNCH_FEE_WEI      = 10_000_000_000_000_000n;                 // 0.01 ETH minimum to createToken
+// Minimum ETH to send with createToken. The contract uses ALL of msg.value as
+// the seed/dev buy on the curve (no separate launch fee). 0.01 ETH is the
+// effective floor because at lower amounts the resulting initialBuy rounds badly.
+export const LAUNCH_FEE_WEI      = 10_000_000_000_000_000n;                 // 0.01 ETH
 
 // ── Factory ABI (real signatures) ────────────────────────────────────────────
-// createToken selector 0x177021fc — confirmed by decoding tx 0xb920…2db
+// createToken selector 0x177021fc — confirmed by decoding tx 0xb920…2db.
+// Real layout: (bytes32 salt, string name, string symbol, string metadataURI).
+// msg.value funds the dev buy (1% fee taken inside curve.buy).
+// TokenCreated event emitted on EVENT_BUS (0x7Cae…6ea), NOT the factory.
 export const UNICURVE_FACTORY_ABI = parseAbi([
-  'function createToken(string name, string symbol, string metadataURI, uint256 initialBuyEth, bytes32 salt) payable returns (address token, address curve)',
+  'function createToken(bytes32 salt, string name, string symbol, string metadataURI) payable returns (address token, address curve)',
   'function predictAddresses(address creator, bytes32 salt) view returns (address token, address curve)',
   'function isUnicurveToken(address) view returns (bool)',
   'function MEME_IMPL() view returns (address)',
