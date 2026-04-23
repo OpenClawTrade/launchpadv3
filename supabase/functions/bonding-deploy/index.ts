@@ -22,7 +22,7 @@ import {
   WETH9, UNI_V3_FACTORY, UNI_V3_POS_MGR, BONDING_BYTECODE_READY,
   POP_BONDING_TOKEN_BYTECODE, POP_BONDING_CURVE_BYTECODE,
   POP_EVENT_BUS_BYTECODE, POP_LP_LOCKER_BYTECODE, POP_BONDING_FACTORY_BYTECODE,
-} from "../eth-deploy-contracts/bonding_bytecode.ts";
+} from "./bonding_bytecode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
