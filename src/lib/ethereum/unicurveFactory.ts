@@ -11,6 +11,9 @@ export const UNICURVE_EVENT_BUS: Address     = '0x7CaE6f8c3c03A746F66f1a4d757519
 export const UNICURVE_TREASURY: Address      = '0xF942FC5C0ca2A9c33FC1F4dC3A399118B66d1458'; // also = owner
 export const UNICURVE_HOOK: Address          = '0xafE727F2288E531184F5B9a81D3049b2f69A6880';
 export const UNICURVE_LP_LOCKER: Address     = '0x1ac4afeb18ECceaCb884b3D9AD3AeB69A41B062c';
+// Central FeeRouter — sweeps creator fees across many curves in one tx.
+// Decoded from claim tx 0x885f8300…0f6dc.
+export const UNICURVE_FEE_ROUTER: Address     = '0xcf859a7ca1d1e54a9322c663582062569b40c3af';
 
 // Uniswap V4 infrastructure used at graduation
 export const UNISWAP_V4_POOLMANAGER: Address      = '0x000000000004444c5dc75cB358380D2e3dE08A90';
