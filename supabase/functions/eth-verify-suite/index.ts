@@ -107,8 +107,19 @@ Deno.serve(async (req) => {
   const vaultArgs = encodeAddr(PLATFORM_TREASURY);
   const launcherArgs = launcherAddr ? encodeAddr(factoryAddr) + encodeAddr(vaultAddr) : "";
 
+  // STERILE header injected ONLY into the implementation contract — Etherscan
+  // uses the first verified source as the Similar-Match parent for every clone
+  // sharing the same bytecode. Keeping it generic ("Launched from POPSHIBA.COM")
+  // means every freshly-launched clone shows the clean attribution instead of
+  // inheriting some prior token's name/ticker/description.
+  const STERILE_HEADER = `// Launched from POPSHIBA.COM\n//\n`;
+  const tokenSourceWithHeader = POPSHIBA_TOKEN_SOL.replace(
+    /^(\/\/ SPDX-License-Identifier:[^\n]*\n)/,
+    `$1${STERILE_HEADER}`,
+  );
+
   const defs: Array<{ addr: string; def: ContractDef }> = [
-    { addr: tokenAddr, def: { file: "PopShibaToken.sol", name: "PopShibaToken", source: POPSHIBA_TOKEN_SOL, ctorArgsHex: "" } },
+    { addr: tokenAddr, def: { file: "PopShibaToken.sol", name: "PopShibaToken", source: tokenSourceWithHeader, ctorArgsHex: "" } },
     { addr: factoryAddr, def: { file: "PopShibaCloneFactory.sol", name: "PopShibaCloneFactory", source: POPSHIBA_CLONE_FACTORY_SOL, ctorArgsHex: factoryArgs } },
     { addr: vaultAddr, def: { file: "PopShibaFeeVault.sol", name: "PopShibaFeeVault", source: POPSHIBA_FEE_VAULT_SOL, ctorArgsHex: vaultArgs } },
   ];
