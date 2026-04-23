@@ -87,8 +87,8 @@ export function PopshibaTopNav() {
           ))}
         </nav>
 
-        {/* Right (desktop) */}
-        <div className="hidden md:flex ml-auto items-center gap-2.5">
+        {/* Right (desktop ≥ lg) */}
+        <div className="hidden lg:flex ml-auto items-center gap-2.5">
           <SocialLinks />
           <CreatorFeesPill />
           <WalletPill />
@@ -101,21 +101,19 @@ export function PopshibaTopNav() {
           </Link>
         </div>
 
-        {/* Mobile pill (compact) */}
-        <div className="md:hidden ml-auto flex items-center gap-2">
+        {/* Mobile/tablet compact cluster (< lg) */}
+        <div className="lg:hidden ml-auto flex items-center gap-2">
           <SocialLinks compact />
           <CreatorFeesPill />
+          <button
+            aria-label="Toggle menu"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center justify-center w-10 h-10 border-2 border-pop-cream text-pop-cream"
+          >
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
-
-        {/* Mobile burger */}
-        <button
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="lg:hidden ml-auto inline-flex items-center justify-center w-10 h-10 border-2 border-pop-cream text-pop-cream"
-        >
-          {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
       </div>
 
       {/* Mobile drawer */}
