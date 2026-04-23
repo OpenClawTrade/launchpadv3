@@ -255,7 +255,7 @@ export default function ApePage() {
         signature: result.txHash,
         chain: "bnb", // EVM chain → uses bscscan-style explorer fallback; explicit explorerUrl overrides
         explorerUrl: result.explorerUrl,
-        tokenImageUrl: token?.imageUrl || token?.image,
+        tokenImageUrl: token?.imageUrl,
       });
     } else {
       toast({ title: "Swap failed", description: result.error || "Unknown error", variant: "destructive" });
