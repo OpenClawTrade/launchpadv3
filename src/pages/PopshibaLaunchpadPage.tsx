@@ -18,6 +18,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
 
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
 type EthLaunch = {
   id: string;
@@ -602,13 +603,13 @@ export default function PopshibaLaunchpadPage() {
   }, [authenticated, isConnected, address]);
 
   return (
-    <>
+    <LaunchpadLayout noPadding>
       <iframe
         ref={ref}
         src={iframeSrcRef.current}
         title="Popshiba Launchpad"
         className="block w-full border-0"
-        style={{ height: "100vh", background: "#f5a524" }}
+        style={{ height: "calc(100vh - 56px)", background: "#f5a524" }}
       />
       {launcherOpen && (
         <EthLauncher
@@ -620,6 +621,6 @@ export default function PopshibaLaunchpadPage() {
           hideUI
         />
       )}
-    </>
+    </LaunchpadLayout>
   );
 }
