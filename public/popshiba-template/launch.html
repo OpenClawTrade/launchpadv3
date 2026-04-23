@@ -1549,6 +1549,19 @@
 </div>
 
 <script>
+  // ===== Embed mode: strip nav + sticky footer when hosted via React layout =====
+  (function(){
+    try {
+      const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
+      if (isEmbed) {
+        document.getElementById('templateNav')?.remove();
+        document.getElementById('templateFooter')?.remove();
+        // Also remove the popups since they're tied to the stripped footer
+        document.getElementById('popup-tracker')?.remove();
+        document.getElementById('popup-newpairs')?.remove();
+      }
+    } catch(_){}
+  })();
   // ===== Live launches data =====
   const launches = [
     {av:'🐸', bg:'#8ed36c', nm:'froggy summer', sm:'$FROGGY', age:'42s', mc:'$4.2K', chg:'+18%', up:true, prog:6, holders:12, status:'LIVE'},
