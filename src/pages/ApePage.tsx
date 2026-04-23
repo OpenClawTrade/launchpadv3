@@ -282,6 +282,70 @@ export default function ApePage() {
     toast({ title: "Link copied" });
   };
 
+  // Watchlist (localStorage-backed)
+  const watchKey = "popshiba:ape:watchlist";
+  const [isWatched, setIsWatched] = useState<boolean>(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(watchKey);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      setIsWatched(!!address && list.map((a) => a.toLowerCase()).includes(address.toLowerCase()));
+    } catch { setIsWatched(false); }
+  }, [address]);
+  const toggleWatch = () => {
+    if (!address) return;
+    try {
+      const raw = localStorage.getItem(watchKey);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      const lower = address.toLowerCase();
+      const exists = list.map((a) => a.toLowerCase()).includes(lower);
+      const next = exists ? list.filter((a) => a.toLowerCase() !== lower) : [...list, address];
+      localStorage.setItem(watchKey, JSON.stringify(next));
+      setIsWatched(!exists);
+      toast({ title: exists ? "Removed from watchlist" : "Added to watchlist" });
+    } catch {
+      toast({ title: "Watchlist unavailable", variant: "destructive" });
+    }
+  };
+
+  // Price alerts (localStorage-backed; in-page check while open)
+  const alertKey = `popshiba:ape:alert:${address?.toLowerCase()}`;
+  const openAlerts = () => {
+    const current = localStorage.getItem(alertKey);
+    const input = window.prompt(
+      `Notify me when ${symbol} price crosses (USD)\nLeave blank to clear`,
+      current ?? ""
+    );
+    if (input === null) return;
+    const trimmed = input.trim();
+    if (!trimmed) {
+      localStorage.removeItem(alertKey);
+      toast({ title: "Alert cleared" });
+      return;
+    }
+    const num = parseFloat(trimmed);
+    if (!isFinite(num) || num <= 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+    localStorage.setItem(alertKey, String(num));
+    toast({ title: `Alert set at $${num}`, description: "Notifies while this page is open" });
+  };
+  const lastNotifiedRef = useRef<number>(0);
+  useEffect(() => {
+    if (!address || priceUsd <= 0) return;
+    const target = parseFloat(localStorage.getItem(alertKey) || "");
+    if (!isFinite(target) || target <= 0) return;
+    const last = lastNotifiedRef.current;
+    if (last === 0) { lastNotifiedRef.current = priceUsd; return; }
+    const crossed = (last < target && priceUsd >= target) || (last > target && priceUsd <= target);
+    lastNotifiedRef.current = priceUsd;
+    if (crossed) {
+      toast({ title: `${symbol} crossed $${target}`, description: `Now $${priceUsd.toFixed(6)}` });
+      try { new Notification(`${symbol} crossed $${target}`, { body: `Now $${priceUsd.toFixed(6)}` }); } catch {}
+    }
+  }, [priceUsd, address, alertKey, symbol, toast]);
+
   const estimatedTokens = buyAmountFmt;
 
   const ctaLabel = !privyReady
