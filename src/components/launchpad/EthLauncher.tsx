@@ -172,6 +172,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
     isConnected &&
     formData.name.trim().length > 0 &&
     formData.ticker.trim().length > 0 &&
+    formData.imageUrl.trim().length > 0 &&
     ethPrice > 0 &&
     lpEthAmount > 0 &&
     formData.devBuyEth >= 0;
