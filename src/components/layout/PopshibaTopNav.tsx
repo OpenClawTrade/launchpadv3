@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   Menu, X, Plus,
-  Home as HomeIcon, LineChart, Users, Sparkles, Twitter, BookOpen,
+  Home as HomeIcon, LineChart, Users, Sparkles, Twitter, BookOpen, Rocket,
 } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import popshibaLogo from "@/assets/popshiba-logo.png";
@@ -21,6 +21,7 @@ type NavLink = {
 const NAV_LINKS: NavLink[] = [
   { label: "Home",    to: "/",           Icon: HomeIcon },
   { label: "Trade",   to: "/ape",        Icon: LineChart },
+  { label: "Bonding", to: "/bonding",    Icon: Rocket },
   { label: "Holders", to: "#",           Icon: Users, soon: "holders" },
   { label: "Alpha",   to: "/alpha",      Icon: Sparkles },
   { label: "Tracker", to: "/x-tracker",  Icon: Twitter },
