@@ -116,7 +116,7 @@ export default function BondingTokenDetailPage() {
           address: curveAddr,
           abi: UNICURVE_CURVE_ABI,
           functionName: "buy",
-          args: [0n], // minTokensOut=0 (no slippage protection in MVP)
+          args: [0n, userAddr], // minTokensOut=0, recipient = trader
           value: ethIn,
         });
       } else {
