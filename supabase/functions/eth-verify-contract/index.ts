@@ -319,6 +319,16 @@ Deno.serve(async (req) => {
     const tokenAddress: string | undefined = body?.tokenAddress;
     const launchId: string | undefined = body?.launchId;
     const waitForResult: boolean = body?.waitForResult === true;
+    // implementationOnly: verify the clone-master implementation contract with a
+    // STERILE source (only "// Launched from PopShiba.com" — no token-specific
+    // name/ticker/description). This becomes the Similar-Match parent for all
+    // future clones, so freshly-deployed tokens no longer inherit SHIBANUSI's
+    // metadata header on Etherscan.
+    const implementationOnly: boolean = body?.implementationOnly === true;
+    const implKind: "clone" | "v2burn" | "v2fees" =
+      body?.implKind === "v2burn" ? "v2burn"
+      : body?.implKind === "v2fees" ? "v2fees"
+      : "clone";
 
     if (!tokenAddress || !/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
       return new Response(JSON.stringify({ success: false, error: "Invalid tokenAddress" }), {
