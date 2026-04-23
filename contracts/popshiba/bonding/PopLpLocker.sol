@@ -37,12 +37,11 @@ interface IPopBondingCurveCreator {
 }
 
 /// @title PopLpLocker
-/// @notice Mirrors Unicurve's locker behaviour: at graduation it seeds a
-/// Uniswap V3 1% pool (token / WETH) at the curve's final price, mints a
-/// full-range LP position that this contract owns permanently (LP can never
-/// be pulled), and exposes `claimLpFees(token)` which collects accumulated
-/// V3 trading fees and splits them 50/50 between the token's creator and
-/// the protocol treasury — the same economics as Unicurve post-graduation.
+/// @notice At graduation, seeds a Uniswap V3 1% pool (token / WETH) at the
+/// curve's final price, mints a full-range LP position that this contract
+/// owns permanently (LP can never be pulled), and exposes `claimLpFees(token)`
+/// which collects accumulated V3 trading fees and splits them 50/50 between
+/// the token's creator and the PopShiba protocol treasury.
 contract PopLpLocker {
     address public immutable WETH;
     address public immutable UNI_V3_FACTORY;
