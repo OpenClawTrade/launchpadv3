@@ -82,22 +82,16 @@ export default function ApePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // /ape with no address → show the built-in picker (do NOT bounce to /trade Pulse)
-
-  // Resolve chain + address from either URL shape
-  const { chain, address } = useMemo<{ chain: Chain; address: string }>(() => {
-    const knownChains: Chain[] = ["eth", "bsc", "sol"];
-    if (chainParam && knownChains.includes(chainParam as Chain) && addressParam) {
-      return { chain: chainParam as Chain, address: addressParam };
-    }
-    // Single-segment path: infer chain from address shape
-    const a = chainParam || addressParam || "";
-    if (/^0x[a-fA-F0-9]{40}$/.test(a)) return { chain: "eth", address: a };
-    return { chain: "sol", address: a };
+  // Ethereum-only: accept /ape/:address or legacy /ape/:chain/:address (chain is ignored)
+  const address = useMemo<string>(() => {
+    const candidate =
+      (chainParam && addressParam) ? addressParam :
+      (chainParam || addressParam || "");
+    return candidate;
   }, [chainParam, addressParam]);
 
-  const networkId = chainToNetworkId(chain);
-  const nativeSym = nativeSymbolFor(chain);
+  const networkId = ETH_NETWORK_ID;
+  const nativeSym = NATIVE_SYM;
 
   /* ── live token data ── */
   const { data: token, isLoading: tokenLoading } = useExternalToken(address, !!address, networkId);
