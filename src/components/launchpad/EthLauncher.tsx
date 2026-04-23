@@ -404,8 +404,19 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
         },
       });
 
-      toast.success('🎉 Token live · LP locked via UNCX', {
-        description: 'Liquidity locked for 100 years. You earn 50% of every 1% swap fee.',
+      const isV3 = launcherVersion === 'v3';
+      const successTitle = lockLP
+        ? '🎉 Token live · LP locked via UNCX'
+        : isV3
+          ? '🎉 Token live · V3 pool deployed'
+          : '🎉 Token live · LP burned';
+      const successDesc = lockLP
+        ? 'Liquidity locked for 100 years. You earn 50% of every 1% swap fee.'
+        : isV3
+          ? 'Single-sided V3 pool active. You earn 50% of every 1% swap fee.'
+          : 'LP tokens burned — liquidity locked forever. Trading is now live.';
+      toast.success(successTitle, {
+        description: successDesc,
         action: {
           label: 'Etherscan',
           onClick: () => window.open(`https://etherscan.io/address/${result.token}`, '_blank'),
