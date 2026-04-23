@@ -209,7 +209,7 @@ export default function ApePage() {
   const buyAmountFmt = quote?.buyAmount ? Number(BigInt(quote.buyAmount)) / 10 ** outDecimals : 0;
   const minBuyFmt = quote?.minBuyAmount ? Number(BigInt(quote.minBuyAmount)) / 10 ** outDecimals : 0;
   const networkFeeFmt = quote?.totalNetworkFee ? Number(BigInt(quote.totalNetworkFee)) / 1e18 : 0;
-  const routeName = quote?.route?.fills?.[0]?.source?.replace(/_/g, " ") || dexNameFor(chain);
+  const routeName = quote?.route?.fills?.[0]?.source?.replace(/_/g, " ") || DEX_NAME;
   const insufficient = !!quote?.issues?.balance;
   const needsApproval = side === "sell" && !!quote?.issues?.allowance;
 
@@ -217,7 +217,7 @@ export default function ApePage() {
     if (q === "MAX") {
       if (!isEvm) return;
       if (side === "buy") {
-        const buf = chain === "bsc" ? 0.002 : 0.001;
+        const buf = 0.001;
         setAmount(Math.max(0, nativeBal - buf).toFixed(6));
       } else {
         setAmount(tokenBal > 0 ? tokenBal.toFixed(6) : "0");
@@ -229,7 +229,7 @@ export default function ApePage() {
 
   const handleSwap = useCallback(async () => {
     if (!isEvm) {
-      window.open(dexFor(chain, address), "_blank", "noopener,noreferrer");
+      window.open(uniswapFor(address), "_blank", "noopener,noreferrer");
       return;
     }
     if (!authenticated) { login(); return; }
@@ -293,7 +293,7 @@ export default function ApePage() {
         : 0);
 
   const ctaLabel = !isEvm
-    ? `◆ ${side === "buy" ? "BUY" : "SELL"} ON ${dexNameFor(chain).toUpperCase()}`
+    ? `◆ ${side === "buy" ? "BUY" : "SELL"} ON ${DEX_NAME.toUpperCase()}`
     : !privyReady
       ? "LOADING…"
       : !authenticated
@@ -351,7 +351,7 @@ export default function ApePage() {
             <button className={styles.iconBtn} title="Watchlist"><Star size={14} /></button>
             <button className={styles.iconBtn} title="Share" onClick={shareToken}><Share2 size={14} /></button>
             <button className={styles.iconBtn} title="Alerts"><Bell size={14} /></button>
-            <a className={styles.iconBtn} title="Explorer" href={explorerFor(chain, address)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /></a>
+            <a className={styles.iconBtn} title="Explorer" href={explorerFor(address)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /></a>
           </div>
         </div>
 
@@ -437,7 +437,7 @@ export default function ApePage() {
                   </>
                 )}
                 <div className="row"><span className="k">Slippage</span><span className="v">{slip === "AUTO" ? "Auto" : `${slip}%`}</span></div>
-                <div className="row"><span className="k">Route</span><span className="v">{isEvm ? routeName : dexNameFor(chain)}</span></div>
+                <div className="row"><span className="k">Route</span><span className="v">{isEvm ? routeName : DEX_NAME}</span></div>
               </div>
 
               <button
@@ -449,13 +449,13 @@ export default function ApePage() {
               <div className={styles.routeNote}>
                 {isEvm
                   ? <>Swap via <b>0x</b> · {routeName} · 1% platform fee</>
-                  : <>Swap via <b>{dexNameFor(chain)}</b> · Best route auto-selected</>}
+                  : <>Swap via <b>{DEX_NAME}</b> · Best route auto-selected</>}
               </div>
 
               <div className={styles.bpLinks}>
                 <button className={styles.bpLink} onClick={copyAddress}>CONTRACT</button>
-                <a className={styles.bpLink} href={dexFor(chain, address)} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
-                <a className={styles.bpLink} href={`https://dexscreener.com/${chain === "bsc" ? "bsc" : chain === "sol" ? "solana" : "ethereum"}/${address}`} target="_blank" rel="noopener noreferrer">CHART ↗</a>
+                <a className={styles.bpLink} href={uniswapFor(address)} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
+                <a className={styles.bpLink} href={`${dexscreenerFor(address)}`} target="_blank" rel="noopener noreferrer">CHART ↗</a>
               </div>
             </div>
           </aside>
@@ -529,11 +529,11 @@ export default function ApePage() {
                       <td className={`r ${isBuy ? styles.gainCell : styles.lossCell}`}>{fmtUsd(t.totalUsd)}</td>
                       <td className="r">{fmtUsd(t.priceUsd)}</td>
                       <td className="r">{fmtCount(t.tokenAmount)}</td>
-                      <td className="r">{priceUsd > 0 ? (t.totalUsd / (chain === "bsc" ? 600 : chain === "sol" ? 150 : 3000)).toFixed(4) : "—"}</td>
+                      <td className="r">{priceUsd > 0 ? (t.totalUsd / 3000).toFixed(4) : "—"}</td>
                       <td><span className={styles.wallet}><span className="wav" />{shortAddr(t.maker)}</span></td>
                       <td className={`r ${styles.txLink}`}>
                         {t.txHash
-                          ? <a href={`${explorerFor(chain, address).replace("/token/" + address, "/tx/" + t.txHash)}`} target="_blank" rel="noopener noreferrer">↗</a>
+                          ? <a href={`${explorerFor(address).replace("/token/" + address, "/tx/" + t.txHash)}`} target="_blank" rel="noopener noreferrer">↗</a>
                           : "—"}
                       </td>
                     </tr>
@@ -552,11 +552,11 @@ export default function ApePage() {
               <h2 className={styles.aboutTitle}>{name}</h2>
               <p className={styles.aboutDesc}>
                 {token?.completed || token?.migrated
-                  ? `${name} has graduated and is trading on ${dexNameFor(chain)}.`
+                  ? `${name} has graduated and is trading on ${DEX_NAME}.`
                   : `${name} is a ${nativeSym} token tracked live via Codex on Popshiba.`}
               </p>
               <div className={styles.aboutMeta}>
-                <div className={styles.metaRow}><span className="k">Chain</span><span className="v">{chain.toUpperCase()}</span></div>
+                <div className={styles.metaRow}><span className="k">Chain</span><span className="v">"ETH"</span></div>
                 <div className={styles.metaRow}><span className="k">Decimals</span><span className="v">{token?.decimals ?? "—"}</span></div>
                 <div className={styles.metaRow}><span className="k">Holders</span><span className="v">{fmtCount(token?.holders)}</span></div>
                 <div className={styles.metaRow}><span className="k">24h Vol</span><span className="v">{fmtUsd(token?.volume24hUsd)}</span></div>
@@ -566,7 +566,7 @@ export default function ApePage() {
                   <span className="k">CA</span>
                   <span className="addr">{address}</span>
                   <button className="copy" onClick={copyAddress}>COPY</button>
-                  <a className="copy" href={explorerFor(chain, address)} target="_blank" rel="noopener noreferrer">↗</a>
+                  <a className="copy" href={explorerFor(address)} target="_blank" rel="noopener noreferrer">↗</a>
                 </div>
               </div>
             </div>
