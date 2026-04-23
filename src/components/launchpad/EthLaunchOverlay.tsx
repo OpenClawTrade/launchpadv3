@@ -93,6 +93,9 @@ export function EthLaunchOverlay({
       }}
       role="dialog"
       aria-live="polite"
+      onClick={(e) => {
+        if (finished && onClose && e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         style={{
@@ -123,7 +126,28 @@ export function EthLaunchOverlay({
           }}
         >
           <span>POPSHIBA · LAUNCH</span>
-          <span style={{ opacity: 0.85 }}>{stage === 'failed' ? 'aborted' : finished ? 'ok' : 'running…'}</span>
+          {finished && onClose ? (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: PRIMARY,
+                fontFamily: MONO,
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                padding: 0,
+                fontWeight: 700,
+              }}
+              aria-label="Close"
+            >
+              {stage === 'failed' ? 'close ✕' : 'ok ✕'}
+            </button>
+          ) : (
+            <span style={{ opacity: 0.85 }}>running…</span>
+          )}
         </div>
 
         <div style={{ padding: 28 }}>
@@ -206,8 +230,8 @@ export function EthLaunchOverlay({
                 const order = ['preparing', 'signing', 'mining', 'live'];
                 const stepIdx = order.indexOf(step.id);
                 const curIdx = order.indexOf(stage);
-                const done = curIdx > stepIdx;
-                const active = curIdx === stepIdx;
+                const done = curIdx > stepIdx || (stage === 'live' && step.id === 'live');
+                const active = curIdx === stepIdx && !done;
                 return (
                   <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: MONO, fontSize: 12 }}>
                     <div
