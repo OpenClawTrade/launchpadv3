@@ -334,10 +334,10 @@ export default function ApePage() {
   const ctaDisabled = isEvm && (swapping || insufficient);
 
   return (
-    <div className={styles.root}>
+    <div className="bg-pop-orange min-h-screen font-pop-body text-pop-ink">
       <PopshibaTopNav />
-
-      <main className={styles.main}>
+      <div className={styles.root}>
+        <main className={styles.main}>
 
         {/* ── TOKEN HEADER BAR ── */}
         <div className={styles.tokBar}>
@@ -622,8 +622,8 @@ export default function ApePage() {
             </div>
           </section>
         </div>
-      </main>
-
+        </main>
+      </div>
       <Footer />
     </div>
   );
