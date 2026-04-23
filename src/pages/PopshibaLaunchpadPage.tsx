@@ -384,7 +384,7 @@ function injectLiveData(
         <td><span class="ll-time">${typeof m?.holders === "number" ? m.holders.toLocaleString() : "—"}</span></td>
         <td><span class="ll-status${prog >= 85 ? " grad" : ""}"><span class="dot"></span>${status}</span></td>
         <td style="text-align:right">
-          <a href="${tradeHref}" target="_top" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block">
+          <a href="${tradeHref}" data-trade-href="${tradeHref}" class="ll-go${prog >= 85 ? " grad" : ""}" style="text-decoration:none;display:inline-block;cursor:pointer">
             Trade
           </a>
         </td>
