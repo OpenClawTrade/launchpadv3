@@ -133,6 +133,18 @@ contract PopCurveImpl {
         IPopToken(token).enableTransfers();
     }
 
+    /// @notice Hook-only ETH drain used inside unlockCallback to settle the
+    /// ETH leg of the LP mint. Sends `amount` wei to the hook.
+    function drainEthToHook(uint256 amount) external onlyHook {
+        (bool ok, ) = hook.call{value: amount}("");
+        require(ok, "drain");
+    }
+
+    /// @dev Curve clone must hold ETH (forwarded by hook on every buy via
+    /// post-swap settlement). Hook pushes ETH here on-receipt.
+    receive() external payable {}
+
+
 
     // ── Public views ──
     function quoteBuy(uint256 ethIn) external view returns (uint256 tokensOut) {
