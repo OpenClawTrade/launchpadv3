@@ -25,6 +25,7 @@ import { DomainRouter } from "@/components/DomainRouter";
 import { MatrixModeProvider } from "@/contexts/MatrixModeContext";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { BtcWalletProvider } from "@/contexts/BtcWalletContext";
+import { AdminPasswordGate } from "@/components/admin/AdminPasswordGate";
 
 // Lazy load FunLauncherPage like all other pages to reduce build memory
 const FunLauncherPage = lazyWithRetry(() => import("./pages/FunLauncherPage"));
