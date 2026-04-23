@@ -461,7 +461,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
     handleLaunch();
   }, [autoLaunch, canLaunch, walletClient, handleLaunch, autoFiredRef]);
 
-  // Safety net: if autoLaunch is requested but can't fire within 8s, tell the
+  // Safety net: if autoLaunch is requested but can't fire soon, tell the
   // user *why* instead of leaving the host page stuck on "INITIALIZING LAUNCH…".
   useEffect(() => {
     if (!autoLaunch) return;
@@ -474,8 +474,10 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
       if (!(ethPrice > 0)) reasons.push('ETH price still loading');
       if (!formData.name.trim()) reasons.push('missing name');
       if (!formData.ticker.trim()) reasons.push('missing ticker');
+      if (!formData.imageUrl.trim()) reasons.push('missing image');
       if (!(lpEthAmount > 0)) reasons.push('missing LP amount');
-      const msg = reasons.length ? reasons.join(', ') : 'unknown reason';
+      if (!(formData.devBuyEth >= 0)) reasons.push('invalid dev buy amount');
+      const msg = reasons.length ? reasons.join(', ') : 'launch prerequisites still loading';
       autoFiredRef.fired = true; // prevent repeated toasts
       setLaunchError(msg);
       toast.error('Could not start launch', { description: msg });
@@ -485,9 +487,9 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
           '*'
         );
       } catch {}
-    }, 8000);
+    }, 15000);
     return () => window.clearTimeout(timer);
-  }, [autoLaunch, autoFiredRef, isConnected, address, walletClient, ethPrice, formData.name, formData.ticker, lpEthAmount]);
+  }, [autoLaunch, autoFiredRef, isConnected, address, walletClient, ethPrice, formData.name, formData.ticker, formData.imageUrl, formData.devBuyEth, lpEthAmount]);
 
   return (
     <>
