@@ -157,7 +157,6 @@ export function Footer() {
           </button>
 
           <Link to="/launch" className="sfm-pill">🚀 Launch</Link>
-          <Link to="/tokens" className="sfm-pill">⚡ Pulse</Link>
 
           <span className="sfm-divider" />
 
