@@ -3,8 +3,7 @@ pragma solidity 0.8.26;
 
 /// @title PopEventBus
 /// @notice Centralised event sink so indexers only have to watch one address
-/// for new tokens, trades, and graduations across the whole protocol — same
-/// pattern as Unicurve's 0x7Cae…6ea bus.
+/// for new tokens, trades, and graduations across the whole PopShiba protocol.
 contract PopEventBus {
     address public owner;
     address public factory;

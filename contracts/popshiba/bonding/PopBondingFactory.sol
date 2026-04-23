@@ -50,7 +50,7 @@ contract PopBondingFactory {
     }
 
     /// @notice Deploy a new token + curve pair, then optionally do an initial
-    /// dev buy with the entire msg.value (minus 1% fee, like Unicurve).
+    /// dev buy with the entire msg.value (minus 1% protocol fee).
     function createToken(
         bytes32 salt,
         string calldata name,

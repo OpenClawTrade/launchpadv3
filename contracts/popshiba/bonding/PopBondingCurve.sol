@@ -21,7 +21,7 @@ interface IPopLpLocker {
 }
 
 /// @title PopBondingCurve
-/// @notice Constant-product bonding curve. Math is bit-identical to Unicurve:
+/// @notice Constant-product bonding curve used by PopShiba launches:
 ///   virtualEth = 1.06 ETH, virtualTokens = 1.073B, curveTokens = 792.857142857B,
 ///   gradThreshold = 3 ETH real reserves, fee = 1% on ETH leg split 50/50
 ///   between creator and protocol. Once realEth >= 3, the next buy auto-graduates:
