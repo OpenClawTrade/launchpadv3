@@ -11,6 +11,9 @@ export const UNICURVE_EVENT_BUS: Address     = '0x7CaE6f8c3c03A746F66f1a4d757519
 export const UNICURVE_TREASURY: Address      = '0xF942FC5C0ca2A9c33FC1F4dC3A399118B66d1458'; // also = owner
 export const UNICURVE_HOOK: Address          = '0xafE727F2288E531184F5B9a81D3049b2f69A6880';
 export const UNICURVE_LP_LOCKER: Address     = '0x1ac4afeb18ECceaCb884b3D9AD3AeB69A41B062c';
+// Central FeeRouter — sweeps creator fees across many curves in one tx.
+// Decoded from claim tx 0x885f8300…0f6dc.
+export const UNICURVE_FEE_ROUTER: Address     = '0xcf859a7ca1d1e54a9322c663582062569b40c3af';
 
 // Uniswap V4 infrastructure used at graduation
 export const UNISWAP_V4_POOLMANAGER: Address      = '0x000000000004444c5dc75cB358380D2e3dE08A90';
@@ -76,6 +79,16 @@ export const UNICURVE_CURVE_ABI = parseAbi([
   'function creatorFeesAccrued() view returns (uint256)',
   'function protocolFeesAccrued() view returns (uint256)',
   'function claimCreatorFees()',
+]);
+
+// ── FeeRouter ABI (decoded live) ─────────────────────────────────────────────
+// 0x3e48abb8(address[] curves) -> uint256[] pendingWeiPerCurve   (instant balance check)
+// 0xf74e246f(address[] curves, address payout, address[] graduatedTokens)  (sweep all)
+// FeeClaimed event topic 0xc1ede5e1… (token, curve, recipient, [kind, amount, ?])
+export const UNICURVE_FEE_ROUTER_ABI = parseAbi([
+  'function pending(address[] curves) view returns (uint256[])',
+  'function claim(address[] curves, address payout, address[] graduatedTokens)',
+  'event FeeClaimed(address indexed token, address indexed curve, address indexed recipient, uint256 kind, uint256 amount, uint256 extra)',
 ]);
 
 /** Current price in ETH per token (x*y=k). */
