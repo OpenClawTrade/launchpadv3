@@ -59,7 +59,7 @@ interface EthLaunchFormData {
 
 const MAX_DEV_BUY = 5;
 
-export function EthLauncher({ initialValues, initialLockLP, initialVersion, autoLaunch, hideUI }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; initialVersion?: 'v3' | 'v2burn' | 'v2fees'; autoLaunch?: boolean; hideUI?: boolean } = {}) {
+export function EthLauncher({ initialValues, initialLockLP, initialVersion, autoLaunch, hideUI, onAutoLaunchAbort }: { initialValues?: Partial<EthLaunchFormData>; initialLockLP?: boolean; initialVersion?: 'v3' | 'v2burn' | 'v2fees'; autoLaunch?: boolean; hideUI?: boolean; onAutoLaunchAbort?: (reason: string) => void } = {}) {
   const { isConnected, address, connect } = useEvmWallet();
   const { data: ethPrice = 0 } = useEthPrice();
   const { data: walletClient } = useWalletClient({ chainId: mainnet.id });
@@ -444,6 +444,7 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
           '*'
         );
       } catch {}
+      onAutoLaunchAbort?.(msg);
     } finally {
       if (approveToastId !== undefined) toast.dismiss(approveToastId);
       setIsLaunching(false);
@@ -487,9 +488,10 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
           '*'
         );
       } catch {}
+      onAutoLaunchAbort?.(msg);
     }, 15000);
     return () => window.clearTimeout(timer);
-  }, [autoLaunch, autoFiredRef, isConnected, address, walletClient, ethPrice, formData.name, formData.ticker, formData.imageUrl, formData.devBuyEth, lpEthAmount]);
+  }, [autoLaunch, autoFiredRef, isConnected, address, walletClient, ethPrice, formData.name, formData.ticker, formData.imageUrl, formData.devBuyEth, lpEthAmount, onAutoLaunchAbort]);
 
   return (
     <>

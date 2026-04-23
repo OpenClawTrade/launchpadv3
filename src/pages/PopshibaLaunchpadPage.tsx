@@ -668,6 +668,14 @@ export default function PopshibaLaunchpadPage() {
           initialVersion={prefill.version === 'v2burn' ? 'v2burn' : prefill.version === 'v2fees' ? 'v2fees' : 'v3'}
           autoLaunch
           hideUI
+          onAutoLaunchAbort={(reason) => {
+            const win = ref.current?.contentWindow;
+            if (!win) return;
+            win.postMessage(
+              { source: "popshiba-host", type: "launch-aborted", payload: { reason } },
+              "*"
+            );
+          }}
         />
       )}
     </LaunchpadLayout>
