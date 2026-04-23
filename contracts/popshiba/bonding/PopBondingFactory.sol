@@ -73,7 +73,7 @@ contract PopBondingFactory {
         isPopBondingToken[tokenAddr] = true;
 
         // Initial price = VIRTUAL_ETH / VIRTUAL_TOKENS scaled to 1e18 = ~9.88e8 wei/token
-        uint256 initPrice = (1.06 ether * 1e18) / 1_073_000_000e18;
+        uint256 initPrice = (uint256(1.06 ether) * 1e18) / uint256(1_073_000_000e18);
         IPopEventBusFactory(EVENT_BUS).emitTokenCreated(
             tokenAddr, curveAddr, msg.sender, name, symbol, metadataURI, initPrice, msg.value
         );
