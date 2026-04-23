@@ -127,9 +127,9 @@ export default function ApePage() {
   const [tradesTab, setTradesTab] = useState<"all" | "yours" | "holders">("all");
   const [filter, setFilter] = useState<"live" | "500" | "5k" | "whales">("live");
 
-  /* ── 0x swap wiring (ETH + BNB only) ── */
-  const isEvm = chain === "eth" || chain === "bsc";
-  const apeChain: "eth" | "bnb" = chain === "bsc" ? "bnb" : "eth";
+  /* ── 0x swap wiring (Ethereum only) ── */
+  const isEvm = true;
+  const apeChain: "eth" = "eth";
   const { executeApeSwap, isLoading: swapping } = useZeroxSwap();
   const { address: evmAddress, wallet: evmWallet } = usePrivyEvmWallet();
   const { login, authenticated, ready: privyReady } = usePrivy();
