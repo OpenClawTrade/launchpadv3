@@ -8,6 +8,7 @@ import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
 import {
   UNICURVE_FACTORY,
   UNICURVE_FACTORY_ABI,
+  UNICURVE_EVENT_BUS,
   generateSalt,
   GRADUATION_THRESHOLD,
   LAUNCH_FEE_WEI,
