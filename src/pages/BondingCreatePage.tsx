@@ -9,8 +9,8 @@ import {
   UNICURVE_FACTORY,
   UNICURVE_FACTORY_ABI,
   generateSalt,
-  VIRTUAL_ETH,
   GRADUATION_THRESHOLD,
+  LAUNCH_FEE_WEI,
 } from "@/lib/ethereum/unicurveFactory";
 import { Loader2, Upload, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -95,8 +95,10 @@ export default function BondingCreatePage() {
 
       const salt = generateSalt();
       const initialBuyWei = initialBuy && Number(initialBuy) > 0 ? parseEther(initialBuy) : 0n;
+      // Factory requires a 0.01 ETH launch fee. Total tx value = launch fee + initial buy.
+      const totalValue = LAUNCH_FEE_WEI + initialBuyWei;
 
-      // 4. Send the launch tx
+      // 4. Send launch tx — real signature: createToken(name,symbol,uri,initialBuyEth,salt)
       setStep("Confirm in wallet…");
       const hash: Hash = await walletClient.writeContract({
         account: creatorAddress,
@@ -104,8 +106,8 @@ export default function BondingCreatePage() {
         address: UNICURVE_FACTORY,
         abi: UNICURVE_FACTORY_ABI,
         functionName: "createToken",
-        args: [metadata.name, metadata.symbol, metadataURI, salt],
-        value: initialBuyWei,
+        args: [metadata.name, metadata.symbol, metadataURI, initialBuyWei, salt],
+        value: totalValue,
       });
 
       // 5. Wait & decode
