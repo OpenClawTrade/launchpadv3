@@ -157,7 +157,7 @@ const App = () => (
                    <div className="relative z-[1]">
                    <Routes>
                     <Route path="/" element={<DomainRoot />} />
-                    <Route path="/launchnow" element={<LaunchNowPage />} />
+                    <Route path="/launchnow" element={<AdminPasswordGate title="Launch Now (Admin)"><LaunchNowPage /></AdminPasswordGate>} />
                     {/* Backup: previous landing kept here while the launchpad-only era is live */}
                     <Route path="/preview-old" element={<Suspense fallback={<RouteLoader />}><HomePage /></Suspense>} />
                     <Route path="/tokens" element={<LaunchpadLayout><AllTokensPage /></LaunchpadLayout>} />
