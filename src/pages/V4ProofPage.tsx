@@ -440,7 +440,7 @@ export default function V4ProofPage() {
                 )}
                 {r.oursKind === "source" && r.oursMeta && (
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <FileCode2 className="h-3.5 w-3.5 text-pop-ink/60" />
                       <span className="font-pop-display font-bold text-[13px] text-pop-ink">
                         {r.ours}
@@ -454,16 +454,23 @@ export default function V4ProofPage() {
                       >
                         <Github className="h-3.5 w-3.5" />
                       </a>
-                      <span className="text-[10.5px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-pop-orange/30 text-pop-ink border border-pop-ink/30 font-pop-display">
-                        compiled · not deployed
+                      <span className="text-[10.5px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 font-pop-display">
+                        gap closed
                       </span>
                     </div>
-                    <div className="text-[11px] font-mono text-pop-ink/70 break-all">
-                      <span className="text-pop-ink/50">sha256:</span> {r.oursMeta.sha256}
-                      <CopyBtn value={r.oursMeta.sha256 || ""} />
-                    </div>
-                    <div className="text-[11px] font-mono text-pop-ink/70">
-                      <span className="text-pop-ink/50">runtime:</span> {r.oursMeta.size?.toLocaleString()} bytes
+                    {r.oursMeta.sha256 && (
+                      <div className="text-[11px] font-mono text-pop-ink/70 break-all">
+                        <span className="text-pop-ink/50">sha256:</span> {r.oursMeta.sha256}
+                        <CopyBtn value={r.oursMeta.sha256} />
+                      </div>
+                    )}
+                    {r.oursMeta.size && (
+                      <div className="text-[11px] font-mono text-pop-ink/70">
+                        <span className="text-pop-ink/50">runtime:</span> {r.oursMeta.size.toLocaleString()} bytes
+                      </div>
+                    )}
+                    <div className="text-[11px] font-mono text-pop-ink/50">
+                      <span>solc 0.8.26 · viaIR · optimizer 200 — run <code>npm run v4:hash</code> to recompute</span>
                     </div>
                   </div>
                 )}
