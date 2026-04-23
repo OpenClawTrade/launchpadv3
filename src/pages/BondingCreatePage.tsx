@@ -249,7 +249,8 @@ export default function BondingCreatePage() {
                 className="w-full px-3 py-2 border-2 border-pop-ink bg-pop-cream/50 text-[14px] focus:outline-none focus:bg-white"
               />
               <p className="text-[11px] text-pop-ink/60 mt-1">
-                Buys tokens for yourself in the same tx (anti-snipe).
+                Buys tokens for yourself in the same tx (anti-snipe). Minimum 0.01 ETH —
+                this is the only cost to launch (no separate fee).
               </p>
             </div>
 
