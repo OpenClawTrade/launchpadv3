@@ -228,10 +228,6 @@ export default function ApePage() {
   }
 
   const handleSwap = useCallback(async () => {
-    if (!isEvm) {
-      window.open(uniswapFor(address), "_blank", "noopener,noreferrer");
-      return;
-    }
     if (!authenticated) { login(); return; }
     if (!evmAddress) { toast({ title: "Wallet not ready", description: "Reconnect and try again", variant: "destructive" }); return; }
     if (numericAmount <= 0) { toast({ title: "Enter an amount", variant: "destructive" }); return; }
@@ -258,7 +254,7 @@ export default function ApePage() {
     } else {
       toast({ title: "Swap failed", description: result.error || "Unknown error", variant: "destructive" });
     }
-  }, [isEvm, authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, chain, toast]);
+  }, [authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, toast]);
 
   const symbol = token?.symbol || "—";
   const name = token?.name || (tokenLoading ? "Loading…" : "Unknown token");
