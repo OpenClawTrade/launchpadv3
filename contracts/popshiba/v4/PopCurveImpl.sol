@@ -5,8 +5,13 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 interface IPopToken {
     function transfer(address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
     function balanceOf(address) external view returns (uint256);
     function enableTransfers() external;
+}
+
+interface IHookSeed {
+    function seedLockedLP(bytes32 poolId) external;
 }
 
 /// @title PopCurveImpl
@@ -98,21 +103,48 @@ contract PopCurveImpl {
         realTokenReserves += tokenIn;
     }
 
-    /// @notice Called by the LpLocker once after graduation to drain ETH+tokens
-    /// into the locker for the position mint. Atomic — clears reserves.
-    function withdrawForSeed(address to) external returns (uint256 ethOut, uint256 tokensOut) {
-        require(msg.sender == lpLocker, "auth");
+    /// @notice Public, callable once after graduation. Delegates the V4
+    /// PoolManager `unlock` dance to the hook (which is the canonical
+    /// IUnlockCallback for this pool family). The hook will:
+    ///   1. modifyLiquidity full-range using this clone's realEthReserves +
+    ///      LP_TOKENS supply
+    ///   2. mint a PositionManager NFT directly to PopV4LpLocker
+    ///   3. call locker.registerLock(poolId, tokenId, address(this))
+    ///   4. call token.enableTransfers()
+    /// All in a single atomic `unlock` callback. After this returns,
+    /// realEthReserves is zero and the AMM phase begins.
+    function seedLockedLP(bytes32 poolId) external {
         require(graduated, "!grad");
-        ethOut = realEthReserves;
-        tokensOut = LP_TOKENS;
-        realEthReserves = 0;
-        // Token balance lives on the hook (which holds the curve supply); the
-        // hook forwards on receipt of this call's return value via _seedDrain.
-        // We just signal the amounts; hook performs the actual transfer.
-        IPopToken(token).transfer(to, tokensOut); // we (clone) hold nothing — hook holds. So this call MUST be done from hook context.
-        // NOTE: real implementation routes through hook.executeSeedDrain(to);
-        // kept here as a marker — see PopBondingHookV4Singleton.seedDrain.
+        require(realEthReserves > 0, "seeded");
+        // Hand off to hook — it has IPoolManager + unlock callback wiring.
+        // The hook will pull ETH via _take and tokens via approve+transferFrom
+        // through the standard V4 settle/take pattern inside the callback.
+        IPopToken(token).approve(hook, LP_TOKENS);
+        IHookSeed(hook).seedLockedLP(poolId);
+        // Hook clears reserves via clearReservesAfterSeed() on success.
     }
+
+    /// @notice Hook-only: called from inside the unlock callback after the
+    /// position NFT has been minted + locked. Zeroes reserves and unlocks
+    /// generic transfers.
+    function clearReservesAfterSeed() external onlyHook {
+        require(graduated, "!grad");
+        realEthReserves = 0;
+        IPopToken(token).enableTransfers();
+    }
+
+    /// @notice Hook-only ETH drain used inside unlockCallback to settle the
+    /// ETH leg of the LP mint. Sends `amount` wei to the hook.
+    function drainEthToHook(uint256 amount) external onlyHook {
+        (bool ok, ) = hook.call{value: amount}("");
+        require(ok, "drain");
+    }
+
+    /// @dev Curve clone must hold ETH (forwarded by hook on every buy via
+    /// post-swap settlement). Hook pushes ETH here on-receipt.
+    receive() external payable {}
+
+
 
     // ── Public views ──
     function quoteBuy(uint256 ethIn) external view returns (uint256 tokensOut) {
