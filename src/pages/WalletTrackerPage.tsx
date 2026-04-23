@@ -605,7 +605,6 @@ export default function WalletTrackerPage() {
             </>
           )}
         </main>
-      </div>
 
       {/* Copy Trading Holders Only Dialog */}
       <Dialog open={showCopyTradeInfo} onOpenChange={setShowCopyTradeInfo}>
@@ -630,7 +629,7 @@ export default function WalletTrackerPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </LaunchpadLayout>
   );
 }
 

@@ -134,9 +134,7 @@ export default function AdminPanelPage() {
               </CardContent>
             </Card>
           </main>
-          <Footer />
-        </div>
-      </div>
+      </LaunchpadLayout>
     );
   }
 

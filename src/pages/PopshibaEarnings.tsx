@@ -9,7 +9,7 @@ import { formatEther } from "viem";
 import { Coins, Loader2, RefreshCw, ExternalLink, ArrowLeft, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { useClaimableCreatorFees } from "@/hooks/useClaimableCreatorFees";
 
 interface LedgerRow {
@@ -219,9 +219,7 @@ export default function PopshibaEarnings() {
   };
 
   return (
-    <div className="min-h-screen bg-pop-cream text-pop-ink">
-      <PopshibaTopNav />
-
+    <LaunchpadLayout>
       <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <Link to="/" className="inline-flex items-center gap-2 text-[12px] uppercase font-pop-mono tracking-[0.1em] text-pop-ink/70 hover:text-pop-ink mb-6">
           <ArrowLeft className="w-3.5 h-3.5" /> Back home
@@ -395,7 +393,7 @@ export default function PopshibaEarnings() {
           </>
         )}
       </main>
-    </div>
+    </LaunchpadLayout>
   );
 }
 

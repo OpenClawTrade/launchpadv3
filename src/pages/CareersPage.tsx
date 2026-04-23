@@ -20,7 +20,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { XLogo } from "@phosphor-icons/react";
-import { Footer } from "@/components/layout/Footer";
+
 import { MatrixContentCard } from "@/components/layout/MatrixContentCard";
 import { BRAND } from "@/config/branding";
 
@@ -437,9 +437,6 @@ export default function CareersPage() {
       </section>
       </MatrixContentCard>
 
-      {/* Footer */}
-      {/* Footer */}
-      <Footer />
     </div>
   );
 }

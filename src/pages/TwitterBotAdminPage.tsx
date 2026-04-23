@@ -146,7 +146,7 @@ export default function TwitterBotAdminPage() {
       <main className="max-w-md mx-auto px-4 py-16">
           <div className="text-center text-gray-400">Loading...</div>
         </main>
-      </div>
+      </LaunchpadLayout>
     );
   }
 
@@ -192,7 +192,7 @@ export default function TwitterBotAdminPage() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </LaunchpadLayout>
     );
   }
 

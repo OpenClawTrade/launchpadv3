@@ -401,9 +401,7 @@ const TrendingPage = () => {
           </div>
         </div>
         </main>
-        <Footer />
-      </div>
-    </div>
+    </LaunchpadLayout>
   );
 };
 
