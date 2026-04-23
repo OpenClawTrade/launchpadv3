@@ -1,6 +1,10 @@
-// /v4-proof — side-by-side proof that PopShiba V4 mirrors Unicurve V4 1:1.
-// Left column: Unicurve mainnet contracts (decoded + Etherscan-verified).
-// Right column: our PopShiba V4 contracts (source + compiled bytecode hashes).
+// /v4-proof — side-by-side map between Unicurve V4 (closed-source bytecode on
+// mainnet) and our PopShiba V4 (open-source Solidity).
+// IMPORTANT: We did NOT decompile Unicurve. Their contracts are unverified on
+// Etherscan. We built a behavioral clone from public specs (Uniswap V4 hooks,
+// PoolKey, observable event signatures, the well-known virtual-reserves curve
+// math). The disclosure block below explains exactly what is and isn't
+// verifiable as "identical".
 import { useMemo, useState } from "react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { ExternalLink, Copy, Check, Github, FileCode2, ShieldCheck } from "lucide-react";
