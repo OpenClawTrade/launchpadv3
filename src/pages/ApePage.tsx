@@ -1,17 +1,16 @@
 /**
- * ApePage — Popshiba /ape trade terminal
+ * ApePage — Popshiba /ape trade terminal (Ethereum only)
  *
  * Native React port of public/popshiba-template/trade.html.
  * Every visible data point is wired to live sources:
  *   • Token metadata, price, MC, vol, holders, liquidity, 24h change → useExternalToken (Codex)
  *   • Candle chart (timeframes, USD/native, vol, etc.) → CodexChart
  *   • Recent trades table → useCodexTokenEvents (Codex)
- *   • Top holders → derived from live trades (mirrors FunTokenDetailPage behavior)
+ *   • Top holders → derived from live trades
  *
  * Routing:
- *   /ape                 → picker (redirects to /trade if no address)
- *   /ape/:address        → trade view (defaults to Ethereum)
- *   /ape/:chain/:address → trade view on a specific chain (eth | bsc | sol)
+ *   /ape/:address        → trade view (Ethereum)
+ *   /ape/eth/:address    → same; legacy /ape/bsc and /ape/sol are coerced to eth
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,11 +21,7 @@ import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { useExternalToken } from "@/hooks/useExternalToken";
 import { useCodexTokenEvents } from "@/hooks/useCodexTokenEvents";
-import {
-  ETH_NETWORK_ID,
-  BSC_NETWORK_ID,
-  SOLANA_NETWORK_ID,
-} from "@/hooks/useCodexNewPairs";
+import { ETH_NETWORK_ID } from "@/hooks/useCodexNewPairs";
 import { useToast } from "@/hooks/use-toast";
 import { useZeroxSwap } from "@/hooks/useZeroxSwap";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
@@ -35,32 +30,19 @@ import { supabase } from "@/integrations/supabase/client";
 
 import styles from "./ApePage.module.css";
 
-/* ──────────────────────────── helpers ──────────────────────────── */
+/* ──────────────────────────── helpers (Ethereum only) ──────────────────────────── */
 
-type Chain = "eth" | "bsc" | "sol";
+const NATIVE_SYM = "ETH";
+const DEX_NAME = "Uniswap";
 
-function chainToNetworkId(c: Chain): number {
-  switch (c) {
-    case "bsc": return BSC_NETWORK_ID;
-    case "sol": return SOLANA_NETWORK_ID;
-    default: return ETH_NETWORK_ID;
-  }
-}
-function nativeSymbolFor(c: Chain): string {
-  return c === "bsc" ? "BNB" : c === "sol" ? "SOL" : "ETH";
-}
-function explorerFor(c: Chain, addr: string): string {
-  if (c === "bsc") return `https://bscscan.com/token/${addr}`;
-  if (c === "sol") return `https://solscan.io/token/${addr}`;
+function explorerFor(addr: string): string {
   return `https://etherscan.io/token/${addr}`;
 }
-function dexFor(c: Chain, addr: string): string {
-  if (c === "bsc") return `https://pancakeswap.finance/swap?outputCurrency=${addr}`;
-  if (c === "sol") return `https://jup.ag/swap/SOL-${addr}`;
+function uniswapFor(addr: string): string {
   return `https://app.uniswap.org/explore/tokens/ethereum/${addr}`;
 }
-function dexNameFor(c: Chain): string {
-  return c === "bsc" ? "PancakeSwap" : c === "sol" ? "Jupiter" : "Uniswap";
+function dexscreenerFor(addr: string): string {
+  return `https://dexscreener.com/ethereum/${addr}`;
 }
 
 function fmtUsd(n: number | null | undefined): string {
@@ -100,22 +82,16 @@ export default function ApePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // /ape with no address → show the built-in picker (do NOT bounce to /trade Pulse)
-
-  // Resolve chain + address from either URL shape
-  const { chain, address } = useMemo<{ chain: Chain; address: string }>(() => {
-    const knownChains: Chain[] = ["eth", "bsc", "sol"];
-    if (chainParam && knownChains.includes(chainParam as Chain) && addressParam) {
-      return { chain: chainParam as Chain, address: addressParam };
-    }
-    // Single-segment path: infer chain from address shape
-    const a = chainParam || addressParam || "";
-    if (/^0x[a-fA-F0-9]{40}$/.test(a)) return { chain: "eth", address: a };
-    return { chain: "sol", address: a };
+  // Ethereum-only: accept /ape/:address or legacy /ape/:chain/:address (chain is ignored)
+  const address = useMemo<string>(() => {
+    const candidate =
+      (chainParam && addressParam) ? addressParam :
+      (chainParam || addressParam || "");
+    return candidate;
   }, [chainParam, addressParam]);
 
-  const networkId = chainToNetworkId(chain);
-  const nativeSym = nativeSymbolFor(chain);
+  const networkId = ETH_NETWORK_ID;
+  const nativeSym = NATIVE_SYM;
 
   /* ── live token data ── */
   const { data: token, isLoading: tokenLoading } = useExternalToken(address, !!address, networkId);
@@ -151,9 +127,9 @@ export default function ApePage() {
   const [tradesTab, setTradesTab] = useState<"all" | "yours" | "holders">("all");
   const [filter, setFilter] = useState<"live" | "500" | "5k" | "whales">("live");
 
-  /* ── 0x swap wiring (ETH + BNB only) ── */
-  const isEvm = chain === "eth" || chain === "bsc";
-  const apeChain: "eth" | "bnb" = chain === "bsc" ? "bnb" : "eth";
+  /* ── 0x swap wiring (Ethereum only) ── */
+  const isEvm = true;
+  const apeChain: "eth" = "eth";
   const { executeApeSwap, isLoading: swapping } = useZeroxSwap();
   const { address: evmAddress, wallet: evmWallet } = usePrivyEvmWallet();
   const { login, authenticated, ready: privyReady } = usePrivy();
@@ -233,7 +209,7 @@ export default function ApePage() {
   const buyAmountFmt = quote?.buyAmount ? Number(BigInt(quote.buyAmount)) / 10 ** outDecimals : 0;
   const minBuyFmt = quote?.minBuyAmount ? Number(BigInt(quote.minBuyAmount)) / 10 ** outDecimals : 0;
   const networkFeeFmt = quote?.totalNetworkFee ? Number(BigInt(quote.totalNetworkFee)) / 1e18 : 0;
-  const routeName = quote?.route?.fills?.[0]?.source?.replace(/_/g, " ") || dexNameFor(chain);
+  const routeName = quote?.route?.fills?.[0]?.source?.replace(/_/g, " ") || DEX_NAME;
   const insufficient = !!quote?.issues?.balance;
   const needsApproval = side === "sell" && !!quote?.issues?.allowance;
 
@@ -241,7 +217,7 @@ export default function ApePage() {
     if (q === "MAX") {
       if (!isEvm) return;
       if (side === "buy") {
-        const buf = chain === "bsc" ? 0.002 : 0.001;
+        const buf = 0.001;
         setAmount(Math.max(0, nativeBal - buf).toFixed(6));
       } else {
         setAmount(tokenBal > 0 ? tokenBal.toFixed(6) : "0");
@@ -252,10 +228,6 @@ export default function ApePage() {
   }
 
   const handleSwap = useCallback(async () => {
-    if (!isEvm) {
-      window.open(dexFor(chain, address), "_blank", "noopener,noreferrer");
-      return;
-    }
     if (!authenticated) { login(); return; }
     if (!evmAddress) { toast({ title: "Wallet not ready", description: "Reconnect and try again", variant: "destructive" }); return; }
     if (numericAmount <= 0) { toast({ title: "Enter an amount", variant: "destructive" }); return; }
@@ -282,7 +254,7 @@ export default function ApePage() {
     } else {
       toast({ title: "Swap failed", description: result.error || "Unknown error", variant: "destructive" });
     }
-  }, [isEvm, authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, chain, toast]);
+  }, [authenticated, login, evmAddress, numericAmount, executeApeSwap, apeChain, address, side, slippageBps, tokenDecimals, token?.name, token?.symbol, toast]);
 
   const symbol = token?.symbol || "—";
   const name = token?.name || (tokenLoading ? "Loading…" : "Unknown token");
@@ -310,27 +282,85 @@ export default function ApePage() {
     toast({ title: "Link copied" });
   };
 
-  const estimatedTokens = isEvm
-    ? buyAmountFmt
-    : (priceUsd > 0 && numericAmount > 0
-        ? (numericAmount * 150) / priceUsd
-        : 0);
+  // Watchlist (localStorage-backed)
+  const watchKey = "popshiba:ape:watchlist";
+  const [isWatched, setIsWatched] = useState<boolean>(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(watchKey);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      setIsWatched(!!address && list.map((a) => a.toLowerCase()).includes(address.toLowerCase()));
+    } catch { setIsWatched(false); }
+  }, [address]);
+  const toggleWatch = () => {
+    if (!address) return;
+    try {
+      const raw = localStorage.getItem(watchKey);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      const lower = address.toLowerCase();
+      const exists = list.map((a) => a.toLowerCase()).includes(lower);
+      const next = exists ? list.filter((a) => a.toLowerCase() !== lower) : [...list, address];
+      localStorage.setItem(watchKey, JSON.stringify(next));
+      setIsWatched(!exists);
+      toast({ title: exists ? "Removed from watchlist" : "Added to watchlist" });
+    } catch {
+      toast({ title: "Watchlist unavailable", variant: "destructive" });
+    }
+  };
 
-  const ctaLabel = !isEvm
-    ? `◆ ${side === "buy" ? "BUY" : "SELL"} ON ${dexNameFor(chain).toUpperCase()}`
-    : !privyReady
-      ? "LOADING…"
-      : !authenticated
-        ? "CONNECT WALLET"
-        : swapping
-          ? "SWAPPING…"
-          : insufficient
-            ? "INSUFFICIENT BALANCE"
-            : needsApproval
-              ? `◆ APPROVE & SELL $${symbol}`
-              : `◆ ${side === "buy" ? "BUY" : "SELL"} $${symbol}`;
+  // Price alerts (localStorage-backed; in-page check while open)
+  const alertKey = `popshiba:ape:alert:${address?.toLowerCase()}`;
+  const openAlerts = () => {
+    const current = localStorage.getItem(alertKey);
+    const input = window.prompt(
+      `Notify me when ${symbol} price crosses (USD)\nLeave blank to clear`,
+      current ?? ""
+    );
+    if (input === null) return;
+    const trimmed = input.trim();
+    if (!trimmed) {
+      localStorage.removeItem(alertKey);
+      toast({ title: "Alert cleared" });
+      return;
+    }
+    const num = parseFloat(trimmed);
+    if (!isFinite(num) || num <= 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+    localStorage.setItem(alertKey, String(num));
+    toast({ title: `Alert set at $${num}`, description: "Notifies while this page is open" });
+  };
+  const lastNotifiedRef = useRef<number>(0);
+  useEffect(() => {
+    if (!address || priceUsd <= 0) return;
+    const target = parseFloat(localStorage.getItem(alertKey) || "");
+    if (!isFinite(target) || target <= 0) return;
+    const last = lastNotifiedRef.current;
+    if (last === 0) { lastNotifiedRef.current = priceUsd; return; }
+    const crossed = (last < target && priceUsd >= target) || (last > target && priceUsd <= target);
+    lastNotifiedRef.current = priceUsd;
+    if (crossed) {
+      toast({ title: `${symbol} crossed $${target}`, description: `Now $${priceUsd.toFixed(6)}` });
+      try { new Notification(`${symbol} crossed $${target}`, { body: `Now $${priceUsd.toFixed(6)}` }); } catch {}
+    }
+  }, [priceUsd, address, alertKey, symbol, toast]);
 
-  const ctaDisabled = isEvm && (swapping || insufficient);
+  const estimatedTokens = buyAmountFmt;
+
+  const ctaLabel = !privyReady
+    ? "LOADING…"
+    : !authenticated
+      ? "CONNECT WALLET"
+      : swapping
+        ? "SWAPPING…"
+        : insufficient
+          ? "INSUFFICIENT BALANCE"
+          : needsApproval
+            ? `◆ APPROVE & SELL $${symbol}`
+            : `◆ ${side === "buy" ? "BUY" : "SELL"} $${symbol}`;
+
+  const ctaDisabled = swapping || insufficient;
 
   return (
     <LaunchpadLayout noPadding>
@@ -372,10 +402,15 @@ export default function ApePage() {
           </div>
 
           <div className={styles.tokActions}>
-            <button className={styles.iconBtn} title="Watchlist"><Star size={14} /></button>
+            <button
+              className={styles.iconBtn}
+              title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+              onClick={toggleWatch}
+              style={isWatched ? { color: "hsl(var(--primary))" } : undefined}
+            ><Star size={14} fill={isWatched ? "currentColor" : "none"} /></button>
             <button className={styles.iconBtn} title="Share" onClick={shareToken}><Share2 size={14} /></button>
-            <button className={styles.iconBtn} title="Alerts"><Bell size={14} /></button>
-            <a className={styles.iconBtn} title="Explorer" href={explorerFor(chain, address)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /></a>
+            <button className={styles.iconBtn} title="Set price alert" onClick={openAlerts}><Bell size={14} /></button>
+            <a className={styles.iconBtn} title="Explorer" href={explorerFor(address)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /></a>
           </div>
         </div>
 
@@ -461,7 +496,7 @@ export default function ApePage() {
                   </>
                 )}
                 <div className="row"><span className="k">Slippage</span><span className="v">{slip === "AUTO" ? "Auto" : `${slip}%`}</span></div>
-                <div className="row"><span className="k">Route</span><span className="v">{isEvm ? routeName : dexNameFor(chain)}</span></div>
+                <div className="row"><span className="k">Route</span><span className="v">{isEvm ? routeName : DEX_NAME}</span></div>
               </div>
 
               <button
@@ -473,13 +508,13 @@ export default function ApePage() {
               <div className={styles.routeNote}>
                 {isEvm
                   ? <>Swap via <b>0x</b> · {routeName} · 1% platform fee</>
-                  : <>Swap via <b>{dexNameFor(chain)}</b> · Best route auto-selected</>}
+                  : <>Swap via <b>{DEX_NAME}</b> · Best route auto-selected</>}
               </div>
 
               <div className={styles.bpLinks}>
                 <button className={styles.bpLink} onClick={copyAddress}>CONTRACT</button>
-                <a className={styles.bpLink} href={dexFor(chain, address)} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
-                <a className={styles.bpLink} href={`https://dexscreener.com/${chain === "bsc" ? "bsc" : chain === "sol" ? "solana" : "ethereum"}/${address}`} target="_blank" rel="noopener noreferrer">CHART ↗</a>
+                <a className={styles.bpLink} href={uniswapFor(address)} target="_blank" rel="noopener noreferrer">LIQUIDITY</a>
+                <a className={styles.bpLink} href={`${dexscreenerFor(address)}`} target="_blank" rel="noopener noreferrer">CHART ↗</a>
               </div>
             </div>
           </aside>
@@ -553,11 +588,11 @@ export default function ApePage() {
                       <td className={`r ${isBuy ? styles.gainCell : styles.lossCell}`}>{fmtUsd(t.totalUsd)}</td>
                       <td className="r">{fmtUsd(t.priceUsd)}</td>
                       <td className="r">{fmtCount(t.tokenAmount)}</td>
-                      <td className="r">{priceUsd > 0 ? (t.totalUsd / (chain === "bsc" ? 600 : chain === "sol" ? 150 : 3000)).toFixed(4) : "—"}</td>
+                      <td className="r">{priceUsd > 0 ? (t.totalUsd / 3000).toFixed(4) : "—"}</td>
                       <td><span className={styles.wallet}><span className="wav" />{shortAddr(t.maker)}</span></td>
                       <td className={`r ${styles.txLink}`}>
                         {t.txHash
-                          ? <a href={`${explorerFor(chain, address).replace("/token/" + address, "/tx/" + t.txHash)}`} target="_blank" rel="noopener noreferrer">↗</a>
+                          ? <a href={`${explorerFor(address).replace("/token/" + address, "/tx/" + t.txHash)}`} target="_blank" rel="noopener noreferrer">↗</a>
                           : "—"}
                       </td>
                     </tr>
@@ -576,11 +611,11 @@ export default function ApePage() {
               <h2 className={styles.aboutTitle}>{name}</h2>
               <p className={styles.aboutDesc}>
                 {token?.completed || token?.migrated
-                  ? `${name} has graduated and is trading on ${dexNameFor(chain)}.`
+                  ? `${name} has graduated and is trading on ${DEX_NAME}.`
                   : `${name} is a ${nativeSym} token tracked live via Codex on Popshiba.`}
               </p>
               <div className={styles.aboutMeta}>
-                <div className={styles.metaRow}><span className="k">Chain</span><span className="v">{chain.toUpperCase()}</span></div>
+                <div className={styles.metaRow}><span className="k">Chain</span><span className="v">"ETH"</span></div>
                 <div className={styles.metaRow}><span className="k">Decimals</span><span className="v">{token?.decimals ?? "—"}</span></div>
                 <div className={styles.metaRow}><span className="k">Holders</span><span className="v">{fmtCount(token?.holders)}</span></div>
                 <div className={styles.metaRow}><span className="k">24h Vol</span><span className="v">{fmtUsd(token?.volume24hUsd)}</span></div>
@@ -590,7 +625,7 @@ export default function ApePage() {
                   <span className="k">CA</span>
                   <span className="addr">{address}</span>
                   <button className="copy" onClick={copyAddress}>COPY</button>
-                  <a className="copy" href={explorerFor(chain, address)} target="_blank" rel="noopener noreferrer">↗</a>
+                  <a className="copy" href={explorerFor(address)} target="_blank" rel="noopener noreferrer">↗</a>
                 </div>
               </div>
             </div>
