@@ -101,10 +101,7 @@ export default function ApePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // /ape with no address → bounce to existing /trade picker
-  useEffect(() => {
-    if (!chainParam && !addressParam) navigate("/trade", { replace: true });
-  }, [chainParam, addressParam, navigate]);
+  // /ape with no address → show the built-in picker (do NOT bounce to /trade Pulse)
 
   // Resolve chain + address from either URL shape
   const { chain, address } = useMemo<{ chain: Chain; address: string }>(() => {
