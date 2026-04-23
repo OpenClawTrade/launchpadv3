@@ -399,6 +399,9 @@ export default function BondingTokenDetailPage() {
 
           {/* RIGHT — Trade panel + holders */}
           <aside className="space-y-5">
+            {isGrad ? (
+              <UniswapV4SwapPanel tokenAddress={token.token_address as Address} symbol={token.symbol} />
+            ) : (
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-4 lg:sticky lg:top-24">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <button onClick={() => setSide("buy")}
