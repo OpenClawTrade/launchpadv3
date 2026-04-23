@@ -100,6 +100,7 @@ export default function BondingCreatePage() {
       setStep("Confirm in wallet…");
       const hash: Hash = await walletClient.writeContract({
         account: creatorAddress,
+        chain: mainnet,
         address: UNICURVE_FACTORY,
         abi: UNICURVE_FACTORY_ABI,
         functionName: "createToken",
@@ -116,12 +117,13 @@ export default function BondingCreatePage() {
       let curveAddr: Address | null = null;
       for (const log of receipt.logs) {
         if (log.address.toLowerCase() !== UNICURVE_FACTORY.toLowerCase()) continue;
+        const anyLog = log as unknown as { data: `0x${string}`; topics: [`0x${string}`, ...`0x${string}`[]] };
         try {
           const decoded = decodeEventLog({
             abi: UNICURVE_FACTORY_ABI,
-            data: log.data,
-            topics: log.topics,
-          });
+            data: anyLog.data,
+            topics: anyLog.topics,
+          }) as { eventName: string; args: Record<string, unknown> };
           if (decoded.eventName === "TokenCreated") {
             const args = decoded.args as unknown as { token: Address; curve: Address };
             tokenAddr = args.token;
