@@ -38,7 +38,7 @@ export default function BondingProfilePage() {
   const [loading, setLoading] = useState(true);
 
   const publicClient = useMemo(
-    () => createPublicClient({ chain: mainnet, transport: http() }),
+    () => createPublicClient({ chain: mainnet, transport: http() }) as any,
     [],
   );
 

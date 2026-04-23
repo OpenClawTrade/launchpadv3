@@ -33,7 +33,7 @@ export default function BondingClaimPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const publicClient = useMemo(
-    () => createPublicClient({ chain: mainnet, transport: http() }),
+    () => createPublicClient({ chain: mainnet, transport: http() }) as any,
     [],
   );
 
@@ -75,7 +75,7 @@ export default function BondingClaimPage() {
     if (!wallet) throw new Error("No wallet");
     await wallet.switchChain(mainnet.id);
     const provider = await wallet.getEthereumProvider();
-    return createWalletClient({ chain: mainnet, transport: custom(provider) });
+    return createWalletClient({ chain: mainnet, transport: custom(provider) }) as any;
   }
 
   async function claimOne(t: MyToken) {

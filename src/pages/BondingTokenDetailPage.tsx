@@ -76,7 +76,7 @@ export default function BondingTokenDetailPage() {
   const [tokenBal, setTokenBal] = useState<bigint>(0n);
   const [quote, setQuote] = useState<bigint | null>(null);
 
-  const publicClient = useMemo(() => createPublicClient({ chain: mainnet, transport: http() }), []);
+  const publicClient = useMemo(() => createPublicClient({ chain: mainnet, transport: http() }) as any, []);
 
   /* ---------- data loaders ---------- */
   const loadToken = useCallback(async () => {
@@ -173,7 +173,7 @@ export default function BondingTokenDetailPage() {
       if (!wallet) throw new Error("No wallet");
       await wallet.switchChain(mainnet.id);
       const provider = await wallet.getEthereumProvider();
-      const wc = createWalletClient({ chain: mainnet, transport: custom(provider) });
+      const wc = createWalletClient({ chain: mainnet, transport: custom(provider) }) as any;
       const curve = token.curve_address as Address;
       let hash: Hash;
 
