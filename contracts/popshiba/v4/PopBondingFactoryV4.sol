@@ -6,7 +6,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {PopBondingHookV4} from "./PopBondingHookV4.sol";
-import {PopBondingToken} from "../popshiba/bonding/PopBondingToken.sol";
+import {PopBondingToken} from "./PopBondingToken.sol";
 
 /// @title PopBondingFactoryV4
 /// @notice Off-chain process mines a CREATE2 salt so the hook deploys at an
