@@ -197,19 +197,12 @@ async function pollVerificationStatus(guid: string, apiKey: string, maxRetries =
   return { verified: false, message: "Verification polling timed out" };
 }
 
-function buildMetadataHeader(launch: any): string {
-  const sanitize = (s: unknown) =>
-    String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
-  const lines: string[] = [];
-  lines.push(`// Launched from POPSHIBA.COM`);
-  const nm = sanitize(launch.token_name);
-  const tk = sanitize(launch.token_ticker);
-  if (nm || tk) lines.push(`// ${nm}${tk ? ` ($${tk})` : ""}`);
-  if (launch.description) lines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
-  if (launch.website_url) lines.push(`// ${sanitize(launch.website_url)}`);
-  if (launch.twitter_url) lines.push(`// ${sanitize(launch.twitter_url)}`);
-  if (launch.telegram_url) lines.push(`// ${sanitize(launch.telegram_url)}`);
-  return lines.length ? lines.join("\n") + "\n//\n" : "";
+function buildMetadataHeader(_launch: any): string {
+  // Per product decision: keep the verified source header minimal.
+  // ONLY the launchpad attribution comment — no token name, ticker,
+  // description, or socials. This keeps every verified token's Code tab
+  // clean and identical, matching the sterile implementation header.
+  return `// Launched from POPSHIBA.com\n//\n`;
 }
 
 // NOTE: We do NOT inject any code or NatSpec into the source body, because the
