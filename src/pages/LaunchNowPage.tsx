@@ -629,10 +629,10 @@ export default function LaunchNowPage() {
           const { UNISWAP_V2_FACTORY, UNISWAP_V2_FACTORY_ABI, WETH } = await import("@/lib/ethereum/launchControl");
           const pairAddr = (await pc.readContract({
             address: UNISWAP_V2_FACTORY,
-            abi: UNISWAP_V2_FACTORY_ABI,
+            abi: UNISWAP_V2_FACTORY_ABI as any,
             functionName: "getPair",
             args: [token.address, WETH],
-          })) as Address;
+          } as any)) as Address;
 
           if (!pairAddr || pairAddr === "0x0000000000000000000000000000000000000000") {
             throw new Error("Pair not indexed yet");
