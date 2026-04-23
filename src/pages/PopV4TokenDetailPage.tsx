@@ -47,7 +47,7 @@ export default function PopV4TokenDetailPage() {
   const { address } = useParams<{ address: string }>();
   const hookAddr = (address ?? "").toLowerCase() as Address;
   const publicClient = useMemo(
-    () => createPublicClient({ chain: mainnet, transport: http() }),
+    () => createPublicClient({ chain: mainnet, transport: http() }) as any,
     [],
   );
 
