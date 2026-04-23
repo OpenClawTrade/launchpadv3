@@ -1,17 +1,16 @@
 /**
- * ApePage — Popshiba /ape trade terminal
+ * ApePage — Popshiba /ape trade terminal (Ethereum only)
  *
  * Native React port of public/popshiba-template/trade.html.
  * Every visible data point is wired to live sources:
  *   • Token metadata, price, MC, vol, holders, liquidity, 24h change → useExternalToken (Codex)
  *   • Candle chart (timeframes, USD/native, vol, etc.) → CodexChart
  *   • Recent trades table → useCodexTokenEvents (Codex)
- *   • Top holders → derived from live trades (mirrors FunTokenDetailPage behavior)
+ *   • Top holders → derived from live trades
  *
  * Routing:
- *   /ape                 → picker (redirects to /trade if no address)
- *   /ape/:address        → trade view (defaults to Ethereum)
- *   /ape/:chain/:address → trade view on a specific chain (eth | bsc | sol)
+ *   /ape/:address        → trade view (Ethereum)
+ *   /ape/eth/:address    → same; legacy /ape/bsc and /ape/sol are coerced to eth
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
