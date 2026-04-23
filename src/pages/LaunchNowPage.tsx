@@ -1666,18 +1666,12 @@ contract ${deploySymbol || "TOKEN"} { /* ... */ }`}
                   )}
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      onClick={() => handleOpenTrading(true)}
-                      disabled={!isConnected || openingTrading || !!setRuleBlockedReason || !isOwner}
-                    >
-                      {openingTrading && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Open with 2% max wallet
-                    </Button>
-                    <Button
-                      variant="outline"
                       onClick={() => handleOpenTrading(false)}
                       disabled={!isConnected || openingTrading || !!setRuleBlockedReason || !isOwner}
                     >
-                      Remove all limits
+                      {openingTrading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      <Power className="h-4 w-4" />
+                      Open trading (no limits)
                     </Button>
                   </div>
                   {!setRulePairAddress && (
