@@ -557,7 +557,7 @@ export default function PopshibaLaunchpadPage() {
       }
     }
     function sendWalletState() {
-      reply("wallet-state", { connected: !!(authenticated && isConnected && address), address: address || null });
+      reply("wallet-state", { connected: !!(isConnected && address), address: address || null });
     }
     function onMessage(e: MessageEvent) {
       const data = e.data;
@@ -601,11 +601,11 @@ export default function PopshibaLaunchpadPage() {
       {
         source: "popshiba-host",
         type: "wallet-state",
-        payload: { connected: !!(authenticated && isConnected && address), address: address || null },
+        payload: { connected: !!(isConnected && address), address: address || null },
       },
       "*"
     );
-  }, [authenticated, isConnected, address]);
+  }, [isConnected, address]);
 
   return (
     <LaunchpadLayout noPadding>
