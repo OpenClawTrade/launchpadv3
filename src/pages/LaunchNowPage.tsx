@@ -606,6 +606,59 @@ export default function LaunchNowPage() {
       );
       setLpTokenAmount("");
       setLpEthAmount("");
+
+      // 3. Auto-open trading (setRule with no limits) so buyers can trade immediately.
+      if (token.hasSetRule) {
+        try {
+          toast.info("Step 3/3: Opening trading (no limits)…");
+          // Wait for LP tx to land, then resolve pair address from the factory.
+          await new Promise((r) => setTimeout(r, 6000));
+          const { createPublicClient, http, fallback } = await import("viem");
+          const pc = createPublicClient({
+            chain: mainnet,
+            transport: fallback(
+              [
+                http("https://ethereum-rpc.publicnode.com"),
+                http("https://eth.llamarpc.com"),
+                http("https://rpc.ankr.com/eth"),
+                http("https://cloudflare-eth.com"),
+              ],
+              { rank: false, retryCount: 1 }
+            ),
+          });
+          const { UNISWAP_V2_FACTORY, UNISWAP_V2_FACTORY_ABI, WETH } = await import("@/lib/ethereum/launchControl");
+          const pairAddr = (await pc.readContract({
+            address: UNISWAP_V2_FACTORY,
+            abi: UNISWAP_V2_FACTORY_ABI,
+            functionName: "getPair",
+            args: [token.address, WETH],
+          })) as Address;
+
+          if (!pairAddr || pairAddr === "0x0000000000000000000000000000000000000000") {
+            throw new Error("Pair not indexed yet");
+          }
+
+          const ruleHash = await walletClient.writeContract({
+            account: address as Address,
+            chain: mainnet,
+            address: token.address,
+            abi: ERC20_ABI,
+            functionName: "setRule",
+            args: [false, pairAddr, 0n, 0n],
+          });
+          toast.success(
+            <a href={ETHERSCAN_TX(ruleHash)} target="_blank" rel="noopener noreferrer" className="underline">
+              Trading opened (no limits) — view tx
+            </a>
+          );
+        } catch (ruleErr: any) {
+          console.error("[auto-setRule]", ruleErr);
+          toast.warning(
+            `LP added, but auto-open trading failed: ${ruleErr?.shortMessage || ruleErr?.message || "unknown"}. Use the "Open trading" button.`
+          );
+        }
+      }
+
       setTimeout(() => refetch(), 8000);
     } catch (e: any) {
       console.error("[add-lp]", e);
