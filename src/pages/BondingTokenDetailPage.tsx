@@ -137,12 +137,37 @@ export default function BondingTokenDetailPage() {
     return () => clearInterval(i);
   }, [token?.curve_address, token?.token_address, loadOnchain]);
 
-  /* Trigger re-index on first view (fire & forget) */
+  /* Trigger re-index immediately on view + every 15s while page is open
+     so trades / holders / market cap stay live without a cron. */
   useEffect(() => {
     if (!address) return;
-    supabase.functions.invoke("bonding-index-trades", { body: { token_address: address.toLowerCase() } })
-      .then(() => loadAux()).catch(() => {});
+    const addr = address.toLowerCase();
+    const reindex = () =>
+      supabase.functions.invoke("bonding-index-trades", { body: { token_address: addr } })
+        .then(() => loadAux()).catch(() => {});
+    reindex();
+    const i = setInterval(reindex, 15_000);
+    return () => clearInterval(i);
   }, [address, loadAux]);
+
+  /* Realtime: when a new trade row lands, refresh aux + on-chain state immediately. */
+  useEffect(() => {
+    if (!address || !token?.curve_address) return;
+    const addr = address.toLowerCase();
+    const ch = supabase
+      .channel(`bonding_detail:${addr}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "bonding_trades", filter: `token_address=eq.${addr}` },
+        () => {
+          loadAux();
+          loadOnchain(token.curve_address as Address, token.token_address as Address);
+        })
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "bonding_tokens", filter: `token_address=eq.${addr}` },
+        (p) => setToken((t) => (t ? { ...t, ...(p.new as BondingToken) } : t)))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [address, token?.curve_address, token?.token_address, loadAux, loadOnchain]);
 
   /* Quote refresh */
   useEffect(() => {
