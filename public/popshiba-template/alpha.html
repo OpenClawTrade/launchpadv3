@@ -168,7 +168,7 @@
 </head>
 <body>
 
-<nav class="nav">
+<nav class="nav" id="templateNav">
   <div class="nav-inner">
     <a class="brand" href="/" target="_top"><span class="brand-frame"><img src="popshiba-logo.png" alt=""/></span><span>POPSHIBA</span></a>
     <div class="nav-links">
@@ -246,22 +246,42 @@
 
 </main>
 
-<div class="sfm">
+<div class="sfm" id="templateFooter">
   <div class="sfm-inner">
     <span class="sfm-spacer"></span>
     <span class="sfm-tick"><span class="cx btc"></span><span class="sym">BTC</span><span class="px">$75,756</span><span class="chg dn">-0.7%</span></span>
     <span class="sfm-tick"><span class="cx eth"></span><span class="sym">ETH</span><span class="px">$2,319</span><span class="chg dn">-0.5%</span></span>
     <span class="sfm-tick"><span class="cx bnb"></span><span class="sym">BNB</span><span class="px">$630.34</span><span class="chg dn">-0.1%</span></span>
-    <button class="sfm-action">◆ Leverage</button>
+    <button class="sfm-action" type="button" data-nav="/leverage">◆ Leverage</button>
     <span class="sfm-region"><span class="flag"></span>EU-E 9ms</span>
   </div>
 </div>
 
 <script>
+  const isEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
+  if (isEmbed) {
+    document.getElementById('templateNav')?.remove();
+    document.getElementById('templateFooter')?.remove();
+    document.body.style.overflowX = 'hidden';
+  }
   document.querySelectorAll('.f-tab').forEach(b=>b.addEventListener('click',()=>{
     document.querySelectorAll('.f-tab').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
   }));
+  document.querySelector('.back')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.top.location.href = '/';
+  });
+  document.querySelector('.empty-cta')?.addEventListener('click', () => {
+    window.top.location.href = '/ape';
+  });
+  document.querySelectorAll('[data-nav]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      const to = el.getAttribute('data-nav');
+      if (to) window.top.location.href = to;
+    });
+  });
 </script>
 
 </body>
