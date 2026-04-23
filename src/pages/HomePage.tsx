@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 import { MarqueeTicker } from "@/components/layout/MarqueeTicker";
-import { Footer } from "@/components/layout/Footer";
 import { PopshibaHero } from "@/components/home/PopshibaHero";
 import { BarkLoudCloser } from "@/components/home/BarkLoudCloser";
 import { PopshibaSectionHeader } from "@/components/home/PopshibaSectionHeader";
@@ -23,8 +22,7 @@ export default function HomePage() {
   }, [location.pathname, location.search, navigate]);
 
   return (
-    <div className="bg-pop-orange min-h-screen font-pop-body text-pop-ink">
-      <PopshibaTopNav />
+    <LaunchpadLayout noPadding>
       <MarqueeTicker />
 
       {/* HERO */}
@@ -78,9 +76,6 @@ export default function HomePage() {
 
       {/* BIG CTA */}
       <BarkLoudCloser />
-
-      {/* FOOTER */}
-      <Footer />
-    </div>
+    </LaunchpadLayout>
   );
 }
