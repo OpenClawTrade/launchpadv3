@@ -19,6 +19,7 @@ import { ArrowLeft, Copy, ExternalLink, Bell, Share2, Star } from "lucide-react"
 import { formatDistanceToNowStrict } from "date-fns";
 
 import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
+import { MarqueeTicker } from "@/components/layout/MarqueeTicker";
 import { Footer } from "@/components/layout/Footer";
 import { CodexChart } from "@/components/launchpad/CodexChart";
 import { useExternalToken } from "@/hooks/useExternalToken";
@@ -336,6 +337,7 @@ export default function ApePage() {
   return (
     <div className="bg-pop-orange min-h-screen font-pop-body text-pop-ink">
       <PopshibaTopNav />
+      <MarqueeTicker />
       <div className={styles.root}>
         <main className={styles.main}>
 
