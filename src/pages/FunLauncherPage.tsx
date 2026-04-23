@@ -197,14 +197,10 @@ export default function FunLauncherPage() {
   if (shouldRedirectToCreate) return null;
 
   return (
-    <div className="min-h-screen relative z-[1] overflow-x-hidden">
-      {/* Sidebar */}
-      <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-
-      {/* Main content — offset by sidebar width on desktop */}
-      <div className="md:ml-[48px] flex flex-col min-h-screen">
-        {/* Top bar */}
-        <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
+    <LaunchpadLayout>
+      <div className="flex flex-col min-h-screen">
+        {/* Ticker bar */}
+        {isSolana && <TokenTickerBar />}
 
         {/* Ticker bar */}
         {isSolana && <TokenTickerBar />}
@@ -460,6 +456,6 @@ export default function FunLauncherPage() {
           promoterWallet={solanaAddress || ""}
         />
       )}
-    </div>
+    </LaunchpadLayout>
   );
 }
