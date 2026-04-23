@@ -402,9 +402,14 @@ export default function ApePage() {
           </div>
 
           <div className={styles.tokActions}>
-            <button className={styles.iconBtn} title="Watchlist"><Star size={14} /></button>
+            <button
+              className={styles.iconBtn}
+              title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+              onClick={toggleWatch}
+              style={isWatched ? { color: "hsl(var(--primary))" } : undefined}
+            ><Star size={14} fill={isWatched ? "currentColor" : "none"} /></button>
             <button className={styles.iconBtn} title="Share" onClick={shareToken}><Share2 size={14} /></button>
-            <button className={styles.iconBtn} title="Alerts"><Bell size={14} /></button>
+            <button className={styles.iconBtn} title="Set price alert" onClick={openAlerts}><Bell size={14} /></button>
             <a className={styles.iconBtn} title="Explorer" href={explorerFor(address)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} /></a>
           </div>
         </div>
