@@ -1137,6 +1137,75 @@ export type Database = {
           },
         ]
       }
+      bonding_tokens: {
+        Row: {
+          block_number: number | null
+          created_at: string
+          creator_address: string
+          curve_address: string
+          description: string | null
+          graduated: boolean
+          graduated_at: string | null
+          id: string
+          image_cid: string | null
+          image_url: string | null
+          initial_buy_eth: number | null
+          name: string
+          salt: string
+          symbol: string
+          telegram_url: string | null
+          token_address: string
+          twitter_url: string | null
+          tx_hash: string
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          block_number?: number | null
+          created_at?: string
+          creator_address: string
+          curve_address: string
+          description?: string | null
+          graduated?: boolean
+          graduated_at?: string | null
+          id?: string
+          image_cid?: string | null
+          image_url?: string | null
+          initial_buy_eth?: number | null
+          name: string
+          salt: string
+          symbol: string
+          telegram_url?: string | null
+          token_address: string
+          twitter_url?: string | null
+          tx_hash: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          block_number?: number | null
+          created_at?: string
+          creator_address?: string
+          curve_address?: string
+          description?: string | null
+          graduated?: boolean
+          graduated_at?: string | null
+          id?: string
+          image_cid?: string | null
+          image_url?: string | null
+          initial_buy_eth?: number | null
+          name?: string
+          salt?: string
+          symbol?: string
+          telegram_url?: string | null
+          token_address?: string
+          twitter_url?: string | null
+          tx_hash?: string
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       bookmarks: {
         Row: {
           created_at: string
