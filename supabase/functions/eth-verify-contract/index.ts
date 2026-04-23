@@ -201,15 +201,39 @@ function buildMetadataHeader(launch: any): string {
   const sanitize = (s: unknown) =>
     String(s ?? "").replace(/\r?\n/g, " ").replace(/\*\//g, "* /").trim();
   const lines: string[] = [];
-  lines.push(`// Launched from PopShiba.com Launchpad`);
+  lines.push(`// Launched from POPSHIBA.COM`);
   const nm = sanitize(launch.token_name);
   const tk = sanitize(launch.token_ticker);
   if (nm || tk) lines.push(`// ${nm}${tk ? ` ($${tk})` : ""}`);
-  if (launch.website_url) lines.push(`// Website     - ${sanitize(launch.website_url)}`);
-  if (launch.twitter_url) lines.push(`// X / Twitter - ${sanitize(launch.twitter_url)}`);
-  if (launch.telegram_url) lines.push(`// Telegram    - ${sanitize(launch.telegram_url)}`);
   if (launch.description) lines.push(`// Description - ${sanitize(launch.description).slice(0, 500)}`);
+  if (launch.website_url) lines.push(`// ${sanitize(launch.website_url)}`);
+  if (launch.twitter_url) lines.push(`// ${sanitize(launch.twitter_url)}`);
+  if (launch.telegram_url) lines.push(`// ${sanitize(launch.telegram_url)}`);
   return lines.length ? lines.join("\n") + "\n//\n" : "";
+}
+
+// Inject a per-token unique string constant into the contract body. Comments are
+// stripped from bytecode similarity matching, so a SOURCE-only header is not
+// enough to dethrone Etherscan's "Similar Match" UI for SHIBANUSI. By inserting
+// a `string private constant` with token-specific data, we change the code AST
+// (the comment is preserved in the verified source view, the constant guarantees
+// uniqueness vs other PopShiba tokens). The constant is `private` and unused so
+// it has zero runtime impact for the deployed bytecode (already deployed); it
+// only differentiates the verified source page on Etherscan.
+function injectUniqueMarker(source: string, launch: any, tokenAddress: string): string {
+  const safe = (s: unknown) =>
+    String(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ").slice(0, 240);
+  const marker =
+    `    // ─── PopShiba per-token metadata (verified source only) ───\n` +
+    `    string private constant POPSHIBA_LAUNCH_NAME = "${safe(launch.token_name)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_TICKER = "${safe(launch.token_ticker)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_DESCRIPTION = "${safe(launch.description)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_WEBSITE = "${safe(launch.website_url)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_TWITTER = "${safe(launch.twitter_url)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_TELEGRAM = "${safe(launch.telegram_url)}";\n` +
+    `    string private constant POPSHIBA_LAUNCH_ADDRESS = "${safe(tokenAddress)}";\n`;
+  // Insert immediately after the first `contract ... {` line we find.
+  return source.replace(/(contract\s+\w+[^{]*\{\s*\n)/, `$1${marker}`);
 }
 
 async function inferTokenKind(supabase: ReturnType<typeof createClient>, launch: any): Promise<"clone" | "v2burn" | "v2fees"> {
