@@ -57,31 +57,17 @@ export function PopshibaTopNav() {
           <span>POPSHIBA</span>
         </Link>
 
-        {/* Desktop links — labels at lg+ for consistency across pages */}
-        <nav className="hidden lg:flex gap-3 xl:gap-4 text-[13px] font-bold items-center">
-          {NAV_LINKS.map((link) => {
-            const active = pathname === link.to || (link.to !== "/" && pathname.startsWith(link.to));
-            const Icon = link.Icon;
-            return (
-              <Link
-                key={link.to}
-                to={link.to}
-                title={link.label}
-                aria-label={link.label}
-                className={`relative flex items-center gap-1.5 px-0.5 py-1 transition-colors ${
-                  active ? "text-pop-cream" : "text-pop-cream/85 hover:text-pop-cream"
-                }`}
-              >
-                <Icon className="w-[16px] h-[16px]" strokeWidth={2.25} />
-                <span>{link.label}</span>
-                <span
-                  className={`absolute left-0 right-0 -bottom-0.5 h-[3px] bg-pop-orange transition-opacity ${
-                    active ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              </Link>
-            );
-          })}
+        {/* Desktop links — labels only, no icons, matches home page exactly */}
+        <nav className="hidden lg:flex gap-6 xl:gap-7 text-[14px] font-bold items-center">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="text-pop-cream/90 hover:text-pop-cream transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Right (desktop) */}
@@ -242,6 +228,7 @@ function WalletPill({ className = "" }: { className?: string }) {
         }}
         className={`inline-flex items-center gap-2 px-3.5 py-2 text-[11px] uppercase font-pop-mono tracking-[0.08em] bg-pop-ink-soft border-[1.5px] border-pop-orange text-pop-cream hover:bg-pop-orange hover:text-pop-ink transition-colors ${className}`}
       >
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-pop-cream/60" />
         Connect
       </button>
     );
