@@ -27,6 +27,7 @@ import { useZeroxSwap } from "@/hooks/useZeroxSwap";
 import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { usePrivy } from "@privy-io/react-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { showTradeSuccess } from "@/stores/tradeSuccessStore";
 
 import styles from "./ApePage.module.css";
 
