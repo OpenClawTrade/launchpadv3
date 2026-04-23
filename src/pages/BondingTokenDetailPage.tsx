@@ -10,6 +10,8 @@ import { mainnet } from "viem/chains";
 import { supabase } from "@/integrations/supabase/client";
 import { PopshibaTopNav } from "@/components/layout/PopshibaTopNav";
 import { UNICURVE_CURVE_ABI, GRADUATION_THRESHOLD } from "@/lib/ethereum/unicurveFactory";
+import { BondingPriceChart } from "@/components/bonding/BondingPriceChart";
+import { UniswapV4SwapPanel } from "@/components/bonding/UniswapV4SwapPanel";
 import { ArrowLeft, ExternalLink, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -135,12 +137,37 @@ export default function BondingTokenDetailPage() {
     return () => clearInterval(i);
   }, [token?.curve_address, token?.token_address, loadOnchain]);
 
-  /* Trigger re-index on first view (fire & forget) */
+  /* Trigger re-index immediately on view + every 15s while page is open
+     so trades / holders / market cap stay live without a cron. */
   useEffect(() => {
     if (!address) return;
-    supabase.functions.invoke("bonding-index-trades", { body: { token_address: address.toLowerCase() } })
-      .then(() => loadAux()).catch(() => {});
+    const addr = address.toLowerCase();
+    const reindex = () =>
+      supabase.functions.invoke("bonding-index-trades", { body: { token_address: addr } })
+        .then(() => loadAux()).catch(() => {});
+    reindex();
+    const i = setInterval(reindex, 15_000);
+    return () => clearInterval(i);
   }, [address, loadAux]);
+
+  /* Realtime: when a new trade row lands, refresh aux + on-chain state immediately. */
+  useEffect(() => {
+    if (!address || !token?.curve_address) return;
+    const addr = address.toLowerCase();
+    const ch = supabase
+      .channel(`bonding_detail:${addr}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "bonding_trades", filter: `token_address=eq.${addr}` },
+        () => {
+          loadAux();
+          loadOnchain(token.curve_address as Address, token.token_address as Address);
+        })
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "bonding_tokens", filter: `token_address=eq.${addr}` },
+        (p) => setToken((t) => (t ? { ...t, ...(p.new as BondingToken) } : t)))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [address, token?.curve_address, token?.token_address, loadAux, loadOnchain]);
 
   /* Quote refresh */
   useEffect(() => {
@@ -293,6 +320,9 @@ export default function BondingTokenDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
           {/* LEFT */}
           <div className="space-y-5">
+            {/* Price chart */}
+            <BondingPriceChart tokenAddress={token.token_address} />
+
             {/* Bonding curve */}
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-5">
               <div className="flex items-center justify-between mb-2">
@@ -369,6 +399,9 @@ export default function BondingTokenDetailPage() {
 
           {/* RIGHT — Trade panel + holders */}
           <aside className="space-y-5">
+            {isGrad ? (
+              <UniswapV4SwapPanel tokenAddress={token.token_address as Address} symbol={token.symbol} />
+            ) : (
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-4 lg:sticky lg:top-24">
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <button onClick={() => setSide("buy")}
@@ -446,8 +479,8 @@ export default function BondingTokenDetailPage() {
               )}
               <p className="text-[10px] font-pop-mono text-pop-ink/50 text-center mt-3">1% TRADING FEE · MAINNET</p>
             </div>
+            )}
 
-            {/* Top holders */}
             <div className="border-2 border-pop-ink bg-white shadow-[3px_3px_0_hsl(var(--pop-ink))] p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[11px] font-pop-mono uppercase tracking-[0.12em] text-pop-ink/70">Top holders</p>
