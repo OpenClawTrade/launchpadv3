@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { usePrivy } from "@privy-io/react-auth";
+import { usePrivyEvmWallet } from "@/hooks/usePrivyEvmWallet";
 import { supabase } from "@/integrations/supabase/client";
 
 import { EthLauncher } from "@/components/launchpad/EthLauncher";
