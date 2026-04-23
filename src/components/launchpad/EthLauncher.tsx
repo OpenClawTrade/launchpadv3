@@ -1053,7 +1053,11 @@ export function EthLauncher({ initialValues, initialLockLP, initialVersion, auto
       ticker={formData.ticker}
       onClose={() => {
         if (launchError) setLaunchError(null);
-        if (isLive) setShowSuccessModal(true);
+        if (isLive) {
+          setShowSuccessModal(true);
+          setIsLive(false);
+          setLaunchTxHash(null);
+        }
       }}
     />
     </>
