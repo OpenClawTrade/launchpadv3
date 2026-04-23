@@ -23,7 +23,11 @@ Last updated: after singleton refactor + edge-function rewrite.
 
 ## ⚠️ Two things are NOT yet ready for mainnet
 
-### 1. Solidity artifacts must be compiled with Foundry
+---
+
+## ⚠️ One thing is NOT yet ready for mainnet
+
+### Solidity artifacts must be compiled with Foundry
 
 Lovable's sandbox cannot run `forge build` reliably (the contracts depend on
 `@uniswap/v4-core` and `uniswap-hooks` totalling ~500 MB of Solidity sources).
@@ -35,7 +39,7 @@ forge install Uniswap/v4-core OpenZeppelin/uniswap-hooks
 forge build --use 0.8.26 --optimize --optimizer-runs 200 --via-ir
 ```
 
-Then copy the 5 artifact JSONs into both edge functions:
+Then copy the 5 artifact JSONs into the deploy edge function:
 ```
 out/PopBondingToken.sol/PopBondingToken.json     →  supabase/functions/popv4-deploy-factory/artifacts/
 out/PopCurveImpl.sol/PopCurveImpl.json           →  supabase/functions/popv4-deploy-factory/artifacts/
@@ -45,37 +49,36 @@ out/PopBondingFactoryV4.sol/PopBondingFactoryV4.json → supabase/functions/popv
 ```
 
 The current `artifacts/` directory contains **stale bytecode** from the
-pre-refactor (per-token-hook) contracts. Deploying with those will produce
-broken contracts. You MUST rebuild before deploy.
+pre-refactor (per-token-hook) contracts. You MUST rebuild before deploy.
 
-### 2. The LP-seed flow has a stub
+### LP-seed flow — IMPLEMENTED ✅
 
-`PopCurveImpl.withdrawForSeed()` and the `seedLockedLP()` function the
-keeper calls **are not yet implemented end-to-end**. To actually mint the
-post-graduation LP NFT through Uniswap V4's PositionManager, the curve
-needs to:
+`PopCurveImpl.seedLockedLP()` and the hook-side `unlockCallback` are now wired
+end-to-end:
 
-1. Call `PoolManager.unlock(callback)` (the only entry point for LP changes in V4)
-2. Inside the callback: `modifyLiquidity` to a full-range tick, settle the
-   ETH leg with `settle()`, settle the token leg with `take()`/`sync()`/`settle()`
-3. Or alternatively: approve the `PositionManager` and call its `modifyLiquidities`
-   batch with `MINT_POSITION` actions (Permit2 required)
-4. Transfer the resulting ERC-721 to `PopV4LpLocker`
-5. Call `lpLocker.registerLock(poolId, tokenId, address(this))`
-6. Call `token.enableTransfers()`
+1. Anyone calls `curve.seedLockedLP(poolId)` (the keeper does this)
+2. Curve approves the hook for `LP_TOKENS` and calls `hook.seedLockedLP(poolId)`
+3. Hook calls `poolManager.unlock(...)` → enters `unlockCallback`
+4. Inside callback:
+   - Reads pool `sqrtPrice`, computes full-range `liquidity` via `LiquidityAmounts`
+   - Calls `poolManager.modifyLiquidity` with the locker as logical owner (salt = poolId)
+   - Settles ETH leg via curve's `drainEthToHook` + `poolManager.settle{value}`
+   - Settles token leg via `transferFrom(curve)` + `sync` + `transfer` + `settle`
+   - Calls `locker.registerLock(poolId, ...)` so fee claims work
+   - Calls `curve.clearReservesAfterSeed()` → unlocks generic ERC20 transfers
 
-This is ~250 more lines of Solidity and at least one more contract (an
-`UnlockCallback` helper). It's the single most error-prone part of any V4
-launchpad — every dollar in the LP pool depends on it being right. We
-intentionally left it as a stub rather than ship rushed mainnet code.
+The position is held under `(owner=locker, salt=poolId)` on the PoolManager
+itself. Since `_beforeRemoveLiquidity` always reverts, the LP is permanently
+locked — equivalent to Unicurve's "send NFT to dead address" pattern (V4 core
+doesn't issue NFTs, so we lock at the position layer instead).
 
-**Workarounds while LP-seed is pending:**
-- The bonding-curve trading phase (pre-graduation) is fully functional; you
-  can launch and trade up to the 3 ETH cap.
-- Tokens that hit graduation will have their funds safely locked in the
-  curve clone (transfers stay disabled — nothing is at risk).
-- Once `seedLockedLP` is implemented, anyone can call the keeper to migrate
-  any backlog of graduated tokens.
+> ⚠️ **Compile expectation**: this code is written against the published V4
+> interfaces but was NOT compiled in the sandbox. After your `forge build`,
+> expect 1–2 small fixes (likely import paths for `LiquidityAmounts` — try
+> `@uniswap/v4-core/test/utils/LiquidityAmounts.sol` first; if missing, copy
+> Uniswap V3's `LiquidityAmounts.sol` and bump the pragma to 0.8.26).
+
+
 
 ---
 
