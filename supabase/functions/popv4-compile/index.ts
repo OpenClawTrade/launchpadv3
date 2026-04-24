@@ -30,10 +30,19 @@ const cors = {
 
 const REPO_BASE = "https://raw.githubusercontent.com";
 
-// Dependency repos (resolved on every import outside our own embedded sources).
-const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string }> = {
-  "@uniswap/v4-core/":   { owner: "Uniswap",      repo: "v4-core",       ref: "main" },
-  "uniswap-hooks/":      { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "main" },
+// Dependency remappings → GitHub raw URL prefix. Longest prefix wins (sorted in resolveImport).
+// Some repos (v4-core, v4-periphery) have BOTH src/ and test/ at the root, so the bare prefix
+// maps to "" subpath; explicit `/contracts/` prefixes are kept for npm-style import paths.
+const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string; subpath: string }> = {
+  "@uniswap/v4-core/contracts/":      { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "src/" },
+  "@uniswap/v4-core/":                { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "" },
+  "@uniswap/v4-periphery/contracts/": { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "src/" },
+  "@uniswap/v4-periphery/":           { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "" },
+  "uniswap-hooks/src/":               { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "src/" },
+  "uniswap-hooks/":                   { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "" },
+  "@openzeppelin/contracts/":         { owner: "OpenZeppelin", repo: "openzeppelin-contracts", ref: "master", subpath: "contracts/" },
+  "forge-std/":                       { owner: "foundry-rs", repo: "forge-std", ref: "master", subpath: "src/" },
+  "solmate/":                         { owner: "transmissions11", repo: "solmate", ref: "main", subpath: "src/" },
 };
 
 const OUR_FILES = Object.keys(V4_SOURCES);
