@@ -23,26 +23,25 @@ const cors = {
 
 // Out-of-range single-sided LP. tickSpacing=200 in the factory, so ticks
 // must be multiples of 200. Range fully ABOVE current tick → token-only.
-const TICK_LOWER = 200;
-const TICK_UPPER = 887000;       // near MAX_TICK, rounded to spacing
+// Per-preset tickLower (just above the implied initial tick) and a fixed
+// tickUpper near MAX_TICK rounded to spacing.
+const TICK_UPPER = 887000;
 const LP_TOKENS = 1_000_000_000n;  // matches PopInstantFactory.LP_TOKENS / 1e18 (Klik-parity: 100% to LP)
 
-// Map UI presets → starting sqrtPriceX96.
+// Map UI presets → starting sqrtPriceX96 + tickLower.
 //
-// The pool currency0=ETH, currency1=token. Price (token/ETH) at sqrtP is
-//   (sqrtP / 2^96)^2 = tokens per 1 ETH (after decimals cancel since both are 18).
-// We choose initial price so that LP_TOKENS deposited above tickLower implies
-// a fully diluted market cap ≈ targetMarketCapEth at tick=0 entry.
-//
-// Empirically we precompute a small lookup: targetMcapEth → sqrtPriceX96
-// (math derived offline; any rounding ends up in the LP curve, not the user).
-function sqrtPriceForPreset(targetMcapEth: number): bigint {
-  const table: Record<string, bigint> = {
-    "0.69": 7421001498758458368000000n,   // ~0.69 ETH FDV
-    "1":    8929485887745089024000000n,
-    "2":    12628940000000000000000000n,
-    "5":    19960000000000000000000000n,
-    "10":   28230000000000000000000000n,
+// Pool currency0 = ETH (0x0), currency1 = token (both 18 decimals). Price at
+// sqrtP encodes tokens-per-ETH = (sqrtP/2^96)^2.  We want
+//   FDV_eth = TOTAL_SUPPLY / price  =>  price = 1e9 / FDV_eth.
+// With 1B tokens deposited above the initial tick, the LP curve realizes
+// roughly that valuation as buys consume the range upward.
+function presetParams(targetMcapEth: number): { sqrtPriceX96: bigint; tickLower: number } {
+  const table: Record<string, { sqrtPriceX96: bigint; tickLower: number }> = {
+    "0.69": { sqrtPriceX96: 3016164599597434889666621244321452n, tickLower: 211000 },
+    "1":    { sqrtPriceX96: 2505414483750479311864138015696063n, tickLower: 207400 },
+    "2":    { sqrtPriceX96: 1771595571142957102961017161607260n, tickLower: 200400 },
+    "5":    { sqrtPriceX96: 1120455419495722798374638764549163n, tickLower: 191200 },
+    "10":   { sqrtPriceX96:  792281625142643375935439503360000n, tickLower: 184400 },
   };
   const k = String(targetMcapEth);
   const v = table[k];
@@ -80,7 +79,7 @@ Deno.serve(async (req) => {
     if (depErr) throw depErr;
     if (!dep) return json({ error: "No active V4-Instant deployment. Run popv4instant-deploy first." }, 503);
 
-    const sqrtPriceX96 = sqrtPriceForPreset(Number(targetMarketCapEth));
+    const { sqrtPriceX96, tickLower } = presetParams(Number(targetMarketCapEth));
 
     const data = encodeFunctionData({
       abi: FACTORY_ABI,
@@ -89,7 +88,7 @@ Deno.serve(async (req) => {
         name,
         symbol,
         sqrtPriceX96,
-        tickLower: TICK_LOWER,
+        tickLower,
         tickUpper: TICK_UPPER,
       }],
     });
@@ -102,7 +101,7 @@ Deno.serve(async (req) => {
       valueWei: valueWei.toString(),
       hook: dep.hook_address,
       sqrtPriceX96: sqrtPriceX96.toString(),
-      tickLower: TICK_LOWER,
+      tickLower,
       tickUpper: TICK_UPPER,
       lpTokens: LP_TOKENS.toString(),
       preset: { targetMarketCapEth },
