@@ -32,11 +32,8 @@ import { mainnet } from "npm:viem@2.21.0/chains";
 
 // Artifacts are compiled by GitHub Actions (.github/workflows/compile-popshiba-v4.yml)
 // using Foundry with viaIR + optimizer. The workflow commits the resulting JSONs
-// into contracts/popshiba/v4/artifacts/ on every push, which Lovable auto-syncs
-// back into this repo. The edge function reads them from raw.githubusercontent.com
-// at deploy time — fully public, no secrets, always up-to-date with the latest .sol.
-const ARTIFACT_BASE =
-  "https://raw.githubusercontent.com/lovable-build/popshiba/main/contracts/popshiba/v4/artifacts";
+// directly into ./artifacts/ next to this file. They ship inside the deployed
+// edge function bundle, so reads are zero-network and zero-secret.
 const ARTIFACT_NAMES = [
   "PopBondingToken",
   "PopCurveImpl",
@@ -60,15 +57,19 @@ const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 async function loadArtifacts(): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
   const out: any = {};
   for (const name of ARTIFACT_NAMES) {
-    const r = await fetch(`${ARTIFACT_BASE}/${name}.json`);
-    if (!r.ok) {
+    const url = new URL(`./artifacts/${name}.json`, import.meta.url);
+    let text: string;
+    try {
+      text = await Deno.readTextFile(url);
+    } catch (e) {
       throw new Error(
-        `Missing compiled artifact ${name} (HTTP ${r.status}). ` +
-        `The GitHub Actions workflow hasn't built the contracts yet — ` +
-        `push a commit touching contracts/popshiba/v4/*.sol or trigger the workflow manually.`,
+        `Missing compiled artifact ${name}.json. ` +
+        `The GitHub Actions workflow hasn't built it yet — push a change to ` +
+        `contracts/popshiba/v4/*.sol or trigger "Compile PopShiba V4 contracts" manually. ` +
+        `(${e instanceof Error ? e.message : String(e)})`,
       );
     }
-    const json = await r.json();
+    const json = JSON.parse(text);
     const bc = json.bytecode as string;
     out[name] = { abi: json.abi, bytecode: (bc.startsWith("0x") ? bc : `0x${bc}`) as `0x${string}` };
   }
