@@ -1,10 +1,18 @@
-// PopShiba V4-Instant — poll Launched + FeeAccrued + claim events.
+// PopShiba V4-Klik — index Klik factory + token events.
 //
-// Stateless poll (no cursor table) — we use a "from block = max(known) - 50"
-// strategy and dedupe via the (tx_hash, log_index) UNIQUE constraint on
-// popv4instant_fees_ledger and the UNIQUE token_address on popv4instant_tokens.
+// Klik (and our PopKlik fork) emits these events that we care about:
+//   Factory.ERC20TokenCreated(address tokenAddress)
+//     → new token row in popv4instant_tokens
+//   Factory.TokenPurchased(address buyer, address tokenOut, uint256 ethSpent, uint256 tokensReceived)
+//     → atomic dev-buy at launch (recorded as event_type='dev_buy' in fees ledger,
+//       reusing existing schema)
+//   Token.FeesReceived(uint256 amount)
+//     → 1% trading fee accrued to the token contract; the hook in Klik routes ETH
+//       directly into the token's receive() then it pings FeesReceived. We record
+//       these into popv4instant_fees_ledger as event_type='accrued'.
 //
-// Trigger via cron (every minute) or manual GET.
+// Stateless poll. Uses (tx_hash, log_index) UNIQUE for dedupe on fees, and
+// UNIQUE(token_address) for tokens. Cron every minute.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
@@ -17,17 +25,14 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LAUNCHED = parseAbiItem(
-  "event Launched(address indexed token, address indexed creator, bytes32 poolId, uint256 initialBuyEth, uint256 tokensToCreator, uint160 sqrtPriceX96)",
+const ERC20_TOKEN_CREATED = parseAbiItem(
+  "event ERC20TokenCreated(address tokenAddress)",
 );
-const FEE_ACCRUED = parseAbiItem(
-  "event FeeAccrued(address indexed token, bool feeInEth, uint256 totalFee, uint256 creatorShare, uint256 treasuryShare)",
+const TOKEN_PURCHASED = parseAbiItem(
+  "event TokenPurchased(address buyer, address tokenOut, uint256 ethSpent, uint256 tokensReceived)",
 );
-const CREATOR_CLAIMED = parseAbiItem(
-  "event CreatorClaimed(address indexed token, address indexed creator, uint256 ethAmount, uint256 tokenAmount)",
-);
-const TREASURY_CLAIMED = parseAbiItem(
-  "event TreasuryClaimed(address indexed token, address indexed treasury, uint256 ethAmount, uint256 tokenAmount)",
+const FEES_RECEIVED = parseAbiItem(
+  "event FeesReceived(uint256 amount)",
 );
 
 const LOOKBACK_BLOCKS = 5_000n; // ~16h on mainnet — plenty for a 1-min cron
@@ -38,7 +43,11 @@ Deno.serve(async (req) => {
     const rpc = Deno.env.get("ETH_MAINNET_RPC_URL");
     if (!rpc) return json({ error: "ETH_MAINNET_RPC_URL not set" }, 503);
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
     const { data: dep } = await supabase
       .from("popv4instant_deployments")
       .select("factory_address, hook_address")
@@ -48,7 +57,6 @@ Deno.serve(async (req) => {
     if (!dep) return json({ error: "No active deployment to index" }, 503);
 
     const factory = getAddress(dep.factory_address) as `0x${string}`;
-    const hook = getAddress(dep.hook_address) as `0x${string}`;
 
     const client = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const head = await client.getBlockNumber();
@@ -62,71 +70,130 @@ Deno.serve(async (req) => {
       .from("popv4instant_fees_ledger")
       .select("block_number")
       .order("block_number", { ascending: false }).limit(1).maybeSingle();
-    const lastIndexed = BigInt(Math.max(latestToken?.block_number ?? 0, latestFee?.block_number ?? 0));
+    const lastIndexed = BigInt(
+      Math.max(latestToken?.block_number ?? 0, latestFee?.block_number ?? 0),
+    );
     const fromBlock = lastIndexed > 0n
       ? (lastIndexed > 25n ? lastIndexed - 25n : 0n)
       : (head > LOOKBACK_BLOCKS ? head - LOOKBACK_BLOCKS : 0n);
 
-    let launchedCount = 0, feeCount = 0, claimCount = 0;
+    let createdCount = 0, purchasedCount = 0, feeCount = 0;
+    const knownTokens = new Set<string>();
 
-    // 1. Launched (factory)
-    const launchedLogs = await client.getLogs({ address: factory, event: LAUNCHED, fromBlock, toBlock: head });
-    for (const log of launchedLogs) {
-      const ev = decodeEventLog({ abi: [LAUNCHED], data: log.data, topics: log.topics });
-      const a = ev.args as any;
+    // 1. ERC20TokenCreated (factory) → new tokens
+    const createdLogs = await client.getLogs({
+      address: factory,
+      event: ERC20_TOKEN_CREATED,
+      fromBlock,
+      toBlock: head,
+    });
+    for (const log of createdLogs) {
+      const ev = decodeEventLog({
+        abi: [ERC20_TOKEN_CREATED],
+        data: log.data,
+        topics: log.topics,
+      });
+      const tokenAddr = getAddress((ev.args as any).tokenAddress).toLowerCase();
+      knownTokens.add(tokenAddr);
       const { error } = await supabase.from("popv4instant_tokens").upsert({
-        token_address: getAddress(a.token).toLowerCase(),
-        pool_id: a.poolId,
-        creator_wallet: getAddress(a.creator).toLowerCase(),
-        name: "(pending metadata)", // populated by launch caller post-hoc
+        token_address: tokenAddr,
+        pool_id: "", // filled in by launch metadata flow
+        creator_wallet: "", // captured from TokenPurchased.buyer below
+        name: "(pending metadata)",
         symbol: "(pending)",
-        initial_buy_eth: Number(formatEther(a.initialBuyEth)),
-        tokens_to_creator: Number(formatEther(a.tokensToCreator)),
-        sqrt_price_x96: a.sqrtPriceX96.toString(),
-        tick_lower: 0, tick_upper: 0,
+        initial_buy_eth: 0,
+        tokens_to_creator: 0,
+        sqrt_price_x96: "0",
+        tick_lower: 0,
+        tick_upper: 0,
         launch_tx_hash: log.transactionHash,
         block_number: Number(log.blockNumber),
       }, { onConflict: "token_address", ignoreDuplicates: true });
-      if (!error) launchedCount++;
+      if (!error) createdCount++;
     }
 
-    // 2. FeeAccrued (hook)
-    const feeLogs = await client.getLogs({ address: hook, event: FEE_ACCRUED, fromBlock, toBlock: head });
-    for (const log of feeLogs) {
-      const ev = decodeEventLog({ abi: [FEE_ACCRUED], data: log.data, topics: log.topics });
+    // 2. TokenPurchased (factory) → atomic dev buy at launch.
+    // We use this to backfill creator_wallet + initial_buy_eth on the token row.
+    const purchasedLogs = await client.getLogs({
+      address: factory,
+      event: TOKEN_PURCHASED,
+      fromBlock,
+      toBlock: head,
+    });
+    for (const log of purchasedLogs) {
+      const ev = decodeEventLog({
+        abi: [TOKEN_PURCHASED],
+        data: log.data,
+        topics: log.topics,
+      });
       const a = ev.args as any;
+      const tokenAddr = getAddress(a.tokenOut).toLowerCase();
+      const buyer = getAddress(a.buyer).toLowerCase();
+      const ethSpent = Number(formatEther(a.ethSpent));
+      const tokensReceived = Number(formatEther(a.tokensReceived));
+
+      // Backfill creator on the token row (only if still empty).
+      await supabase
+        .from("popv4instant_tokens")
+        .update({
+          creator_wallet: buyer,
+          initial_buy_eth: ethSpent,
+          tokens_to_creator: tokensReceived,
+        })
+        .eq("token_address", tokenAddr)
+        .or("creator_wallet.eq.,creator_wallet.is.null");
+
+      // Also log it in the fees ledger as a "dev_buy" event for the trade feed.
       const { error } = await supabase.from("popv4instant_fees_ledger").upsert({
-        token_address: getAddress(a.token).toLowerCase(),
-        event_type: "accrued",
-        fee_in_eth: a.feeInEth,
-        total_fee: Number(formatEther(a.totalFee)),
-        creator_share: Number(formatEther(a.creatorShare)),
-        treasury_share: Number(formatEther(a.treasuryShare)),
+        token_address: tokenAddr,
+        event_type: "dev_buy",
+        fee_in_eth: true,
+        eth_amount: ethSpent,
+        token_amount: tokensReceived,
+        recipient: buyer,
         tx_hash: log.transactionHash,
         block_number: Number(log.blockNumber),
         log_index: Number(log.logIndex),
       }, { onConflict: "tx_hash,log_index", ignoreDuplicates: true });
-      if (!error) feeCount++;
+      if (!error) purchasedCount++;
     }
 
-    // 3. CreatorClaimed + TreasuryClaimed (hook)
-    for (const [event, type] of [[CREATOR_CLAIMED, "creator_claimed"], [TREASURY_CLAIMED, "treasury_claimed"]] as const) {
-      const logs = await client.getLogs({ address: hook, event, fromBlock, toBlock: head });
-      for (const log of logs) {
-        const ev = decodeEventLog({ abi: [event], data: log.data, topics: log.topics });
-        const a = ev.args as any;
+    // 3. FeesReceived (per-token) → 1% trading fees accruing to each token contract.
+    // We only know the token addresses we have indexed (from popv4instant_tokens).
+    // Pull the full known list to build the address filter.
+    const { data: tokenRows } = await supabase
+      .from("popv4instant_tokens")
+      .select("token_address");
+    const tokenAddrs = (tokenRows ?? []).map((r) =>
+      getAddress(r.token_address) as `0x${string}`
+    );
+    if (tokenAddrs.length > 0) {
+      const feeLogs = await client.getLogs({
+        address: tokenAddrs,
+        event: FEES_RECEIVED,
+        fromBlock,
+        toBlock: head,
+      });
+      for (const log of feeLogs) {
+        const ev = decodeEventLog({
+          abi: [FEES_RECEIVED],
+          data: log.data,
+          topics: log.topics,
+        });
+        const amount = Number(formatEther((ev.args as any).amount));
         const { error } = await supabase.from("popv4instant_fees_ledger").upsert({
-          token_address: getAddress(a.token).toLowerCase(),
-          event_type: type,
+          token_address: getAddress(log.address).toLowerCase(),
+          event_type: "accrued",
           fee_in_eth: true,
-          eth_amount: Number(formatEther(a.ethAmount)),
-          token_amount: Number(formatEther(a.tokenAmount)),
-          recipient: getAddress(type === "creator_claimed" ? a.creator : a.treasury).toLowerCase(),
+          total_fee: amount,
+          // PopShiba override: 50/50 split between creator and treasury.
+          creator_share: amount / 2,
+          treasury_share: amount / 2,
           tx_hash: log.transactionHash,
           block_number: Number(log.blockNumber),
           log_index: Number(log.logIndex),
         }, { onConflict: "tx_hash,log_index", ignoreDuplicates: true });
-        if (!error) claimCount++;
+        if (!error) feeCount++;
       }
     }
 
@@ -134,7 +201,11 @@ Deno.serve(async (req) => {
       success: true,
       fromBlock: Number(fromBlock),
       toBlock: Number(head),
-      indexed: { launched: launchedCount, feeAccrued: feeCount, claims: claimCount },
+      indexed: {
+        erc20Created: createdCount,
+        tokenPurchased: purchasedCount,
+        feesReceived: feeCount,
+      },
     });
   } catch (e) {
     console.error("[popv4instant-index-trades] error:", e);
@@ -143,5 +214,8 @@ Deno.serve(async (req) => {
 });
 
 function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
 }
