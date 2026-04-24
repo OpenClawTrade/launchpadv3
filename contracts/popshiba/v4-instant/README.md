@@ -9,7 +9,7 @@ instant-LP token launches on Uniswap V4 (Ethereum mainnet).
   token-only V4 position above current price.
 - **Atomic dev buy.** The creator's initial ETH (≥ 0.001) is swapped against
   that LP in the same transaction, bootstrapping the price.
-- **Flat 1.5% fee.** Pool fee = 0; the singleton hook takes 1.5% of every
+- **Flat 1.25% fee.** Pool fee = 0; the singleton hook takes 1.25% of every
   swap's input and credits 50/50 to creator and treasury.
 - **Permissionless claim.** Creators call `claimCreator(token)` on the hook
   to pull their accrued ETH (+ any fees taken in token).
@@ -19,7 +19,7 @@ instant-LP token launches on Uniswap V4 (Ethereum mainnet).
 | File                  | Role                                                   |
 |-----------------------|--------------------------------------------------------|
 | `PopInstantToken.sol`    | Minimal ERC20, 1B supply, no transfer restrictions.    |
-| `PopInstantHook.sol`     | Singleton V4 hook: 1.5% fee, 50/50 split, claim API.   |
+| `PopInstantHook.sol`     | Singleton V4 hook: 1.25% fee, 50/50 split, claim API.   |
 | `PopInstantFactory.sol`  | Atomic launch: deploy token, init pool, seed LP, buy.  |
 
 ## Compilation
