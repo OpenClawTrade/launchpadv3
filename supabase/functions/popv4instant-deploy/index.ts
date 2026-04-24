@@ -1,34 +1,34 @@
-// PopShiba V4-Instant — one-time mainnet deploy of the singleton hook + factory.
+// PopShiba V4-Klik — one-time mainnet deploy of the singleton hook + factory.
 //
-// Two contracts, two transactions (plus salt mining out-of-band):
-//   1. PopInstantHook deployed via CREATE2 at a mined address whose lower
-//      14 bits == 0x10C4 (afterInitialize | beforeSwap | afterSwap |
-//      afterSwapReturnsDelta). Constructor args: (PoolManager, factory_predicted, treasury).
-//   2. PopInstantFactory deployed normally (CREATE) at the predicted address.
-//      Constructor args: (PoolManager, hook_address, treasury).
-//
-// Chicken-and-egg: the hook's constructor needs the factory address, but
-// the factory needs the hook. We solve it by predicting the factory's CREATE
-// address from (deployer, nonce+1) BEFORE deploying the hook.
+// Klik architecture (no chicken-and-egg):
+//   1. Hook(IPoolManager) deployed via CREATE2 at a salt-mined address whose
+//      lower 14 bits == 0x20CC (beforeInitialize | beforeSwap | afterSwap |
+//      beforeSwapReturnDelta | afterSwapReturnDelta).
+//   2. Factory(hook) deployed normally with CREATE — only needs the hook
+//      address, no factory-self-reference required.
+//   3. After both are on-chain we wire them up:
+//        hook.setFactory(factory)
+//        hook.setPlatformTreasury(treasury)
+//      Both are owner-only (owner = tx.origin from CREATE2 deploy = us).
 //
 // Body: { dryRun?: bool, treasury?: address, salt?: hex32, hookAddress?: address }
-//   - First call with `{ dryRun: true }` → returns predicted factory address +
-//     initCodeHash to feed into popv4instant-mine-salt.
+//   - First call with `{ dryRun: true }` → returns hookInitCodeHash to feed
+//     into popv4instant-mine-salt.
 //   - Second call with `{ salt, hookAddress }` → does the real deploy.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   createPublicClient, createWalletClient, http, formatEther,
-  encodeAbiParameters, getContractAddress, keccak256, getAddress,
-  encodeDeployData,
+  encodeAbiParameters, keccak256, getAddress, encodeDeployData,
+  encodeFunctionData,
 } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
-import PopInstantTokenArtifact from "./artifacts/PopInstantToken.ts";
-import PopInstantHookArtifact from "./artifacts/PopInstantHook.ts";
-import PopInstantFactoryArtifact from "./artifacts/PopInstantFactory.ts";
+import PopKlikTokenArtifact from "./artifacts/PopKlikToken.ts";
+import PopKlikHookArtifact from "./artifacts/PopKlikHook.ts";
+import PopKlikFactoryArtifact from "./artifacts/PopKlikFactory.ts";
 
-const ARTIFACT_NAMES = ["PopInstantToken", "PopInstantHook", "PopInstantFactory"] as const;
+const ARTIFACT_NAMES = ["PopKlikToken", "PopKlikHook", "PopKlikFactory"] as const;
 type ArtifactName = (typeof ARTIFACT_NAMES)[number];
 
 const cors = {
@@ -41,9 +41,9 @@ const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 const DEFAULT_TREASURY = "0x9FD5f2E480F43320E8F65072A739c941cb5b10B0";
 
 const RAW_ARTIFACTS: Record<ArtifactName, any> = {
-  PopInstantToken: PopInstantTokenArtifact,
-  PopInstantHook: PopInstantHookArtifact,
-  PopInstantFactory: PopInstantFactoryArtifact,
+  PopKlikToken: PopKlikTokenArtifact,
+  PopKlikHook: PopKlikHookArtifact,
+  PopKlikFactory: PopKlikFactoryArtifact,
 };
 
 function loadArtifacts(): Record<ArtifactName, { abi: any; bytecode: `0x${string}` }> {
@@ -77,32 +77,15 @@ Deno.serve(async (req) => {
 
     const arts = loadArtifacts();
 
-    // The factory is deployed AFTER the hook. The hook deploy is a tx FROM
-    // our deployer TO the CREATE2 deployer, which DOES bump our nonce by 1.
-    // So the factory CREATE happens at nonce = currentNonce + 1.
-    // (If the hook is already on-chain from a prior partial run, it doesn't
-    // get redeployed and the factory uses currentNonce instead — handled below.)
-    const currentNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-    const expectedHookForPrediction = (body.hookAddress as `0x${string}` | undefined);
-    const hookAlreadyDeployed = expectedHookForPrediction
-      ? !!(await publicClient.getBytecode({ address: expectedHookForPrediction }))
-      : false;
-    const factoryNonceForPrediction = hookAlreadyDeployed ? currentNonce : currentNonce + 1;
-    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(factoryNonceForPrediction) });
-
-    // Hook init code = creationCode ++ encode(PoolManager, predictedFactory, treasury)
-    const hookCtor = encodeAbiParameters(
-      [{ type: "address" }, { type: "address" }, { type: "address" }],
-      [POOL_MANAGER as `0x${string}`, predictedFactory, treasury],
-    );
-    const hookInitCode = (arts.PopInstantHook.bytecode + hookCtor.slice(2)) as `0x${string}`;
+    // PopKlikHook constructor: (IPoolManager). Single arg, no factory reference.
+    const hookCtor = encodeAbiParameters([{ type: "address" }], [POOL_MANAGER as `0x${string}`]);
+    const hookInitCode = (arts.PopKlikHook.bytecode + hookCtor.slice(2)) as `0x${string}`;
     const hookInitCodeHash = keccak256(hookInitCode);
 
     if (dryRun) {
       return json({
         dryRun: true,
         deployer: account.address,
-        predictedFactory,
         treasury,
         poolManager: POOL_MANAGER,
         create2Deployer: CREATE2_DEPLOYER,
@@ -124,19 +107,17 @@ Deno.serve(async (req) => {
 
     const txHashes: `0x${string}`[] = [];
 
-    // 1. Deploy hook via canonical CREATE2 deployer — SKIP if already on-chain
-    //    (idempotent retry path: previous attempt may have succeeded the CREATE2
-    //    tx but failed the factory tx).
+    // 1. Deploy hook via canonical CREATE2 deployer (idempotent: skip if exists).
     const existingHookCode = await publicClient.getBytecode({ address: expectedHook });
     if (existingHookCode && existingHookCode !== "0x") {
-      console.log(`Hook already deployed at ${expectedHook}, skipping CREATE2 step`);
+      console.log(`Hook already deployed at ${expectedHook}, skipping CREATE2`);
     } else {
       const create2Data = (salt + hookInitCode.slice(2)) as `0x${string}`;
-      const freshNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+      const nonce1 = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
       const hookTx = await walletClient.sendTransaction({
         to: CREATE2_DEPLOYER as `0x${string}`,
         data: create2Data,
-        nonce: freshNonce,
+        nonce: nonce1,
       });
       const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookTx });
       if (hookReceipt.status !== "success") return json({ error: "Hook deploy reverted", txHash: hookTx }, 500);
@@ -146,30 +127,43 @@ Deno.serve(async (req) => {
       if (!hookCode || hookCode === "0x") return json({ error: "Hook bytecode missing at expected address", expectedHook }, 500);
     }
 
-    // 2. Deploy factory (normal CREATE) with explicit fresh nonce.
+    // 2. Deploy factory (normal CREATE) with hook address.
     const factoryDeployData = encodeDeployData({
-      abi: arts.PopInstantFactory.abi,
-      bytecode: arts.PopInstantFactory.bytecode,
-      args: [POOL_MANAGER, expectedHook, treasury],
+      abi: arts.PopKlikFactory.abi,
+      bytecode: arts.PopKlikFactory.bytecode,
+      args: [expectedHook],
     });
-    // Use confirmed nonce (latest) — "pending" can return stale values right
-    // after a just-confirmed tx on some RPC providers, causing nonce-too-low.
-    const factoryNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "latest" });
-    const factoryTx = await walletClient.sendTransaction({ data: factoryDeployData, nonce: factoryNonce });
+    const nonce2 = await publicClient.getTransactionCount({ address: account.address, blockTag: "latest" });
+    const factoryTx = await walletClient.sendTransaction({ data: factoryDeployData, nonce: nonce2 });
     const factoryReceipt = await publicClient.waitForTransactionReceipt({ hash: factoryTx });
     if (factoryReceipt.status !== "success") return json({ error: "Factory deploy reverted", txHash: factoryTx }, 500);
     if (!factoryReceipt.contractAddress) return json({ error: "Factory address missing in receipt" }, 500);
     txHashes.push(factoryTx);
-
     const factoryAddress = getAddress(factoryReceipt.contractAddress);
-    if (factoryAddress.toLowerCase() !== predictedFactory.toLowerCase()) {
-      return json({
-        error: "Factory deployed at unexpected address — nonce drift?",
-        expected: predictedFactory, actual: factoryAddress,
-      }, 500);
-    }
 
-    // 3. Persist deployment row.
+    // 3. Wire hook → factory and hook → treasury (owner-only, owner = us via tx.origin).
+    const HOOK_ABI = [
+      { type: "function", name: "setFactory", stateMutability: "nonpayable", inputs: [{ type: "address" }], outputs: [] },
+      { type: "function", name: "setPlatformTreasury", stateMutability: "nonpayable", inputs: [{ type: "address" }], outputs: [] },
+    ] as const;
+
+    const setFactoryTx = await walletClient.sendTransaction({
+      to: expectedHook,
+      data: encodeFunctionData({ abi: HOOK_ABI, functionName: "setFactory", args: [factoryAddress] }),
+    });
+    const sfReceipt = await publicClient.waitForTransactionReceipt({ hash: setFactoryTx });
+    if (sfReceipt.status !== "success") return json({ error: "hook.setFactory reverted", txHash: setFactoryTx, hook: expectedHook, factory: factoryAddress }, 500);
+    txHashes.push(setFactoryTx);
+
+    const setTreasuryTx = await walletClient.sendTransaction({
+      to: expectedHook,
+      data: encodeFunctionData({ abi: HOOK_ABI, functionName: "setPlatformTreasury", args: [treasury] }),
+    });
+    const stReceipt = await publicClient.waitForTransactionReceipt({ hash: setTreasuryTx });
+    if (stReceipt.status !== "success") return json({ error: "hook.setPlatformTreasury reverted", txHash: setTreasuryTx }, 500);
+    txHashes.push(setTreasuryTx);
+
+    // 4. Persist deployment row.
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await supabase.from("popv4instant_deployments").update({ is_active: false }).eq("network", "ethereum");
     const { data: row, error } = await supabase.from("popv4instant_deployments").insert({

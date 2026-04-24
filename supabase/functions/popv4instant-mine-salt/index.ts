@@ -1,19 +1,18 @@
-// PopShiba V4-Instant — CREATE2 salt miner for the singleton hook.
+// PopShiba V4-Klik — CREATE2 salt miner for the singleton hook.
 //
-// Required permission bits (lower 14 of address):
-//   afterInitialize        (1 << 12) = 0x1000
+// Required permission bits for PopKlikHook (lower 14 of address):
+//   beforeInitialize       (1 << 13) = 0x2000
 //   beforeSwap             (1 << 7)  = 0x0080
 //   afterSwap              (1 << 6)  = 0x0040
-//   afterSwapReturnsDelta  (1 << 2)  = 0x0004
-//   ─────────────────────────────────────────
-//   TOTAL                            = 0x10C4
+//   beforeSwapReturnDelta  (1 << 3)  = 0x0008
+//   afterSwapReturnDelta   (1 << 2)  = 0x0004
+//   ──────────────────────────────────────────
+//   TOTAL                            = 0x20CC
 //
 // Body: { factory, initCodeHash, maxIterations? }
 //   factory       = address that will CREATE2-deploy the hook (the
-//                   CREATE2 deployer 0x4e59…56C, NOT the PopInstantFactory)
+//                   canonical CREATE2 deployer 0x4e59…56C)
 //   initCodeHash  = keccak256(creationCode || constructorArgs)
-//
-// On success returns { salt, hookAddress, iterations, elapsedMs }.
 import { keccak_256 } from "https://esm.sh/@noble/hashes@1.4.0/sha3";
 
 const cors = {
@@ -22,7 +21,7 @@ const cors = {
   "Access-Control-Allow-Methods": "POST,OPTIONS",
 };
 
-const REQUIRED_BITS = 0x10C4n;
+const REQUIRED_BITS = 0x20CCn;
 
 function hexToBytes(hex: string): Uint8Array {
   const h = hex.startsWith("0x") ? hex.slice(2) : hex;
@@ -48,7 +47,7 @@ function computeCreate2(factoryBytes: Uint8Array, salt: Uint8Array, initCodeHash
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { factory, initCodeHash, maxIterations = 5_000_000 } = await req.json();
+    const { factory, initCodeHash, maxIterations = 20_000_000 } = await req.json();
     if (!factory || !initCodeHash) {
       return json({ error: "factory + initCodeHash required" }, 400);
     }
