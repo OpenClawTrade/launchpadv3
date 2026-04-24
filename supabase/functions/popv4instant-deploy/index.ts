@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
     const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
-    const arts = await loadArtifacts();
+    const arts = loadArtifacts();
 
     // The factory will be deployed AFTER the hook (CREATE2). Predict its
     // CREATE address using (deployer, currentNonce+0) since the hook isn't
