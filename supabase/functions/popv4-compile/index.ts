@@ -18,6 +18,9 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// solc-js bundled for the browser by esm.sh — ships its own __dirname/require
+// shims so it works in Deno without the npm: allowlist.
+import solc from "https://esm.sh/solc@0.8.26?bundle&target=es2022";
 import { V4_SOURCES } from "./sources.ts";
 
 const cors = {
