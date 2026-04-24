@@ -15,3 +15,54 @@ remappings = [
   "solmate/=lib/solmate/src/",
   "forge-std/=lib/forge-std/src/"
 ]
+
+# ── Klik bytecode-parity profile: Factory + Token ─────────────────────────────
+# Klik mainnet factory (0xDE60...ca655) was verified with these exact settings.
+# The Klik standard-json sets NO evm_version (compiler default = "prague" on
+# 0.8.30) and NO via_ir (default false). We mirror that here.
+[profile.klik-factory]
+src = "contracts/popshiba/v4-klik/klik-vendored"
+out = "out-klik-factory"
+libs = []
+# Klik used absolute import paths (e.g. `v4-core/src/...`, `@uniswap/v4-core/...`)
+# that resolve directly against the source root via these remappings.
+include_paths = ["contracts/popshiba/v4-klik/klik-vendored"]
+allow_paths = ["contracts/popshiba/v4-klik/klik-vendored"]
+remappings = [
+  "v4-core/=contracts/popshiba/v4-klik/klik-vendored/v4-core/",
+  "v4-periphery/=contracts/popshiba/v4-klik/klik-vendored/v4-periphery/",
+  "permit2/=contracts/popshiba/v4-klik/klik-vendored/permit2/",
+  "@openzeppelin/=contracts/popshiba/v4-klik/klik-vendored/@openzeppelin/",
+  "@uniswap/=contracts/popshiba/v4-klik/klik-vendored/@uniswap/"
+]
+solc = "0.8.30"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+# evm_version intentionally unset → solc default (matches Klik's deployed bytecode)
+
+# ── Klik bytecode-parity profile: Hook ────────────────────────────────────────
+# Klik mainnet hook (0x07F1...a0cc) was verified with cancun + via-IR true.
+[profile.klik-hook]
+src = "contracts/popshiba/v4-klik/klik-vendored/_hook/src"
+out = "out-klik-hook"
+libs = []
+include_paths = ["contracts/popshiba/v4-klik/klik-vendored/_hook"]
+allow_paths = ["contracts/popshiba/v4-klik/klik-vendored/_hook"]
+remappings = [
+  "@uniswap/v4-periphery/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/v4-periphery/",
+  "@uniswap/v4-core/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/v4-core/",
+  "permit2/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/permit2/",
+  "solady/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/solady/",
+  "forge-std/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/forge-std/src/",
+  "@openzeppelin/contracts/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/openzeppelin-contracts/contracts/",
+  "@uniswap/universal-router/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/universal-router/",
+  "v4-core/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/v4-core/src/",
+  "v4-periphery/=contracts/popshiba/v4-klik/klik-vendored/_hook/lib/v4-periphery/src/"
+]
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+bytecode_hash = "ipfs"
