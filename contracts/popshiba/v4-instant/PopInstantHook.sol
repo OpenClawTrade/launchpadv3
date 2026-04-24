@@ -11,8 +11,8 @@ import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "@uniswap/v4-core/src/type
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 
-/// @title PopKlikHook (singleton)
-/// @notice Klik-style flat-fee hook for instant-LP V4 launches.
+/// @title PopInstantHook (singleton)
+/// @notice instant-LP flat-fee hook for instant-LP V4 launches.
 ///
 /// Architecture
 /// ────────────
@@ -30,7 +30,7 @@ import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 ///   beforeSwap=true (returns delta=0; we just record the fee math),
 ///   afterSwap=true (returns delta=fee taken from input),
 ///   beforeSwapReturnDelta=false, afterSwapReturnDelta=true
-contract PopKlikHook is BaseHook {
+contract PopInstantHook is BaseHook {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
 

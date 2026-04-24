@@ -10,27 +10,27 @@ import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/Pool
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {LiquidityAmounts} from "@uniswap/v4-core/test/utils/LiquidityAmounts.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
-import {PopKlikToken} from "./PopKlikToken.sol";
+import {PopInstantToken} from "./PopInstantToken.sol";
 
-interface IKlikHook {
+interface IInstantHook {
     function registerPool(PoolId poolId, address token, address creator) external;
     function setCreatorByToken(address token, address creator) external;
 }
 
-/// @title PopKlikFactory
-/// @notice Atomic Klik-style launch on Uniswap V4:
-///   1. Deploy PopKlikToken (1B supply minted to factory).
+/// @title PopInstantFactory
+/// @notice Atomic instant-LP launch on Uniswap V4:
+///   1. Deploy PopInstantToken (1B supply minted to factory).
 ///   2. Compute PoolKey with currency0=ETH, currency1=token.
 ///   3. Initialize the pool at the chosen `sqrtPriceX96`.
 ///   4. Unlock the PoolManager:
 ///      - Mint single-sided LP (token-only, ~96% supply) at out-of-range
-///        ticks above the spot tick (Klik default tickSpacing=200, fee=0).
+///        ticks above the spot tick (tickSpacing=200, fee=0).
 ///      - Execute the dev's initial buy (>= 0.001 ETH) as an exact-input
 ///        swap, sending the bought tokens to the creator.
 ///   5. Register the pool with the singleton hook.
 ///
 /// All in one transaction. No bonding curve, no graduation step.
-contract PopKlikFactory {
+contract PopInstantFactory {
     using PoolIdLibrary for PoolKey;
 
     IPoolManager public immutable poolManager;
@@ -73,7 +73,7 @@ contract PopKlikFactory {
         if (msg.value < MIN_INITIAL_BUY) revert InsufficientInitialBuy();
 
         // 1. Deploy token, full supply to factory.
-        tokenAddr = address(new PopKlikToken(p.name, p.symbol, address(this)));
+        tokenAddr = address(new PopInstantToken(p.name, p.symbol, address(this)));
 
         // 2. PoolKey: native ETH (0x0) is currency0 by lower-address rule.
         PoolKey memory key = PoolKey({
@@ -89,8 +89,8 @@ contract PopKlikFactory {
         poolManager.initialize(key, p.sqrtPriceX96);
 
         // 4. Register with hook BEFORE unlock so hook permits the deposit.
-        IKlikHook(hook).registerPool(poolId, tokenAddr, msg.sender);
-        IKlikHook(hook).setCreatorByToken(tokenAddr, msg.sender);
+        IInstantHook(hook).registerPool(poolId, tokenAddr, msg.sender);
+        IInstantHook(hook).setCreatorByToken(tokenAddr, msg.sender);
 
         // 5. Unlock PoolManager → seed LP + execute dev buy atomically.
         bytes memory data = abi.encode(key, p.tickLower, p.tickUpper, msg.sender, msg.value);
