@@ -209,6 +209,18 @@ contract PopBondingHookV4 is BaseHook {
     /// @dev Stack-too-deep workaround: emit `Trade` from a helper so the
     /// 13-argument event doesn't exhaust the swap function's stack frame.
     /// Compiled WITHOUT --via-ir to fit the edge-runtime memory budget.
+    struct TradeEv {
+        address token;
+        uint256 ethAmount;
+        uint256 tokenAmount;
+        uint256 fee;
+        uint256 cFee;
+        uint256 realEth;
+        uint256 realTok;
+        uint256 price;
+        uint256 progress;
+    }
+
     function _emitTrade(
         ICurveCloneRW curve,
         address swapper,
@@ -217,13 +229,20 @@ contract PopBondingHookV4 is BaseHook {
         uint256 tokenAmount,
         uint256 fee
     ) private {
-        uint256 cFee = (fee * 5000) / 10000;
+        TradeEv memory t;
+        t.token = curve.token();
+        t.ethAmount = ethAmount;
+        t.tokenAmount = tokenAmount;
+        t.fee = fee;
+        t.cFee = (fee * 5000) / 10000;
+        t.realEth = curve.realEthReserves();
+        t.realTok = curve.realTokenReserves();
+        t.price = curve.getPrice();
+        t.progress = curve.curveProgressBps();
         emit Trade(
-            curve.token(), swapper, isBuy,
-            ethAmount, tokenAmount, fee, cFee, fee - cFee,
-            curve.realEthReserves(), curve.realTokenReserves(),
-            curve.getPrice(), curve.curveProgressBps(),
-            block.timestamp
+            t.token, swapper, isBuy,
+            t.ethAmount, t.tokenAmount, t.fee, t.cFee, t.fee - t.cFee,
+            t.realEth, t.realTok, t.price, t.progress, block.timestamp
         );
     }
 
