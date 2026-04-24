@@ -18,6 +18,9 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// solc-js bundled for the browser by esm.sh — ships its own __dirname/require
+// shims so it works in Deno without the npm: allowlist.
+import solc from "https://esm.sh/solc@0.8.26?bundle&target=es2022";
 import { V4_SOURCES } from "./sources.ts";
 
 const cors = {
@@ -25,15 +28,32 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SOLC_VERSION = "v0.8.26+commit.8a97fa7a";
-const SOLC_URL = `https://binaries.soliditylang.org/bin/soljson-${SOLC_VERSION}.js`;
+// solc-js loaded via npm: — Deno's compat layer handles the __dirname/require
+// that the raw soljson UMD bundle expects. Pinned to 0.8.26 (matches v4 repos).
+const SOLC_PKG = "npm:solc@^0.8.26";
 
 const REPO_BASE = "https://raw.githubusercontent.com";
 
-// Dependency repos (resolved on every import outside our own embedded sources).
-const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string }> = {
-  "@uniswap/v4-core/":   { owner: "Uniswap",      repo: "v4-core",       ref: "main" },
-  "uniswap-hooks/":      { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "main" },
+// Dependency remappings → GitHub raw URL prefix.
+// Each entry: import-prefix → { owner, repo, ref, subpath }
+//   final URL = REPO_BASE/owner/repo/ref/subpath + (importPath without prefix)
+//
+// IMPORTANT: order matters — longest prefixes win (we sort by length in resolveImport).
+// For repos that have both `src/...` and `test/...` at the root (v4-core, v4-periphery),
+// we map the *bare* package name to the repo root so `@uniswap/v4-core/test/...` and
+// `@uniswap/v4-core/src/...` both resolve correctly. We also keep an explicit
+// `@uniswap/v4-core/contracts/` → `src/` shim because some older code uses npm-style
+// `contracts/` paths.
+const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string; subpath: string }> = {
+  "@uniswap/v4-core/contracts/":      { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "src/" },
+  "@uniswap/v4-core/":                { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "" },
+  "@uniswap/v4-periphery/contracts/": { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "src/" },
+  "@uniswap/v4-periphery/":           { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "" },
+  "uniswap-hooks/src/":               { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "src/" },
+  "uniswap-hooks/":                   { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "" },
+  "@openzeppelin/contracts/":         { owner: "OpenZeppelin", repo: "openzeppelin-contracts", ref: "master", subpath: "contracts/" },
+  "forge-std/":                       { owner: "foundry-rs", repo: "forge-std", ref: "master", subpath: "src/" },
+  "solmate/":                         { owner: "transmissions11", repo: "solmate", ref: "main", subpath: "src/" },
 };
 
 const OUR_FILES = Object.keys(V4_SOURCES);
@@ -59,13 +79,16 @@ async function fetchText(url: string): Promise<string | null> {
   return text;
 }
 
-/** Resolve a Solidity import path → raw URL. Returns null if unknown. */
+/** Resolve a Solidity import path → raw URL. Returns null if unknown.
+ *  We try prefixes longest-first so "@uniswap/v4-core/src/" beats "@uniswap/v4-core/". */
 function resolveImport(path: string): string | null {
   if (path.startsWith("./") || path.startsWith("../")) return null;
-  for (const [prefix, repo] of Object.entries(DEP_REPOS)) {
+  const prefixes = Object.keys(DEP_REPOS).sort((a, b) => b.length - a.length);
+  for (const prefix of prefixes) {
     if (path.startsWith(prefix)) {
+      const repo = DEP_REPOS[prefix];
       const sub = path.slice(prefix.length);
-      return `${REPO_BASE}/${repo.owner}/${repo.repo}/${repo.ref}/${sub}`;
+      return `${REPO_BASE}/${repo.owner}/${repo.repo}/${repo.ref}/${repo.subpath}${sub}`;
     }
   }
   return null;
@@ -128,35 +151,13 @@ async function gatherSources(entries: string[]): Promise<Record<string, { conten
 }
 
 // ── solc loading ─────────────────────────────────────────────────────────
-let solcModule: any = null;
-async function loadSolc(): Promise<any> {
-  if (solcModule) return solcModule;
-  const code = await fetchText(SOLC_URL);
-  if (!code) throw new Error("Failed to download solc binary");
-
-  // solc-js is UMD: it expects either `module.exports` or attaches to global.
-  // We evaluate it inside a sandboxed scope and grab the resulting `Module`.
-  const moduleObj: any = { exports: {} };
-  const exportsObj: any = {};
-  // deno-lint-ignore no-new-func
-  const fn = new Function("module", "exports", "self", code);
-  const selfShim: any = {};
-  fn(moduleObj, exportsObj, selfShim);
-  const compiled = moduleObj.exports?.cwrap ? moduleObj.exports
-                  : selfShim.Module?.cwrap ? selfShim.Module
-                  : moduleObj.exports?.Module ?? exportsObj.Module ?? selfShim.Module;
-  if (!compiled) throw new Error("solc UMD shape unexpected");
-
-  // Wrap with the standard solc-js wrapper API
-  const wrapperUrl = "https://raw.githubusercontent.com/ethereum/solc-js/master/wrapper.ts";
-  // Inline minimal wrapper: we only need compileStandard.
-  const compileStandard = compiled.cwrap("solidity_compile", "string", ["string", "number", "number"]);
-  solcModule = {
-    compile(input: string): string {
-      return compileStandard(input, 0, 0);
-    },
-  };
-  return solcModule;
+function loadSolc(): { compile: (input: string) => string } {
+  const s: any = solc as any;
+  const compile = s.compile ?? s.default?.compile;
+  if (typeof compile !== "function") {
+    throw new Error(`solc shape unexpected: keys=${Object.keys(s).join(",")}`);
+  }
+  return { compile: (input: string) => compile.call(s.default ?? s, input) };
 }
 
 // ── handler ──────────────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Compile.
-    const solc = await loadSolc();
+    const solc = loadSolc();
     const input = {
       language: "Solidity",
       sources,
