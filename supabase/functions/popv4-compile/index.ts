@@ -31,26 +31,25 @@ const SOLC_URL = `https://binaries.soliditylang.org/bin/soljson-${SOLC_VERSION}.
 const REPO_BASE = "https://raw.githubusercontent.com";
 
 // Dependency remappings → GitHub raw URL prefix.
-// Each entry is: import-prefix → { owner, repo, ref, subpath }
-// where the final URL = REPO_BASE/owner/repo/ref/subpath + (importPath without prefix)
+// Each entry: import-prefix → { owner, repo, ref, subpath }
+//   final URL = REPO_BASE/owner/repo/ref/subpath + (importPath without prefix)
+//
+// IMPORTANT: order matters — longest prefixes win (we sort by length in resolveImport).
+// For repos that have both `src/...` and `test/...` at the root (v4-core, v4-periphery),
+// we map the *bare* package name to the repo root so `@uniswap/v4-core/test/...` and
+// `@uniswap/v4-core/src/...` both resolve correctly. We also keep an explicit
+// `@uniswap/v4-core/contracts/` → `src/` shim because some older code uses npm-style
+// `contracts/` paths.
 const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string; subpath: string }> = {
-  // Uniswap v4-core — default branch is `main`. Source lives under `src/`.
-  "@uniswap/v4-core/contracts/": { owner: "Uniswap", repo: "v4-core", ref: "main", subpath: "src/" },
-  "@uniswap/v4-core/src/":       { owner: "Uniswap", repo: "v4-core", ref: "main", subpath: "src/" },
-  "@uniswap/v4-core/":           { owner: "Uniswap", repo: "v4-core", ref: "main", subpath: "src/" },
-  // Uniswap v4-periphery — used transitively by some hooks.
-  "@uniswap/v4-periphery/contracts/": { owner: "Uniswap", repo: "v4-periphery", ref: "main", subpath: "src/" },
-  "@uniswap/v4-periphery/src/":       { owner: "Uniswap", repo: "v4-periphery", ref: "main", subpath: "src/" },
-  "@uniswap/v4-periphery/":           { owner: "Uniswap", repo: "v4-periphery", ref: "main", subpath: "src/" },
-  // OpenZeppelin uniswap-hooks — default branch is `master`. Source under `src/`.
-  "uniswap-hooks/src/":      { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "src/" },
-  "uniswap-hooks/":          { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "src/" },
-  // OpenZeppelin contracts (referenced by uniswap-hooks via remapping).
-  "@openzeppelin/contracts/": { owner: "OpenZeppelin", repo: "openzeppelin-contracts", ref: "master", subpath: "contracts/" },
-  // forge-std — only used by tests/mocks; included for safety.
-  "forge-std/": { owner: "foundry-rs", repo: "forge-std", ref: "master", subpath: "src/" },
-  // solmate — sometimes pulled by v4-core internals.
-  "solmate/": { owner: "transmissions11", repo: "solmate", ref: "main", subpath: "src/" },
+  "@uniswap/v4-core/contracts/":      { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "src/" },
+  "@uniswap/v4-core/":                { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "" },
+  "@uniswap/v4-periphery/contracts/": { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "src/" },
+  "@uniswap/v4-periphery/":           { owner: "Uniswap", repo: "v4-periphery", ref: "main",   subpath: "" },
+  "uniswap-hooks/src/":               { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "src/" },
+  "uniswap-hooks/":                   { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "master", subpath: "" },
+  "@openzeppelin/contracts/":         { owner: "OpenZeppelin", repo: "openzeppelin-contracts", ref: "master", subpath: "contracts/" },
+  "forge-std/":                       { owner: "foundry-rs", repo: "forge-std", ref: "master", subpath: "src/" },
+  "solmate/":                         { owner: "transmissions11", repo: "solmate", ref: "main", subpath: "src/" },
 };
 
 const OUR_FILES = Object.keys(V4_SOURCES);
