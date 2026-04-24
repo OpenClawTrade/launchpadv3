@@ -30,11 +30,18 @@ import {
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
 
-import TokenArtifact from "./artifacts/PopBondingToken.json" with { type: "json" };
-import CurveArtifact from "./artifacts/PopCurveImpl.json" with { type: "json" };
-import LockerArtifact from "./artifacts/PopV4LpLocker.json" with { type: "json" };
-import HookArtifact from "./artifacts/PopBondingHookV4.json" with { type: "json" };
-import FactoryArtifact from "./artifacts/PopBondingFactoryV4.json" with { type: "json" };
+// Artifacts are now compiled server-side by `popv4-compile` and persisted in
+// the `contract-artifacts` storage bucket. This avoids requiring users to run
+// Foundry locally and ensures bytecode always matches the latest .sol source.
+const ARTIFACT_BUCKET = "contract-artifacts";
+const ARTIFACT_NAMES = [
+  "PopBondingToken",
+  "PopCurveImpl",
+  "PopV4LpLocker",
+  "PopBondingHookV4",
+  "PopBondingFactoryV4",
+] as const;
+type ArtifactName = (typeof ARTIFACT_NAMES)[number];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -45,14 +52,22 @@ const POOL_MANAGER     = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // V4 mai
 const POSITION_MANAGER = "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e"; // V4 mainnet
 const DEFAULT_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
-// CREATE2 deployer (canonical, deployed pre-EIP-155 at the same address on every chain).
-// We use this so we can deploy the hook at our mined address without writing
-// our own factory contract.
 const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 
-function bytecodeOf(a: any): `0x${string}` {
-  const b = (a.bytecode?.object ?? a.bytecode) as string;
-  return (b.startsWith("0x") ? b : `0x${b}`) as `0x${string}`;
+async function loadArtifacts(supabase: any): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
+  const out: any = {};
+  for (const name of ARTIFACT_NAMES) {
+    const { data, error } = await supabase.storage.from(ARTIFACT_BUCKET).download(`v4/${name}.json`);
+    if (error || !data) throw new Error(`Missing artifact ${name} — run popv4-compile first.`);
+    const json = JSON.parse(await data.text());
+    const bc = json.bytecode as string;
+    out[name] = { abi: json.abi, bytecode: (bc.startsWith("0x") ? bc : `0x${bc}`) as `0x${string}` };
+  }
+  return out;
+}
+
+function bytecodeOf(a: { bytecode: `0x${string}` }): `0x${string}` {
+  return a.bytecode;
 }
 
 Deno.serve(async (req) => {
@@ -71,6 +86,10 @@ Deno.serve(async (req) => {
     const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
+    // Load artifacts from storage (compiled by popv4-compile)
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const arts = await loadArtifacts(supabase);
+
     const balance = await publicClient.getBalance({ address: account.address });
     const startNonce = await publicClient.getTransactionCount({ address: account.address });
 
@@ -83,7 +102,7 @@ Deno.serve(async (req) => {
     const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 4) });
 
     // Hook init-code = bytecode || abi.encode(POOL_MANAGER, predictedFactory)
-    const hookInit = bytecodeOf(HookArtifact) +
+    const hookInit = arts.PopBondingHookV4.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }],
         [POOL_MANAGER as `0x${string}`, predictedFactory]
@@ -123,17 +142,17 @@ Deno.serve(async (req) => {
     }
 
     // 1. PopBondingToken impl
-    const tokenHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(TokenArtifact) } as any);
+    const tokenHash = await walletClient.deployContract({ abi: [], bytecode: arts.PopBondingToken.bytecode } as any);
     const tokenReceipt = await publicClient.waitForTransactionReceipt({ hash: tokenHash });
     const tokenImpl = tokenReceipt.contractAddress!;
 
     // 2. PopCurveImpl
-    const curveHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(CurveArtifact) } as any);
+    const curveHash = await walletClient.deployContract({ abi: [], bytecode: arts.PopCurveImpl.bytecode } as any);
     const curveReceipt = await publicClient.waitForTransactionReceipt({ hash: curveHash });
     const curveImpl = curveReceipt.contractAddress!;
 
     // 3. PopV4LpLocker(POSITION_MANAGER, PLATFORM_ADMIN=treasury)
-    const lockerInit = bytecodeOf(LockerArtifact) +
+    const lockerInit = arts.PopV4LpLocker.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }],
         [POSITION_MANAGER as `0x${string}`, treasury]
@@ -148,8 +167,7 @@ Deno.serve(async (req) => {
       to: CREATE2_DEPLOYER as `0x${string}`,
       data: create2Data,
     });
-    const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookHash });
-    // CREATE2 deployer doesn't emit logs; verify on-chain that code now exists at expectedHook.
+    await publicClient.waitForTransactionReceipt({ hash: hookHash });
     const code = await publicClient.getCode({ address: expectedHook });
     if (!code || code === "0x") {
       return json({ error: "Hook deploy failed — no code at expected address", expectedHook, hookHash }, 500);
@@ -157,7 +175,7 @@ Deno.serve(async (req) => {
     const hookAddr = getAddress(expectedHook);
 
     // 5. PopBondingFactoryV4(poolManager, hook, curveImpl, tokenImpl, lpLocker, treasury)
-    const factoryInit = bytecodeOf(FactoryArtifact) +
+    const factoryInit = arts.PopBondingFactoryV4.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }],
         [POOL_MANAGER as `0x${string}`, hookAddr, curveImpl, tokenImpl, lpLocker, treasury]
@@ -173,8 +191,7 @@ Deno.serve(async (req) => {
       }, 500);
     }
 
-    // 6. Persist the deployment record
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // 6. Persist the deployment record (supabase client already created above)
     const { error: dbErr } = await supabase.from("bonding_deployments").insert({
       network: "mainnet-v4",
       deployer: account.address.toLowerCase(),

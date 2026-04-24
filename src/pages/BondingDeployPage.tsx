@@ -45,6 +45,7 @@ export default function BondingDeployPage() {
   const [result, setResult] = useState<DeployResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [active, setActive] = useState<ExistingDeployment | null>(null);
+  const [compileResult, setCompileResult] = useState<{ sources: number; compileMs: number; urls: Record<string, string> } | null>(null);
 
   const refresh = useCallback(async () => {
     const { data } = await supabase
@@ -60,10 +61,26 @@ export default function BondingDeployPage() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const compile = useCallback(async () => {
+    setBusy(true); setErr(null); setCompileResult(null);
+    try {
+      toast.info("Compiling 5 contracts (this fetches v4-core from GitHub, ~30-60s)…");
+      const { data, error } = await supabase.functions.invoke("popv4-compile", { body: {} });
+      if (error) throw new Error(error.message);
+      const d = data as { success?: boolean; error?: string; sources: number; compileMs: number; urls: Record<string, string> };
+      if (d.error) throw new Error(d.error);
+      setCompileResult({ sources: d.sources, compileMs: d.compileMs, urls: d.urls });
+      toast.success("Compiled", { description: `${Object.keys(d.urls).length} artifacts saved (${d.compileMs}ms)` });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Compile failed";
+      setErr(msg); toast.error("Compile failed", { description: msg });
+    } finally { setBusy(false); }
+  }, []);
+
   const check = useCallback(async () => {
     setBusy(true); setErr(null); setDry(null); setResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("bonding-deploy", { body: { dryRun: true } });
+      const { data, error } = await supabase.functions.invoke("popv4-deploy-factory", { body: { dryRun: true } });
       if (error) throw new Error(error.message);
       const d = data as DryRun & { error?: string };
       if (d.error) throw new Error(d.error);
@@ -82,7 +99,7 @@ export default function BondingDeployPage() {
     )) return;
     setBusy(true); setErr(null); setResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("bonding-deploy", { body: { force } });
+      const { data, error } = await supabase.functions.invoke("popv4-deploy-factory", { body: { force } });
       if (error) throw new Error(error.message);
       const d = data as DeployResult & { error?: string };
       if (d.error) throw new Error(d.error);
@@ -142,6 +159,11 @@ export default function BondingDeployPage() {
         {/* Action panel */}
         <div className="border-2 border-pop-ink bg-white shadow-[5px_5px_0_hsl(var(--pop-ink))] p-5 space-y-4">
           <div className="flex flex-wrap gap-2">
+            <button onClick={compile} disabled={busy}
+              className="inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2 border-2 border-pop-ink bg-white text-pop-ink hover:bg-pop-cream/40 disabled:opacity-60 transition-colors">
+              {busy && !result && !dry ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              0. Compile Contracts
+            </button>
             <button onClick={check} disabled={busy}
               className="inline-flex items-center gap-2 font-bold text-[13px] px-4 py-2 border-2 border-pop-ink bg-white text-pop-ink hover:bg-pop-cream/40 disabled:opacity-60 transition-colors">
               {busy && !result ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -159,6 +181,18 @@ export default function BondingDeployPage() {
               </button>
             )}
           </div>
+
+          {compileResult && (
+            <div className="text-[12px] font-pop-mono space-y-1 border-t-2 border-pop-ink/10 pt-3">
+              <div className="font-bold text-pop-ink">✅ Compiled {Object.keys(compileResult.urls).length} artifacts ({compileResult.compileMs}ms, {compileResult.sources} source files)</div>
+              {Object.entries(compileResult.urls).map(([name, url]) => (
+                <div key={name} className="flex justify-between gap-2">
+                  <span className="text-pop-ink/60">{name}</span>
+                  <a href={url} target="_blank" rel="noreferrer" className="text-pop-ink hover:underline">view</a>
+                </div>
+              ))}
+            </div>
+          )}
 
           {dry && (
             <div className="text-[12px] font-pop-mono space-y-1 border-t-2 border-pop-ink/10 pt-3">
