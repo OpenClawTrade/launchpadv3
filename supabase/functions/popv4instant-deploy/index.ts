@@ -77,12 +77,18 @@ Deno.serve(async (req) => {
 
     const arts = loadArtifacts();
 
-    // The factory will be deployed AFTER the hook (CREATE2). Predict its
-    // CREATE address using (deployer, currentNonce+0) since the hook isn't
-    // a CREATE deploy from this account. Wait — CREATE2 via the canonical
-    // deployer doesn't bump our nonce. So the factory will be at nonce N.
+    // The factory is deployed AFTER the hook. The hook deploy is a tx FROM
+    // our deployer TO the CREATE2 deployer, which DOES bump our nonce by 1.
+    // So the factory CREATE happens at nonce = currentNonce + 1.
+    // (If the hook is already on-chain from a prior partial run, it doesn't
+    // get redeployed and the factory uses currentNonce instead — handled below.)
     const currentNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(currentNonce) });
+    const expectedHookForPrediction = (body.hookAddress as `0x${string}` | undefined);
+    const hookAlreadyDeployed = expectedHookForPrediction
+      ? !!(await publicClient.getBytecode({ address: expectedHookForPrediction }))
+      : false;
+    const factoryNonceForPrediction = hookAlreadyDeployed ? currentNonce : currentNonce + 1;
+    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(factoryNonceForPrediction) });
 
     // Hook init code = creationCode ++ encode(PoolManager, predictedFactory, treasury)
     const hookCtor = encodeAbiParameters(
@@ -118,28 +124,36 @@ Deno.serve(async (req) => {
 
     const txHashes: `0x${string}`[] = [];
 
-    // 1. Deploy hook via canonical CREATE2 deployer.
-    //    Calldata = salt(32) || initCode(...).
-    const create2Data = (salt + hookInitCode.slice(2)) as `0x${string}`;
-    const hookTx = await walletClient.sendTransaction({
-      to: CREATE2_DEPLOYER as `0x${string}`,
-      data: create2Data,
-    });
-    const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookTx });
-    if (hookReceipt.status !== "success") return json({ error: "Hook deploy reverted", txHash: hookTx }, 500);
-    txHashes.push(hookTx);
+    // 1. Deploy hook via canonical CREATE2 deployer — SKIP if already on-chain
+    //    (idempotent retry path: previous attempt may have succeeded the CREATE2
+    //    tx but failed the factory tx).
+    const existingHookCode = await publicClient.getBytecode({ address: expectedHook });
+    if (existingHookCode && existingHookCode !== "0x") {
+      console.log(`Hook already deployed at ${expectedHook}, skipping CREATE2 step`);
+    } else {
+      const create2Data = (salt + hookInitCode.slice(2)) as `0x${string}`;
+      const freshNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+      const hookTx = await walletClient.sendTransaction({
+        to: CREATE2_DEPLOYER as `0x${string}`,
+        data: create2Data,
+        nonce: freshNonce,
+      });
+      const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookTx });
+      if (hookReceipt.status !== "success") return json({ error: "Hook deploy reverted", txHash: hookTx }, 500);
+      txHashes.push(hookTx);
 
-    // Verify the hook actually lives at the expected address.
-    const hookCode = await publicClient.getBytecode({ address: expectedHook });
-    if (!hookCode || hookCode === "0x") return json({ error: "Hook bytecode missing at expected address", expectedHook }, 500);
+      const hookCode = await publicClient.getBytecode({ address: expectedHook });
+      if (!hookCode || hookCode === "0x") return json({ error: "Hook bytecode missing at expected address", expectedHook }, 500);
+    }
 
-    // 2. Deploy factory (normal CREATE).
+    // 2. Deploy factory (normal CREATE) with explicit fresh nonce.
     const factoryDeployData = encodeDeployData({
       abi: arts.PopInstantFactory.abi,
       bytecode: arts.PopInstantFactory.bytecode,
       args: [POOL_MANAGER, expectedHook, treasury],
     });
-    const factoryTx = await walletClient.sendTransaction({ data: factoryDeployData });
+    const factoryNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+    const factoryTx = await walletClient.sendTransaction({ data: factoryDeployData, nonce: factoryNonce });
     const factoryReceipt = await publicClient.waitForTransactionReceipt({ hash: factoryTx });
     if (factoryReceipt.status !== "success") return json({ error: "Factory deploy reverted", txHash: factoryTx }, 500);
     if (!factoryReceipt.contractAddress) return json({ error: "Factory address missing in receipt" }, 500);
