@@ -152,7 +152,9 @@ Deno.serve(async (req) => {
       bytecode: arts.PopInstantFactory.bytecode,
       args: [POOL_MANAGER, expectedHook, treasury],
     });
-    const factoryNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
+    // Use confirmed nonce (latest) — "pending" can return stale values right
+    // after a just-confirmed tx on some RPC providers, causing nonce-too-low.
+    const factoryNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "latest" });
     const factoryTx = await walletClient.sendTransaction({ data: factoryDeployData, nonce: factoryNonce });
     const factoryReceipt = await publicClient.waitForTransactionReceipt({ hash: factoryTx });
     if (factoryReceipt.status !== "success") return json({ error: "Factory deploy reverted", txHash: factoryTx }, 500);
