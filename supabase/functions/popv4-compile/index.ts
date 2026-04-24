@@ -140,35 +140,13 @@ async function gatherSources(entries: string[]): Promise<Record<string, { conten
 }
 
 // ── solc loading ─────────────────────────────────────────────────────────
-let solcModule: any = null;
-async function loadSolc(): Promise<any> {
-  if (solcModule) return solcModule;
-  const code = await fetchText(SOLC_URL);
-  if (!code) throw new Error("Failed to download solc binary");
-
-  // solc-js is UMD: it expects either `module.exports` or attaches to global.
-  // We evaluate it inside a sandboxed scope and grab the resulting `Module`.
-  const moduleObj: any = { exports: {} };
-  const exportsObj: any = {};
-  // deno-lint-ignore no-new-func
-  const fn = new Function("module", "exports", "self", code);
-  const selfShim: any = {};
-  fn(moduleObj, exportsObj, selfShim);
-  const compiled = moduleObj.exports?.cwrap ? moduleObj.exports
-                  : selfShim.Module?.cwrap ? selfShim.Module
-                  : moduleObj.exports?.Module ?? exportsObj.Module ?? selfShim.Module;
-  if (!compiled) throw new Error("solc UMD shape unexpected");
-
-  // Wrap with the standard solc-js wrapper API
-  const wrapperUrl = "https://raw.githubusercontent.com/ethereum/solc-js/master/wrapper.ts";
-  // Inline minimal wrapper: we only need compileStandard.
-  const compileStandard = compiled.cwrap("solidity_compile", "string", ["string", "number", "number"]);
-  solcModule = {
-    compile(input: string): string {
-      return compileStandard(input, 0, 0);
-    },
-  };
-  return solcModule;
+function loadSolc(): { compile: (input: string) => string } {
+  const s: any = solc as any;
+  const compile = s.compile ?? s.default?.compile;
+  if (typeof compile !== "function") {
+    throw new Error(`solc shape unexpected: keys=${Object.keys(s).join(",")}`);
+  }
+  return { compile: (input: string) => compile.call(s.default ?? s, input) };
 }
 
 // ── handler ──────────────────────────────────────────────────────────────
