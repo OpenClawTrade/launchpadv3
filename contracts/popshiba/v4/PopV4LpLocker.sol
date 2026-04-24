@@ -35,6 +35,9 @@ interface IERC20Min {
 
 contract PopV4LpLocker is IERC721Receiver {
     address public immutable POSITION_MANAGER;
+    /// @dev Platform admin — can trigger fee claims on behalf of inactive
+    /// creators. Cannot withdraw or redirect funds; split logic is hardcoded.
+    address public immutable PLATFORM_ADMIN;
 
     /// @dev poolId (bytes32) → tokenId of the locked V4 position NFT.
     mapping(bytes32 => uint256) public lockedPosition;
@@ -42,12 +45,14 @@ contract PopV4LpLocker is IERC721Receiver {
     mapping(bytes32 => address) public curveOf;
 
     event Locked(bytes32 indexed poolId, uint256 indexed tokenId, address indexed curve);
-    event FeesClaimed(bytes32 indexed poolId, uint256 eth, uint256 tokens);
+    event FeesClaimed(bytes32 indexed poolId, address indexed caller, uint256 eth, uint256 tokens);
 
     error OnlyPositionManager();
+    error NotAuthorized();
 
-    constructor(address _pm) {
+    constructor(address _pm, address _admin) {
         POSITION_MANAGER = _pm;
+        PLATFORM_ADMIN = _admin;
     }
 
     /// @notice Called by the curve right after the PM mints the LP NFT to us.
@@ -60,12 +65,15 @@ contract PopV4LpLocker is IERC721Receiver {
         emit Locked(poolId, tokenId, curve);
     }
 
-    /// @notice Anyone can trigger an LP fee claim. Fees are swept to the curve
-    /// clone, which then splits 50/50 creator/treasury via existing accruals.
+    /// @notice Trigger LP fee claim. Restricted to the token CREATOR or the
+    /// PLATFORM_ADMIN (per product spec). Funds are always split 50/50
+    /// creator/treasury — caller cannot redirect them, only initiate the sweep.
     function claimFees(bytes32 poolId) external {
         uint256 tokenId = lockedPosition[poolId];
         require(tokenId != 0, "!locked");
         address curve = curveOf[poolId];
+        address creator = ICurveClone(curve).creator();
+        if (msg.sender != creator && msg.sender != PLATFORM_ADMIN) revert NotAuthorized();
 
         uint256 ethBefore = address(this).balance;
         address tokenAddr = ICurveClone(curve).token();
@@ -77,7 +85,6 @@ contract PopV4LpLocker is IERC721Receiver {
         uint256 tokGained = IERC20Min(tokenAddr).balanceOf(address(this)) - tokBefore;
 
         // Split + forward: 50/50 creator/treasury for both legs.
-        address creator = ICurveClone(curve).creator();
         address treasury = ICurveClone(curve).protocolTreasury();
 
         if (ethGained > 0) {
@@ -92,7 +99,7 @@ contract PopV4LpLocker is IERC721Receiver {
             IERC20Min(tokenAddr).transfer(treasury, tokGained - half);
         }
 
-        emit FeesClaimed(poolId, ethGained, tokGained);
+        emit FeesClaimed(poolId, msg.sender, ethGained, tokGained);
     }
 
     function onERC721Received(address, address, uint256, bytes calldata)

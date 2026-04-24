@@ -138,13 +138,20 @@ contract PopBondingHookV4 is BaseHook {
         return BaseHook.beforeAddLiquidity.selector;
     }
 
+    /// @dev LP principal is locked forever, but FEE COLLECTION must remain
+    /// possible. In V4, fees are harvested by calling modifyLiquidity with a
+    /// non-negative liquidityDelta (zero = pure collect, positive = increase).
+    /// We therefore only revert when the caller actually tries to REMOVE
+    /// liquidity (negative delta). This matches Unicurve's behavior: principal
+    /// permanently locked, swap fees claimable forever by creator + treasury.
     function _beforeRemoveLiquidity(
         address,
         PoolKey calldata,
-        ModifyLiquidityParams calldata,
+        ModifyLiquidityParams calldata params,
         bytes calldata
     ) internal pure override returns (bytes4) {
-        revert("LP locked");
+        require(params.liquidityDelta >= 0, "LP principal locked");
+        return BaseHook.beforeRemoveLiquidity.selector;
     }
 
     function _beforeSwap(

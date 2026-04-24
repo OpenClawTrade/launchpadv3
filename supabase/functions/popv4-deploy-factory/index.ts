@@ -132,9 +132,12 @@ Deno.serve(async (req) => {
     const curveReceipt = await publicClient.waitForTransactionReceipt({ hash: curveHash });
     const curveImpl = curveReceipt.contractAddress!;
 
-    // 3. PopV4LpLocker(POSITION_MANAGER)
+    // 3. PopV4LpLocker(POSITION_MANAGER, PLATFORM_ADMIN=treasury)
     const lockerInit = bytecodeOf(LockerArtifact) +
-      encodeAbiParameters([{ type: "address" }], [POSITION_MANAGER as `0x${string}`]).slice(2);
+      encodeAbiParameters(
+        [{ type: "address" }, { type: "address" }],
+        [POSITION_MANAGER as `0x${string}`, treasury]
+      ).slice(2);
     const lockerHash = await walletClient.deployContract({ abi: [], bytecode: lockerInit as `0x${string}` } as any);
     const lockerReceipt = await publicClient.waitForTransactionReceipt({ hash: lockerHash });
     const lpLocker = lockerReceipt.contractAddress!;
