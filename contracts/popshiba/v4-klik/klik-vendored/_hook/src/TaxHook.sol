@@ -15,7 +15,7 @@ interface IFactory {
     function getMarketCap(address tokenAddress) external view returns (uint256 marketCapETH);
 }
 
-contract UniversalKlikHook is BaseHook {
+contract PopKlikHook is BaseHook {
     using PoolIdLibrary for PoolKey;
 
     uint256 public constant BASIS_POINTS_DIVISOR = 10000;
@@ -48,23 +48,8 @@ contract UniversalKlikHook is BaseHook {
     }
 
     function _initDefaultFeeTiers() internal {
-        feeTiers.push(FeeTier(15 ether,   125, 80));
-        feeTiers.push(FeeTier(55 ether,   120, 70));
-        feeTiers.push(FeeTier(90 ether,   115, 60));
-        feeTiers.push(FeeTier(125 ether,  110, 55));
-        feeTiers.push(FeeTier(165 ether,  105, 52));
-        feeTiers.push(FeeTier(365 ether,  100, 50));
-        feeTiers.push(FeeTier(545 ether,   95, 47));
-        feeTiers.push(FeeTier(725 ether,   90, 44));
-        feeTiers.push(FeeTier(910 ether,   85, 41));
-        feeTiers.push(FeeTier(1090 ether,  80, 38));
-        feeTiers.push(FeeTier(1275 ether,  75, 35));
-        feeTiers.push(FeeTier(1450 ether,  70, 33));
-        feeTiers.push(FeeTier(1635 ether,  65, 30));
-        feeTiers.push(FeeTier(1815 ether,  60, 28));
-        feeTiers.push(FeeTier(2000 ether,  55, 27));
-        feeTiers.push(FeeTier(2175 ether,  53, 25));
-        feeTiers.push(FeeTier(0,           35, 15)); // floor — threshold ignored
+        // PopShiba override: single floor tier — 1.00% total, 50/50 split
+        feeTiers.push(FeeTier(0, 100, 50));
     }
 
     // ─── Owner functions ──────────────────────────────────────────────────────
