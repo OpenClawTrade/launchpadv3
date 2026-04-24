@@ -8,11 +8,8 @@ on:
       - '.github/workflows/compile-popshiba-v4.yml'
   workflow_dispatch:
 
-# Make the artifact + run metadata publicly readable so the deploy edge
-# function can fetch the latest compiled JSONs without any auth/secret.
 permissions:
-  contents: read
-  actions: read
+  contents: write   # allow committing built artifacts back to the repo
 
 jobs:
   compile:
@@ -20,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -39,18 +38,23 @@ jobs:
       - name: Compile contracts (viaIR + optimizer)
         run: forge build --use 0.8.26 --names --sizes
 
-      - name: Extract artifacts (ABI + bytecode)
+      - name: Extract artifacts (ABI + bytecode) into repo
         run: |
-          mkdir -p artifacts/v4
+          mkdir -p contracts/popshiba/v4/artifacts
           for name in PopBondingToken PopCurveImpl PopV4LpLocker PopBondingHookV4 PopBondingFactoryV4; do
             jq '{abi: .abi, bytecode: .bytecode.object}' "out/${name}.sol/${name}.json" \
-              > "artifacts/v4/${name}.json"
-            echo "  ✓ ${name}.json ($(wc -c < artifacts/v4/${name}.json) bytes)"
+              > "contracts/popshiba/v4/artifacts/${name}.json"
+            echo "  ✓ ${name}.json ($(wc -c < contracts/popshiba/v4/artifacts/${name}.json) bytes)"
           done
 
-      - name: Publish artifacts (downloadable via GitHub API)
-        uses: actions/upload-artifact@v4
-        with:
-          name: popshiba-v4-artifacts
-          path: artifacts/v4/*.json
-          retention-days: 90
+      - name: Commit artifacts back to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add contracts/popshiba/v4/artifacts/
+          if git diff --staged --quiet; then
+            echo "No artifact changes — skipping commit."
+          else
+            git commit -m "chore(v4): rebuild compiled artifacts [skip ci]"
+            git push
+          fi
