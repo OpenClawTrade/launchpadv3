@@ -24,6 +24,9 @@ import {
 } from "npm:viem@2.21.0";
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
+import PopInstantTokenArtifact from "./artifacts/PopInstantToken.ts";
+import PopInstantHookArtifact from "./artifacts/PopInstantHook.ts";
+import PopInstantFactoryArtifact from "./artifacts/PopInstantFactory.ts";
 
 const ARTIFACT_NAMES = ["PopInstantToken", "PopInstantHook", "PopInstantFactory"] as const;
 type ArtifactName = (typeof ARTIFACT_NAMES)[number];
@@ -37,22 +40,19 @@ const POOL_MANAGER     = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // V4 mai
 const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 const DEFAULT_TREASURY = "0x9FD5f2E480F43320E8F65072A739c941cb5b10B0";
 
-async function loadArtifacts(): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
+const RAW_ARTIFACTS: Record<ArtifactName, any> = {
+  PopInstantToken: PopInstantTokenArtifact,
+  PopInstantHook: PopInstantHookArtifact,
+  PopInstantFactory: PopInstantFactoryArtifact,
+};
+
+function loadArtifacts(): Record<ArtifactName, { abi: any; bytecode: `0x${string}` }> {
   const out: any = {};
   for (const name of ARTIFACT_NAMES) {
-    const url = new URL(`./artifacts/${name}.json`, import.meta.url);
-    let text: string;
-    try {
-      text = await Deno.readTextFile(url);
-    } catch (e) {
-      throw new Error(
-        `Missing compiled artifact ${name}.json. The GitHub Actions workflow ` +
-        `(compile-popshiba-v4-instant.yml) hasn't built it yet — push a change ` +
-        `to contracts/popshiba/v4-instant/*.sol or trigger it manually. ` +
-        `(${e instanceof Error ? e.message : String(e)})`,
-      );
+    const j = RAW_ARTIFACTS[name];
+    if (!j || !j.bytecode || !j.abi) {
+      throw new Error(`Artifact ${name} missing or malformed (no abi/bytecode field).`);
     }
-    const j = JSON.parse(text);
     const bc = j.bytecode as string;
     out[name] = { abi: j.abi, bytecode: (bc.startsWith("0x") ? bc : `0x${bc}`) as `0x${string}` };
   }
