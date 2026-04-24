@@ -18,15 +18,15 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// solc-js bundled by esm.sh — provides the __dirname/require shims that the
+// raw soljson UMD bundle needs to run in Deno.
+import solc from "https://esm.sh/solc@0.8.26?bundle&target=es2022";
 import { V4_SOURCES } from "./sources.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const SOLC_VERSION = "v0.8.26+commit.8a97fa7a";
-const SOLC_URL = `https://binaries.soliditylang.org/bin/soljson-${SOLC_VERSION}.js`;
 
 const REPO_BASE = "https://raw.githubusercontent.com";
 
