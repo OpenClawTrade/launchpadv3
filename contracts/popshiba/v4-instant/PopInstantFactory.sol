@@ -156,10 +156,13 @@ contract PopInstantFactory {
 
     function _executeDevBuy(UnlockCtx memory c, address tokenAddr) internal {
         // Exact-input ETH → token swap. zeroForOne = true (ETH=cur0 → token=cur1).
+        // For zeroForOne swaps the price moves DOWN, so the limit must be the
+        // MIN bound (+1), not MAX. Using MAX_SQRT_PRICE here reverts with
+        // PriceLimitAlreadyExceeded since current sqrtP > limit on entry.
         SwapParams memory sp = SwapParams({
             zeroForOne: true,
             amountSpecified: -int256(c.ethBuy), // negative = exact input
-            sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+            sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
         });
         BalanceDelta swapDelta = poolManager.swap(c.key, sp, "");
         // Settle ETH owed.
