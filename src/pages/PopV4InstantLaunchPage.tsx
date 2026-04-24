@@ -56,6 +56,28 @@ export default function PopV4InstantLaunchPage() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Estimate dev's % of total supply from the atomic initial buy.
+  // LP is seeded single-sided with 961.7M tokens at a starting price
+  // that implies FDV ≈ targetMarketCapEth. For small buys we approximate
+  // the swap with a constant-product curve against virtual reserves
+  // (virtualEth = targetMcapEth, virtualTokens = LP_TOKENS):
+  //   tokensOut = LP * buy / (mcap + buy)
+  // Plus the implicit ~38.3M reserved for the creator at construction.
+  const TOTAL_SUPPLY = 1_000_000_000;
+  const LP_TOKENS = 961_700_000;
+  const CREATOR_RESERVE = TOTAL_SUPPLY - LP_TOKENS; // 38.3M minted to creator
+  const devEstimate = useMemo(() => {
+    const buy = Number(initialBuyEth);
+    const mcap = Number(preset);
+    if (!Number.isFinite(buy) || buy <= 0 || !Number.isFinite(mcap) || mcap <= 0) {
+      return null;
+    }
+    const tokensFromSwap = (LP_TOKENS * buy) / (mcap + buy);
+    const totalDev = CREATOR_RESERVE + tokensFromSwap;
+    const pct = (totalDev / TOTAL_SUPPLY) * 100;
+    return { tokensFromSwap, totalDev, pct };
+  }, [initialBuyEth, preset]);
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase
@@ -189,6 +211,25 @@ export default function PopV4InstantLaunchPage() {
             <div className="text-[10px] text-muted-foreground mt-1 font-mono">
               Min 0.001 ETH · executed atomically against your own LP
             </div>
+            {devEstimate && (
+              <div className="mt-2 rounded border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] font-mono space-y-0.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground uppercase tracking-wider">Your supply at launch</span>
+                  <span className="text-primary font-bold">
+                    {devEstimate.pct.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>≈ tokens received</span>
+                  <span className="text-foreground">
+                    {(devEstimate.totalDev / 1_000_000).toFixed(2)}M / 1B
+                  </span>
+                </div>
+                <div className="text-[9px] text-muted-foreground/70 pt-1">
+                  {(CREATOR_RESERVE / 1_000_000).toFixed(1)}M reserve + ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M from your {initialBuyEth} ETH buy at {preset} ETH FDV
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
