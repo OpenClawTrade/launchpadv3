@@ -222,6 +222,7 @@ contract PopBondingHookV4 is BaseHook {
             curve.getPrice(), curve.curveProgressBps(),
             block.timestamp
         );
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // LP SEED FLOW
