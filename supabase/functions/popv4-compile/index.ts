@@ -76,13 +76,16 @@ async function fetchText(url: string): Promise<string | null> {
   return text;
 }
 
-/** Resolve a Solidity import path → raw URL. Returns null if unknown. */
+/** Resolve a Solidity import path → raw URL. Returns null if unknown.
+ *  We try prefixes longest-first so "@uniswap/v4-core/src/" beats "@uniswap/v4-core/". */
 function resolveImport(path: string): string | null {
   if (path.startsWith("./") || path.startsWith("../")) return null;
-  for (const [prefix, repo] of Object.entries(DEP_REPOS)) {
+  const prefixes = Object.keys(DEP_REPOS).sort((a, b) => b.length - a.length);
+  for (const prefix of prefixes) {
     if (path.startsWith(prefix)) {
+      const repo = DEP_REPOS[prefix];
       const sub = path.slice(prefix.length);
-      return `${REPO_BASE}/${repo.owner}/${repo.repo}/${repo.ref}/${sub}`;
+      return `${REPO_BASE}/${repo.owner}/${repo.repo}/${repo.ref}/${repo.subpath}${sub}`;
     }
   }
   return null;
