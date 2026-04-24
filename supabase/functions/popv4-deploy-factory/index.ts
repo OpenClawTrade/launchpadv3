@@ -191,8 +191,7 @@ Deno.serve(async (req) => {
       }, 500);
     }
 
-    // 6. Persist the deployment record
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // 6. Persist the deployment record (supabase client already created above)
     const { error: dbErr } = await supabase.from("bonding_deployments").insert({
       network: "mainnet-v4",
       deployer: account.address.toLowerCase(),
