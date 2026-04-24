@@ -108,8 +108,17 @@ export default function PopV4InstantLaunchPage() {
     }
 
     setBusy(true);
+    const t0 = performance.now();
+    console.group("%c[V4-Instant] Launch debug", "color:#a3e635;font-weight:bold");
     try {
       // 1. Build calldata server-side.
+      console.log("→ Calling popv4instant-launch with:", {
+        creator: evmWallet.address,
+        name: name.trim(),
+        symbol: symbol.trim().toUpperCase(),
+        initialBuyEth,
+        targetMarketCapEth: preset,
+      });
       const { data, error } = await supabase.functions.invoke("popv4instant-launch", {
         body: {
           creator: evmWallet.address,
@@ -121,30 +130,82 @@ export default function PopV4InstantLaunchPage() {
       });
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error((data as any).error);
-      const tx = data as LaunchTx;
+      const tx = data as LaunchTx & { sqrtPriceX96?: string; tickLower?: number; tickUpper?: number; valueWei?: string };
 
-      // 2. Sign + send via Privy.
+      console.log("← Edge function response:", tx);
+      console.log("  to (factory):", tx.to);
+      console.log("  hook:", tx.hook);
+      console.log("  value (wei):", BigInt(tx.value).toString(), `(${(Number(BigInt(tx.value)) / 1e18).toFixed(6)} ETH)`);
+      console.log("  calldata bytes:", (tx.data.length - 2) / 2);
+      console.log("  sqrtPriceX96:", tx.sqrtPriceX96);
+      console.log("  tickLower / tickUpper:", tx.tickLower, "/", tx.tickUpper);
+
+      // 2. Switch chain + get provider.
       await evmWallet.switchChain(1);
       const provider = await evmWallet.getEthereumProvider();
+
+      // 3. Pre-flight: estimate gas + fetch live fee data so user can see why
+      //    MetaMask shows the price it does. All RPC calls go through their
+      //    injected provider so they hit the same node MM uses.
+      console.log("⛽ Fetching gas/fee data…");
+      const txReq = { from: evmWallet.address, to: tx.to, data: tx.data, value: tx.value };
+      const [gasHex, gasPriceHex, feeHistory, balanceHex, chainIdHex] = await Promise.all([
+        provider.request({ method: "eth_estimateGas", params: [txReq] }).catch((e: any) => {
+          console.error("  ❌ eth_estimateGas reverted:", e);
+          return null;
+        }),
+        provider.request({ method: "eth_gasPrice", params: [] }).catch(() => null),
+        provider.request({ method: "eth_feeHistory", params: ["0x5", "latest", [25, 50, 75]] }).catch(() => null),
+        provider.request({ method: "eth_getBalance", params: [evmWallet.address, "latest"] }),
+        provider.request({ method: "eth_chainId", params: [] }),
+      ]) as [string | null, string | null, any, string, string];
+
+      const gas = gasHex ? BigInt(gasHex) : null;
+      const gasPrice = gasPriceHex ? BigInt(gasPriceHex) : null;
+      const balance = BigInt(balanceHex);
+      const value = BigInt(tx.value);
+      const baseFeeWei = feeHistory?.baseFeePerGas?.[feeHistory.baseFeePerGas.length - 1]
+        ? BigInt(feeHistory.baseFeePerGas[feeHistory.baseFeePerGas.length - 1])
+        : null;
+
+      const fmtGwei = (w: bigint | null) => (w == null ? "n/a" : (Number(w) / 1e9).toFixed(2) + " gwei");
+      const fmtEth = (w: bigint) => (Number(w) / 1e18).toFixed(6) + " ETH";
+
+      console.log("  chainId:", parseInt(chainIdHex, 16), "(expect 1)");
+      console.log("  est. gas units:", gas?.toString() ?? "ESTIMATE FAILED — tx will likely revert");
+      console.log("  current gas price:", fmtGwei(gasPrice));
+      console.log("  current base fee:  ", fmtGwei(baseFeeWei));
+      if (gas && gasPrice) {
+        const gasCost = gas * gasPrice;
+        const total = gasCost + value;
+        console.log("  → est. gas cost:   ", fmtEth(gasCost));
+        console.log("  → tx value (buy):  ", fmtEth(value));
+        console.log("  → TOTAL DEBIT:     ", fmtEth(total));
+        console.log("  → wallet balance:  ", fmtEth(balance));
+        console.log("  → enough?          ", balance >= total ? "✅ yes" : `❌ short by ${fmtEth(total - balance)}`);
+        if (gasPrice > 50_000_000_000n) {
+          console.warn(`  ⚠️ Mainnet gas price is ${fmtGwei(gasPrice)} — this is what's making MetaMask show a high fee, NOT us. We send no gas params.`);
+        }
+      }
+      console.log("📤 Sending tx (no custom gas — MM picks fee tier)…");
+
       const hash = await provider.request({
         method: "eth_sendTransaction",
-        params: [{
-          from: evmWallet.address,
-          to: tx.to,
-          data: tx.data,
-          value: tx.value,
-        }],
+        params: [txReq],
       }) as string;
 
+      console.log("✅ Submitted:", hash, `(${((performance.now() - t0) / 1000).toFixed(1)}s)`);
       setTxHash(hash);
       toast.success("Launch tx submitted!", {
         description: "Indexer will pick it up within ~60s.",
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.error("❌ Launch failed:", e);
       setErr(msg);
       toast.error("Launch failed", { description: msg });
     } finally {
+      console.groupEnd();
       setBusy(false);
     }
   }
