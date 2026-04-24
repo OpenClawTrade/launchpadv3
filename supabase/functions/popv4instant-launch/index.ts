@@ -21,27 +21,30 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Out-of-range single-sided LP. tickSpacing=200 in the factory, so ticks
-// must be multiples of 200. Range fully ABOVE current tick → token-only.
-// Per-preset tickLower (just above the implied initial tick) and a fixed
-// tickUpper near MAX_TICK rounded to spacing.
-const TICK_UPPER = 887000;
-const LP_TOKENS = 1_000_000_000n;  // matches PopInstantFactory.LP_TOKENS / 1e18 (Klik-parity: 100% to LP)
+// Single-sided token-only LP. tickSpacing=200; pool starts at `initialTick`,
+// LP placed in [tickLower, tickUpper] STRICTLY BELOW initialTick so the
+// position is fully in currency1 (token). Dev buy = zeroForOne (ETH→token)
+// moves price DOWN, crossing from initialTick into the LP range and filling
+// the order. Critical: tickUpper MUST be < initialTick (not equal), or the
+// swap starts already in-range from the wrong side and gets 0 fill.
+const TICK_LOWER = -887000;            // price floor (≈ 0)
+const TICK_SPACING = 200;
+const LP_TOKENS = 1_000_000_000n;       // matches PopInstantFactory.LP_TOKENS / 1e18
 
-// Map UI presets → starting sqrtPriceX96 + tickLower.
-//
-// Pool currency0 = ETH (0x0), currency1 = token (both 18 decimals). Price at
-// sqrtP encodes tokens-per-ETH = (sqrtP/2^96)^2.  We want
-//   FDV_eth = TOTAL_SUPPLY / price  =>  price = 1e9 / FDV_eth.
-// With 1B tokens deposited above the initial tick, the LP curve realizes
-// roughly that valuation as buys consume the range upward.
-function presetParams(targetMcapEth: number): { sqrtPriceX96: bigint; tickLower: number } {
-  const table: Record<string, { sqrtPriceX96: bigint; tickLower: number }> = {
-    "0.69": { sqrtPriceX96: 3016164599597434889666621244321452n, tickLower: 211000 },
-    "1":    { sqrtPriceX96: 2505414483750479311864138015696063n, tickLower: 207400 },
-    "2":    { sqrtPriceX96: 1771595571142957102961017161607260n, tickLower: 200400 },
-    "5":    { sqrtPriceX96: 1120455419495722798374638764549163n, tickLower: 191200 },
-    "10":   { sqrtPriceX96:  792281625142643375935439503360000n, tickLower: 184400 },
+// Preset → initialTick. sqrtPriceX96 = sqrtPriceAtTick(initialTick).
+// Target FDV (ETH) ≈ 1e9 / price, where price = 1.0001^initialTick.
+//   FDV=0.69  → tick≈211072 → 211000
+//   FDV=1     → tick≈207243 → 207200
+//   FDV=2     → tick≈200312 → 200200
+//   FDV=5     → tick≈191150 → 191000
+//   FDV=10    → tick≈184219 → 184200
+function presetParams(targetMcapEth: number): { sqrtPriceX96: bigint; initialTick: number } {
+  const table: Record<string, { sqrtPriceX96: bigint; initialTick: number }> = {
+    "0.69": { sqrtPriceX96: 3016164599597434889666621244321452n, initialTick: 211000 },
+    "1":    { sqrtPriceX96: 2505414483750479311864138015696063n, initialTick: 207400 },
+    "2":    { sqrtPriceX96: 1771595571142957102961017161607260n, initialTick: 200400 },
+    "5":    { sqrtPriceX96: 1120455419495722798374638764549163n, initialTick: 191200 },
+    "10":   { sqrtPriceX96:  792281625142643375935439503360000n, initialTick: 184400 },
   };
   const k = String(targetMcapEth);
   const v = table[k];
@@ -79,7 +82,10 @@ Deno.serve(async (req) => {
     if (depErr) throw depErr;
     if (!dep) return json({ error: "No active V4-Instant deployment. Run popv4instant-deploy first." }, 503);
 
-    const { sqrtPriceX96, tickLower } = presetParams(Number(targetMarketCapEth));
+    const { sqrtPriceX96, initialTick } = presetParams(Number(targetMarketCapEth));
+    // tickUpper must be < initialTick so position is single-sided in token.
+    const tickUpper = initialTick - TICK_SPACING;
+    const tickLower = TICK_LOWER;
 
     const data = encodeFunctionData({
       abi: FACTORY_ABI,
@@ -89,7 +95,7 @@ Deno.serve(async (req) => {
         symbol,
         sqrtPriceX96,
         tickLower,
-        tickUpper: TICK_UPPER,
+        tickUpper,
       }],
     });
 
@@ -101,8 +107,9 @@ Deno.serve(async (req) => {
       valueWei: valueWei.toString(),
       hook: dep.hook_address,
       sqrtPriceX96: sqrtPriceX96.toString(),
+      initialTick,
       tickLower,
-      tickUpper: TICK_UPPER,
+      tickUpper,
       lpTokens: LP_TOKENS.toString(),
       preset: { targetMarketCapEth },
       creator,
