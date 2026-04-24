@@ -16,14 +16,12 @@ import { toast } from "sonner";
 import { Loader2, Rocket, ExternalLink, ShieldCheck, Zap } from "lucide-react";
 import { LaunchpadLayout } from "@/components/layout/LaunchpadLayout";
 
-type Preset = "0.69" | "1" | "2" | "5" | "10";
-
 interface LaunchTx {
   to: `0x${string}`;
   data: `0x${string}`;
   value: `0x${string}`;
   hook: string;
-  preset: { targetMarketCapEth: number };
+  configId: number;
 }
 
 interface ActiveDeployment {
@@ -31,13 +29,9 @@ interface ActiveDeployment {
   factory_address: string;
 }
 
-const PRESETS: { value: Preset; label: string; sub: string }[] = [
-  { value: "0.69", label: "0.69 ETH", sub: "Cheapest entry · max upside" },
-  { value: "1",    label: "1 ETH",    sub: "Round number · easy mental model" },
-  { value: "2",    label: "2 ETH",    sub: "Mid · most common Klik-style" },
-  { value: "5",    label: "5 ETH",    sub: "Premium · serious launches" },
-  { value: "10",   label: "10 ETH",   sub: "Maxi · institutional vibe" },
-];
+// Klik-parity: configId=0 baked into the factory uses virtualAmount = 1 ETH
+// against 1B tokens single-sided LP. FDV at launch ≈ 1 ETH. Not user-tunable.
+const KLIK_VIRTUAL_ETH = 1;
 
 export default function PopV4InstantLaunchPage() {
   const { wallets } = useWallets();
@@ -51,29 +45,32 @@ export default function PopV4InstantLaunchPage() {
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   const [initialBuyEth, setInitialBuyEth] = useState("0.005");
-  const [preset, setPreset] = useState<Preset>("1");
   const [busy, setBusy] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Estimate dev's % of total supply from the atomic initial buy.
-  // Klik-parity: 100% of supply seeded single-sided to the LP, no creator
-  // pre-mint. Dev only receives what their atomic ETH→token swap returns.
-  // CPMM approximation against virtual reserves
-  // (virtualEth = targetMcapEth, virtualTokens = LP_TOKENS):
-  //   tokensOut = LP * buy / (mcap + buy)
+  // Klik-parity dev estimate: 100% of supply in LP, no premint. Apply Klik's
+  // anti-sniper penalty curve (basePenalty * penaltyMultiplier/100, where
+  // penaltyMultiplier=50 → halved):
+  //   <0.05 ETH  → 0%
+  //   0.05–0.30  → linear ramp 5%→50% basePenalty (×0.5 → 2.5%→25%)
+  //   ≥0.30 ETH  → 25% effective tax (cap)
+  // Then CPMM against virtualEth=1, virtualTokens=1B:
+  //   tokensOut = LP * buyAfterTax / (1 + buyAfterTax)
   const TOTAL_SUPPLY = 1_000_000_000;
   const LP_TOKENS = 1_000_000_000;
   const devEstimate = useMemo(() => {
     const buy = Number(initialBuyEth);
-    const mcap = Number(preset);
-    if (!Number.isFinite(buy) || buy <= 0 || !Number.isFinite(mcap) || mcap <= 0) {
-      return null;
-    }
-    const tokensFromSwap = (LP_TOKENS * buy) / (mcap + buy);
+    if (!Number.isFinite(buy) || buy <= 0) return null;
+    let basePenaltyBps = 0;
+    if (buy >= 0.30) basePenaltyBps = 5000;
+    else if (buy >= 0.05) basePenaltyBps = 500 + ((buy - 0.05) * 18000);
+    const taxBps = (basePenaltyBps * 50) / 100;
+    const buyAfterTax = buy * (1 - taxBps / 10000);
+    const tokensFromSwap = (LP_TOKENS * buyAfterTax) / (KLIK_VIRTUAL_ETH + buyAfterTax);
     const pct = (tokensFromSwap / TOTAL_SUPPLY) * 100;
-    return { tokensFromSwap, totalDev: tokensFromSwap, pct };
-  }, [initialBuyEth, preset]);
+    return { tokensFromSwap, totalDev: tokensFromSwap, pct, taxBps };
+  }, [initialBuyEth]);
 
   useEffect(() => {
     (async () => {
