@@ -150,7 +150,7 @@ contract PopKlikFactory is ReentrancyGuard {
         require(deployCoinEnabled, "Token deployment is currently disabled");
         require(configId < liquidityConfigCount, "Invalid liquidity config ID");
         
-        Token t = new Token{salt: salt}(
+        PopKlikToken t = new PopKlikToken{salt: salt}(
             _name,
             _symbol,
             msg.sender,
