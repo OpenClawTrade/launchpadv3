@@ -151,31 +151,14 @@ async function gatherSources(entries: string[]): Promise<Record<string, { conten
 let solcModule: any = null;
 async function loadSolc(): Promise<any> {
   if (solcModule) return solcModule;
-  const code = await fetchText(SOLC_URL);
-  if (!code) throw new Error("Failed to download solc binary");
-
-  // solc-js is UMD: it expects either `module.exports` or attaches to global.
-  // We evaluate it inside a sandboxed scope and grab the resulting `Module`.
-  const moduleObj: any = { exports: {} };
-  const exportsObj: any = {};
-  // deno-lint-ignore no-new-func
-  const fn = new Function("module", "exports", "self", code);
-  const selfShim: any = {};
-  fn(moduleObj, exportsObj, selfShim);
-  const compiled = moduleObj.exports?.cwrap ? moduleObj.exports
-                  : selfShim.Module?.cwrap ? selfShim.Module
-                  : moduleObj.exports?.Module ?? exportsObj.Module ?? selfShim.Module;
-  if (!compiled) throw new Error("solc UMD shape unexpected");
-
-  // Wrap with the standard solc-js wrapper API
-  const wrapperUrl = "https://raw.githubusercontent.com/ethereum/solc-js/master/wrapper.ts";
-  // Inline minimal wrapper: we only need compileStandard.
-  const compileStandard = compiled.cwrap("solidity_compile", "string", ["string", "number", "number"]);
-  solcModule = {
-    compile(input: string): string {
-      return compileStandard(input, 0, 0);
-    },
-  };
+  // Dynamic import of npm:solc — Deno polyfills Node globals (__dirname etc).
+  const mod: any = await import(SOLC_PKG);
+  // npm:solc default-exports the wrapped compiler with .compile(input) → JSON string.
+  const solc = mod.default ?? mod;
+  if (typeof solc.compile !== "function") {
+    throw new Error("npm:solc loaded but .compile() is missing");
+  }
+  solcModule = solc;
   return solcModule;
 }
 
