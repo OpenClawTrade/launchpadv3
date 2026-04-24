@@ -180,43 +180,48 @@ contract PopBondingHookV4 is BaseHook {
             uint256 fee = (amountIn * 100) / 10000;
             uint256 tokensOut = _quoteBuy(curveAddr, amountIn);
             require(tokensOut > 0, "0 out");
-
             bool didGraduate = curve.applyBuy(amountIn, tokensOut, fee);
-            uint256 cFee = (fee * 5000) / 10000;
-
-            emit Trade(
-                curve.token(), swapper, true,
-                amountIn, tokensOut, fee, cFee, fee - cFee,
-                curve.realEthReserves(), curve.realTokenReserves(),
-                curve.getPrice(), curve.curveProgressBps(),
-                block.timestamp
-            );
+            _emitTrade(curve, swapper, true, amountIn, tokensOut, fee);
             if (didGraduate) emit Graduated(curve.token(), curve.realEthReserves(), 207_142_857e18);
-
-            int128 specDelta = int128(int256(amountIn));
-            int128 unspecDelta = -int128(int256(tokensOut));
-            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(specDelta, unspecDelta), 0);
+            return (
+                BaseHook.beforeSwap.selector,
+                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(tokensOut))),
+                0
+            );
         } else {
             uint256 ethGross = _grossEthOnSell(curveAddr, amountIn);
             uint256 fee = (ethGross * 100) / 10000;
             uint256 ethOut = ethGross - fee;
             require(ethOut > 0, "0 out");
-
             curve.applySell(amountIn, ethGross, fee);
-            uint256 cFee = (fee * 5000) / 10000;
-
-            emit Trade(
-                curve.token(), swapper, false,
-                ethGross, amountIn, fee, cFee, fee - cFee,
-                curve.realEthReserves(), curve.realTokenReserves(),
-                curve.getPrice(), curve.curveProgressBps(),
-                block.timestamp
+            _emitTrade(curve, swapper, false, ethGross, amountIn, fee);
+            return (
+                BaseHook.beforeSwap.selector,
+                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(ethOut))),
+                0
             );
-
-            int128 specDelta = int128(int256(amountIn));
-            int128 unspecDelta = -int128(int256(ethOut));
-            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(specDelta, unspecDelta), 0);
         }
+    }
+
+    /// @dev Stack-too-deep workaround: emit `Trade` from a helper so the
+    /// 13-argument event doesn't exhaust the swap function's stack frame.
+    /// Compiled WITHOUT --via-ir to fit the edge-runtime memory budget.
+    function _emitTrade(
+        ICurveCloneRW curve,
+        address swapper,
+        bool isBuy,
+        uint256 ethAmount,
+        uint256 tokenAmount,
+        uint256 fee
+    ) private {
+        uint256 cFee = (fee * 5000) / 10000;
+        emit Trade(
+            curve.token(), swapper, isBuy,
+            ethAmount, tokenAmount, fee, cFee, fee - cFee,
+            curve.realEthReserves(), curve.realTokenReserves(),
+            curve.getPrice(), curve.curveProgressBps(),
+            block.timestamp
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -253,85 +258,90 @@ contract PopBondingHookV4 is BaseHook {
     }
 
     /// @dev V4 unlock callback. Only PoolManager may call.
+    // Stack-too-deep workaround: bundle locals into a struct so the
+    // outer function uses one slot instead of ~12. Required because we
+    // compile WITHOUT --via-ir to fit inside the edge-runtime memory budget.
+    struct SeedCtx {
+        PoolId pid;
+        address curveAddr;
+        address tokenAddr;
+        address locker;
+        uint256 ethAmt;
+        uint256 tokenAmt;
+    }
+
     function unlockCallback(bytes calldata raw) external returns (bytes memory) {
         require(msg.sender == address(poolManager), "auth");
-        (PoolId pid, address curveAddr, uint256 ethAmt, uint256 tokenAmt) =
+        SeedCtx memory ctx;
+        (ctx.pid, ctx.curveAddr, ctx.ethAmt, ctx.tokenAmt) =
             abi.decode(raw, (PoolId, address, uint256, uint256));
+        ICurveCloneRW curve = ICurveCloneRW(ctx.curveAddr);
+        ctx.tokenAddr = curve.token();
+        ctx.locker    = curve.lpLocker();
 
-        ICurveCloneRW curve = ICurveCloneRW(curveAddr);
-        address tokenAddr = curve.token();
-        address locker = curve.lpLocker();
+        (uint128 liquidity, BalanceDelta delta) = _mintLockedPosition(ctx, curve);
+        _settleSeedLegs(ctx, delta);
 
-        // Reconstruct PoolKey from curve state.
+        // Register the lock so the locker can later call `claimFees` against it.
+        ILockerRegister(ctx.locker).registerLock(PoolId.unwrap(ctx.pid), uint256(uint160(ctx.locker)), ctx.curveAddr);
+        // Hand off back to curve: clear reserves + unlock transfers.
+        curve.clearReservesAfterSeed();
+        emit LpSeeded(ctx.pid, ctx.locker, liquidity, ctx.ethAmt, ctx.tokenAmt);
+        return "";
+    }
+
+    /// @dev Mints the full-range LP position. Split out so its stack locals
+    /// don't bleed into `unlockCallback`.
+    function _mintLockedPosition(SeedCtx memory ctx, ICurveCloneRW curve)
+        private
+        returns (uint128 liquidity, BalanceDelta delta)
+    {
         PoolKey memory key = PoolKey({
             currency0: Currency.wrap(address(0)),
-            currency1: Currency.wrap(tokenAddr),
+            currency1: Currency.wrap(ctx.tokenAddr),
             fee: curve.poolFee(),
             tickSpacing: curve.tickSpacing(),
             hooks: this
         });
-
-        // Compute full-range liquidity from current pool sqrtPrice.
-        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(pid);
+        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(ctx.pid);
         int24 tickLower = (TickMath.MIN_TICK / curve.tickSpacing()) * curve.tickSpacing();
         int24 tickUpper = (TickMath.MAX_TICK / curve.tickSpacing()) * curve.tickSpacing();
-
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
+        liquidity = LiquidityAmounts.getLiquidityForAmounts(
             sqrtPriceX96,
             TickMath.getSqrtPriceAtTick(tickLower),
             TickMath.getSqrtPriceAtTick(tickUpper),
-            ethAmt,
-            tokenAmt
+            ctx.ethAmt,
+            ctx.tokenAmt
         );
-
-        // Mint full-range position owned by the locker, salted by poolId so
-        // ownership is unique per token. Locker has no remove-liquidity path
-        // (blocked at hook level) → effectively permanent lock.
-        (BalanceDelta delta, ) = poolManager.modifyLiquidity(
+        (delta, ) = poolManager.modifyLiquidity(
             key,
             ModifyLiquidityParams({
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 liquidityDelta: int256(uint256(liquidity)),
-                salt: PoolId.unwrap(pid)
+                salt: PoolId.unwrap(ctx.pid)
             }),
             ""
         );
+    }
 
-        // Settle both legs. Negative delta = we owe the pool.
+    /// @dev Pays both currency legs back to the PoolManager.
+    function _settleSeedLegs(SeedCtx memory ctx, BalanceDelta delta) private {
         int128 d0 = delta.amount0();
         int128 d1 = delta.amount1();
-
-        // ETH leg (currency0)
         if (d0 < 0) {
             uint256 owed = uint256(uint128(-d0));
-            // Pull ETH from the curve clone via a hook-only drain hook.
-            // Curve must implement: drainEthToHook(uint256) onlyHook.
-            (bool ok, ) = curveAddr.call(
-                abi.encodeWithSignature("drainEthToHook(uint256)", owed)
-            );
+            (bool ok, ) = ctx.curveAddr.call(abi.encodeWithSignature("drainEthToHook(uint256)", owed));
             require(ok, "eth drain");
             poolManager.settle{value: owed}();
         }
-        // Token leg (currency1)
         if (d1 < 0) {
             uint256 owed = uint256(uint128(-d1));
-            // Curve approved hook for LP_TOKENS in seedLockedLP().
-            IERC20Min(tokenAddr).transferFrom(curveAddr, address(this), owed);
-            poolManager.sync(Currency.wrap(tokenAddr));
-            IERC20Min(tokenAddr).transfer(address(poolManager), owed);
+            IERC20Min(ctx.tokenAddr).transferFrom(ctx.curveAddr, address(this), owed);
+            poolManager.sync(Currency.wrap(ctx.tokenAddr));
+            IERC20Min(ctx.tokenAddr).transfer(address(poolManager), owed);
             poolManager.settle();
         }
-
-        // Register the lock so the locker can later call `claimFees` against it.
-        // The locker stores curve+poolId mapping for fee splits.
-        ILockerRegister(locker).registerLock(PoolId.unwrap(pid), uint256(uint160(locker)), curveAddr);
-
-        // Hand off back to curve: clear reserves + unlock transfers.
-        curve.clearReservesAfterSeed();
-
-        emit LpSeeded(pid, locker, liquidity, ethAmt, tokenAmt);
-        return "";
     }
 
     // ── Pure curve math ──

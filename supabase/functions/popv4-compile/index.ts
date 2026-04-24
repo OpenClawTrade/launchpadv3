@@ -18,8 +18,8 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// solc-js bundled for the browser by esm.sh — ships its own __dirname/require
-// shims so it works in Deno without the npm: allowlist.
+// solc-js bundled by esm.sh — provides the __dirname/require shims that the
+// raw soljson UMD bundle needs to run in Deno.
 import solc from "https://esm.sh/solc@0.8.26?bundle&target=es2022";
 import { V4_SOURCES } from "./sources.ts";
 
@@ -28,22 +28,11 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// solc-js loaded via npm: — Deno's compat layer handles the __dirname/require
-// that the raw soljson UMD bundle expects. Pinned to 0.8.26 (matches v4 repos).
-const SOLC_PKG = "npm:solc@^0.8.26";
-
 const REPO_BASE = "https://raw.githubusercontent.com";
 
-// Dependency remappings → GitHub raw URL prefix.
-// Each entry: import-prefix → { owner, repo, ref, subpath }
-//   final URL = REPO_BASE/owner/repo/ref/subpath + (importPath without prefix)
-//
-// IMPORTANT: order matters — longest prefixes win (we sort by length in resolveImport).
-// For repos that have both `src/...` and `test/...` at the root (v4-core, v4-periphery),
-// we map the *bare* package name to the repo root so `@uniswap/v4-core/test/...` and
-// `@uniswap/v4-core/src/...` both resolve correctly. We also keep an explicit
-// `@uniswap/v4-core/contracts/` → `src/` shim because some older code uses npm-style
-// `contracts/` paths.
+// Dependency remappings → GitHub raw URL prefix. Longest prefix wins (sorted in resolveImport).
+// Some repos (v4-core, v4-periphery) have BOTH src/ and test/ at the root, so the bare prefix
+// maps to "" subpath; explicit `/contracts/` prefixes are kept for npm-style import paths.
 const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string; subpath: string }> = {
   "@uniswap/v4-core/contracts/":      { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "src/" },
   "@uniswap/v4-core/":                { owner: "Uniswap", repo: "v4-core",      ref: "main",   subpath: "" },
@@ -80,7 +69,7 @@ async function fetchText(url: string): Promise<string | null> {
 }
 
 /** Resolve a Solidity import path → raw URL. Returns null if unknown.
- *  We try prefixes longest-first so "@uniswap/v4-core/src/" beats "@uniswap/v4-core/". */
+ *  Tries longest prefixes first so "@uniswap/v4-core/src/" beats "@uniswap/v4-core/". */
 function resolveImport(path: string): string | null {
   if (path.startsWith("./") || path.startsWith("../")) return null;
   const prefixes = Object.keys(DEP_REPOS).sort((a, b) => b.length - a.length);
@@ -188,8 +177,9 @@ Deno.serve(async (req) => {
       language: "Solidity",
       sources,
       settings: {
+        // viaIR is disabled to fit inside the 256MB edge-runtime memory budget.
+        // Bytecode is ~5-10% larger than viaIR output but functionally identical.
         optimizer: { enabled: true, runs: 200 },
-        viaIR: true,
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
     };
