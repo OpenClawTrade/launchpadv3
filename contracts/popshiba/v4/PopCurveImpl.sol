@@ -30,7 +30,7 @@ contract PopCurveImpl {
     uint256 public constant LP_TOKENS            = TOTAL_SUPPLY - CURVE_TOKENS;
     uint256 public constant VIRTUAL_ETH          = 1.06 ether;
     uint256 public constant VIRTUAL_TOKENS       = 1_073_000_000e18;
-    uint256 public constant GRADUATION_THRESHOLD = 3 ether;
+    uint256 public constant GRADUATION_THRESHOLD = 0.1 ether; // TESTNET-SAFE CAP — raise to 3 ether for prod
     uint16  public constant FEE_BPS              = 100;
     uint16  public constant CREATOR_SHARE_BPS    = 5000;
     uint16  public constant PROTOCOL_SHARE_BPS   = 5000;
