@@ -216,7 +216,7 @@ export default function PopV4InstantLaunchPage() {
           <h1 className="text-3xl font-bold tracking-tight">Launch with real liquidity from block 0</h1>
           <p className="text-sm text-muted-foreground mt-2">
             No bonding curve, no graduation. Single-sided LP on Uniswap V4 + your dev buy execute atomically.
-            Flat <span className="text-foreground font-semibold">1.25% fee</span> · split 50/50 creator / treasury.
+            Flat <span className="text-foreground font-semibold">1.00% fee</span> · split 50/50 creator / treasury.
           </p>
         </div>
 
