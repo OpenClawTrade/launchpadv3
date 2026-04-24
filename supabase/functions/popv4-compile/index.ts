@@ -25,8 +25,9 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SOLC_VERSION = "v0.8.26+commit.8a97fa7a";
-const SOLC_URL = `https://binaries.soliditylang.org/bin/soljson-${SOLC_VERSION}.js`;
+// solc-js loaded via npm: — Deno's compat layer handles the __dirname/require
+// that the raw soljson UMD bundle expects. Pinned to 0.8.26 (matches v4 repos).
+const SOLC_PKG = "npm:solc@0.8.26";
 
 const REPO_BASE = "https://raw.githubusercontent.com";
 
