@@ -114,7 +114,6 @@ export default function PopV4InstantLaunchPage() {
         name: name.trim(),
         symbol: symbol.trim().toUpperCase(),
         initialBuyEth,
-        targetMarketCapEth: preset,
       });
       const { data, error } = await supabase.functions.invoke("popv4instant-launch", {
         body: {
@@ -122,7 +121,6 @@ export default function PopV4InstantLaunchPage() {
           name: name.trim(),
           symbol: symbol.trim().toUpperCase(),
           initialBuyEth,
-          targetMarketCapEth: preset,
         },
       });
       if (error) throw new Error(error.message);
@@ -281,35 +279,13 @@ export default function PopV4InstantLaunchPage() {
                   </span>
                 </div>
                 <div className="text-[9px] text-muted-foreground/70 pt-1">
-                  100% supply seeded to LP · your {initialBuyEth} ETH buys ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M tokens at {preset} ETH FDV
+                  100% supply in LP · your {initialBuyEth} ETH buys ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M tokens at 1 ETH virtual FDV
+                  {devEstimate.taxBps > 0 && (
+                    <> · anti-snipe tax: {(devEstimate.taxBps / 100).toFixed(2)}%</>
+                  )}
                 </div>
               </div>
             )}
-          </div>
-
-          <div>
-            <label className="text-xs font-mono uppercase text-muted-foreground mb-2 block">
-              Starting Virtual Market Cap
-            </label>
-            <div className="grid grid-cols-5 gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setPreset(p.value)}
-                  className={`px-2 py-2 rounded border text-xs font-mono transition-colors ${
-                    preset === p.value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-1.5 font-mono">
-              {PRESETS.find((p) => p.value === preset)?.sub}
-            </div>
           </div>
 
           <button
