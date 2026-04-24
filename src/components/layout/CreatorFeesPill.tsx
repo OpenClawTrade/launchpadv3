@@ -8,7 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClaimableCreatorFees } from "@/hooks/useClaimableCreatorFees";
 
 export function CreatorFeesPill() {
-  const { address } = useAccount();
+  // useAccount throws if no WagmiProvider is mounted on this route (e.g. the
+  // standalone /popv4instant/deploy admin console). Swallow that case so the
+  // pill simply hides instead of crashing the whole page.
+  let address: `0x${string}` | undefined;
+  try {
+    address = useAccount().address;
+  } catch {
+    return null;
+  }
   const { totalEth, totalWei, tokens, refetch } = useClaimableCreatorFees(address);
   const [claiming, setClaiming] = useState(false);
 
