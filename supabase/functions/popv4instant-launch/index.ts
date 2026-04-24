@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
     if (depErr) throw depErr;
     if (!dep) return json({ error: "No active V4-Instant deployment. Run popv4instant-deploy first." }, 503);
 
-    const sqrtPriceX96 = sqrtPriceForPreset(Number(targetMarketCapEth));
+    const { sqrtPriceX96, tickLower } = presetParams(Number(targetMarketCapEth));
 
     const data = encodeFunctionData({
       abi: FACTORY_ABI,
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         name,
         symbol,
         sqrtPriceX96,
-        tickLower: TICK_LOWER,
+        tickLower,
         tickUpper: TICK_UPPER,
       }],
     });
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
       valueWei: valueWei.toString(),
       hook: dep.hook_address,
       sqrtPriceX96: sqrtPriceX96.toString(),
-      tickLower: TICK_LOWER,
+      tickLower,
       tickUpper: TICK_UPPER,
       lpTokens: LP_TOKENS.toString(),
       preset: { targetMarketCapEth },
