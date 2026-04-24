@@ -77,12 +77,18 @@ Deno.serve(async (req) => {
 
     const arts = loadArtifacts();
 
-    // The factory will be deployed AFTER the hook (CREATE2). Predict its
-    // CREATE address using (deployer, currentNonce+0) since the hook isn't
-    // a CREATE deploy from this account. Wait — CREATE2 via the canonical
-    // deployer doesn't bump our nonce. So the factory will be at nonce N.
+    // The factory is deployed AFTER the hook. The hook deploy is a tx FROM
+    // our deployer TO the CREATE2 deployer, which DOES bump our nonce by 1.
+    // So the factory CREATE happens at nonce = currentNonce + 1.
+    // (If the hook is already on-chain from a prior partial run, it doesn't
+    // get redeployed and the factory uses currentNonce instead — handled below.)
     const currentNonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(currentNonce) });
+    const expectedHookForPrediction = (body.hookAddress as `0x${string}` | undefined);
+    const hookAlreadyDeployed = expectedHookForPrediction
+      ? !!(await publicClient.getBytecode({ address: expectedHookForPrediction }))
+      : false;
+    const factoryNonceForPrediction = hookAlreadyDeployed ? currentNonce : currentNonce + 1;
+    const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(factoryNonceForPrediction) });
 
     // Hook init code = creationCode ++ encode(PoolManager, predictedFactory, treasury)
     const hookCtor = encodeAbiParameters(
