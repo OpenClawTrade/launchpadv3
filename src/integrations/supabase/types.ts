@@ -8378,6 +8378,180 @@ export type Database = {
         }
         Relationships: []
       }
+      popv4instant_deployments: {
+        Row: {
+          created_at: string
+          deploy_tx_hashes: string[]
+          deployed_at: string
+          deployer: string
+          factory_address: string
+          hook_address: string
+          hook_salt: string
+          id: string
+          is_active: boolean
+          network: string
+          treasury_address: string
+        }
+        Insert: {
+          created_at?: string
+          deploy_tx_hashes?: string[]
+          deployed_at?: string
+          deployer: string
+          factory_address: string
+          hook_address: string
+          hook_salt: string
+          id?: string
+          is_active?: boolean
+          network: string
+          treasury_address: string
+        }
+        Update: {
+          created_at?: string
+          deploy_tx_hashes?: string[]
+          deployed_at?: string
+          deployer?: string
+          factory_address?: string
+          hook_address?: string
+          hook_salt?: string
+          id?: string
+          is_active?: boolean
+          network?: string
+          treasury_address?: string
+        }
+        Relationships: []
+      }
+      popv4instant_fees_ledger: {
+        Row: {
+          block_number: number | null
+          created_at: string
+          creator_share: number
+          eth_amount: number
+          event_type: string
+          fee_in_eth: boolean
+          id: string
+          log_index: number | null
+          recipient: string | null
+          token_address: string
+          token_amount: number
+          total_fee: number
+          treasury_share: number
+          tx_hash: string
+        }
+        Insert: {
+          block_number?: number | null
+          created_at?: string
+          creator_share?: number
+          eth_amount?: number
+          event_type: string
+          fee_in_eth?: boolean
+          id?: string
+          log_index?: number | null
+          recipient?: string | null
+          token_address: string
+          token_amount?: number
+          total_fee?: number
+          treasury_share?: number
+          tx_hash: string
+        }
+        Update: {
+          block_number?: number | null
+          created_at?: string
+          creator_share?: number
+          eth_amount?: number
+          event_type?: string
+          fee_in_eth?: boolean
+          id?: string
+          log_index?: number | null
+          recipient?: string | null
+          token_address?: string
+          token_amount?: number
+          total_fee?: number
+          treasury_share?: number
+          tx_hash?: string
+        }
+        Relationships: []
+      }
+      popv4instant_tokens: {
+        Row: {
+          block_number: number | null
+          created_at: string
+          creator_wallet: string
+          description: string | null
+          id: string
+          image_url: string | null
+          initial_buy_eth: number
+          last_trade_at: string | null
+          launch_tx_hash: string
+          market_cap_usd: number | null
+          name: string
+          pool_id: string
+          sqrt_price_x96: string
+          symbol: string
+          telegram_url: string | null
+          tick_lower: number
+          tick_upper: number
+          token_address: string
+          tokens_to_creator: number
+          total_trades: number
+          twitter_url: string | null
+          updated_at: string
+          volume_eth: number
+          website_url: string | null
+        }
+        Insert: {
+          block_number?: number | null
+          created_at?: string
+          creator_wallet: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          initial_buy_eth?: number
+          last_trade_at?: string | null
+          launch_tx_hash: string
+          market_cap_usd?: number | null
+          name: string
+          pool_id: string
+          sqrt_price_x96: string
+          symbol: string
+          telegram_url?: string | null
+          tick_lower: number
+          tick_upper: number
+          token_address: string
+          tokens_to_creator?: number
+          total_trades?: number
+          twitter_url?: string | null
+          updated_at?: string
+          volume_eth?: number
+          website_url?: string | null
+        }
+        Update: {
+          block_number?: number | null
+          created_at?: string
+          creator_wallet?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          initial_buy_eth?: number
+          last_trade_at?: string | null
+          launch_tx_hash?: string
+          market_cap_usd?: number | null
+          name?: string
+          pool_id?: string
+          sqrt_price_x96?: string
+          symbol?: string
+          telegram_url?: string | null
+          tick_lower?: number
+          tick_upper?: number
+          token_address?: string
+          tokens_to_creator?: number
+          total_trades?: number
+          twitter_url?: string | null
+          updated_at?: string
+          volume_eth?: number
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       post_hashtags: {
         Row: {
           created_at: string | null
