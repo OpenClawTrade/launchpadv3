@@ -38,8 +38,10 @@ interface ICurveCloneRW {
 }
 
 interface IERC20Min {
+    function transfer(address, uint256) external returns (bool);
     function transferFrom(address, address, uint256) external returns (bool);
     function approve(address, uint256) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
 }
 
 interface ILockerRegister {
