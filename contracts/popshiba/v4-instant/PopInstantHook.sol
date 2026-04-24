@@ -125,8 +125,11 @@ contract PopInstantHook is BaseHook {
         return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
-    /// @dev Take 1.5% of the input side post-swap. We use afterSwapReturnDelta
-    /// to ask the PoolManager to credit the hook with the fee amount.
+    /// @dev Take 1.25% of the OUTPUT side post-swap. afterSwap's returned
+    /// int128 applies to the UNSPECIFIED currency (= output currency for
+    /// exact-input swaps). The fee currency must match — otherwise PM ends
+    /// the unlock with an unsettled non-zero delta on the input currency
+    /// (CurrencyNotSettled revert).
     function _afterSwap(
         address,
         PoolKey calldata key,
@@ -138,44 +141,42 @@ contract PopInstantHook is BaseHook {
         address token = tokenOf[pid];
         if (token == address(0)) return (BaseHook.afterSwap.selector, int128(0));
 
-        // The "input" is whichever side is negative on the user delta.
-        // We collect 1.5% of the absolute input as our hook fee.
         bool zeroForOne = params.zeroForOne;
         bool ethIsZero = (Currency.unwrap(key.currency0) == address(0));
-        bool feeInEth = (zeroForOne && ethIsZero) || (!zeroForOne && !ethIsZero);
 
-        int128 inputDelta = zeroForOne ? delta.amount0() : delta.amount1();
-        // amountSpecified < 0 = exact-input; for our single-direction model,
-        // input delta will be negative on the user side, meaning the pool
-        // *received* that much. Take fee on the absolute value.
-        if (inputDelta >= 0) return (BaseHook.afterSwap.selector, int128(0));
-        uint256 absIn = uint256(uint128(-inputDelta));
-        uint256 fee = (absIn * 125) / 10_000; // 1.25% flat — see contract header
+        // Output is the OPPOSITE side of input. For zeroForOne, output is currency1.
+        int128 outputDelta = zeroForOne ? delta.amount1() : delta.amount0();
+        if (outputDelta <= 0) return (BaseHook.afterSwap.selector, int128(0));
+        uint256 absOut = uint256(uint128(outputDelta));
+        uint256 fee = (absOut * 125) / 10_000; // 1.25% of output
         if (fee == 0) return (BaseHook.afterSwap.selector, int128(0));
+
+        // Fee currency = output currency.
+        // ethIsOutput = (zeroForOne ? !ethIsZero : ethIsZero) — but currency0 is
+        // always the lower address, so ETH (0x0) is always currency0 → output is
+        // ETH only when !zeroForOne. Compute generically:
+        bool feeInEth = zeroForOne ? false : ethIsZero;
+        address feeCurrency = feeInEth ? address(0) : token;
 
         uint256 creatorShare = fee / 2;
         uint256 treasuryShare = fee - creatorShare;
 
+        poolManager.take(Currency.wrap(feeCurrency), address(this), fee);
         if (feeInEth) {
-            poolManager.take(Currency.wrap(address(0)), address(this), fee);
             creatorEthOwed[token]  += creatorShare;
             treasuryEthOwed[token] += treasuryShare;
             lifetimeCreatorEth[token]  += creatorShare;
             lifetimeTreasuryEth[token] += treasuryShare;
         } else {
-            poolManager.take(Currency.wrap(token), address(this), fee);
             creatorTokenOwed[token]  += creatorShare;
             treasuryTokenOwed[token] += treasuryShare;
         }
 
         emit FeeAccrued(token, feeInEth, fee, creatorShare, treasuryShare);
 
-        // Returning a positive int128 on the *input* currency tells the PM
-        // to expect that much LESS to be settled by the swap router (because
-        // we already took it). Side selection: amountSpecified is the input
-        // for exact-input swaps; afterSwap expects delta on the unspecified
-        // currency when amountSpecified < 0, which equals the *input* side
-        // in our setup. We simply return the fee; PM nets it.
+        // Return positive delta on UNSPECIFIED currency (= output side for
+        // exact-input). PM debits the swap output by `fee`, so the user
+        // receives (output - fee) and the hook keeps `fee`.
         return (BaseHook.afterSwap.selector, int128(uint128(fee)));
     }
 
