@@ -41,20 +41,23 @@ jobs:
 
       - name: Extract artifacts (Foundry JSON -> TS modules)
         run: |
-          mkdir -p supabase/functions/popv4klik-deploy/artifacts
+          # Emit into the existing popv4instant-deploy/artifacts folder so the
+          # already-wired edge functions / DB tables / routes keep working —
+          # we are swapping the underlying contract implementation, not
+          # creating a parallel deploy pipeline.
+          mkdir -p supabase/functions/popv4instant-deploy/artifacts
           for c in PopKlikToken PopKlikHook PopKlikFactory; do
             jq '{abi, bytecode: .bytecode.object, deployedBytecode: .deployedBytecode.object}' \
               "out-v4-klik/${c}.sol/${c}.json" \
-              > "supabase/functions/popv4klik-deploy/artifacts/${c}.json"
-            # Wrap as TS so Deno bundler picks it up
-            echo "export default $(cat supabase/functions/popv4klik-deploy/artifacts/${c}.json) as const;" \
-              > "supabase/functions/popv4klik-deploy/artifacts/${c}.ts"
+              > "supabase/functions/popv4instant-deploy/artifacts/${c}.json"
+            echo "export default $(cat supabase/functions/popv4instant-deploy/artifacts/${c}.json) as const;" \
+              > "supabase/functions/popv4instant-deploy/artifacts/${c}.ts"
           done
 
       - name: Commit artifacts
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add supabase/functions/popv4klik-deploy/artifacts/
+          git add supabase/functions/popv4instant-deploy/artifacts/
           git diff --staged --quiet || git commit -m "ci: rebuild v4-klik artifacts"
           git push || true
