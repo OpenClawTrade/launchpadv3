@@ -162,45 +162,48 @@ contract PopBondingHookV4 is BaseHook {
         SwapParams calldata params,
         bytes calldata
     ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
-        PoolId pid = key.toId();
-        address curveAddr = curveOf[pid];
+        address curveAddr = curveOf[key.toId()];
         if (curveAddr == address(0)) revert NotInitialized();
         ICurveCloneRW curve = ICurveCloneRW(curveAddr);
 
         if (curve.realEthReserves() == 0 && curve.realTokenReserves() == 0) {
             return (BaseHook.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
-
-        bool ethIs0 = Currency.unwrap(key.currency0) == address(0);
-        bool inputIsEth = (params.zeroForOne == ethIs0);
         if (params.amountSpecified >= 0) revert ExactOutUnsupported();
+
+        bool inputIsEth = (params.zeroForOne == (Currency.unwrap(key.currency0) == address(0)));
         uint256 amountIn = uint256(-params.amountSpecified);
 
-        if (inputIsEth) {
-            uint256 fee = (amountIn * 100) / 10000;
-            uint256 tokensOut = _quoteBuy(curveAddr, amountIn);
-            require(tokensOut > 0, "0 out");
-            bool didGraduate = curve.applyBuy(amountIn, tokensOut, fee);
-            _emitTrade(curve, swapper, true, amountIn, tokensOut, fee);
-            if (didGraduate) emit Graduated(curve.token(), curve.realEthReserves(), 207_142_857e18);
-            return (
-                BaseHook.beforeSwap.selector,
-                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(tokensOut))),
-                0
-            );
-        } else {
-            uint256 ethGross = _grossEthOnSell(curveAddr, amountIn);
-            uint256 fee = (ethGross * 100) / 10000;
-            uint256 ethOut = ethGross - fee;
-            require(ethOut > 0, "0 out");
-            curve.applySell(amountIn, ethGross, fee);
-            _emitTrade(curve, swapper, false, ethGross, amountIn, fee);
-            return (
-                BaseHook.beforeSwap.selector,
-                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(ethOut))),
-                0
-            );
-        }
+        BeforeSwapDelta d = inputIsEth
+            ? _handleBuy(curve, curveAddr, swapper, amountIn)
+            : _handleSell(curve, swapper, amountIn);
+        return (BaseHook.beforeSwap.selector, d, 0);
+    }
+
+    function _handleBuy(ICurveCloneRW curve, address curveAddr, address swapper, uint256 amountIn)
+        private
+        returns (BeforeSwapDelta)
+    {
+        uint256 fee = (amountIn * 100) / 10000;
+        uint256 tokensOut = _quoteBuy(curveAddr, amountIn);
+        require(tokensOut > 0, "0 out");
+        bool didGraduate = curve.applyBuy(amountIn, tokensOut, fee);
+        _emitTrade(curve, swapper, true, amountIn, tokensOut, fee);
+        if (didGraduate) emit Graduated(curve.token(), curve.realEthReserves(), 207_142_857e18);
+        return toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(tokensOut)));
+    }
+
+    function _handleSell(ICurveCloneRW curve, address swapper, uint256 amountIn)
+        private
+        returns (BeforeSwapDelta)
+    {
+        uint256 ethGross = _grossEthOnSell(address(curve), amountIn);
+        uint256 fee = (ethGross * 100) / 10000;
+        uint256 ethOut = ethGross - fee;
+        require(ethOut > 0, "0 out");
+        curve.applySell(amountIn, ethGross, fee);
+        _emitTrade(curve, swapper, false, ethGross, amountIn, fee);
+        return toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(ethOut)));
     }
 
     /// @dev Stack-too-deep workaround: emit `Trade` from a helper so the
