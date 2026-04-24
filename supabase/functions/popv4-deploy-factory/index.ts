@@ -30,11 +30,18 @@ import {
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
 
-import TokenArtifact from "./artifacts/PopBondingToken.json" with { type: "json" };
-import CurveArtifact from "./artifacts/PopCurveImpl.json" with { type: "json" };
-import LockerArtifact from "./artifacts/PopV4LpLocker.json" with { type: "json" };
-import HookArtifact from "./artifacts/PopBondingHookV4.json" with { type: "json" };
-import FactoryArtifact from "./artifacts/PopBondingFactoryV4.json" with { type: "json" };
+// Artifacts are now compiled server-side by `popv4-compile` and persisted in
+// the `contract-artifacts` storage bucket. This avoids requiring users to run
+// Foundry locally and ensures bytecode always matches the latest .sol source.
+const ARTIFACT_BUCKET = "contract-artifacts";
+const ARTIFACT_NAMES = [
+  "PopBondingToken",
+  "PopCurveImpl",
+  "PopV4LpLocker",
+  "PopBondingHookV4",
+  "PopBondingFactoryV4",
+] as const;
+type ArtifactName = (typeof ARTIFACT_NAMES)[number];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -45,14 +52,22 @@ const POOL_MANAGER     = "0x000000000004444c5dc75cB358380D2e3dE08A90"; // V4 mai
 const POSITION_MANAGER = "0xbD216513d74C8cf14cf4747E6AaA6420FF64ee9e"; // V4 mainnet
 const DEFAULT_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
-// CREATE2 deployer (canonical, deployed pre-EIP-155 at the same address on every chain).
-// We use this so we can deploy the hook at our mined address without writing
-// our own factory contract.
 const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 
-function bytecodeOf(a: any): `0x${string}` {
-  const b = (a.bytecode?.object ?? a.bytecode) as string;
-  return (b.startsWith("0x") ? b : `0x${b}`) as `0x${string}`;
+async function loadArtifacts(supabase: any): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
+  const out: any = {};
+  for (const name of ARTIFACT_NAMES) {
+    const { data, error } = await supabase.storage.from(ARTIFACT_BUCKET).download(`v4/${name}.json`);
+    if (error || !data) throw new Error(`Missing artifact ${name} — run popv4-compile first.`);
+    const json = JSON.parse(await data.text());
+    const bc = json.bytecode as string;
+    out[name] = { abi: json.abi, bytecode: (bc.startsWith("0x") ? bc : `0x${bc}`) as `0x${string}` };
+  }
+  return out;
+}
+
+function bytecodeOf(a: { bytecode: `0x${string}` }): `0x${string}` {
+  return a.bytecode;
 }
 
 Deno.serve(async (req) => {
