@@ -95,9 +95,8 @@ Deno.serve(async (req) => {
     const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
-    // Load artifacts from storage (compiled by popv4-compile)
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const arts = await loadArtifacts(supabase);
+    // Load artifacts from GitHub (built by Actions workflow on every contract push)
+    const arts = await loadArtifacts();
 
     const balance = await publicClient.getBalance({ address: account.address });
     const startNonce = await publicClient.getTransactionCount({ address: account.address });
