@@ -161,7 +161,7 @@ export default function PopV4InstantLaunchPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="PopShiba Coin"
                 maxLength={48}
-                className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm"
+                className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <div>
@@ -171,7 +171,7 @@ export default function PopV4InstantLaunchPage() {
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                 placeholder="POP"
                 maxLength={11}
-                className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm uppercase"
+                className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm text-foreground placeholder:text-muted-foreground uppercase"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function PopV4InstantLaunchPage() {
               min="0.001"
               value={initialBuyEth}
               onChange={(e) => setInitialBuyEth(e.target.value)}
-              className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm"
+              className="w-full mt-1 px-3 py-2 bg-background border border-border rounded text-sm text-foreground placeholder:text-muted-foreground"
             />
             <div className="text-[10px] text-muted-foreground mt-1 font-mono">
               Min 0.001 ETH · executed atomically against your own LP
