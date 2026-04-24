@@ -56,6 +56,28 @@ export default function PopV4InstantLaunchPage() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // Estimate dev's % of total supply from the atomic initial buy.
+  // LP is seeded single-sided with 961.7M tokens at a starting price
+  // that implies FDV ≈ targetMarketCapEth. For small buys we approximate
+  // the swap with a constant-product curve against virtual reserves
+  // (virtualEth = targetMcapEth, virtualTokens = LP_TOKENS):
+  //   tokensOut = LP * buy / (mcap + buy)
+  // Plus the implicit ~38.3M reserved for the creator at construction.
+  const TOTAL_SUPPLY = 1_000_000_000;
+  const LP_TOKENS = 961_700_000;
+  const CREATOR_RESERVE = TOTAL_SUPPLY - LP_TOKENS; // 38.3M minted to creator
+  const devEstimate = useMemo(() => {
+    const buy = Number(initialBuyEth);
+    const mcap = Number(preset);
+    if (!Number.isFinite(buy) || buy <= 0 || !Number.isFinite(mcap) || mcap <= 0) {
+      return null;
+    }
+    const tokensFromSwap = (LP_TOKENS * buy) / (mcap + buy);
+    const totalDev = CREATOR_RESERVE + tokensFromSwap;
+    const pct = (totalDev / TOTAL_SUPPLY) * 100;
+    return { tokensFromSwap, totalDev, pct };
+  }, [initialBuyEth, preset]);
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase
