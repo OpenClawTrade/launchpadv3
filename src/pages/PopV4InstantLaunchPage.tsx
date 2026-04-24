@@ -327,7 +327,7 @@ export default function PopV4InstantLaunchPage() {
           </div>
           <ul className="text-muted-foreground space-y-0.5 list-disc pl-5">
             <li>Deploy your ERC20 (1B fixed supply, no mint, no transfer tax)</li>
-            <li>Create a Uniswap V4 pool ETH/{symbol || "TOKEN"} (fee=0, hook handles 1.25%)</li>
+            <li>Create a Uniswap V4 pool ETH/{symbol || "TOKEN"} (fee=0, hook handles 1.00%)</li>
             <li>Seed 100% of supply (1B tokens) single-sided LP (no ETH from you for liquidity)</li>
             <li>Execute your initial buy as the first swap → tokens to your wallet</li>
             <li>Register pool with the singleton hook so trades pay you fees forever</li>
