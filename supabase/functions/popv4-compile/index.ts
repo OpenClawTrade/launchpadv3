@@ -151,18 +151,13 @@ async function gatherSources(entries: string[]): Promise<Record<string, { conten
 }
 
 // ── solc loading ─────────────────────────────────────────────────────────
-let solcModule: any = null;
-async function loadSolc(): Promise<any> {
-  if (solcModule) return solcModule;
-  // Dynamic import of npm:solc — Deno polyfills Node globals (__dirname etc).
-  const mod: any = await import(SOLC_PKG);
-  // npm:solc default-exports the wrapped compiler with .compile(input) → JSON string.
-  const solc = mod.default ?? mod;
-  if (typeof solc.compile !== "function") {
-    throw new Error("npm:solc loaded but .compile() is missing");
+function loadSolc(): { compile: (input: string) => string } {
+  const s: any = solc as any;
+  const compile = s.compile ?? s.default?.compile;
+  if (typeof compile !== "function") {
+    throw new Error(`solc shape unexpected: keys=${Object.keys(s).join(",")}`);
   }
-  solcModule = solc;
-  return solcModule;
+  return { compile: (input: string) => compile.call(s.default ?? s, input) };
 }
 
 // ── handler ──────────────────────────────────────────────────────────────
