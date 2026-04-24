@@ -1,0 +1,66 @@
+name: Compile PopShiba V4 contracts
+
+on:
+  push:
+    paths:
+      - 'contracts/popshiba/v4/**.sol'
+      - 'foundry.toml'
+      - '.github/workflows/compile-popshiba-v4.yml'
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Solidity dependencies
+        run: |
+          mkdir -p lib
+          git clone --depth=1 https://github.com/Uniswap/v4-core lib/v4-core
+          git clone --depth=1 https://github.com/Uniswap/v4-periphery lib/v4-periphery
+          git clone --depth=1 -b master https://github.com/OpenZeppelin/uniswap-hooks lib/uniswap-hooks
+          git clone --depth=1 -b master https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
+          git clone --depth=1 https://github.com/foundry-rs/forge-std lib/forge-std
+          git clone --depth=1 https://github.com/transmissions11/solmate lib/solmate
+
+      - name: Compile contracts (viaIR + optimizer)
+        run: forge build --use 0.8.26 --names --sizes
+
+      - name: Extract artifacts (ABI + bytecode)
+        run: |
+          mkdir -p artifacts/v4
+          for name in PopBondingToken PopCurveImpl PopV4LpLocker PopBondingHookV4 PopBondingFactoryV4; do
+            jq '{abi: .abi, bytecode: .bytecode.object}' "out/${name}.sol/${name}.json" \
+              > "artifacts/v4/${name}.json"
+            echo "  ✓ ${name}.json ($(wc -c < artifacts/v4/${name}.json) bytes)"
+          done
+
+      - name: Upload artifacts to Lovable Cloud storage
+        env:
+          SUPABASE_URL: https://ptwytypavumcrbofspno.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          for f in artifacts/v4/*.json; do
+            name=$(basename "$f")
+            echo "Uploading $name..."
+            curl -sS -X POST \
+              "${SUPABASE_URL}/storage/v1/object/contract-artifacts/v4/${name}?upsert=true" \
+              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+              -H "Content-Type: application/json" \
+              --data-binary "@${f}" | head -c 500
+            echo ""
+          done
+
+      - name: Upload artifacts as workflow output
+        uses: actions/upload-artifact@v4
+        with:
+          name: popshiba-v4-artifacts
+          path: artifacts/v4/*.json
+          retention-days: 90
