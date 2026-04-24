@@ -55,7 +55,7 @@ interface IWETH {
     function withdraw(uint256 amount) external;
 }
 
-contract Factory is ReentrancyGuard {
+contract PopKlikFactory is ReentrancyGuard {
     event ERC20TokenCreated(address tokenAddress);
 
     struct TokenInfo {
@@ -73,7 +73,7 @@ contract Factory is ReentrancyGuard {
     mapping(address => TokenInfo) public tokenInfoByAddress;
     uint256 public tokenCount = 0;
     address public platformController;
-    address public klikHook; // Universal hook for all tokens (can be updated)
+    address public popHook; // Universal hook for all tokens (can be updated)
     uint256 private itemsPerPage = 250; // Configurable items per page for pagination
     
     // Mapping to store token addresses by creator/deployer
@@ -117,11 +117,11 @@ contract Factory is ReentrancyGuard {
     uint256 public liquidityConfigCount = 0;
 
     event TokenPurchased(address buyer, address tokenOut, uint256 ethSpent, uint256 tokensReceived);
-    event KlikHookUpdated(address oldHook, address newHook);
+    event PopHookUpdated(address oldHook, address newHook);
 
     constructor(address _klikHook) {
         platformController = msg.sender;
-        klikHook = _klikHook;
+        popHook = _klikHook;
         
         // Initialize default liquidity configuration (ID: 0)
         // Values for 1 ETH virtual liquidity with full token supply
@@ -137,11 +137,11 @@ contract Factory is ReentrancyGuard {
         liquidityConfigCount = 1;
     }
 
-    function setKlikHook(address _newHook) external {
+    function setPopHook(address _newHook) external {
         require(msg.sender == platformController, "Caller is not controller");
-        address oldHook = klikHook;
-        klikHook = _newHook;
-        emit KlikHookUpdated(oldHook, _newHook);
+        address oldHook = popHook;
+        popHook = _newHook;
+        emit PopHookUpdated(oldHook, _newHook);
     }
 
     receive() external payable {}
@@ -207,7 +207,7 @@ contract Factory is ReentrancyGuard {
 
         deployedTokens[currentTokenCount] = newTokenInfo;
         tokenInfoByAddress[coin_address] = newTokenInfo;
-        tokenHook[coin_address] = klikHook;
+        tokenHook[coin_address] = popHook;
 
         // Add token to creator's array
         creatorTokens[msg.sender].push(coin_address);
@@ -411,7 +411,7 @@ contract Factory is ReentrancyGuard {
             currency1: Currency.wrap(address(tokenA)), // Token is always currency1
             fee: 0,
             tickSpacing: 200,
-            hooks: IHooks(klikHook) // Use universal hook
+            hooks: IHooks(popHook) // Use universal hook
         });
 
         poolManager.initialize(pool, config.sqrtPriceX96);
@@ -477,7 +477,7 @@ contract Factory is ReentrancyGuard {
             currency1: Currency.wrap(tokenAddress), // New token
             fee: 0,
             tickSpacing: 200,
-            hooks: IHooks(klikHook) // Use universal hook
+            hooks: IHooks(popHook) // Use universal hook
         });
 
         // Encode the Universal Router command
@@ -539,12 +539,12 @@ contract Factory is ReentrancyGuard {
         require(msg.sender == platformController, "Only platform controller can change creator"); // Updating Fee Receiver
         require(newCreator != address(0), "New creator cannot be zero address");
         
-        Token(payable(tokenAddress)).changeCreator(newCreator);
+        PopKlikToken(payable(tokenAddress)).changeCreator(newCreator);
     }
 
     function getTokenPrice(address tokenAddress) public view returns (bytes32 poolIdBytes, uint160 sqrtPrice, uint256 calculatedPrice, uint256 marketCapETH) {
         // Create PoolKey for ETH/Token pool
-        address hook = tokenHook[tokenAddress] != address(0) ? tokenHook[tokenAddress] : klikHook;
+        address hook = tokenHook[tokenAddress] != address(0) ? tokenHook[tokenAddress] : popHook;
         PoolKey memory poolKey = PoolKey({
             currency0: Currency.wrap(address(0)), // ETH
             currency1: Currency.wrap(tokenAddress), // Token
@@ -598,7 +598,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract Token is ERC20, ERC20Burnable {
+contract PopKlikToken is ERC20, ERC20Burnable {
     address public platform;
     address public creator;
     address private _owner;
