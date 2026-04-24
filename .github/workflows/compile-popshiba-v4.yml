@@ -8,12 +8,17 @@ on:
       - '.github/workflows/compile-popshiba-v4.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write   # allow committing built artifacts back to the repo
+
 jobs:
   compile:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -33,34 +38,23 @@ jobs:
       - name: Compile contracts (viaIR + optimizer)
         run: forge build --use 0.8.26 --names --sizes
 
-      - name: Extract artifacts (ABI + bytecode)
+      - name: Extract artifacts (ABI + bytecode) into edge function dir
         run: |
-          mkdir -p artifacts/v4
+          mkdir -p supabase/functions/popv4-deploy-factory/artifacts
           for name in PopBondingToken PopCurveImpl PopV4LpLocker PopBondingHookV4 PopBondingFactoryV4; do
             jq '{abi: .abi, bytecode: .bytecode.object}' "out/${name}.sol/${name}.json" \
-              > "artifacts/v4/${name}.json"
-            echo "  ✓ ${name}.json ($(wc -c < artifacts/v4/${name}.json) bytes)"
+              > "supabase/functions/popv4-deploy-factory/artifacts/${name}.json"
+            echo "  ✓ ${name}.json ($(wc -c < supabase/functions/popv4-deploy-factory/artifacts/${name}.json) bytes)"
           done
 
-      - name: Upload artifacts to Lovable Cloud storage
-        env:
-          SUPABASE_URL: https://ptwytypavumcrbofspno.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Commit artifacts back to repo
         run: |
-          for f in artifacts/v4/*.json; do
-            name=$(basename "$f")
-            echo "Uploading $name..."
-            curl -sS -X POST \
-              "${SUPABASE_URL}/storage/v1/object/contract-artifacts/v4/${name}?upsert=true" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -H "Content-Type: application/json" \
-              --data-binary "@${f}" | head -c 500
-            echo ""
-          done
-
-      - name: Upload artifacts as workflow output
-        uses: actions/upload-artifact@v4
-        with:
-          name: popshiba-v4-artifacts
-          path: artifacts/v4/*.json
-          retention-days: 90
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/popv4-deploy-factory/artifacts/
+          if git diff --staged --quiet; then
+            echo "No artifact changes — skipping commit."
+          else
+            git commit -m "chore(v4): rebuild compiled artifacts [skip ci]"
+            git push
+          fi

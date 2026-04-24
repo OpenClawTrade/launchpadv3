@@ -30,10 +30,10 @@ import {
 import { privateKeyToAccount } from "npm:viem@2.21.0/accounts";
 import { mainnet } from "npm:viem@2.21.0/chains";
 
-// Artifacts are now compiled server-side by `popv4-compile` and persisted in
-// the `contract-artifacts` storage bucket. This avoids requiring users to run
-// Foundry locally and ensures bytecode always matches the latest .sol source.
-const ARTIFACT_BUCKET = "contract-artifacts";
+// Artifacts are compiled by GitHub Actions (.github/workflows/compile-popshiba-v4.yml)
+// using Foundry with viaIR + optimizer. The workflow commits the resulting JSONs
+// directly into ./artifacts/ next to this file. They ship inside the deployed
+// edge function bundle, so reads are zero-network and zero-secret.
 const ARTIFACT_NAMES = [
   "PopBondingToken",
   "PopCurveImpl",
@@ -54,12 +54,22 @@ const DEFAULT_TREASURY = "0xF3298F1d7779f41f87B3ac8f610F3637611a2EAe";
 
 const CREATE2_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C";
 
-async function loadArtifacts(supabase: any): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
+async function loadArtifacts(): Promise<Record<ArtifactName, { abi: any; bytecode: `0x${string}` }>> {
   const out: any = {};
   for (const name of ARTIFACT_NAMES) {
-    const { data, error } = await supabase.storage.from(ARTIFACT_BUCKET).download(`v4/${name}.json`);
-    if (error || !data) throw new Error(`Missing artifact ${name} — run popv4-compile first.`);
-    const json = JSON.parse(await data.text());
+    const url = new URL(`./artifacts/${name}.json`, import.meta.url);
+    let text: string;
+    try {
+      text = await Deno.readTextFile(url);
+    } catch (e) {
+      throw new Error(
+        `Missing compiled artifact ${name}.json. ` +
+        `The GitHub Actions workflow hasn't built it yet — push a change to ` +
+        `contracts/popshiba/v4/*.sol or trigger "Compile PopShiba V4 contracts" manually. ` +
+        `(${e instanceof Error ? e.message : String(e)})`,
+      );
+    }
+    const json = JSON.parse(text);
     const bc = json.bytecode as string;
     out[name] = { abi: json.abi, bytecode: (bc.startsWith("0x") ? bc : `0x${bc}`) as `0x${string}` };
   }
@@ -86,9 +96,8 @@ Deno.serve(async (req) => {
     const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
-    // Load artifacts from storage (compiled by popv4-compile)
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const arts = await loadArtifacts(supabase);
+    // Load artifacts from GitHub (built by Actions workflow on every contract push)
+    const arts = await loadArtifacts();
 
     const balance = await publicClient.getBalance({ address: account.address });
     const startNonce = await publicClient.getTransactionCount({ address: account.address });
