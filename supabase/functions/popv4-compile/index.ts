@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Compile.
-    const solc = await loadSolc();
+    const solc = loadSolc();
     const input = {
       language: "Solidity",
       sources,
