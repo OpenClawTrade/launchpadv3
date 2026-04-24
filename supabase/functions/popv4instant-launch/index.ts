@@ -25,7 +25,7 @@ const cors = {
 // must be multiples of 200. Range fully ABOVE current tick → token-only.
 const TICK_LOWER = 200;
 const TICK_UPPER = 887000;       // near MAX_TICK, rounded to spacing
-const LP_TOKENS = 961_700_000n;  // matches PopInstantFactory.LP_TOKENS / 1e18
+const LP_TOKENS = 1_000_000_000n;  // matches PopInstantFactory.LP_TOKENS / 1e18 (Klik-parity: 100% to LP)
 
 // Map UI presets → starting sqrtPriceX96.
 //

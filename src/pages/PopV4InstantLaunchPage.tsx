@@ -57,15 +57,13 @@ export default function PopV4InstantLaunchPage() {
   const [err, setErr] = useState<string | null>(null);
 
   // Estimate dev's % of total supply from the atomic initial buy.
-  // LP is seeded single-sided with 961.7M tokens at a starting price
-  // that implies FDV ≈ targetMarketCapEth. For small buys we approximate
-  // the swap with a constant-product curve against virtual reserves
+  // Klik-parity: 100% of supply seeded single-sided to the LP, no creator
+  // pre-mint. Dev only receives what their atomic ETH→token swap returns.
+  // CPMM approximation against virtual reserves
   // (virtualEth = targetMcapEth, virtualTokens = LP_TOKENS):
   //   tokensOut = LP * buy / (mcap + buy)
-  // Plus the implicit ~38.3M reserved for the creator at construction.
   const TOTAL_SUPPLY = 1_000_000_000;
-  const LP_TOKENS = 961_700_000;
-  const CREATOR_RESERVE = TOTAL_SUPPLY - LP_TOKENS; // 38.3M minted to creator
+  const LP_TOKENS = 1_000_000_000;
   const devEstimate = useMemo(() => {
     const buy = Number(initialBuyEth);
     const mcap = Number(preset);
@@ -73,9 +71,8 @@ export default function PopV4InstantLaunchPage() {
       return null;
     }
     const tokensFromSwap = (LP_TOKENS * buy) / (mcap + buy);
-    const totalDev = CREATOR_RESERVE + tokensFromSwap;
-    const pct = (totalDev / TOTAL_SUPPLY) * 100;
-    return { tokensFromSwap, totalDev, pct };
+    const pct = (tokensFromSwap / TOTAL_SUPPLY) * 100;
+    return { tokensFromSwap, totalDev: tokensFromSwap, pct };
   }, [initialBuyEth, preset]);
 
   useEffect(() => {
@@ -226,7 +223,7 @@ export default function PopV4InstantLaunchPage() {
                   </span>
                 </div>
                 <div className="text-[9px] text-muted-foreground/70 pt-1">
-                  {(CREATOR_RESERVE / 1_000_000).toFixed(1)}M reserve + ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M from your {initialBuyEth} ETH buy at {preset} ETH FDV
+                  100% supply seeded to LP · your {initialBuyEth} ETH buys ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M tokens at {preset} ETH FDV
                 </div>
               </div>
             )}
@@ -297,7 +294,7 @@ export default function PopV4InstantLaunchPage() {
           <ul className="text-muted-foreground space-y-0.5 list-disc pl-5">
             <li>Deploy your ERC20 (1B fixed supply, no mint, no transfer tax)</li>
             <li>Create a Uniswap V4 pool ETH/{symbol || "TOKEN"} (fee=0, hook handles 1.25%)</li>
-            <li>Seed 961.7M tokens single-sided LP (no ETH from you for liquidity)</li>
+            <li>Seed 100% of supply (1B tokens) single-sided LP (no ETH from you for liquidity)</li>
             <li>Execute your initial buy as the first swap → tokens to your wallet</li>
             <li>Register pool with the singleton hook so trades pay you fees forever</li>
           </ul>
