@@ -18,6 +18,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { V4_SOURCES } from "./sources.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -27,24 +28,15 @@ const cors = {
 const SOLC_VERSION = "v0.8.26+commit.8a97fa7a";
 const SOLC_URL = `https://binaries.soliditylang.org/bin/soljson-${SOLC_VERSION}.js`;
 
-// Where our contracts live in the repo (raw GitHub URL is constructed below).
 const REPO_BASE = "https://raw.githubusercontent.com";
-const REPO_OWNER_REPO = Deno.env.get("GITHUB_REPO") ?? "lovable-iframe/popshiba"; // fallback if not set
-const REPO_REF = Deno.env.get("GITHUB_REF") ?? "main";
 
-// Dependency repos (resolved on every import that doesn't start with our own paths).
-const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string; root: string }> = {
-  "@uniswap/v4-core/":   { owner: "Uniswap",      repo: "v4-core",       ref: "main", root: "" },
-  "uniswap-hooks/":      { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "main", root: "" },
+// Dependency repos (resolved on every import outside our own embedded sources).
+const DEP_REPOS: Record<string, { owner: string; repo: string; ref: string }> = {
+  "@uniswap/v4-core/":   { owner: "Uniswap",      repo: "v4-core",       ref: "main" },
+  "uniswap-hooks/":      { owner: "OpenZeppelin", repo: "uniswap-hooks", ref: "main" },
 };
 
-const OUR_FILES = [
-  "contracts/popshiba/v4/PopBondingToken.sol",
-  "contracts/popshiba/v4/PopCurveImpl.sol",
-  "contracts/popshiba/v4/PopV4LpLocker.sol",
-  "contracts/popshiba/v4/PopBondingHookV4.sol",
-  "contracts/popshiba/v4/PopBondingFactoryV4.sol",
-];
+const OUR_FILES = Object.keys(V4_SOURCES);
 
 const ARTIFACT_NAMES = [
   "PopBondingToken",
@@ -69,14 +61,7 @@ async function fetchText(url: string): Promise<string | null> {
 
 /** Resolve a Solidity import path → raw URL. Returns null if unknown. */
 function resolveImport(path: string): string | null {
-  // Our own contracts (relative imports inside contracts/popshiba/v4/)
-  if (path.startsWith("./") || path.startsWith("../")) {
-    // Caller will pass an already-resolved absolute repo path
-    return null;
-  }
-  if (path.startsWith("contracts/") || path.startsWith("popshiba/")) {
-    return `${REPO_BASE}/${REPO_OWNER_REPO}/${REPO_REF}/${path.startsWith("contracts/") ? path : "contracts/" + path}`;
-  }
+  if (path.startsWith("./") || path.startsWith("../")) return null;
   for (const [prefix, repo] of Object.entries(DEP_REPOS)) {
     if (path.startsWith(prefix)) {
       const sub = path.slice(prefix.length);
@@ -108,7 +93,9 @@ function resolveRelative(parentPath: string, importPath: string): string {
   return parts.join("/");
 }
 
-/** BFS the import graph and build the solc input `sources` map. */
+/** BFS the import graph and build the solc input `sources` map.
+ *  Our own contracts come from the embedded V4_SOURCES map (no network).
+ *  Everything else is fetched from GitHub raw on-demand and cached. */
 async function gatherSources(entries: string[]): Promise<Record<string, { content: string }>> {
   const sources: Record<string, { content: string }> = {};
   const queue: string[] = [...entries];
@@ -117,16 +104,19 @@ async function gatherSources(entries: string[]): Promise<Record<string, { conten
     const key = queue.shift()!;
     if (sources[key]) continue;
 
-    let url: string | null;
-    if (key.startsWith("contracts/")) {
-      url = `${REPO_BASE}/${REPO_OWNER_REPO}/${REPO_REF}/${key}`;
+    let content: string | null = null;
+    if (V4_SOURCES[key]) {
+      content = V4_SOURCES[key];
     } else {
-      url = resolveImport(key);
+      const url = resolveImport(key);
+      if (!url) {
+        // Maybe it's a relative import that wasn't normalized — try treating it as an
+        // import inside the v4-core or uniswap-hooks tree by prefixing a known dep.
+        throw new Error(`Cannot resolve import: ${key}`);
+      }
+      content = await fetchText(url);
+      if (content === null) throw new Error(`404 fetching ${key} (${url})`);
     }
-    if (!url) throw new Error(`Cannot resolve import: ${key}`);
-
-    const content = await fetchText(url);
-    if (content === null) throw new Error(`404 fetching ${key} (${url})`);
     sources[key] = { content };
 
     for (const imp of extractImports(content)) {
