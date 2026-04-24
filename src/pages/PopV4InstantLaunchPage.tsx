@@ -223,7 +223,7 @@ export default function PopV4InstantLaunchPage() {
                   </span>
                 </div>
                 <div className="text-[9px] text-muted-foreground/70 pt-1">
-                  {(CREATOR_RESERVE / 1_000_000).toFixed(1)}M reserve + ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M from your {initialBuyEth} ETH buy at {preset} ETH FDV
+                  100% supply seeded to LP · your {initialBuyEth} ETH buys ~{(devEstimate.tokensFromSwap / 1_000_000).toFixed(2)}M tokens at {preset} ETH FDV
                 </div>
               </div>
             )}
