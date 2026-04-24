@@ -187,8 +187,9 @@ Deno.serve(async (req) => {
       language: "Solidity",
       sources,
       settings: {
+        // viaIR is disabled to fit inside the 256MB edge-runtime memory budget.
+        // Bytecode is ~5-10% larger than viaIR output but functionally identical.
         optimizer: { enabled: true, runs: 200 },
-        viaIR: true,
         outputSelection: { "*": { "*": ["abi", "evm.bytecode.object"] } },
       },
     };
