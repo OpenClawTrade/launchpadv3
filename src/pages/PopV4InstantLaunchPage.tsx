@@ -57,15 +57,13 @@ export default function PopV4InstantLaunchPage() {
   const [err, setErr] = useState<string | null>(null);
 
   // Estimate dev's % of total supply from the atomic initial buy.
-  // LP is seeded single-sided with 961.7M tokens at a starting price
-  // that implies FDV ≈ targetMarketCapEth. For small buys we approximate
-  // the swap with a constant-product curve against virtual reserves
+  // Klik-parity: 100% of supply seeded single-sided to the LP, no creator
+  // pre-mint. Dev only receives what their atomic ETH→token swap returns.
+  // CPMM approximation against virtual reserves
   // (virtualEth = targetMcapEth, virtualTokens = LP_TOKENS):
   //   tokensOut = LP * buy / (mcap + buy)
-  // Plus the implicit ~38.3M reserved for the creator at construction.
   const TOTAL_SUPPLY = 1_000_000_000;
-  const LP_TOKENS = 961_700_000;
-  const CREATOR_RESERVE = TOTAL_SUPPLY - LP_TOKENS; // 38.3M minted to creator
+  const LP_TOKENS = 1_000_000_000;
   const devEstimate = useMemo(() => {
     const buy = Number(initialBuyEth);
     const mcap = Number(preset);
@@ -73,9 +71,8 @@ export default function PopV4InstantLaunchPage() {
       return null;
     }
     const tokensFromSwap = (LP_TOKENS * buy) / (mcap + buy);
-    const totalDev = CREATOR_RESERVE + tokensFromSwap;
-    const pct = (totalDev / TOTAL_SUPPLY) * 100;
-    return { tokensFromSwap, totalDev, pct };
+    const pct = (tokensFromSwap / TOTAL_SUPPLY) * 100;
+    return { tokensFromSwap, totalDev: tokensFromSwap, pct };
   }, [initialBuyEth, preset]);
 
   useEffect(() => {
