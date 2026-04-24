@@ -39,8 +39,10 @@ contract PopInstantFactory {
 
     int24  public constant TICK_SPACING = 200;
     uint24 public constant POOL_FEE     = 0;          // hook handles fees
-    uint256 public constant LP_TOKENS   = 961_700_000e18;   // ~96.17% to LP
-    uint256 public constant DEV_RESERVE =  38_300_000e18;   // ~3.83% kept for dev buy
+    // Klik-parity: 100% of supply to single-sided LP, 0 dev pre-mint.
+    // Creator only receives what their atomic buy returns from the pool.
+    uint256 public constant LP_TOKENS   = 1_000_000_000e18;
+    uint256 public constant DEV_RESERVE = 0;
     uint256 public constant MIN_INITIAL_BUY = 0.001 ether;
 
     event Launched(
