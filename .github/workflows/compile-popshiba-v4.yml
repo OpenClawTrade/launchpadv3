@@ -38,20 +38,20 @@ jobs:
       - name: Compile contracts (viaIR + optimizer)
         run: forge build --use 0.8.26 --names --sizes
 
-      - name: Extract artifacts (ABI + bytecode) into repo
+      - name: Extract artifacts (ABI + bytecode) into edge function dir
         run: |
-          mkdir -p contracts/popshiba/v4/artifacts
+          mkdir -p supabase/functions/popv4-deploy-factory/artifacts
           for name in PopBondingToken PopCurveImpl PopV4LpLocker PopBondingHookV4 PopBondingFactoryV4; do
             jq '{abi: .abi, bytecode: .bytecode.object}' "out/${name}.sol/${name}.json" \
-              > "contracts/popshiba/v4/artifacts/${name}.json"
-            echo "  ✓ ${name}.json ($(wc -c < contracts/popshiba/v4/artifacts/${name}.json) bytes)"
+              > "supabase/functions/popv4-deploy-factory/artifacts/${name}.json"
+            echo "  ✓ ${name}.json ($(wc -c < supabase/functions/popv4-deploy-factory/artifacts/${name}.json) bytes)"
           done
 
       - name: Commit artifacts back to repo
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add contracts/popshiba/v4/artifacts/
+          git add supabase/functions/popv4-deploy-factory/artifacts/
           if git diff --staged --quiet; then
             echo "No artifact changes — skipping commit."
           else
