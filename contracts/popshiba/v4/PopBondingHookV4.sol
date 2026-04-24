@@ -180,44 +180,48 @@ contract PopBondingHookV4 is BaseHook {
             uint256 fee = (amountIn * 100) / 10000;
             uint256 tokensOut = _quoteBuy(curveAddr, amountIn);
             require(tokensOut > 0, "0 out");
-
             bool didGraduate = curve.applyBuy(amountIn, tokensOut, fee);
-            uint256 cFee = (fee * 5000) / 10000;
-
-            emit Trade(
-                curve.token(), swapper, true,
-                amountIn, tokensOut, fee, cFee, fee - cFee,
-                curve.realEthReserves(), curve.realTokenReserves(),
-                curve.getPrice(), curve.curveProgressBps(),
-                block.timestamp
-            );
+            _emitTrade(curve, swapper, true, amountIn, tokensOut, fee);
             if (didGraduate) emit Graduated(curve.token(), curve.realEthReserves(), 207_142_857e18);
-
-            int128 specDelta = int128(int256(amountIn));
-            int128 unspecDelta = -int128(int256(tokensOut));
-            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(specDelta, unspecDelta), 0);
+            return (
+                BaseHook.beforeSwap.selector,
+                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(tokensOut))),
+                0
+            );
         } else {
             uint256 ethGross = _grossEthOnSell(curveAddr, amountIn);
             uint256 fee = (ethGross * 100) / 10000;
             uint256 ethOut = ethGross - fee;
             require(ethOut > 0, "0 out");
-
             curve.applySell(amountIn, ethGross, fee);
-            uint256 cFee = (fee * 5000) / 10000;
-
-            emit Trade(
-                curve.token(), swapper, false,
-                ethGross, amountIn, fee, cFee, fee - cFee,
-                curve.realEthReserves(), curve.realTokenReserves(),
-                curve.getPrice(), curve.curveProgressBps(),
-                block.timestamp
+            _emitTrade(curve, swapper, false, ethGross, amountIn, fee);
+            return (
+                BaseHook.beforeSwap.selector,
+                toBeforeSwapDelta(int128(int256(amountIn)), -int128(int256(ethOut))),
+                0
             );
-
-            int128 specDelta = int128(int256(amountIn));
-            int128 unspecDelta = -int128(int256(ethOut));
-            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(specDelta, unspecDelta), 0);
         }
     }
+
+    /// @dev Stack-too-deep workaround: emit `Trade` from a helper so the
+    /// 13-argument event doesn't exhaust the swap function's stack frame.
+    /// Compiled WITHOUT --via-ir to fit the edge-runtime memory budget.
+    function _emitTrade(
+        ICurveCloneRW curve,
+        address swapper,
+        bool isBuy,
+        uint256 ethAmount,
+        uint256 tokenAmount,
+        uint256 fee
+    ) private {
+        uint256 cFee = (fee * 5000) / 10000;
+        emit Trade(
+            curve.token(), swapper, isBuy,
+            ethAmount, tokenAmount, fee, cFee, fee - cFee,
+            curve.realEthReserves(), curve.realTokenReserves(),
+            curve.getPrice(), curve.curveProgressBps(),
+            block.timestamp
+        );
 
     // ─────────────────────────────────────────────────────────────────────
     // LP SEED FLOW
