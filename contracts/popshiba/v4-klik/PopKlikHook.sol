@@ -1,0 +1,300 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+// Verbatim port of Klik UniversalKlikHook (Etherscan-verified, 0x07F1..a0cc).
+// PopShiba override: default fee tiers replaced with a single flat 1% / 50:50 floor tier.
+// Owner can still call setFeeTiers() to install Klik-style ramps later.
+
+import {BaseHook} from "uniswap-hooks/src/base/BaseHook.sol";
+import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
+import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta, toBeforeSwapDelta} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+
+interface IFactory {
+    function getMarketCap(address tokenAddress) external view returns (uint256 marketCapETH);
+}
+
+contract PopKlikHook is BaseHook {
+    using PoolIdLibrary for PoolKey;
+
+    uint256 public constant BASIS_POINTS_DIVISOR = 10000;
+    uint256 private constant FIXED_FEE_FALLBACK = 100;
+
+    mapping(bytes32 => uint256) public poolDeploymentBlock;
+
+    address public owner;
+    address public platformTreasury;
+    address public factory;
+
+    struct FeeTier {
+        uint128 mcapThresholdEth; // upper bound in wei. last tier = floor (ignored)
+        uint128 totalBps;
+        uint128 platformBps;
+    }
+
+    FeeTier[] public feeTiers;
+
+    event FeeTiersUpdated(uint256 count);
+
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager) {
+        owner = tx.origin;
+        _initDefaultFeeTiers();
+    }
+
+    /// @dev PopShiba override: single flat tier — 1.00% total, 0.50% platform, 0.50% creator.
+    function _initDefaultFeeTiers() internal {
+        feeTiers.push(FeeTier(0, 100, 50));
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    function setPlatformTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Zero address");
+        platformTreasury = _treasury;
+    }
+
+    function setFactory(address _factory) external onlyOwner {
+        require(_factory != address(0), "Zero address");
+        factory = _factory;
+    }
+
+    function rescueETH(address to) external onlyOwner {
+        require(to != address(0), "Zero address");
+        uint256 balance = address(this).balance;
+        require(balance > 0, "Nothing to rescue");
+        (bool success, ) = payable(to).call{value: balance}("");
+        require(success, "Transfer failed");
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Zero address");
+        owner = newOwner;
+    }
+
+    uint128 public constant MAX_FEE_BPS = 125;
+
+    function setFeeTiers(FeeTier[] calldata tiers) external onlyOwner {
+        require(tiers.length > 0, "Need at least one tier");
+        for (uint256 i = 0; i < tiers.length - 1; i++) {
+            require(tiers[i].totalBps <= MAX_FEE_BPS, "Fee exceeds 1.25% max");
+            require(tiers[i].mcapThresholdEth > 0, "Threshold must be non-zero");
+            require(tiers[i].platformBps <= tiers[i].totalBps, "platformBps exceeds totalBps");
+            if (i > 0) {
+                require(
+                    tiers[i].mcapThresholdEth > tiers[i - 1].mcapThresholdEth,
+                    "Tiers must be sorted ascending"
+                );
+            }
+        }
+        require(tiers[tiers.length - 1].totalBps <= MAX_FEE_BPS, "Fee exceeds 1.25% max");
+        require(
+            tiers[tiers.length - 1].platformBps <= tiers[tiers.length - 1].totalBps,
+            "platformBps exceeds totalBps"
+        );
+
+        delete feeTiers;
+        for (uint256 i = 0; i < tiers.length; i++) {
+            feeTiers.push(tiers[i]);
+        }
+
+        emit FeeTiersUpdated(tiers.length);
+    }
+
+    function getFeeTiers() external view returns (FeeTier[] memory) {
+        return feeTiers;
+    }
+
+    function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
+        return Hooks.Permissions({
+            beforeInitialize: true,
+            afterInitialize: false,
+            beforeAddLiquidity: false,
+            afterAddLiquidity: false,
+            beforeRemoveLiquidity: false,
+            afterRemoveLiquidity: false,
+            beforeSwap: true,
+            afterSwap: true,
+            beforeDonate: false,
+            afterDonate: false,
+            beforeSwapReturnDelta: true,
+            afterSwapReturnDelta: true,
+            afterAddLiquidityReturnDelta: false,
+            afterRemoveLiquidityReturnDelta: false
+        });
+    }
+
+    function _beforeInitialize(address, PoolKey calldata key, uint160) internal override returns (bytes4) {
+        poolDeploymentBlock[PoolId.unwrap(key.toId())] = block.number;
+        return BaseHook.beforeInitialize.selector;
+    }
+
+    function getFeeTier(uint256 mcapETH)
+        public
+        view
+        returns (uint256 totalBps, uint256 platformBps, uint256 creatorBps)
+    {
+        uint256 len = feeTiers.length;
+        if (len == 0) return (FIXED_FEE_FALLBACK, 0, FIXED_FEE_FALLBACK);
+
+        for (uint256 i = 0; i < len; i++) {
+            if (i == len - 1 || mcapETH < feeTiers[i].mcapThresholdEth) {
+                uint256 t = feeTiers[i].totalBps;
+                uint256 p = feeTiers[i].platformBps;
+                return (t, p, t - p);
+            }
+        }
+        return (FIXED_FEE_FALLBACK, 0, FIXED_FEE_FALLBACK);
+    }
+
+    function _getFeeSplit(bytes32 poolId, address tokenAddress)
+        internal
+        view
+        returns (uint256 totalFeeBps, uint256 platformBps, uint256 creatorBps)
+    {
+        if (block.number == poolDeploymentBlock[poolId]) return (0, 0, 0);
+
+        if (factory == address(0)) {
+            return (FIXED_FEE_FALLBACK, 0, FIXED_FEE_FALLBACK);
+        }
+
+        uint256 mcapETH = 0;
+        try IFactory(factory).getMarketCap(tokenAddress) returns (uint256 mcap) {
+            mcapETH = mcap;
+        } catch {}
+
+        return getFeeTier(mcapETH);
+    }
+
+    function _distributeFee(
+        address tokenAddress,
+        uint256 feeAmount,
+        uint256 platformBps,
+        uint256 totalBps
+    ) internal {
+        if (feeAmount == 0) return;
+
+        if (platformTreasury != address(0) && totalBps > 0 && platformBps > 0) {
+            uint256 platformShare = feeAmount * platformBps / totalBps;
+            uint256 creatorShare = feeAmount - platformShare;
+
+            if (platformShare > 0) {
+                (bool sent, ) = payable(platformTreasury).call{value: platformShare}("");
+                sent;
+            }
+            if (creatorShare > 0) {
+                (bool cs, ) = payable(tokenAddress).call{value: creatorShare}("");
+                require(cs, "Creator fee failed");
+            }
+        } else {
+            (bool success, ) = payable(tokenAddress).call{value: feeAmount}("");
+            require(success, "Fee transfer failed");
+        }
+    }
+
+    function _getTokenFromPool(PoolKey calldata key) internal pure returns (address) {
+        address currency0 = Currency.unwrap(key.currency0);
+        address currency1 = Currency.unwrap(key.currency1);
+        if (currency0 == address(0)) return currency1;
+        if (currency1 == address(0)) return currency0;
+        return address(0);
+    }
+
+    function _isBuyTransaction(PoolKey calldata key, SwapParams calldata params) internal pure returns (bool) {
+        bool ethIsCurrency0 = Currency.unwrap(key.currency0) == address(0);
+        return ethIsCurrency0 ? params.zeroForOne : !params.zeroForOne;
+    }
+
+    function _beforeSwap(
+        address,
+        PoolKey calldata key,
+        SwapParams calldata params,
+        bytes calldata
+    ) internal override returns (bytes4, BeforeSwapDelta, uint24) {
+        address tokenAddress = _getTokenFromPool(key);
+        if (tokenAddress == address(0)) {
+            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        }
+
+        bool isBuy = _isBuyTransaction(key, params);
+        bool isExactInput = params.amountSpecified < 0;
+
+        require(isBuy || isExactInput, "exactOutput sells not supported");
+
+        if (!isBuy || !isExactInput) {
+            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        }
+
+        bytes32 poolId = PoolId.unwrap(key.toId());
+        (uint256 totalFeeBps, uint256 platformBps, ) = _getFeeSplit(poolId, tokenAddress);
+        if (totalFeeBps == 0) {
+            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        }
+
+        uint256 ethIn = uint256(-params.amountSpecified);
+        uint256 feeAmount = (ethIn * totalFeeBps) / BASIS_POINTS_DIVISOR;
+        if (feeAmount == 0) {
+            return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
+        }
+
+        bool ethIsCurrency0 = Currency.unwrap(key.currency0) == address(0);
+        Currency ethCurrency = ethIsCurrency0 ? key.currency0 : key.currency1;
+        poolManager.take(ethCurrency, address(this), feeAmount);
+        _distributeFee(tokenAddress, feeAmount, platformBps, totalFeeBps);
+
+        return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(int128(int256(feeAmount)), 0), 0);
+    }
+
+    function _afterSwap(
+        address,
+        PoolKey calldata key,
+        SwapParams calldata params,
+        BalanceDelta delta,
+        bytes calldata
+    ) internal override returns (bytes4, int128) {
+        address tokenAddress = _getTokenFromPool(key);
+        if (tokenAddress == address(0)) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        bool isBuy = _isBuyTransaction(key, params);
+        bool isExactInput = params.amountSpecified < 0;
+        bool ethIsUnspecified = (isBuy && !isExactInput) || (!isBuy && isExactInput);
+        if (!ethIsUnspecified) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        bytes32 poolId = PoolId.unwrap(key.toId());
+        (uint256 totalFeeBps, uint256 platformBps, ) = _getFeeSplit(poolId, tokenAddress);
+        if (totalFeeBps == 0) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        bool ethIsCurrency0 = Currency.unwrap(key.currency0) == address(0);
+        int128 ethDelta = ethIsCurrency0 ? delta.amount0() : delta.amount1();
+        uint256 ethMoved = ethDelta < 0 ? uint256(-int256(ethDelta)) : uint256(int256(ethDelta));
+        if (ethMoved == 0) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        uint256 feeAmount = (ethMoved * totalFeeBps) / BASIS_POINTS_DIVISOR;
+        if (feeAmount == 0) {
+            return (BaseHook.afterSwap.selector, 0);
+        }
+
+        Currency ethCurrency = ethIsCurrency0 ? key.currency0 : key.currency1;
+        poolManager.take(ethCurrency, address(this), feeAmount);
+        _distributeFee(tokenAddress, feeAmount, platformBps, totalFeeBps);
+
+        return (BaseHook.afterSwap.selector, int128(int256(feeAmount)));
+    }
+
+    receive() external payable {}
+}
