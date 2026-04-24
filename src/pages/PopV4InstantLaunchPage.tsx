@@ -42,7 +42,7 @@ const PRESETS: { value: Preset; label: string; sub: string }[] = [
 export default function PopV4InstantLaunchPage() {
   const { wallets } = useWallets();
   const evmWallet = useMemo(
-    () => wallets.find((w) => w.walletClientType === "privy" && w.chainType === "ethereum") ?? wallets.find((w) => w.chainType === "ethereum"),
+    () => wallets.find((w) => w.walletClientType === "privy") ?? wallets[0],
     [wallets],
   );
 
