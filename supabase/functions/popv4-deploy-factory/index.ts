@@ -86,6 +86,10 @@ Deno.serve(async (req) => {
     const publicClient = createPublicClient({ chain: mainnet, transport: http(rpc) });
     const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpc) });
 
+    // Load artifacts from storage (compiled by popv4-compile)
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const arts = await loadArtifacts(supabase);
+
     const balance = await publicClient.getBalance({ address: account.address });
     const startNonce = await publicClient.getTransactionCount({ address: account.address });
 
@@ -98,7 +102,7 @@ Deno.serve(async (req) => {
     const predictedFactory = getContractAddress({ from: account.address, nonce: BigInt(startNonce + 4) });
 
     // Hook init-code = bytecode || abi.encode(POOL_MANAGER, predictedFactory)
-    const hookInit = bytecodeOf(HookArtifact) +
+    const hookInit = arts.PopBondingHookV4.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }],
         [POOL_MANAGER as `0x${string}`, predictedFactory]
@@ -138,17 +142,17 @@ Deno.serve(async (req) => {
     }
 
     // 1. PopBondingToken impl
-    const tokenHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(TokenArtifact) } as any);
+    const tokenHash = await walletClient.deployContract({ abi: [], bytecode: arts.PopBondingToken.bytecode } as any);
     const tokenReceipt = await publicClient.waitForTransactionReceipt({ hash: tokenHash });
     const tokenImpl = tokenReceipt.contractAddress!;
 
     // 2. PopCurveImpl
-    const curveHash = await walletClient.deployContract({ abi: [], bytecode: bytecodeOf(CurveArtifact) } as any);
+    const curveHash = await walletClient.deployContract({ abi: [], bytecode: arts.PopCurveImpl.bytecode } as any);
     const curveReceipt = await publicClient.waitForTransactionReceipt({ hash: curveHash });
     const curveImpl = curveReceipt.contractAddress!;
 
     // 3. PopV4LpLocker(POSITION_MANAGER, PLATFORM_ADMIN=treasury)
-    const lockerInit = bytecodeOf(LockerArtifact) +
+    const lockerInit = arts.PopV4LpLocker.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }],
         [POSITION_MANAGER as `0x${string}`, treasury]
@@ -163,8 +167,7 @@ Deno.serve(async (req) => {
       to: CREATE2_DEPLOYER as `0x${string}`,
       data: create2Data,
     });
-    const hookReceipt = await publicClient.waitForTransactionReceipt({ hash: hookHash });
-    // CREATE2 deployer doesn't emit logs; verify on-chain that code now exists at expectedHook.
+    await publicClient.waitForTransactionReceipt({ hash: hookHash });
     const code = await publicClient.getCode({ address: expectedHook });
     if (!code || code === "0x") {
       return json({ error: "Hook deploy failed — no code at expected address", expectedHook, hookHash }, 500);
@@ -172,7 +175,7 @@ Deno.serve(async (req) => {
     const hookAddr = getAddress(expectedHook);
 
     // 5. PopBondingFactoryV4(poolManager, hook, curveImpl, tokenImpl, lpLocker, treasury)
-    const factoryInit = bytecodeOf(FactoryArtifact) +
+    const factoryInit = arts.PopBondingFactoryV4.bytecode +
       encodeAbiParameters(
         [{ type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }, { type: "address" }],
         [POOL_MANAGER as `0x${string}`, hookAddr, curveImpl, tokenImpl, lpLocker, treasury]
