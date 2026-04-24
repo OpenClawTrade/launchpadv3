@@ -8,6 +8,12 @@ on:
       - '.github/workflows/compile-popshiba-v4.yml'
   workflow_dispatch:
 
+# Make the artifact + run metadata publicly readable so the deploy edge
+# function can fetch the latest compiled JSONs without any auth/secret.
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   compile:
     runs-on: ubuntu-latest
@@ -42,23 +48,7 @@ jobs:
             echo "  ✓ ${name}.json ($(wc -c < artifacts/v4/${name}.json) bytes)"
           done
 
-      - name: Upload artifacts to Lovable Cloud storage
-        env:
-          SUPABASE_URL: https://ptwytypavumcrbofspno.supabase.co
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          for f in artifacts/v4/*.json; do
-            name=$(basename "$f")
-            echo "Uploading $name..."
-            curl -sS -X POST \
-              "${SUPABASE_URL}/storage/v1/object/contract-artifacts/v4/${name}?upsert=true" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -H "Content-Type: application/json" \
-              --data-binary "@${f}" | head -c 500
-            echo ""
-          done
-
-      - name: Upload artifacts as workflow output
+      - name: Publish artifacts (downloadable via GitHub API)
         uses: actions/upload-artifact@v4
         with:
           name: popshiba-v4-artifacts
