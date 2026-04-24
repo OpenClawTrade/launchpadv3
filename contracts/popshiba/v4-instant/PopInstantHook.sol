@@ -12,17 +12,19 @@ import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 
 /// @title PopInstantHook (singleton)
-/// @notice instant-LP flat-fee hook for instant-LP V4 launches.
+/// @notice Flat 1.25% fee hook for instant-LP V4 launches.
 ///
 /// Architecture
 /// ────────────
 ///   • Singleton: ONE deployed instance services every Pop V4 instant launch.
 ///   • Pool LP fee = 0 (no protocol-level LP fees). All economics live in
 ///     this hook so we can split between creator and treasury freely.
-///   • Per-swap fee: 1.5% of the *input* amount, taken in the input currency
+///   • Per-swap fee: 1.25% of the *input* amount, taken in the input currency
 ///     via `poolManager.take()` to this hook in `afterSwap`. Split 50/50:
-///       - 0.75% → creator (claimable)
-///       - 0.75% → treasury (claimable)
+///       - 0.625% → creator (claimable)
+///       - 0.625% → treasury (claimable)
+///   • Fee % is hardcoded constant — never changes per token, per mcap, or
+///     per swap. Simple, predictable, ~5k less gas than a tiered curve.
 ///   • Storage is per-pool: registered once by the factory at launch.
 ///
 /// Permission bits required (Hooks.sol):
@@ -148,7 +150,7 @@ contract PopInstantHook is BaseHook {
         // *received* that much. Take fee on the absolute value.
         if (inputDelta >= 0) return (BaseHook.afterSwap.selector, int128(0));
         uint256 absIn = uint256(uint128(-inputDelta));
-        uint256 fee = (absIn * 150) / 10_000; // 1.5%
+        uint256 fee = (absIn * 125) / 10_000; // 1.25% flat — see contract header
         if (fee == 0) return (BaseHook.afterSwap.selector, int128(0));
 
         uint256 creatorShare = fee / 2;
