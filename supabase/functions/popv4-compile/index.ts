@@ -27,7 +27,7 @@ const cors = {
 
 // solc-js loaded via npm: — Deno's compat layer handles the __dirname/require
 // that the raw soljson UMD bundle expects. Pinned to 0.8.26 (matches v4 repos).
-const SOLC_PKG = "npm:solc@0.8.26";
+const SOLC_PKG = "npm:solc@^0.8.26";
 
 const REPO_BASE = "https://raw.githubusercontent.com";
 
