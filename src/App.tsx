@@ -61,6 +61,7 @@ const AdminPanelPage = lazyWithRetry(() => import("./pages/AdminPanelPage"));
 const PublicDeployPage = lazyWithRetry(() => import("./pages/PublicDeployPage"));
 const BondingDeployPage = lazyWithRetry(() => import("./pages/BondingDeployPage"));
 const PopV4InstantDeployPage = lazyWithRetry(() => import("./pages/PopV4InstantDeployPage"));
+const PopV4InstantLaunchPage = lazyWithRetry(() => import("./pages/PopV4InstantLaunchPage"));
 const V4ProofPage = lazyWithRetry(() => import("./pages/V4ProofPage"));
 const PopV4ListPage = lazyWithRetry(() => import("./pages/PopV4ListPage"));
 const PopV4TokenDetailPage = lazyWithRetry(() => import("./pages/PopV4TokenDetailPage"));
@@ -190,6 +191,7 @@ const App = () => (
                     <Route path="/deploy" element={<LaunchpadLayout><PublicDeployPage /></LaunchpadLayout>} />
                     <Route path="/bonding/deploy" element={<BondingDeployPage />} />
                     <Route path="/popv4instant/deploy" element={<PopV4InstantDeployPage />} />
+                    <Route path="/popv4instant" element={<PopV4InstantLaunchPage />} />
                     <Route path="/v4-proof" element={<V4ProofPage />} />
                     <Route path="/popv4" element={<PopV4ListPage />} />
                     <Route path="/popv4/:address" element={<PopV4TokenDetailPage />} />
