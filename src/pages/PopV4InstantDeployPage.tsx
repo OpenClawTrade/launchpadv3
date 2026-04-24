@@ -264,7 +264,6 @@ function TestLaunchPanel() {
   const [name, setName] = useState("PopTest");
   const [symbol, setSymbol] = useState("POPT");
   const [initialBuyEth, setInitialBuyEth] = useState("0.001");
-  const [preset, setPreset] = useState<"0.69" | "1" | "2" | "5" | "10">("0.69");
   const [busy, setBusy] = useState(false);
   const [tx, setTx] = useState<{ to: string; data: string; value: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -277,7 +276,6 @@ function TestLaunchPanel() {
           creator: "0x9FD5f2E480F43320E8F65072A739c941cb5b10B0",
           name, symbol,
           initialBuyEth,
-          targetMarketCapEth: Number(preset),
         },
       });
       if (error) throw new Error(error.message);
@@ -303,19 +301,9 @@ function TestLaunchPanel() {
           <div className="text-muted-foreground uppercase tracking-wider mb-1">Symbol</div>
           <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} className="w-full border-2 border-foreground bg-background px-2 py-1.5 font-mono text-sm" />
         </label>
-        <label className="text-xs font-mono">
+        <label className="text-xs font-mono sm:col-span-2">
           <div className="text-muted-foreground uppercase tracking-wider mb-1">Initial buy (ETH)</div>
           <input value={initialBuyEth} onChange={(e) => setInitialBuyEth(e.target.value)} className="w-full border-2 border-foreground bg-background px-2 py-1.5 font-mono text-sm" />
-        </label>
-        <label className="text-xs font-mono">
-          <div className="text-muted-foreground uppercase tracking-wider mb-1">Target market cap (ETH)</div>
-          <select value={preset} onChange={(e) => setPreset(e.target.value as any)} className="w-full border-2 border-foreground bg-background px-2 py-1.5 font-mono text-sm">
-            <option value="0.69">0.69 ETH</option>
-            <option value="1">1 ETH</option>
-            <option value="2">2 ETH</option>
-            <option value="5">5 ETH</option>
-            <option value="10">10 ETH</option>
-          </select>
         </label>
       </div>
       <button onClick={buildTx} disabled={busy} className="btn-primary">
